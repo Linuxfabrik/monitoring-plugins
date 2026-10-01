@@ -11,7 +11,8 @@ Checks the installed WordPress version against the endoflife.date API and alerts
 
 **Data Collection:**
 
-* Reads the installed WordPress version from `wp-includes/version.php` in the installation directory (default: `/var/www/html/wordpress`, configurable via `--path`)
+* Reads the installed WordPress version from `wp-includes/version.php` in the installation directory given by `--path`
+* Without `--path`, the check takes the first WordPress installation it finds in `/var/www/html/wordpress`, `/srv/www/htdocs/wordpress`, `/usr/share/wordpress`, or one or two levels below `/var/www`, such as `/var/www/html/www.example.com`.
 * Compares against the [endoflife.date API](https://endoflife.date/api/wordpress.json) to determine EOL status and available updates
 * Caches endoflife.date responses locally for 24 hours to reduce external requests
 
@@ -70,8 +71,10 @@ options:
                         Alert n days before ("-30") or after an EOL date ("30"
                         or "+30"). Default: -30 days
   --path PATH           Local path to your WordPress installation, typically
-                        within your Webserver's Document Root. Default:
-                        /var/www/html/wordpress
+                        within your Webserver's Document Root. Default: the
+                        first installation found in /var/www/html/wordpress,
+                        /srv/www/htdocs/wordpress, /usr/share/wordpress, or
+                        one or two levels below /var/www.
   --proxy PROXY         Proxy to reach the target through. The scheme defaults
                         to `http` when omitted. Overrides the proxy the
                         environment names (`http_proxy`, `https_proxy`,

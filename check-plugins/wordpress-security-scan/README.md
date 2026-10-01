@@ -24,7 +24,7 @@ Runs a WordPress security scan against a site and reports what an attacker can s
 * The finding table stops after 50 rows and states how many were left out. That is a display limit only: the state is determined by every finding, and the performance data counts them all.
 * The scan sends a large number of requests to the target and probes for backup files and admin endpoints. Run it against your own sites only, and expect it to show up in the access log and in any WAF or fail2ban rule set.
 * On a stock WordPress the check reports WARNING out of the box: `readme.html` is reachable, the external WP-Cron is enabled and at least one username is usually enumerable. These are genuine hardening findings, not false alarms. Address them, or accept them with `--ignore`.
-* `--path` is optional in practice. If it points nowhere, or at an installation the monitoring user cannot read, the check falls back to pure black box mode and says so. It never turns a finished scan into an UNKNOWN, so a permission change on the web root cannot hide a critical finding.
+* `--path` is optional in practice. Without `--path`, the check takes the first WordPress installation it finds in `/var/www/html/wordpress`, `/srv/www/htdocs/wordpress`, `/usr/share/wordpress`, or one or two levels below `/var/www`, such as `/var/www/html/www.example.com`. If it points nowhere, or at an installation the monitoring user cannot read, the check falls back to pure black box mode and says so. It never turns a finished scan into an UNKNOWN, so a permission change on the web root cannot hide a critical finding.
 * `--url` is optional where the installation pins its own address. If it is not given, the check reads `WP_HOME` or `WP_SITEURL` from `wp-config.php` below `--path`. Most installations keep the address in the database instead, and `wp-config.php` is usually not readable for the monitoring user, so pass `--url` unless you know both apply.
 * The check is part of the WordPress Service Set, so tagging a host `wordpress` activates it. The service it creates carries no `--url` and therefore reports UNKNOWN until one is set. That is deliberate: the address is per instance and cannot be guessed, and a check that says nothing is worse than one that asks to be configured.
 * The vulnerability database is refreshed before every scan, so a site is graded against current data. If the refresh fails, for example on a host that cannot reach `data.wpscan.org`, the scan still runs against the local copy and the check says so. The refresh counts towards `--total-timeout`, so the check as a whole keeps to it. Use `--wpscan-no-update` where something else keeps the database current.
@@ -257,8 +257,10 @@ options:
                         cannot see completely, and to determine the site URL
                         when --url is not given. A path that does not exist is
                         not an error: the check then reports what the remote
-                        scan found and says so. Default:
-                        /var/www/html/wordpress
+                        scan found and says so. Default: the first
+                        installation found in /var/www/html/wordpress,
+                        /srv/www/htdocs/wordpress, /usr/share/wordpress, or
+                        one or two levels below /var/www.
   --total-timeout TOTAL_TIMEOUT
                         Seconds the run may spend scanning, across the refresh
                         of the vulnerability database, the version probe and

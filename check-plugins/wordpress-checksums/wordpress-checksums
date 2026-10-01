@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091102'
+__version__ = '2026100101'
 
 DESCRIPTION = """Verifies the files of a local WordPress installation against the checksums
 wordpress.org publishes for the installed release, and reports every file that was
@@ -43,7 +43,7 @@ DEFAULT_LENGTHY = False
 DEFAULT_NO_CHECKSUM_DATA_SEVERITY = 'ok'
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
-DEFAULT_PATH = '/var/www/html/wordpress'
+DEFAULT_PATH = None
 DEFAULT_SEVERITY = 'warn'
 DEFAULT_TIMEOUT = 8
 DEFAULT_TOTAL_TIMEOUT = 45
@@ -275,7 +275,10 @@ def parse_args():
     parser.add_argument(
         '--path',
         help="Local path to your WordPress installation, typically within your Webserver's "
-        'Document Root. Default: %(default)s',
+        'Document Root. '
+        'Default: the first installation found in /var/www/html/wordpress, '
+        '/srv/www/htdocs/wordpress, /usr/share/wordpress, or one or two levels below '
+        '/var/www.',
         dest='PATH',
         default=DEFAULT_PATH,
     )
@@ -819,6 +822,13 @@ def main():
         args.MATCH = []
 
     # fetch data
+    if args.PATH is None:
+        args.PATH = lib.wordpress.find_installation()
+    if args.PATH is None:
+        lib.base.cu(
+            'No WordPress installation found in the usual places. '
+            'Use --path to point at the directory holding wp-includes/ and wp-content/.'
+        )
     if not lib.wordpress.is_installation(args.PATH):
         lib.base.cu(
             f'No WordPress installation below "{args.PATH}". '

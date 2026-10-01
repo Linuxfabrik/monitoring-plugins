@@ -31,7 +31,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083005'
+__version__ = '2026100101'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
 attacker can see from the outside. Combines the black box scan with the inventory read
@@ -56,7 +56,7 @@ DEFAULT_INSECURE = False
 DEFAULT_LENGTHY = False
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_VULN_DATA_SEVERITY = 'ok'
-DEFAULT_PATH = '/var/www/html/wordpress'
+DEFAULT_PATH = None
 DEFAULT_TOTAL_TIMEOUT = 1800
 DEFAULT_UNSCORED_SEVERITY = 'warn'
 DEFAULT_VERBOSE = False
@@ -422,7 +422,9 @@ def parse_args():
         'to determine the site URL when --url is not given. '
         'A path that does not exist is not an error: the check then reports what the '
         'remote scan found and says so. '
-        'Default: %(default)s',
+        'Default: the first installation found in /var/www/html/wordpress, '
+        '/srv/www/htdocs/wordpress, /usr/share/wordpress, or one or two levels below '
+        '/var/www.',
         dest='PATH',
         default=DEFAULT_PATH,
     )
@@ -1593,17 +1595,24 @@ def main():
     ]
 
     # fetch data
+    if args.PATH is None:
+        args.PATH = lib.wordpress.find_installation()
+    # Where the check was given no path and found no installation either, it says so
+    # instead of naming a path nobody chose.
+    where = f'"{args.PATH}"' if args.PATH else 'the usual places'
     # The site URL may come from the installation itself, so this has to happen before
     # the command is built.
     if not args.URL:
-        success, url = lib.wordpress.get_site_url(args.PATH)
+        success, url = (
+            lib.wordpress.get_site_url(args.PATH) if args.PATH else (False, None)
+        )
         if success and url:
             args.URL = url
             lib.base.verbose(args.VERBOSE, f'Took the site URL from {args.PATH}.')
         else:
             lib.base.cu(
                 'No --url given, and the site URL could not be read from '
-                f'"{args.PATH}". A WordPress installation only pins it when '
+                f'{where}. A WordPress installation only pins it when '
                 '`WP_HOME` or `WP_SITEURL` is set in wp-config.php, and that file is '
                 'usually not readable for the monitoring user. Pass --url instead.'
             )
@@ -1856,11 +1865,11 @@ def main():
     # The second source, read after the scan because the scan is what may end the check
     # early. An unreadable path is not an error: the check then falls back to what the
     # remote scan alone could see.
-    lib.base.verbose(args.VERBOSE, f'Reading the local installation at {args.PATH}...')
+    lib.base.verbose(args.VERBOSE, f'Reading the local installation at {where}...')
     installed_core = ''
     installed_plugins = {}
     installed_themes = {}
-    local_available = lib.wordpress.is_installation(args.PATH)
+    local_available = bool(args.PATH) and lib.wordpress.is_installation(args.PATH)
     if local_available:
         # An installation that is there but cannot be read, which a permission change on
         # the web root is enough to cause, must not discard a scan that already finished:
@@ -2063,7 +2072,7 @@ def main():
         )
     else:
         msg += (
-            f'\nNo WordPress installation readable at "{args.PATH}", '
+            f'\nNo WordPress installation readable at {where}, '
             'reporting what the scan alone could see.'
         )
 

@@ -43,6 +43,7 @@ Monitoring Plugins:
 * scanrootkit: detects 23 more rootkits and implants, no false SunOS Rootkit alarm on Fedora 44
 * scheduled-task: alerts on a failed last run, works on non-English Windows, `--status` replaces the default list
 * systemd-timedate-status: warns when the system clock is not synchronized to a time source
+* wordpress-checksums, wordpress-security-scan, wordpress-version: find the installation themselves when no `--path` is given
 
 Icinga Director:
 
@@ -52,6 +53,7 @@ Icinga Director:
 * OS - * Basic Service Sets: a failed `aidecheck.service` is left to the AIDE Service Set
 * OS - Windows Basic Service Set: renamed to "Windows 8/2012 or below", checks network errors and fewer services
 * system-update Service Set: also watches `update-and-reboot.service` and `update-and-reboot.timer`
+* WordPress Service Set: re-import the basket, so the checks find the installation themselves
 
 Grafana:
 

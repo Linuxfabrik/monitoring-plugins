@@ -20,13 +20,13 @@ This is the check that notices a web shell dropped into `wp-includes/`, a core f
 * First run of the day is the slow one. The published checksums are cached locally for a day, so only the first run per release fetches them. A stock installation is verified in well under a second afterwards.
 * The run as a whole has a network budget, not just each single request. One request is made per component, so on a host that cannot reach wordpress.org the check would otherwise wait `--timeout` seconds per component and be killed by the monitoring agent before printing anything. `--total-timeout` caps the lot at 45 seconds by default, which is below the timeout the shipped Director command grants the check. Components not reached within the budget are reported as unqueried, exactly like a failed request. Raise both together on an installation with many plugins on a slow link.
 * wordpress.org being unreachable does not empty the cache. The check then verifies against the expired copy and says so on its own line below the result, together with how old the data is. The digests of a released version never change, so what it verified is still correct; what is missing is knowledge of anything released since. `--unreachable-severity` decides whether an outage alerts, and it is a separate parameter from `--no-checksum-data-severity` on purpose: one gap is a broken egress rule, the other is a commercial plugin nobody publishes checksums for.
-* The check is part of the WordPress Service Set, so tagging a host `wordpress` activates it. It needs no per-instance parameter as long as the installation lies below the default `--path`.
+* The check is part of the WordPress Service Set, so tagging a host `wordpress` activates it. It needs no per-instance parameter as long as the host carries a single installation in one of the places the check searches.
 
 **Data Collection:**
 
 Two sources are compared:
 
-* The installation below `--path`. The check reads `wp-includes/version.php` for the core version and the locale, and the plugin headers below `wp-content/plugins/` for the installed plugins and their versions. It then hashes every file within the scope described above. No database connection, no HTTP request against the site itself, and no `wp-cli`.
+* The installation below `--path`. Without `--path`, the check takes the first WordPress installation it finds in `/var/www/html/wordpress`, `/srv/www/htdocs/wordpress`, `/usr/share/wordpress`, or one or two levels below `/var/www`, such as `/var/www/html/www.example.com`. The check reads `wp-includes/version.php` for the core version and the locale, and the plugin headers below `wp-content/plugins/` for the installed plugins and their versions. It then hashes every file within the scope described above. No database connection, no HTTP request against the site itself, and no `wp-cli`.
 * The digests wordpress.org publishes, from `api.wordpress.org` for the core and from `downloads.wordpress.org` for each plugin. Both are open endpoints and need no account. Answers are cached in a local SQLite database per release, so an update fetches its own digests once and the runs after it are served locally.
 
 A plugin is looked up under the slug it names itself in its `Plugin URI` header, not under its directory name. The two are usually the same, but not for a single-file plugin: `hello.php`, shipped with every WordPress, is `hello-dolly` in the plugin directory.
@@ -122,8 +122,10 @@ options:
   --no-proxy            Do not use a proxy, not even one the environment
                         names. Overrides `--proxy`.
   --path PATH           Local path to your WordPress installation, typically
-                        within your Webserver's Document Root. Default:
-                        /var/www/html/wordpress
+                        within your Webserver's Document Root. Default: the
+                        first installation found in /var/www/html/wordpress,
+                        /srv/www/htdocs/wordpress, /usr/share/wordpress, or
+                        one or two levels below /var/www.
   --proxy PROXY         Proxy to reach the target through. The scheme defaults
                         to `http` when omitted. Overrides the proxy the
                         environment names (`http_proxy`, `https_proxy`,
@@ -270,7 +272,7 @@ wordpress.org is unreachable, all 3 components verified against cached data that
 * By default OK when wordpress.org publishes no checksums for a component, so it could not be verified at all. `--no-checksum-data-severity` raises that to `warn`, `crit` or `unknown`. This is the permanent case: a commercial plugin, one from outside the plugin directory, or a core release predating the checksum archive.
 * By default OK with "Nothing checked." when `--match` or `--ignore` filtered every finding away. `--no-match-severity` raises that to `warn`, `crit` or `unknown`. An installation that simply matches its published checksums is reported as clean instead, so the two cases stay distinguishable. A filtered run still emits every metric and still reports an unverifiable component, so `--no-checksum-data-severity` and `--unreachable-severity` keep working and a dashboard shows a zero rather than a gap.
 * By default OK when wordpress.org could not be reached, whether an expired cached copy filled in or the component stayed unverified. `--unreachable-severity` raises that to `warn`, `crit` or `unknown`. This is the fixable case, so it is graded apart from the one above: raise it where the host is expected to reach wordpress.org and a broken egress rule should surface instead of quietly reducing what the check covers. The output says on its own line which of the two happened, and how long ago the cached copy ran out, which is how long wordpress.org has been out of reach.
-* UNKNOWN if `--path` holds no WordPress installation, meaning no readable `wp-includes/version.php` below it.
+* UNKNOWN if `--path` holds no WordPress installation, meaning no readable `wp-includes/version.php` below it, or if no `--path` is given and none of the places searched holds one.
 * UNKNOWN if not a single checksum could be obtained, from wordpress.org or from the cache, so nothing at all was compared. The reason is part of the message, including the case where `--total-timeout` ran out before anything could be asked. This is deliberately not an OK: a check that could not run says nothing about the installation, and a green result would claim otherwise.
 * Always OK with `--always-ok`.
 
@@ -301,7 +303,7 @@ No WordPress installation below "/path/to/wordpress". Point --path at the direct
 
 Either `--path` points somewhere else than the installation root, or the monitoring user cannot read it. The check looks for `wp-includes/version.php` below the given path, the same file WordPress reads its own version from, so point `--path` at the directory holding `wp-includes/` and `wp-content/`. On a permission problem, grant the monitoring user read access to the document root rather than running the check as root.
 
-Read the path in the message before changing anything. If the check works when you run it by hand but the monitoring system reports this error naming a path you never passed, `--path` was never set on the monitored object and the check ran with the shipped default `/var/www/html/wordpress`. In Icinga that is the custom variable `wordpress_checksums_path`, not the plugin parameter, and it has to be set on the service or the host. See [#1464](https://github.com/Linuxfabrik/monitoring-plugins/issues/1464) and the Troubleshooting section in [ICINGA.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/ICINGA.md).
+Read the path in the message before changing anything. If the check works when you run it by hand but the monitoring system reports this error naming a path you never passed, `--path` was never set on the monitored object and the check took the first installation it found instead. In Icinga that is the custom variable `wordpress_checksums_path`, not the plugin parameter, and it has to be set on the service or the host. See [#1464](https://github.com/Linuxfabrik/monitoring-plugins/issues/1464) and the Troubleshooting section in [ICINGA.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/ICINGA.md).
 
 ### A file is reported as modified that nobody touched
 

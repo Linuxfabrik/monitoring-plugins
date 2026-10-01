@@ -21,7 +21,7 @@ import lib.wordpress
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026100101'
 
 DESCRIPTION = """Checks the installed WordPress version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -33,7 +33,7 @@ DEFAULT_CHECK_PATCH = False
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_OFFSET_EOL = -30  # days
-DEFAULT_PATH = '/var/www/html/wordpress'
+DEFAULT_PATH = None
 DEFAULT_TIMEOUT = 8
 DEFAULT_UNREACHABLE_SEVERITY = 'ok'
 
@@ -120,7 +120,10 @@ def parse_args():
     parser.add_argument(
         '--path',
         help="Local path to your WordPress installation, typically within your Webserver's "
-        'Document Root. Default: %(default)s',
+        'Document Root. '
+        'Default: the first installation found in /var/www/html/wordpress, '
+        '/srv/www/htdocs/wordpress, /usr/share/wordpress, or one or two levels below '
+        '/var/www.',
         dest='PATH',
         default=DEFAULT_PATH,
     )
@@ -162,6 +165,13 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
+    if args.PATH is None:
+        args.PATH = lib.wordpress.find_installation()
+    if args.PATH is None:
+        lib.base.cu(
+            'No WordPress installation found in the usual places. '
+            'Use --path to point at the directory holding wp-includes/ and wp-content/.'
+        )
     # The reader tells a file it cannot open apart from an installation that is not
     # there, on purpose. Without asking first, a host that simply runs no WordPress
     # answered with the I/O error of the missing file. Same sentence as
