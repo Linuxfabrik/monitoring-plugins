@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Highlights:** A massive bug-fix release: every plugin was run against real Linux and Windows hosts, and whatever broke there is fixed. New are `aide-logfile` for the AIDE file integrity check, `lynis-logfile` for the daily lynis audit and `windows-version` for the end of life of Windows. On RHEL, the version checks follow Red Hat's life cycle for software the distribution ships.
+**Highlights:** A massive bug-fix release: every plugin was run against real Linux and Windows hosts, and whatever broke there is fixed. New are `aide-logfile` for the AIDE file integrity check, `lynis-logfile` for the daily lynis audit and `windows-version` for the end of life of Windows. On RHEL, Debian and Ubuntu, the version checks follow the distribution's life cycle for the software it ships.
 
 ### Added
 
@@ -33,7 +33,7 @@ Assets:
 
 Monitoring Plugins:
 
-* the end of life comes from Red Hat for software that RHEL and its rebuilds ship themselves, on most *-version checks
+* the end of life comes from the distribution for software that RHEL, Debian and Ubuntu ship themselves, on most *-version checks
 * about-me: proposes the tags of the AIDE, database dump, Fangfrisch, Lynis and security lane sets, and recognises ClamAV on Debian and Ubuntu
 * crypto-policy: compares only the base policy and lists the subpolicies, unless `--policy` names subpolicies itself
 * librenms-validate: reports the validations as a compact list instead of a wide table
