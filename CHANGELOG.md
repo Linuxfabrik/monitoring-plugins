@@ -33,6 +33,7 @@ Assets:
 Monitoring Plugins:
 
 * about-me: proposes the `aide`, `fangfrisch`, `lynis` and `system-update-security` tags, and recognises ClamAV on Debian and Ubuntu
+* librenms-validate: reports the validations as a compact list instead of a wide table
 * lynis: lists every finding and suggestion with the host it was found on, and refuses to run as root
 * php-fpm-status: the pool table shows the state of each pool in its last column
 * redfish-sensors: CRIT only above the fatal threshold, as HPE iLO rates it, and alerts on degraded power supplies

@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081202'
+__version__ = '2026100101'
 
 DESCRIPTION = """Runs the self-validation of a LibreNMS installation and reports every check it
 performs: database schema, dependencies, poller activity, disk space, file ownership and
@@ -69,8 +69,8 @@ OPTIONAL_GROUPS = (
     'rrdcheck',
 )
 
-# Keeps the message column narrow enough that the table still fits a terminal next to the
-# group and state columns. --lengthy prints the message in full.
+# Keeps one validation to roughly one line of the list. --lengthy prints the message in
+# full.
 MAX_MESSAGE_LEN = 70
 
 DEFAULT_BRIEF = False
@@ -624,7 +624,7 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
-    table_data = []
+    lines = []
     counts = dict.fromkeys(KNOWN_STATUSES, 0)
     filtered_out = 0
 
@@ -716,22 +716,20 @@ def main():
         # a row an admin has decided not to act on, and it goes with the rest of them.
         if args.BRIEF and item_state == STATE_OK:
             continue
-        row = {
-            'group': result['group'],
-            # A validation message runs long, and one of them would otherwise widen the
-            # column past what fits on a screen. --lengthy keeps the full text.
-            'message': message
-            if args.LENGTHY
-            else lib.txt.shorten(message, MAX_MESSAGE_LEN),
-            # The status LibreNMS gave the result, which the state column cannot stand in
-            # for: --fail-severity maps a failure and a warning onto the same state by
-            # default, and the summary counts the two apart.
-            'status': result['status'],
-            'state': lib.base.state2str(item_state, empty_ok=False),
-        }
-        if args.LENGTHY:
-            row['fix'] = lib.txt.sanitize_sensitive_data(result['fix'])
-        table_data.append(row)
+        # A validation message runs long, and a whole one would stretch the list well
+        # past a screen line. --lengthy keeps the full text.
+        if not args.LENGTHY:
+            message = lib.txt.shorten(message, MAX_MESSAGE_LEN)
+        # The status LibreNMS gave the result, which the state cannot stand in for:
+        # --fail-severity maps a failure and a warning onto the same state by default,
+        # and the summary counts the two apart.
+        line = (
+            f'* {result["group"]} {result["status"]}: {message}'
+            f'{lib.base.state2str(item_state, prefix=" ")}'
+        )
+        if args.LENGTHY and result['fix']:
+            line += f'\n  Fix: {lib.txt.sanitize_sensitive_data(result["fix"])}'
+        lines.append(line)
 
     checked = sum(counts.values())
     # Results LibreNMS reported under a status this check has no meaning for. They drive
@@ -792,15 +790,10 @@ def main():
     perfdata += lib.base.get_perfdata('unknown_count', unrecognised, uom=None, _min=0)
     perfdata += lib.base.get_perfdata('validation_count', checked, uom=None, _min=0)
 
-    # build table output
-    if table_data:
-        if args.LENGTHY:
-            keys = ['group', 'status', 'message', 'fix', 'state']
-            headers = ['Group', 'Status', 'Message', 'Suggested Fix', 'State']
-        else:
-            keys = ['group', 'status', 'message', 'state']
-            headers = ['Group', 'Status', 'Message', 'State']
-        msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
+    # A list instead of a table: the messages differ wildly in length, and a table pads
+    # every row to the longest of them.
+    if lines:
+        msg += '\n\n' + '\n'.join(lines)
 
     # over and out
     lib.base.oao(

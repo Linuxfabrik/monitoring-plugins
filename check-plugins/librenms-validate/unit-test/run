@@ -240,8 +240,8 @@ TESTS = [
             'in 2 groups',
         ],
     },
-    # A message longer than the column is cut in the middle by default, so the table still
-    # fits a terminal, and --lengthy prints it whole.
+    # A long message is cut in the middle by default, so one validation stays on roughly
+    # one line, and --lengthy prints it whole.
     {
         'id': 'warn-long-message-is-shortened',
         'test': 'stdout/git-install-rrdcached-missing,,1',
@@ -250,6 +250,24 @@ TESTS = [
         'assert-in': [
             '/run/rrdcached.sock does not appe...rrdcached connectivity test failed'
         ],
+    },
+    # One list item per validation: group, LibreNMS status and message, and the state
+    # only where it is not OK. --lengthy puts the suggested fix on a line of its own.
+    {
+        'id': 'warn-findings-are-listed',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['\n* rrd OK: rrdtool version ok\n', '* rrd FAIL: /run/rrdcached'],
+        'assert-regex': r'\* rrd FAIL: .* \[WARNING\]',
+        'assert-not-in': [' ! ', '[OK]'],
+    },
+    {
+        'id': 'warn-lengthy-lists-the-fix',
+        'test': 'stdout/schema-out-of-date,,1',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'ON `ports`; \[WARNING\]\n  Fix: Run the following SQL',
     },
     {
         'id': 'warn-lengthy-keeps-the-whole-message',
