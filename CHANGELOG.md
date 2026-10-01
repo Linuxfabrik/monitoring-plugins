@@ -112,6 +112,7 @@ Icinga Director:
 
 * snmp: re-import the basket, so the service template no longer hides the MIBs of Debian and Ubuntu
 * Active Directory Lightweight Directory Service Set: checks the AD LDS instances
+* apache-httpd-security: re-import the basket, so the proxy modules PHP-FPM needs no longer warn
 * ClamAV Service Set: no longer expects `clamav-unofficial-sigs`, checks freshclam, and covers Debian and Ubuntu
 * Nextcloud Service Set: an enabled `nextcloud-app-update.timer` no longer warns
 * Windows service sets: a stopped service is no longer hidden by one with a similar name

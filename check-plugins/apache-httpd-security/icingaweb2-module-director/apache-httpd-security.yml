@@ -7,10 +7,12 @@ overwrites:
   '["ServiceTemplate"]["tpl-service-apache-httpd-security"]["check_interval"]': 86400
   '["ServiceTemplate"]["tpl-service-apache-httpd-security"]["enable_perfdata"]': true
   '["ServiceTemplate"]["tpl-service-apache-httpd-security"]["retry_interval"]': 3600
-  # The Apache Service Sets ship the status check, which reads mod_status, so
-  # the module is present on purpose on every host that runs both. The check
-  # name as it stands, with no anchors: --ignore matches anywhere in the name,
-  # and no anchor here means no "$" that Icinga's macro resolver would read as
-  # an unclosed macro delimiter.
+  # The Apache Service Sets ship the status check, which reads mod_status, and
+  # the PHP-FPM Service Set reaches PHP-FPM through mod_proxy_fcgi, so both
+  # modules are present on purpose on the hosts that run them. The check names
+  # as they stand, with no anchors: --ignore matches anywhere in the name, and
+  # no anchor here means no "$" that Icinga's macro resolver would read as an
+  # unclosed macro delimiter.
   '["ServiceTemplate"]["tpl-service-apache-httpd-security"]["vars"]["apache_httpd_security_ignore"]':
+    - 'Proxy modules'
     - 'Status module'
