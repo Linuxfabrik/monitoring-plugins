@@ -99,6 +99,7 @@ Icinga Director:
 
 * snmp: re-import the basket, so the service template no longer hides the MIBs of Debian and Ubuntu
 * Active Directory Lightweight Directory Service Set: checks the AD LDS instances
+* Nextcloud Service Set: an enabled `nextcloud-app-update.timer` no longer warns
 * Windows service sets: a stopped service is no longer hidden by one with a similar name
 
 Build, CI/CD:
