@@ -27,7 +27,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082801'
+__version__ = '2026100101'
 
 DESCRIPTION = """Detects fast-flapping Icinga services by counting state changes per service within a
 configurable lookback interval. Queries the Icinga DB event history and alerts when
@@ -199,8 +199,12 @@ def main():
 
     # if given, read password INI-file, but cmdline takes precedence
     config = configparser.ConfigParser()
+    pwfile_read = False
     try:
-        if config.read(args.PWFILE):
+        # configparser skips a file it cannot open without saying so, which is why
+        # the result is kept to tell a missing file from an incomplete one below
+        pwfile_read = bool(args.PWFILE and config.read(args.PWFILE))
+        if pwfile_read:
             # there is a password file
             for section in config.sections():
                 for key, value in config.items(section):
@@ -216,12 +220,19 @@ def main():
 
     have_creds = args.USERNAME and args.PASSWORD and args.URL
     if not have_creds:
-        lib.base.cu(
-            'Either the username, password or URL is not specified'
-            + f' in `{args.PWFILE}`.'
-            if args.PWFILE
-            else '.'
-        )
+        msg = 'The Icinga Web 2 URL, username or password is missing.'
+        if args.PWFILE and not pwfile_read:
+            msg += (
+                f' `{args.PWFILE}` does not exist or is not readable by the account'
+                ' running this plugin. Create it, or pass `--url`, `--username` and'
+                ' `--password`.'
+            )
+        elif args.PWFILE:
+            msg += (
+                f' Add the missing ones to `{args.PWFILE}`, or pass them with `--url`,'
+                ' `--username` and `--password`.'
+            )
+        lib.base.cu(msg)
 
     # init some vars
     msg = ''
