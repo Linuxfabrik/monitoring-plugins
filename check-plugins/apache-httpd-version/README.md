@@ -14,6 +14,7 @@ Checks the installed Apache httpd version against the endoflife.date API and ale
 
 * Runs `httpd -v` or `apache2 -v` to read the installed Apache httpd version (configurable via `--path`)
 * Compares against the [endoflife.date API](https://endoflife.date/api/apache-http-server.json) to determine EOL status and available updates
+* On Red Hat Enterprise Linux and its rebuilds such as AlmaLinux and Rocky Linux, where the software comes from a package of the distribution, the end of life is the one Red Hat gives that package or its Application Stream rather than the upstream one, because Red Hat maintains it until then. Software from EPEL or a third-party repository keeps the upstream date
 * Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 

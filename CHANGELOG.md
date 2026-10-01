@@ -33,6 +33,7 @@ Assets:
 
 Monitoring Plugins:
 
+* the end of life comes from Red Hat for software that RHEL and its rebuilds ship themselves, on most *-version checks
 * about-me: proposes the tags of the AIDE, database dump, Fangfrisch, Lynis and security lane sets, and recognises ClamAV on Debian and Ubuntu
 * crypto-policy: compares only the base policy and lists the subpolicies, unless `--policy` names subpolicies itself
 * librenms-validate: reports the validations as a compact list instead of a wide table

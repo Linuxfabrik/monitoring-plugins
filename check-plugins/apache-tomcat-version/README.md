@@ -18,6 +18,7 @@ Checks the installed Apache Tomcat version against the endoflife.date API and al
 
 * Runs `bin/version.sh` below `--catalina-home` to read the installed Apache Tomcat version, and falls back to `lib/catalina.jar` where that script is absent, which is the case for Red Hat family packages
 * Compares against the [endoflife.date API](https://endoflife.date/api/tomcat.json) to determine EOL status and available updates
+* On Red Hat Enterprise Linux and its rebuilds such as AlmaLinux and Rocky Linux, where the software comes from a package of the distribution, the end of life is the one Red Hat gives that package or its Application Stream rather than the upstream one, because Red Hat maintains it until then. Software from EPEL or a third-party repository keeps the upstream date
 * Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
