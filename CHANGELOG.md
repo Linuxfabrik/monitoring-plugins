@@ -21,6 +21,7 @@ Monitoring Plugins:
 Icinga Director:
 
 * Fangfrisch Service Set for the unofficial ClamAV signatures
+* InfluxDB Dump, MongoDB Dump and PostgreSQL Dump Service Sets for the scheduled database dumps
 * one Basic Service Set per Windows version, from Windows 10 to Server 2025
 * system-update Security Lane Service Set for the daily security hot-fixes on Rocky Linux, activated by the `system-update-security` tag
 
