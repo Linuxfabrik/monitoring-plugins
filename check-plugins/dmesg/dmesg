@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026100101'
 
 DESCRIPTION = """Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert,
 crit, and err. Known false positives and hardware-specific noise are filtered out by default; the
@@ -128,6 +128,11 @@ DEFAULT_IGNORE = [
     r' systemd-ssh-generator\[\d+\]: Failed to query local AF_VSOCK CID: ',
     r' /usr/lib/systemd/system-generators/systemd-ssh-generator'
     r' failed with exit status 1\.',
+    # Kexec handover finds no room for its scratch area and switches itself off, the
+    # normal case on a small VM; only a live update via kexec would need it. The kernel
+    # logs the failed reservation at err level on every boot (verified with 7.0 on
+    # Ubuntu 26.04, which enables it by default, kernel/liveupdate/kexec_handover.c)
+    r' KHO: Failed to reserve (lowmem |global |nid \d+ )?scratch (array|buffer)$',
     # KVM guest reads unhandled MSR, https://access.redhat.com/solutions/59299
     ' unhandled rdmsr: ',
     # KVM guest writes unhandled MSR, https://bugzilla.redhat.com/show_bug.cgi?id=874627

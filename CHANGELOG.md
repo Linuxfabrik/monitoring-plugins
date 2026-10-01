@@ -75,7 +75,7 @@ Monitoring Plugins:
 * cert: `--source=file` works with the Python 3.6 of RHEL 8, the other sources say which Python they need instead of crashing
 * dhcp-scope-usage: works again, also locally on Windows
 * disk-io: learns a disk's maximum bandwidth for a week before it warns, no more false warnings on busy hosts after the update
-* dmesg: no false alarm for systemd-ssh-generator on Debian 13 VMs
+* dmesg: no false alarm for systemd-ssh-generator on Debian 13 VMs or for kexec handover on Ubuntu 26.04 VMs
 * dns: names each address once, stops waiting after `--timeout`, and says why a name did not resolve, also on Windows
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
 * icinga-topflap-services: says whether the credentials file is missing or incomplete
