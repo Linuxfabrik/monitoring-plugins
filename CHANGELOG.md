@@ -22,6 +22,7 @@ Icinga Director:
 
 * Fangfrisch Service Set for the unofficial ClamAV signatures
 * one Basic Service Set per Windows version, from Windows 10 to Server 2025
+* system-update Security Lane Service Set for the daily security hot-fixes on Rocky Linux, activated by the `system-update-security` tag
 
 Assets:
 
@@ -44,6 +45,7 @@ Icinga Director:
 * Lynis Service Set: evaluates the daily lynis audit of each tagged host with `lynis-logfile`, and watches `lynis.service` and `lynis.timer`
 * OS - * Basic Service Sets: a failed `aidecheck.service` is left to the AIDE Service Set
 * OS - Windows Basic Service Set: renamed to "Windows 8/2012 or below", checks network errors and fewer services
+* system-update Service Set: also watches `update-and-reboot.service` and `update-and-reboot.timer`
 
 Grafana:
 
