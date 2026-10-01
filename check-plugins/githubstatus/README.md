@@ -87,7 +87,7 @@ Copilot        ! operational ! 2023-05-04 16:18:39
 Output (with incident):
 
 ```text
-1 incindent, 1 component affected. 2023-05-11 17:53:35, minor impact, investigating: Incident with Actions, API Requests, Codespaces, Git Operations, Issues, Pages, Pull Requests and Webhooks.
+1 incident, 1 component affected. 2023-05-11 17:53:35, minor impact, investigating: Incident with Actions, API Requests, Codespaces, Git Operations, Issues, Pages, Pull Requests and Webhooks.
 
 Component      ! Status         ! Updated (Etc/UTC)
 ---------------+----------------+---------------------
