@@ -77,6 +77,7 @@ Last Backup started 2021-06-02 23:05:07, ended 2021-06-02 23:05:43, took 36s.
 ## States
 
 * OK if the last backup completed successfully (return codes < 2) and is within the time threshold.
+* OK with "Backup running since ..." while a backup is running; WARN or CRIT if it has been running for longer than `--warning` or `--critical` hours.
 * WARN if active `borgfs` mounts are detected.
 * WARN if `create_retc` or `prune_retc` is >= 2.
 * WARN if the last backup started more than `--warning` hours ago (default: 24).
