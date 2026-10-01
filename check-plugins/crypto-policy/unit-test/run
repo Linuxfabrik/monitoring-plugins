@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_OK, STATE_WARN
+
+# Fixtures hold the output of `update-crypto-policies --show`.
+# default-five-subpolicies was captured on Rocky 9 and Rocky 10 with five site-specific
+# subpolicies on top of DEFAULT.
+TESTS = [
+    {
+        'id': 'ok-default',
+        'test': 'stdout/default,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Crypto policy is "DEFAULT" (as expected).'],
+    },
+    {
+        'id': 'ok-default-case-insensitive',
+        'test': 'stdout/default,,0',
+        'params': '--policy=default',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'warn-other-base-policy',
+        'test': 'stdout/default,,0',
+        'params': '--policy=FUTURE',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Crypto policy is "DEFAULT", but supposed to be "FUTURE".'],
+    },
+    {
+        'id': 'ok-subpolicies-listed-but-not-compared',
+        'test': 'stdout/default-five-subpolicies,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Crypto policy is "DEFAULT" with the subpolicies LINUXFABRIK-NO-SHA1,'
+            ' LINUXFABRIK-NO-WEAKMAC, LINUXFABRIK-SSH-NO-CBC, LINUXFABRIK-SSH-NO-CHACHA20,'
+            ' LINUXFABRIK-SSH-NO-ETM (as expected).'
+        ],
+    },
+    {
+        'id': 'warn-subpolicies-other-base-policy',
+        'test': 'stdout/default-five-subpolicies,,0',
+        'params': '--policy=FUTURE',
+        'assert-retc': STATE_WARN,
+        'assert-in': [', but supposed to be "FUTURE".'],
+        'assert-not-in': ['(as expected)'],
+    },
+    {
+        'id': 'ok-expected-subpolicies-named-exactly',
+        'test': 'stdout/default-five-subpolicies,,0',
+        'params': '--policy=DEFAULT:LINUXFABRIK-NO-SHA1:LINUXFABRIK-NO-WEAKMAC'
+        ':LINUXFABRIK-SSH-NO-CBC:LINUXFABRIK-SSH-NO-CHACHA20:LINUXFABRIK-SSH-NO-ETM',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'warn-expected-subpolicy-missing',
+        'test': 'stdout/default,,0',
+        'params': '--policy=DEFAULT:NO-SHA1',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Crypto policy is "DEFAULT", but supposed to be "DEFAULT:NO-SHA1".'
+        ],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../crypto-policy'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

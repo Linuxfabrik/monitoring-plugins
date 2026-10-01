@@ -15,16 +15,18 @@ import sys
 
 import lib.args
 import lib.base
+import lib.lftest
 import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026100101'
 
 DESCRIPTION = """Verifies that the system-wide cryptographic policy (as reported by update-crypto-policies)
-matches the expected setting (default: "DEFAULT"). Alerts when the policy in force is not
-the expected one. Useful for ensuring consistent TLS and cipher configurations across a
-fleet of servers."""
+matches the expected setting (default: "DEFAULT"). Subpolicies such as NO-SHA1 are listed,
+but only the base policy is compared, unless the expected setting names subpolicies
+itself. Alerts when the policy in force is not the expected one. Useful for ensuring
+consistent TLS and cipher configurations across a fleet of servers."""
 
 CMD = ['update-crypto-policies', '--show']
 DEFAULT_CRYPTO_POLICY = 'DEFAULT'
@@ -58,9 +60,17 @@ def parse_args():
         default=DEFAULT_CRYPTO_POLICY,
         dest='CRYPTO_POLICY',
         help='Expected crypto policy name. '
+        'Only the base policy is compared, unless this names subpolicies itself. '
         'Case-insensitive. '
-        'Example: `FUTURE`. '
+        'Example: `FUTURE`, or `DEFAULT:NO-SHA1` to require that subpolicy. '
         'Default: %(default)s',
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
     )
 
     args, _ = parser.parse_known_args()
@@ -77,23 +87,40 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    success, result = lib.shell.shell_exec(CMD)
-    if not success:
-        lib.base.cu('Crypto policies are not applicable to your system.')
-    stdout, _stderr, _retc = result
+    if args.TEST is None:
+        success, result = lib.shell.shell_exec(CMD)
+        if not success:
+            lib.base.cu('Crypto policies are not applicable to your system.')
+        stdout, _stderr, _retc = result
+    else:
+        # do not call the command, put in test data
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
+
+    # analyze data
+    # `update-crypto-policies --show` prints the base policy followed by the
+    # subpolicies, separated by colons and upper-cased, for example
+    # "DEFAULT:NO-SHA1:NO-CAMELLIA" (ProfileConfig in python/update-crypto-policies.py).
+    # Subpolicies tighten or loosen the base policy and are added and removed for
+    # local reasons, so only the base policy is compared, unless the admin names
+    # subpolicies in --policy and thereby asks for the exact combination.
     crypto_policy = stdout.strip()
+    base_policy, *subpolicies = crypto_policy.split(':')
+    expected = args.CRYPTO_POLICY.strip()
+    current = crypto_policy if ':' in expected else base_policy
+
+    # build the message
+    msg = f'Crypto policy is "{base_policy}"'
+    if subpolicies:
+        msg += f' with the subpolicies {", ".join(subpolicies)}'
+    if current.lower() == expected.lower():
+        msg += ' (as expected).'
+        state = STATE_OK
+    else:
+        msg += f', but supposed to be "{args.CRYPTO_POLICY}".'
+        state = STATE_WARN
 
     # over and out
-    # calculating the final check state
-    if crypto_policy.lower() == args.CRYPTO_POLICY.lower():
-        lib.base.oao(f'Crypto policy is "{crypto_policy}" (as expected).', STATE_OK)
-    else:
-        lib.base.oao(
-            f'Crypto policy is "{crypto_policy}",'
-            f' but supposed to be "{args.CRYPTO_POLICY}".',
-            STATE_WARN,
-            always_ok=args.ALWAYS_OK,
-        )
+    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

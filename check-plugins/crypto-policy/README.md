@@ -3,7 +3,7 @@
 
 ## Overview
 
-Verifies that the system-wide cryptographic policy (as reported by `update-crypto-policies`) matches the expected setting (default: "DEFAULT"). Alerts when the policy in force is not the expected one. Useful for ensuring consistent TLS and cipher configurations across a fleet of servers.
+Verifies that the system-wide cryptographic policy (as reported by `update-crypto-policies`) matches the expected setting (default: "DEFAULT"). Subpolicies such as `NO-SHA1` are listed, but only the base policy is compared, unless the expected setting names subpolicies itself. Alerts when the policy in force is not the expected one. Useful for ensuring consistent TLS and cipher configurations across a fleet of servers.
 
 **Important Notes:**
 
@@ -12,7 +12,7 @@ Verifies that the system-wide cryptographic policy (as reported by `update-crypt
 **Data Collection:**
 
 * Runs `update-crypto-policies --show` to determine the active system-wide crypto policy
-* Compares the result against the expected policy name (case-insensitive)
+* Compares the base policy against the expected one (case-insensitive) and lists the subpolicies, such as `NO-SHA1`, without comparing them. A `--policy` that names subpolicies itself, such as `DEFAULT:NO-SHA1`, is compared as a whole
 
 
 ## Fact Sheet
@@ -34,16 +34,20 @@ usage: crypto-policy [-h] [-V] [--always-ok] [--policy CRYPTO_POLICY]
 
 Verifies that the system-wide cryptographic policy (as reported by
 update-crypto-policies) matches the expected setting (default: "DEFAULT").
-Alerts when the policy in force is not the expected one. Useful for ensuring
-consistent TLS and cipher configurations across a fleet of servers.
+Subpolicies such as NO-SHA1 are listed, but only the base policy is compared,
+unless the expected setting names subpolicies itself. Alerts when the policy
+in force is not the expected one. Useful for ensuring consistent TLS and
+cipher configurations across a fleet of servers.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --policy CRYPTO_POLICY
-                        Expected crypto policy name. Case-insensitive.
-                        Example: `FUTURE`. Default: DEFAULT
+                        Expected crypto policy name. Only the base policy is
+                        compared, unless this names subpolicies itself. Case-
+                        insensitive. Example: `FUTURE`, or `DEFAULT:NO-SHA1`
+                        to require that subpolicy. Default: DEFAULT
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/crypto-policy/
@@ -65,7 +69,7 @@ Crypto policy is "DEFAULT" (as expected).
 
 ## States
 
-* OK if the current crypto policy matches the expected one (case-insensitive).
+* OK if the current base policy matches the expected one (case-insensitive), whatever subpolicies are applied on top. If `--policy` names subpolicies, the whole setting has to match.
 * WARN if the current crypto policy does not match the expected one.
 * UNKNOWN if `update-crypto-policies` is not available on the system.
 * `--always-ok` suppresses all alerts and always returns OK.
