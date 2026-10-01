@@ -74,7 +74,7 @@ Each Service Set is auto-applied by an `assign_filter` of the form:
 "<tag>"=host.vars.tags
 ```
 
-The set activates on any host that has the matching tag in its `tag_list`. Example: the `AIDE Service Set` activates for hosts tagged `aide` and ships two `systemd-unit` services (`aide-check.service`, `aide-check.timer`).
+The set activates on any host that has the matching tag in its `tag_list`. Example: the `AIDE Service Set` activates for hosts tagged `aide` and ships an `aide-logfile` check and two `systemd-unit` services (`aidecheck.service`, `aidecheck.timer`).
 
 Rather than documenting every set, browse the sets directly in the Director GUI after import (*Services > Service Sets*) or grep the joined basket file:
 
