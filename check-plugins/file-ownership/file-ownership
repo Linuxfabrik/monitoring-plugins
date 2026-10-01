@@ -12,6 +12,7 @@
 
 import argparse
 import grp
+import os
 import pwd
 import sys
 
@@ -21,7 +22,7 @@ import lib.disk
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081801'
+__version__ = '2026100101'
 
 DESCRIPTION = """Verifies that critical system files have the expected owner and group. Ships with a
 built-in list of important files (GRUB, SSH, sudoers, PAM, cron, etc.) and supports
@@ -157,13 +158,21 @@ def split_file_spec(file_spec):
     return expected_owner, expected_group, path
 
 
-def check_file(file_spec):
+def check_file(file_spec, skip_symlink=False):
     """Check ownership of a single file. Returns a dict with the result, or None if the file
     should be skipped.
+
+    A symlink is checked as the file it points to. With `skip_symlink`, used for the
+    bundled defaults, it is skipped instead: the defaults describe the files as the
+    distributions usually ship them, and one that ships a symlink there has a layout
+    of its own. Fedora 44 links /var/lib/unbound/root.key to the root-owned trust
+    anchor of dns-root-data instead of keeping a copy unbound-anchor writes to.
     """
     if not file_spec:
         return None
     expected_owner, expected_group, path = split_file_spec(file_spec)
+    if skip_symlink and os.path.islink(path):
+        return None
 
     stat_info = lib.disk.stat(path)
     if stat_info is None:
@@ -202,22 +211,22 @@ def main():
 
     # build the file list: merge defaults with user-supplied entries (last wins by path)
     if args.NO_DEFAULT_FILES:
-        file_list = args.FILES or []
+        file_list = [(entry, False) for entry in args.FILES or []]
     else:
         files_by_path = {}
         for entry in DEFAULT_FILES:
             _, _, path = split_file_spec(entry)
-            files_by_path[path] = entry
+            files_by_path[path] = (entry, True)
         for entry in args.FILES or []:
             _, _, path = split_file_spec(entry)
-            files_by_path[path] = entry
+            files_by_path[path] = (entry, False)
         file_list = list(files_by_path.values())
 
     state = STATE_OK
     table_values = []
 
-    for file_spec in file_list:
-        result = check_file(file_spec)
+    for file_spec, is_default in file_list:
+        result = check_file(file_spec, skip_symlink=is_default)
         if result is None:
             continue
         state = lib.base.get_worst(result.pop('state'), state)

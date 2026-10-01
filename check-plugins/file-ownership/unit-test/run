@@ -71,6 +71,20 @@ class TestCheck(unittest.TestCase):
             self.assertEqual(retc, STATE_WARN, stdout)
             self.assertIn('[WARNING]', stdout)
 
+    def test_warn_symlink_given_by_the_admin_is_checked_as_its_target(self):
+        # Only the bundled defaults skip a symlink; an entry the admin names
+        # is checked as the file it points to.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target = os.path.join(tmpdir, 'target')
+            open(target, 'w').close()
+            link = os.path.join(tmpdir, 'link')
+            os.symlink(target, link)
+            stdout, retc = self._run(
+                f'--filename=nosuchuser:nosuchgroup,{link}', '--no-default-files'
+            )
+            self.assertEqual(retc, STATE_WARN, stdout)
+            self.assertIn(link, stdout)
+
     def test_ok_missing_file_is_skipped(self):
         # A path that is not there is not a finding: the default list names
         # files that only exist on some distributions.

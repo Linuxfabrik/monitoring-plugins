@@ -76,6 +76,7 @@ Default files checked:
 * Uses `os.stat()` to read file ownership directly, without shelling out to external commands
 * Resolves numeric UIDs/GIDs to names. If a UID/GID has no corresponding name, the numeric value is displayed
 * Files that do not exist on the system are silently skipped
+* A symlink is checked as the file it points to. Where a file of the default list is a symlink, it is skipped: the defaults describe the usual layout, and a distribution that ships a symlink there has its own, Fedora 44 for `/var/lib/unbound/root.key` for example. Pass the path with `--filename` to check it anyway
 
 
 ## Fact Sheet
