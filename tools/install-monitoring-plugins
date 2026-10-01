@@ -409,7 +409,8 @@ runs_sudo_rs() {
 
 # Install the family-specific sudoers drop-in shipped in the source tree, mirroring what the
 # RPM/DEB package does. The file is validated with visudo before activation so a broken
-# drop-in can never lock sudo out. Only Debian and RedHat drop-ins are shipped.
+# drop-in can never lock sudo out. SUSE gets the RedHat drop-in, as the SLE package does
+# (Suse.sudoers is a symlink to it, named after the Ansible os_family).
 #
 # The logging companion goes alongside it on a host running the classic sudo. Without it every
 # check costs five entries in the authentication log, the sudo command line plus the PAM session
@@ -422,6 +423,7 @@ install_sudoers() {
     case "${OS_FAMILY}" in
         rhel)          family_file='RedHat.sudoers'; logging_file='RedHat-logging.sudoers' ;;
         debian|ubuntu) family_file='Debian.sudoers'; logging_file='Debian-logging.sudoers' ;;
+        sle)           family_file='Suse.sudoers'; logging_file='Suse-logging.sudoers' ;;
         *)
             warn "no sudoers drop-in shipped for family ${OS_FAMILY}; configure sudo manually"
             return 0
