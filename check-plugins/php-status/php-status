@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026100101'
 
 DESCRIPTION = """Checks PHP configuration and health, including startup errors, missing modules, and
 misconfigured php.ini directives. Optionally reads extended PHP information from a
@@ -304,7 +304,7 @@ def parse_args():
 def get_startup_errors():
     success, result = lib.shell.shell_exec(['php', '--version'])
     if not success:
-        lib.base.cu('PHP not found')
+        lib.base.cu(result)
     _, stderr, _ = result
     return stderr
 
@@ -350,7 +350,7 @@ def get_config_errors(args, php_info):
 def get_module(args):
     success, result = lib.shell.shell_exec(['php', '--modules'])
     if not success:
-        lib.base.cu('PHP not found')
+        lib.base.cu(result)
     stdout, _, _ = result
     php_modules = stdout.lower()
     result = ''
@@ -524,7 +524,7 @@ def main():
     # the upload-limit checks below.
     success_info, php_info_result = lib.shell.shell_exec(['php', '--info'])
     if not success_info:
-        lib.base.cu('PHP not found')
+        lib.base.cu(php_info_result)
     php_info, _, _ = php_info_result
 
     # init some vars
