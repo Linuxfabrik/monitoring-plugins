@@ -109,6 +109,15 @@ TESTS += [
         'params': '--warning 10 --critical 30',
         'assert-retc': STATE_CRIT,
         'assert-in': ['Pool HealthCheck (static)'],
+        # the pool's state is the last column of the pool table
+        'assert-regex': r'Slow\+ ! State\s*\n.*\n.*! \[CRITICAL\]',
+    },
+    {
+        'id': 'ok-state-column-in-lengthy',
+        'test': 'stdout/static-pool-healthy,,',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Up +! State\s*\n.*\n.*! \[OK\]',
     },
     # dynamic pool with empty listen queue: thresholds do NOT apply, so
     # even an aggressive --warning/--critical does not trip the state.

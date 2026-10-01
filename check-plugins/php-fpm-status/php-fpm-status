@@ -27,7 +27,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026100101'
 
 DESCRIPTION = """Monitors PHP-FPM pool performance via the pool status page. Reports pool
 saturation (percentage of busy workers), new slow requests since the previous check, the
@@ -631,6 +631,9 @@ def analyze_pool(url, raw, old_snapshot, now, args):
         header += ' — baseline captured, waiting for more data'
 
     pool_row = build_pool_row(pool_name, data, saturation, req_rate, slow_delta)
+    # last column, because IcingaWeb replaces the bracketed state with an icon,
+    # which shifts every column after it
+    pool_row['state'] = lib.base.state2str(pool_state, empty_ok=False)
     process_rows = build_process_rows(data, include_idle=args.LENGTHY)
     perfdata = build_pool_perfdata(
         pool_name, data, saturation, req_rate, slow_delta, args
@@ -656,6 +659,7 @@ POOL_TABLE_KEYS_DEFAULT = [
     'total',
     'saturation',
     'new_slow',
+    'state',
 ]
 POOL_TABLE_HEADERS_DEFAULT = [
     'Pool',
@@ -664,6 +668,7 @@ POOL_TABLE_HEADERS_DEFAULT = [
     'Tot',
     'Sat',
     'Slow+',
+    'State',
 ]
 
 POOL_TABLE_KEYS_LENGTHY = [
@@ -679,6 +684,7 @@ POOL_TABLE_KEYS_LENGTHY = [
     'saturation',
     'new_slow',
     'uptime',
+    'state',
 ]
 POOL_TABLE_HEADERS_LENGTHY = [
     'Pool',
@@ -693,6 +699,7 @@ POOL_TABLE_HEADERS_LENGTHY = [
     'Sat',
     'Slow+',
     'Up',
+    'State',
 ]
 
 PROCESS_TABLE_KEYS_DEFAULT = [
@@ -818,6 +825,7 @@ def format_multi_pool(results, args):
                 | {
                     'pool': r['name'],
                     'saturation': 'unreachable',
+                    'state': lib.base.state2str(r['state'], empty_ok=False),
                 }
             )
     msg += lib.base.get_table(pool_rows, keys, header=headers)

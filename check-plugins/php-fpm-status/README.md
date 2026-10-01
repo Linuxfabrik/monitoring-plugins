@@ -232,9 +232,9 @@ Extended output (all columns, both tables):
 ```text
 Pool www (dynamic): Up 2h 47m (since 2026-04-14 10:12:31)
 
-Pool ! Req/s ! Act ! Tot ! Sat   ! Slow+
------+-------+-----+-----+-------+------
-www  ! 71.0  ! 4   ! 14  ! 28.6% ! 0
+Pool ! Req/s ! Act ! Tot ! Sat   ! Slow+ ! State
+-----+-------+-----+-----+-------+-------+------
+www  ! 71.0  ! 4   ! 14  ! 28.6% ! 0     ! [OK]
 
 PID   ! Reqs ! LastDur ! Mthd ! URI         ! User
 ------+------+---------+------+-------------+-----
@@ -248,10 +248,10 @@ With multiple `--url` arguments, the plugin emits a summary line, a pool-overvie
 ```text
 2 pools checked, 1 OK, 1 CRIT (nextcloud)
 
-Pool      ! Req/s ! Act ! Tot ! Sat    ! Slow+
-----------+-------+-----+-----+--------+------
-wordpress ! 2.1   ! 1   ! 5   ! 20.0%  ! 0
-nextcloud ! 71.0  ! 10  ! 10  ! 100.0% ! 0
+Pool      ! Req/s ! Act ! Tot ! Sat    ! Slow+ ! State
+----------+-------+-----+-----+--------+-------+-----------
+wordpress ! 2.1   ! 1   ! 5   ! 20.0%  ! 0     ! [OK]
+nextcloud ! 71.0  ! 10  ! 10  ! 100.0% ! 0     ! [CRITICAL]
 
 Pool nextcloud — processes:
 PID   ! Reqs ! LastDur  ! Mthd ! URI          ! User
@@ -268,10 +268,10 @@ A "quiet day" run where both pools are OK and have no running workers collapses 
 ```text
 2 pools checked, 2 OK
 
-Pool      ! Req/s ! Act ! Tot ! Sat   ! Slow+
-----------+-------+-----+-----+-------+------
-nextcloud ! 71.0  ! 4   ! 14  ! 28.6% ! 0
-wordpress ! 2.1   ! 1   ! 5   ! 20.0% ! 0
+Pool      ! Req/s ! Act ! Tot ! Sat   ! Slow+ ! State
+----------+-------+-----+-----+-------+-------+------
+nextcloud ! 71.0  ! 4   ! 14  ! 28.6% ! 0     ! [OK]
+wordpress ! 2.1   ! 1   ! 5   ! 20.0% ! 0     ! [OK]
 ```
 
 ### Pool-table columns
@@ -290,6 +290,7 @@ wordpress ! 2.1   ! 1   ! 5   ! 20.0% ! 0
 | `Sat`    | yes | yes | Saturation: `active / total * 100`. Alerted against `--warning` / `--critical`. |
 | `Slow+`  | yes | yes | New slow requests since the previous check. Alerted against `--warning-slowreq` / `--critical-slowreq`. Shown as `-` on the first run (baseline). |
 | `Up`     | -   | yes | Pool uptime since FPM started. Shown in the header line for single-pool runs. |
+| `State`  | yes | yes | State of the pool, the worse of the saturation and the slow-requests state. `unreachable` pools carry the `--severity` state. |
 
 ### Process-table columns
 
