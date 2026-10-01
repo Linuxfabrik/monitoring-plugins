@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Highlights:** A massive bug-fix release: every plugin was run against real Linux and Windows hosts, and whatever broke there is fixed. On RHEL, the version checks follow Red Hat's life cycle for software the distribution ships.
+**Highlights:** A massive bug-fix release: every plugin was run against real Linux and Windows hosts, and whatever broke there is fixed. New are `aide-logfile` for the AIDE file integrity check, `lynis-logfile` for the daily lynis audit and `windows-version` for the end of life of Windows. On RHEL, the version checks follow Red Hat's life cycle for software the distribution ships.
 
 ### Added
 
