@@ -12,6 +12,7 @@
 
 import argparse
 import json
+import os
 import sys
 
 import lib.args
@@ -27,7 +28,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026100101'
 
 DESCRIPTION = """Queries the systemd journal using journalctl and alerts when matching entries are found.
 Supports all journalctl filtering options such as --unit, --priority, --facility,
@@ -487,6 +488,26 @@ def main():
             f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
             STATE_WARN,
             always_ok=args.ALWAYS_OK,
+        )
+
+    # journalctl exits 0 and only adds a hint on stderr when the account may read some
+    # journal files but not all of them, typically its own user journal but not the
+    # system journal (src/shared/journal-util.c). The answer would then cover a fraction
+    # of the journal while looking like the whole. --output=json implies --quiet
+    # (src/journal/journalctl.c), which silences that hint, so an account other than
+    # root asks once more in a mode that prints it; --lines=0 shows no entry. Verified
+    # against systemd 247, 252 and 257 on Debian 11, 12 and 13.
+    access_notice = stderr
+    if args.TEST is None and os.geteuid() != 0:
+        success, result = lib.shell.shell_exec(
+            ['journalctl', '--lines=0', '--no-pager']
+        )
+        access_notice = result[1] if success else ''
+    if 'You are currently not seeing messages from' in access_notice:
+        lib.base.cu(
+            'Not allowed to read the whole systemd journal, only the part that belongs '
+            'to the account running this plugin. Run this plugin as root or via sudo, '
+            'or add the account running it to the `systemd-journal` group.'
         )
 
     # init some vars

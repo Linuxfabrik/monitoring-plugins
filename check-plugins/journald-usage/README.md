@@ -70,7 +70,7 @@ journal files by using `journalctl --vacuum-size=`, `--vacuum-time=` and/or `--v
 
 * OK if the total journal disk usage is below `--warning` (default: 6 GiB).
 * WARN if the total journal disk usage is >= `--warning` (default: 6 GiB).
-* UNKNOWN if the account running the check may not read the journal.
+* UNKNOWN if the account running the check may not read the journal, or only the part of it that belongs to the account itself.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -87,7 +87,13 @@ journal files by using `journalctl --vacuum-size=`, `--vacuum-time=` and/or `--v
 
 ``Not allowed to read the systemd journal. Run this plugin as root or via sudo, or add the account running it to the `systemd-journal` group.``
 
-journalctl could not open a single journal file with the rights of the account running the check. Run the check via sudo (the shipped sudoers file allows it), or add the account to the `systemd-journal` group, which may read the whole journal: `usermod --append --groups systemd-journal icinga`.
+journalctl could not open a single journal file with the rights of the account running the check. Run the check via sudo (the shipped sudoers file allows it), or add the account to the `systemd-journal` group, which may read the whole journal: `sudo usermod --append --groups systemd-journal icinga`.
+
+### Not allowed to read the whole systemd journal
+
+``Not allowed to read the whole systemd journal, only the part that belongs to the account running this plugin. Run this plugin as root or via sudo, or add the account running it to the `systemd-journal` group.``
+
+journalctl showed the account running the check its own journal, but not the system journal and not the journals of other users. The disk usage of that part would be far too low, so the check refuses to answer instead. The fix is the same as above: run the check via sudo, or add the account to the `systemd-journal` group with `sudo usermod --append --groups systemd-journal icinga`.
 
 
 ## Credits, License

@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026100101'
 
 DESCRIPTION = """Checks the current disk usage of all systemd journal files (archived and active
 combined). Alerts when journal disk usage exceeds the configured thresholds.
@@ -134,6 +134,18 @@ def main():
             f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
             STATE_WARN,
             always_ok=args.ALWAYS_OK,
+        )
+
+    # journalctl exits 0 and only adds a hint on stderr when the account may read some
+    # journal files but not all of them, typically its own user journal but not the
+    # system journal (src/shared/journal-util.c). The answer would then cover a fraction
+    # of the journal while looking like the whole. Verified against systemd 247, 252
+    # and 257 on Debian 11, 12 and 13.
+    if 'You are currently not seeing messages from' in stderr:
+        lib.base.cu(
+            'Not allowed to read the whole systemd journal, only the part that belongs '
+            'to the account running this plugin. Run this plugin as root or via sudo, '
+            'or add the account running it to the `systemd-journal` group.'
         )
 
     if args.TEST is None:

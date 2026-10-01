@@ -44,6 +44,19 @@ TESTS = [
         'assert-not-in': ['Hint:', 'failed (exit'],
     },
     {
+        # captured from `journalctl --lines=0` as an account outside the adm and
+        # systemd-journal groups, systemd 252 on Debian 12: exit 0, the user's own
+        # journal only, and a hint on stderr
+        'id': 'unknown-only-part-of-the-journal-readable',
+        'test': 'stdout/no-events,stderr/partial-access,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Not allowed to read the whole systemd journal, only the part that belongs'
+            ' to the account running this plugin.'
+        ],
+        'assert-not-in': ['Hint:', '0 events'],
+    },
+    {
         'id': 'ok-no-events',
         'test': 'stdout/no-events,,0',
         'assert-retc': STATE_OK,
