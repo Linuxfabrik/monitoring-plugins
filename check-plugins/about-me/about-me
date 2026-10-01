@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092901 / v8.0.0'
+__version__ = '2026100101 / v8.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -512,11 +512,17 @@ def get_lftags(distro):
         {
             'sw': 'ClamAV',
             'package': [],
+            # the scanner daemon is clamd@scan on the RHEL family and clamav-daemon on
+            # Debian and Ubuntu
             'expr': [
                 run_cmd(
                     ['systemctl', 'is-enabled', 'clamd@scan.service'],
                     ignore_output=True,
-                )
+                ),
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'clamav-daemon.service'],
+                    ignore_output=True,
+                ),
             ],
         },
         {
@@ -597,6 +603,15 @@ def get_lftags(distro):
             'expr': [
                 run_cmd(
                     ['systemctl', 'is-enabled', 'fail2ban.service'], ignore_output=True
+                )
+            ],
+        },
+        {
+            'sw': 'Fangfrisch',
+            'package': [],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'fangfrisch.timer'], ignore_output=True
                 )
             ],
         },
@@ -1235,6 +1250,17 @@ def get_lftags(distro):
             'expr': [
                 run_cmd(
                     ['systemctl', 'is-enabled', 'notify-and-schedule.timer'],
+                    ignore_output=True,
+                )
+            ],
+        },
+        {
+            'sw': 'System Update (Security Lane)',
+            'package': [],
+            # the daily security lane, which LFOps deploys on Rocky Linux only
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'security-update.timer'],
                     ignore_output=True,
                 )
             ],
