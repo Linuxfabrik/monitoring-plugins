@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101 / v8.0.0'
+__version__ = '2026100102 / v8.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -741,6 +741,16 @@ def get_lftags(distro):
                 )
             ],
         },
+        {
+            'sw': 'InfluxDB Dump',
+            'package': [],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'influxdb-dump.timer'],
+                    ignore_output=True,
+                )
+            ],
+        },
         # {'sw': 'Infomaniak Swiss Backup', 'package': [], 'expr': []},
         {'sw': 'IPMI', 'package': ['ipmitool'], 'expr': []},
         {
@@ -936,6 +946,16 @@ def get_lftags(distro):
             ],
         },
         {
+            'sw': 'MongoDB Dump',
+            'package': [],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'mongodb-dump.timer'],
+                    ignore_output=True,
+                )
+            ],
+        },
+        {
             'sw': 'Moodle',
             'package': [],
             'expr': [
@@ -1124,6 +1144,16 @@ def get_lftags(distro):
             'expr': [
                 run_cmd(
                     ['systemctl', 'is-enabled', 'postgresql.service'],
+                    ignore_output=True,
+                )
+            ],
+        },
+        {
+            'sw': 'PostgreSQL Dump',
+            'package': [],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'postgresql-dump.timer'],
                     ignore_output=True,
                 )
             ],
