@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026100101'
 
 DESCRIPTION = """Scans the Apache HTTP Server error log for the events an administrator
 has to act on: children that died on a signal, a server that ran out of workers, processes
@@ -1444,7 +1444,17 @@ def main():
             probed = get_log_file_real_paths(args.CONFIG_ROOT)
             main_log = probed[0] if probed else None
             vhost_logs = vhost_logs or probed[1:]
-        if main_log in (SYSLOG_TARGET, PIPE_TARGET) and vhost_logs:
+        units = get_units(args.CONFIG_ROOT)
+        # A site's log or the unit's journal is enough to carry the run. A server
+        # and sites that all hand their log to syslog, as LFOps sets them up, leave
+        # only the unit, and the syslog target must not stay behind as a "file".
+        if main_log in (SYSLOG_TARGET, PIPE_TARGET) and (vhost_logs or units):
+            if vhost_logs and units:
+                covered = 'the sites and the unit'
+            elif vhost_logs:
+                covered = 'the sites'
+            else:
+                covered = 'the unit'
             # Named precisely, because the journal of the unit is read as well
             # and the summary would otherwise contradict itself. What a server
             # logging this way loses is its lifecycle: Apache writes a `notice`
@@ -1458,8 +1468,7 @@ def main():
             target = 'syslog' if main_log == SYSLOG_TARGET else 'a program'
             main_log_notice = (
                 f'`ErrorLog` hands the log the server writes about itself to '
-                f'{target}, so this run covers the sites and the unit but not '
-                f'that log'
+                f'{target}, so this run covers {covered} but not that log'
             )
             level = get_log_level(args.CONFIG_ROOT) or 'warn'
             if main_log == SYSLOG_TARGET and LEVEL_LADDER.index(
@@ -1480,7 +1489,7 @@ def main():
         # log, and where `ErrorLog` hands the log to syslog the journal is the
         # only place the server's own lines are. What both carry is counted once.
         server_logs = ([main_log] if main_log else []) + vhost_logs
-        server_logs += [f'systemd:{unit}' for unit in get_units(args.CONFIG_ROOT)]
+        server_logs += [f'systemd:{unit}' for unit in units]
     if not server_logs:
         lib.base.cu(
             'Found no Apache error log. Set `ErrorLog` in the main Apache '
