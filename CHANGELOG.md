@@ -98,7 +98,7 @@ Monitoring Plugins:
 * snmp: works with the default `--device`, and on Debian and Ubuntu
 * swap-usage: names missing access to the performance counters instead of calling them corrupt
 * systemd-units-failed: no longer names an ignored unit as the last failed one
-* tuned-profile: names a stopped tuned or a missing profile, accepts a post-loaded profile
+* tuned-profile: names a stopped tuned or a missing profile, accepts a post-loaded profile and the `kernel_settings` profile of the Linux System Roles
 * updates: warns on a disabled Windows Update service, names a missing permission, no longer hangs ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
 * xca-cert: works without `--prefix`
 

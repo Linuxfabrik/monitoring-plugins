@@ -8,6 +8,7 @@ Verifies that the current `tuned` profile matches the expected setting. Alerts w
 **Important Notes:**
 
 * A post-loaded profile (`/etc/tuned/post_loaded_profile`) is part of what tuned reports as the active profile. `--profile` matches with and without it, so `--profile=virtual-guest` and `--profile="virtual-guest intel-sst"` both accept `virtual-guest` with the post-loaded `intel-sst`.
+* The `kernel_settings` role of the Linux System Roles adds its own `kernel_settings` profile on top of the active one. `--profile` matches with and without it, so `--profile=virtual-guest` accepts `virtual-guest kernel_settings`.
 
 **Data Collection:**
 

@@ -50,6 +50,32 @@ TESTS = [
         'assert-in': ['tuned profile is "balanced powersave" (as expected).'],
     },
     {
+        # captured from `tuned-adm active` on Debian 12 (tuned 2.20) after the
+        # kernel_settings role of linux-system-roles ran
+        'id': 'ok-kernel-settings-profile-on-top',
+        'test': 'stdout/active-with-kernel-settings,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'tuned profile is "virtual-guest kernel_settings" (as expected).'
+        ],
+    },
+    {
+        'id': 'ok-kernel-settings-profile-named-explicitly',
+        'test': 'stdout/active-with-kernel-settings,,0',
+        'params': '--profile="virtual-guest kernel_settings"',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'warn-kernel-settings-profile-with-other-expected-profile',
+        'test': 'stdout/active-with-kernel-settings,,0',
+        'params': '--profile=throughput-performance',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'tuned profile is "virtual-guest kernel_settings", but supposed to be '
+            '"throughput-performance".'
+        ],
+    },
+    {
         'id': 'ok-post-loaded-profile-not-part-of-the-expected-one',
         'test': 'stdout/active-with-post-loaded,,0',
         'assert-retc': STATE_OK,

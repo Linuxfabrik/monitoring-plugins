@@ -20,7 +20,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026100101'
 
 DESCRIPTION = """Verifies that the current tuned profile matches the expected setting.
 Alerts when the profile in force is not the expected one, when no profile is active,
@@ -29,6 +29,7 @@ Useful for ensuring consistent performance tuning across a fleet of servers."""
 
 CMD = ['tuned-adm', 'active']
 DEFAULT_TUNED_PROFILE = 'virtual-guest'
+KERNEL_SETTINGS_PROFILE = 'kernel_settings'
 
 
 def parse_args():
@@ -131,6 +132,14 @@ def main():
         candidates = [active.lower()]
         if post_loaded and active.endswith(f' {post_loaded}'):
             candidates.append(active[: -len(post_loaded) - 1].lower())
+        # The kernel_settings role of linux-system-roles appends its own profile to
+        # whatever is active (tasks/main.yml of fedora.linux_system_roles 1.121.0), so
+        # a host it manages runs "virtual-guest kernel_settings". The expected profile
+        # is still the one in force, so match without it as well.
+        for candidate in list(candidates):
+            profiles = [p for p in candidate.split() if p != KERNEL_SETTINGS_PROFILE]
+            if profiles and len(profiles) < len(candidate.split()):
+                candidates.append(' '.join(profiles))
         suffix = f' (post-loaded: "{post_loaded}")' if post_loaded else ''
         if expected in candidates:
             msg = f'tuned profile is "{active}"{suffix} (as expected).'
