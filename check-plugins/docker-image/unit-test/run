@@ -79,6 +79,28 @@ TESTS = [
         'assert-in': ['No such image'],
     },
     {
+        # reproducible builds stamp a placeholder such as 1970-01-01 into Created: the
+        # OCI created label is used instead, and without one the age stays unknown
+        'id': 'ok-reproducible-placeholder-dates',
+        'test': 'stdout/reproducible-images,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. 2 images checked',
+            'springcommunity/buildpack-app:1.0            ! -     ! 114.4MiB ! [OK]',
+            'springcommunity/spring-petclinic-rest:latest ! 2W 5D ! 325.9MiB ! [OK]',
+        ],
+    },
+    {
+        'id': 'warn-reproducible-created-label',
+        'test': 'stdout/reproducible-images,,0',
+        'params': '-w 10D -c 9000D',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 of 2 images too old, 0 of them critical. '
+            'Oldest: springcommunity/spring-petclinic-rest:latest, age 2W 5D [WARNING]',
+        ],
+    },
+    {
         'id': 'ok-high-thresholds',
         'test': 'stdout/mixed-images,,0',
         'params': '-w 9000D -c 9000D',

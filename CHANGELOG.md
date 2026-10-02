@@ -81,6 +81,7 @@ Monitoring Plugins:
 * disk-io: learns a disk's maximum bandwidth for a week before it warns, no more false warnings on busy hosts after the update
 * dmesg: no false alarm for systemd-ssh-generator on Debian 13 VMs or for kexec handover on Ubuntu 26.04 VMs
 * dns: names each address once, stops waiting after `--timeout`, and says why a name did not resolve, also on Windows
+* docker-image, podman-image: no false CRITICAL for images from reproducible builds (e.g. Jib) that report 1970 as their build date
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
 * icinga-topflap-services: says whether the credentials file is missing or incomplete
 * journald-\*, ntp-systemd-timesyncd, pip-updates: name missing journal rights, a missing timesyncd or a missing pip instead of a raw error

@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026100201'
 
 DESCRIPTION = """Lists the container images on a host and checks how old they are. Reports each
 image's repository tag, age and size, and alerts when an image is older than the
@@ -40,6 +40,16 @@ DEFAULT_CRIT_AGE = '365D'
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_TIMEOUT = 8
 DEFAULT_WARN_AGE = '90D'
+
+OCI_CREATED_LABEL = 'org.opencontainers.image.created'
+
+# Reproducible builds stamp a fixed date instead of the build time into `Created`. Jib
+# writes 1970-01-01T00:00:00Z (verified with jib-maven-plugin 3.5.2 on
+# docker.io/springcommunity/spring-petclinic-rest), other builders may pick another
+# fixed date. No container image was built before Docker's first public release in
+# March 2013, so any earlier date is such a placeholder, as is the zero value
+# 0001-01-01 that the engines report for a missing date.
+OLDEST_REAL_BUILD_DATE = 1356998400  # 2013-01-01T00:00:00Z
 
 
 def parse_args():
@@ -210,16 +220,45 @@ def get_image_name(image):
     return image.get('Id', '').split(':')[-1][:12]
 
 
-def get_age(created, now):
-    """Return the image age in seconds, or None if the `Created` timestamp is missing or
-    unusable. `Created` is an RFC 3339 string and states when the image was built, not
-    when it was pulled. The offset it carries is kept rather than assumed to be UTC.
+def get_build_date(timestamp):
+    """Return the epoch of an RFC 3339 build date, or None if it is missing, unusable or
+    one of the fixed placeholder dates that reproducible builds stamp instead of the real
+    build time.
     """
-    if not created or created.startswith('0001'):
+    if not timestamp or not isinstance(timestamp, str):
         return None
     try:
-        created_epoch = lib.time.timestr2epoch(created, pattern='iso8601')
-    except ValueError:
+        epoch = lib.time.timestr2epoch(timestamp, pattern='iso8601')
+    except (OverflowError, ValueError):
+        return None
+    if epoch < OLDEST_REAL_BUILD_DATE:
+        return None
+    return epoch
+
+
+def get_age(image, now):
+    """Return the image age in seconds, or None if the image carries no usable build
+    date. `Created` states when the image was built, not when it was pulled. The offset
+    it carries is kept rather than assumed to be UTC. A reproducibly built image has a
+    placeholder there. Its newest layer in `History` still says when the image last
+    changed (Jib, for example, stamps only its own layers and keeps the dates of the base
+    image's layers), and the `org.opencontainers.image.created` label is asked last,
+    since it is often inherited from the base image unchanged.
+    """
+    created_epoch = get_build_date(image.get('Created'))
+    if created_epoch is None:
+        history_epochs = [
+            get_build_date(entry.get('created'))
+            for entry in image.get('History') or []
+            if isinstance(entry, dict)
+        ]
+        history_epochs = [epoch for epoch in history_epochs if epoch is not None]
+        if history_epochs:
+            created_epoch = max(history_epochs)
+    if created_epoch is None:
+        labels = (image.get('Config') or {}).get('Labels') or {}
+        created_epoch = get_build_date(labels.get(OCI_CREATED_LABEL))
+    if created_epoch is None:
         return None
     # whole seconds: the timestamp carries nanoseconds, and an age rendered down to
     # microseconds says nothing an admin acts on
@@ -336,7 +375,7 @@ def main():
 
         if is_dangling(image):
             images_dangling += 1
-        age = get_age(image.get('Created', ''), now)
+        age = get_age(image, now)
         size = int(image.get('Size', 0))
 
         age_state = STATE_OK

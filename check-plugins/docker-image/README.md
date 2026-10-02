@@ -8,6 +8,7 @@ Lists the container images on a host and checks how old they are. Reports each i
 **Important Notes:**
 
 * Alerts when an image is older than the `--warning` (default `90D`) or `--critical` (default `365D`) age threshold; raise or widen these for images you intentionally pin
+* The age is measured from the image's build date, not from when it was pulled. Reproducible builds (for example Jib) stamp a fixed placeholder such as 1970-01-01 instead of the real build date. For such an image, the check uses the `org.opencontainers.image.created` label; without that label, the age is shown as `-` and does not alert
 * A dangling image (one that has lost its repository tag) is shown by its short image ID instead of a tag, and counted in the `images_dangling` perfdata
 * On a host with a very large number of images the check can take a while, since every image is inspected
 * `--timeout` covers all Docker commands of a run together, so the check ends in time however long each of them takes. The shipped Director template allows 15 seconds
