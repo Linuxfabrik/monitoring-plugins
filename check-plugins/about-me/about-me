@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100103 / v8.0.0'
+__version__ = '2026100201 / v8.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -838,10 +838,17 @@ def get_lftags(distro):
         },
         {
             'sw': 'Lynis',
+            # not the package: on the Red Hat family it ships the units as
+            # documentation only, so an installed lynis says nothing about a daily
+            # audit. Either the audit has already left its report behind (readable by
+            # root only, but its existence is not), or lynis.timer is enabled and the
+            # first audit is still to come. Verified with lynis 3.1.7 from EPEL on
+            # Rocky 8.
             'package': [],
-            # the daily audit, for example lynis.timer, leaves a report behind; the
-            # file is readable by root only, but its existence is not
-            'expr': [lib.disk.file_exists(lib.lynis.REPORT)],
+            'expr': [
+                lib.disk.file_exists(lib.lynis.REPORT),
+                run_cmd(['systemctl', 'is-enabled', 'lynis.timer'], ignore_output=True),
+            ],
         },
         {
             'sw': 'LVM',
