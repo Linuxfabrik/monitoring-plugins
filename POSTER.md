@@ -5,13 +5,18 @@ Icinga Web 2. Click any thumbnail (or zoom your browser) to read the plugin outp
 
 
 <img alt="about-me" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/about-me.png" width="30%"/> &nbsp;
+<img alt="acmesh-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/acmesh-status.png" width="30%"/> &nbsp;
 <img alt="aide-logfile" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/aide-logfile.png" width="30%"/> &nbsp;
+<img alt="apache-httpd-disclosure" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/apache-httpd-disclosure.png" width="30%"/> &nbsp;
+<img alt="apache-httpd-logfile" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/apache-httpd-logfile.png" width="30%"/> &nbsp;
+<img alt="apache-httpd-security" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/apache-httpd-security.png" width="30%"/> &nbsp;
 <img alt="apache-httpd-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/apache-httpd-status.png" width="30%"/> &nbsp;
 <img alt="apache-httpd-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/apache-httpd-version.png" width="30%"/> &nbsp;
 <img alt="apache-solr-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/apache-solr-version.png" width="30%"/> &nbsp;
 <img alt="atlassian-statuspage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/atlassian-statuspage.png" width="30%"/> &nbsp;
 <img alt="cert" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/cert.png" width="30%"/> &nbsp;
 <img alt="cpu-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/cpu-usage.png" width="30%"/> &nbsp;
+<img alt="cpu-vulnerabilities" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/cpu-vulnerabilities.png" width="30%"/> &nbsp;
 <img alt="crypto-policy" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/crypto-policy.png" width="30%"/> &nbsp;
 <img alt="disk-io" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/disk-io.png" width="30%"/> &nbsp;
 <img alt="disk-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/disk-usage.png" width="30%"/> &nbsp;
@@ -43,12 +48,12 @@ Icinga Web 2. Click any thumbnail (or zoom your browser) to read the plugin outp
 <img alt="keycloak-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/keycloak-version.png" width="30%"/> &nbsp;
 <img alt="kubectl-get-pods" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/kubectl-get-pods.png" width="30%"/> &nbsp;
 <img alt="kvm-vm" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/kvm-vm.png" width="30%"/> &nbsp;
-<img alt="lynis-logfile" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/lynis-logfile.png" width="30%"/> &nbsp;
 <img alt="librenms-alerts" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/librenms-alerts.png" width="30%"/> &nbsp;
 <img alt="librenms-health" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/librenms-health.png" width="30%"/> &nbsp;
 <img alt="librenms-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/librenms-version.png" width="30%"/> &nbsp;
 <img alt="load" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/load.png" width="30%"/> &nbsp;
 <img alt="logfile" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/logfile.png" width="30%"/> &nbsp;
+<img alt="lynis-logfile" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/lynis-logfile.png" width="30%"/> &nbsp;
 <img alt="mailq" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mailq.png" width="30%"/> &nbsp;
 <img alt="matomo-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/matomo-version.png" width="30%"/> &nbsp;
 <img alt="memory-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/memory-usage.png" width="30%"/> &nbsp;
@@ -56,6 +61,7 @@ Icinga Web 2. Click any thumbnail (or zoom your browser) to read the plugin outp
 <img alt="mysql-aria" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-aria.png" width="30%"/> &nbsp;
 <img alt="mysql-connections" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-connections.png" width="30%"/> &nbsp;
 <img alt="mysql-database-metrics" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-database-metrics.png" width="30%"/> &nbsp;
+<img alt="mysql-health" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-health.png" width="30%"/> &nbsp;
 <img alt="mysql-innodb-buffer-pool-size" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-innodb-buffer-pool-size.png" width="30%"/> &nbsp;
 <img alt="mysql-innodb-log-waits" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-innodb-log-waits.png" width="30%"/> &nbsp;
 <img alt="mysql-joins" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-joins.png" width="30%"/> &nbsp;
@@ -73,6 +79,7 @@ Icinga Web 2. Click any thumbnail (or zoom your browser) to read the plugin outp
 <img alt="mysql-table-locks" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-table-locks.png" width="30%"/> &nbsp;
 <img alt="mysql-temp-tables" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-temp-tables.png" width="30%"/> &nbsp;
 <img alt="mysql-thread-cache" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-thread-cache.png" width="30%"/> &nbsp;
+<img alt="mysql-tls" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-tls.png" width="30%"/> &nbsp;
 <img alt="mysql-traffic" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-traffic.png" width="30%"/> &nbsp;
 <img alt="mysql-user-security" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-user-security.png" width="30%"/> &nbsp;
 <img alt="mysql-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-version.png" width="30%"/> &nbsp;
@@ -89,6 +96,7 @@ Icinga Web 2. Click any thumbnail (or zoom your browser) to read the plugin outp
 <img alt="openstack-swift-stat" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/openstack-swift-stat.png" width="30%"/> &nbsp;
 <img alt="openvpn-client-list" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/openvpn-client-list.png" width="30%"/> &nbsp;
 <img alt="path-rw-test" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/path-rw-test.png" width="30%"/> &nbsp;
+<img alt="php-fpm-logfile" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/php-fpm-logfile.png" width="30%"/> &nbsp;
 <img alt="php-fpm-ping" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/php-fpm-ping.png" width="30%"/> &nbsp;
 <img alt="php-fpm-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/php-fpm-status.png" width="30%"/> &nbsp;
 <img alt="php-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/php-status.png" width="30%"/> &nbsp;
