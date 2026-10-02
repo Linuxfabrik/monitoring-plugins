@@ -28,7 +28,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026100201'
 
 DESCRIPTION = """Queries the systemd journal using journalctl and alerts when matching entries are found.
 Supports all journalctl filtering options such as --unit, --priority, --facility,
@@ -562,13 +562,24 @@ def main():
             if len(event['MESSAGE']) > 80:
                 event['MESSAGE'] = event['MESSAGE'][0:77] + '...'
 
-            try:
-                event['unit'] = event['UNIT'].replace('.service', '')
-            except Exception:
-                try:
-                    event['unit'] = event['_SYSTEMD_UNIT'].replace('.service', '')
-                except Exception:
-                    event['unit'] = event['_SYSTEMD_SLICE'].replace('.service', '')
+            # Not every entry belongs to a unit: the kernel, a daemon that logs via
+            # syslog, and journald itself while it recovers from a crash write
+            # entries that carry none of the unit fields (seen on Rocky 8 after a
+            # systemd-logind watchdog timeout), so the syslog identifier stands in.
+            event['unit'] = next(
+                (
+                    event[field].replace('.service', '')
+                    for field in (
+                        'UNIT',
+                        '_SYSTEMD_UNIT',
+                        '_SYSTEMD_SLICE',
+                        'SYSLOG_IDENTIFIER',
+                        '_COMM',
+                    )
+                    if isinstance(event.get(field), str) and event[field]
+                ),
+                '-',
+            )
             event['priority'] = JOURNALD_PRIOS[int(event['PRIORITY'])]
             event['timestamp'] = lib.time.epoch2iso(
                 int(event['__REALTIME_TIMESTAMP']) / 1000000

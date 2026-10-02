@@ -57,6 +57,19 @@ TESTS = [
         'assert-not-in': ['Hint:', '0 events'],
     },
     {
+        # Captured on Rocky 8 (systemd 239) after a systemd-logind watchdog timeout:
+        # kernel and syslog entries carry no unit field at all
+        'id': 'warn-entries-without-unit',
+        'test': 'stdout/rocky8-entries-without-unit,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '4 events.',
+            ' from sshd, level err: `error: kex_exchange_identification:',
+            '! kernel ! crit ! watchdog: watchdog0: watchdog did not stop!',
+        ],
+        'assert-not-in': ['Traceback'],
+    },
+    {
         'id': 'ok-no-events',
         'test': 'stdout/no-events,,0',
         'assert-retc': STATE_OK,
