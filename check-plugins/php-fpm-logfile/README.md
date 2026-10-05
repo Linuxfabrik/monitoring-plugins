@@ -303,7 +303,7 @@ Read 33 lines from 1 source:
 
 Recommendations:
 * Workers died on a fault; look for a core dump or a faulty PHP extension
-* Workers were killed with SIGKILL, either by PHP-FPM because they did not end in time when the pool shrank, reloaded or stopped, or by the kernel when memory ran out; look for `Out of memory` in the kernel log around the timestamps above
+* Workers were killed with SIGKILL, either by PHP-FPM because they did not end when the pool shrank or by the kernel when memory ran out; look for `Out of memory` in the kernel log around the timestamps above
 * A pool ran out of workers and clients waited in the listen queue; check the web server access log around the timestamp above before raising `pm.max_children` (or `process.max`), because a scanner walking 404s fills a pool the same way real traffic does and a higher cap only hands it more workers
 ```
 
@@ -311,7 +311,7 @@ Recommendations:
 
 * CRIT if the window holds `ALERT` lines. PHP-FPM only writes those when it rejects its own configuration, and it refuses to start afterwards.
 * CRIT if the window holds `ERROR` lines, and with `--critical-level` also on `WARNING`.
-* WARN if the window holds `WARNING` lines, which `--warning-level` moves. Everything a pool reports about a single request has a counter of its own and is not counted here, and neither is the exit of a worker PHP-FPM ended with SIGTERM, which follows a request timeout, a stop or a reload.
+* WARN if the window holds `WARNING` lines, which `--warning-level` moves. Everything a pool reports about a single request has a counter of its own and is not counted here, and neither is the exit of a worker PHP-FPM ended with SIGTERM after a request timeout.
 * CRIT if a pool reached `pm.max_children`, or reloaded itself after repeated worker failures. WARN if a worker crashed, was killed with SIGKILL, or waited on a connection that never delivered a request until `request_terminate_timeout` ended it. PHP-FPM logs all of them at `WARNING`, so none of them would stand out by level alone.
 * WARN or CRIT if more request timeouts, slow requests or spawn pressure warnings arrived within `--lookback` than `--request-timeouts-warning` / `--request-timeouts-critical`, `--slow-requests-warning` / `--slow-requests-critical` and `--spawn-pressure-warning` / `--spawn-pressure-critical` allow.
 * WARN if the log file is configured but is not an existing regular file.
@@ -343,7 +343,7 @@ Recommendations:
 | php_fpm_startups | Number | Number of startups found in the log. |
 | php_fpm_warning_lines | Number | Number of `WARNING` lines found in the log; what a pool reported about a single request is counted separately. |
 | php_fpm_worker_crashes | Number | Number of workers that died on a fault, a signal PHP-FPM never sends its workers. |
-| php_fpm_worker_kills | Number | Number of workers killed with SIGKILL, by PHP-FPM because they did not end in time or by the kernel when memory ran out. |
+| php_fpm_worker_kills | Number | Number of workers killed with SIGKILL, by PHP-FPM because they did not end when the pool shrank or by the kernel when memory ran out. |
 
 
 ## Troubleshooting
