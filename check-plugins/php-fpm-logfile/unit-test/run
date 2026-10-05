@@ -137,10 +137,13 @@ CASES = [
             ' exited on signal 9 (SIGKILL)',
             'look for `Out of memory` in the kernel log',
             'Recommendations:',
-            # Raising the cap is the wrong lever to reach for first, because a
-            # scanner fills a pool the way real traffic does.
-            'check the web server access log around the timestamp above before'
-            ' raising `pm.max_children`',
+            # Raising the cap is the wrong lever to reach for first, because
+            # stuck workers or a crawler fill a pool the way real traffic does.
+            'before raising `pm.max_children` (or `process.max`), check whether'
+            ' workers were stuck',
+            # A pool that ran full once is a queue of a few seconds; this one
+            # is hours old and alone.
+            '1 pool saturation [WARNING]',
         ],
         # The two workers PHP-FPM terminated itself after
         # `request_terminate_timeout` also exit on a signal, but they are not
@@ -271,35 +274,118 @@ CASES = [
         'assert-in': ['there-is-no-such-file.log', '1 startup detected'],
     },
     {
+        # The pool `slowlog` is the file most often mistaken for the error log.
         'id': 'unknown-source-is-not-a-php-fpm-log',
-        'params': [f'--server-log={fixture("php-application-error-log.txt")}'],
+        'params': [f'--server-log={fixture("rocky9-pool-slowlog.txt")}'],
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['does not look like a PHP-FPM error log'],
     },
     {
-        'id': 'ok-application-lines-in-the-same-file',
+        # The `error_log` of a pool is what PHP itself writes, and a source of its
+        # own: its fatal errors are counted, the stack traces that follow them are
+        # part of the message rather than lines of something else.
+        'id': 'ok-pool-error-log-is-read',
+        'params': [f'--server-log={fixture("php-application-error-log.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['0 PHP fatal errors in the last 10m (2 in the window read)'],
+        'assert-not-in': ['without a PHP-FPM log level', 'does not look like'],
+    },
+    {
+        'id': 'warn-pool-fatal-errors-above-the-threshold',
+        'params': [
+            f'--server-log={fixture("php-application-error-log.txt")}',
+            '--lookback=1000000000',
+            '--fatal-errors-warning=2',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 PHP fatal errors in the last',
+            'PHP fatal errors in the last',
+            'Uncaught Error: Call to undefined function undefined_function_call()',
+            'many of them at once follow a deployment or a backend',
+        ],
+    },
+    {
+        'id': 'ok-php-messages-in-the-same-file',
         'params': [f'--server-log={fixture("rocky9-mixed-application-log.txt")}'],
         'assert-retc': STATE_OK,
         'assert-in': [
             '1 startup detected',
-            '6 lines without a PHP-FPM log level',
-            'Most lines carry no PHP-FPM log level',
+            '0 PHP fatal errors in the last 10m (1 in the window read)',
         ],
+        'assert-not-in': ['without a PHP-FPM log level'],
+    },
+    {
+        # A worker reported as timed out a second time survived the SIGTERM;
+        # one that exited in between did not hang (taken from a Nextcloud pool
+        # behind a hung NFS server, php-fpm 8.5 on Rocky 9).
+        'id': 'crit-hung-workers',
+        'params': [f'--server-log={fixture("rocky9-hung-workers.txt")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Found 2 hung workers [CRITICAL], 1 pool saturation [WARNING]',
+            'Hung workers:\n* [27-Sep-2026 16:48:52] WARNING: [pool www] child 2101',
+            'state `D`',
+        ],
+        'assert-not-in': ['child 2103, script'],
+    },
+    {
+        # Next to hung workers within the window, a full pool stays full.
+        'id': 'crit-pool-saturation-next-to-hung-workers',
+        'params': [
+            f'--server-log={fixture("rocky9-hung-workers.txt")}',
+            '--lookback=1000000000',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['1 pool saturation [CRITICAL]'],
     },
     {
         # Filtering the ptrace failures out takes the ERROR lines with them; the
-        # saturated pool the same log holds is untouched and keeps the check red.
-        'id': 'crit-ignore-drops-the-error-lines',
+        # saturated pool the same log holds is untouched and keeps the check
+        # yellow.
+        'id': 'warn-ignore-drops-the-error-lines',
         'params': [
             f'--server-log={fixture("rocky9-busy-pool.txt")}',
             '--ignore=ptrace',
         ],
-        'assert-retc': STATE_CRIT,
-        # Six rather than nine: the three lines a named event claimed - the
-        # worker crashes and the saturation - are counted there and not by
-        # their level as well.
-        'assert-in': ['4 WARNING lines found', '1 pool saturation'],
+        'assert-retc': STATE_WARN,
+        # Four rather than nine: the lines a named event claimed (the crash,
+        # the killed worker, the saturation) are counted there, and the exits
+        # on SIGTERM after a request timeout are not counted by level at all.
+        'assert-in': ['4 WARNING lines found', '1 pool saturation [WARNING]'],
         'assert-not-in': ['ERROR line'],
+    },
+    {
+        # Next to requests that timed out within the window, a full pool is one
+        # that stays full.
+        'id': 'crit-pool-saturation-next-to-request-timeouts',
+        'params': [
+            f'--server-log={fixture("rocky9-busy-pool.txt")}',
+            '--ignore=ptrace',
+            '--lookback=1000000000',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '1 pool saturation [CRITICAL]',
+            # Two timeouts stay below the rate threshold, so their lines stay out.
+            '2 request timeouts in the last',
+        ],
+        'assert-not-in': ['Request timeouts in the last'],
+    },
+    {
+        # A counted event that raised a state shows the lines behind it.
+        'id': 'warn-request-timeouts-show-their-lines',
+        'params': [
+            f'--server-log={fixture("rocky8-request-timeouts.txt")}',
+            '--lookback=1000000000',
+            '--request-timeouts-warning=2',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Request timeouts in the last',
+            "child 764183, script '/var/www/html/report.php'",
+            'when many different scripts timed out at once a backend',
+        ],
     },
     {
         'id': 'warn-match-narrows-down-to-the-saturation',
@@ -307,10 +393,10 @@ CASES = [
             f'--server-log={fixture("rocky9-busy-pool.txt")}',
             '--match=max_children',
         ],
-        'assert-retc': STATE_CRIT,
+        'assert-retc': STATE_WARN,
         # The one line left is the saturation, and it is reported as that
         # rather than as a WARNING line as well.
-        'assert-in': ['Found 1 pool saturation [CRITICAL]'],
+        'assert-in': ['Found 1 pool saturation [WARNING]'],
         'assert-not-in': ['WARNING line found', 'slow request', 'worker crash'],
     },
     {
@@ -355,6 +441,21 @@ CASES = [
         'params': [f'--config-root={config_root("rhel")}'],
         'assert-retc': STATE_CRIT,
         'assert-in': ['error.log', '1 worker crash', '1 killed worker'],
+    },
+    {
+        # Every pool names the file PHP writes its own errors to; `$pool` stands
+        # for the name of the pool, and a pool that has not logged anything yet
+        # has no file and is skipped without a word.
+        'id': 'ok-pool-error-logs-from-the-configuration',
+        'params': [f'--config-root={config_root("rhel-pools")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'from 3 sources',
+            'shop-error.log',
+            'www-error.log',
+            '0 PHP fatal errors in the last 10m (3 in the window read)',
+        ],
+        'assert-not-in': ['report-error.log', 'could not be read'],
     },
     {
         'id': 'ok-log-path-from-the-debian-configuration',

@@ -237,6 +237,35 @@ spec:
         key: metric
         operator: '='
         value: php_fpm_emergency_restarts
+    - alias: php_fpm_hung_workers
+      refId: php_fpm_hung_workers
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php_fpm_hung_workers
     - alias: php_fpm_idle_connection_timeouts
       refId: php_fpm_idle_connection_timeouts
       groupBy:
@@ -390,6 +419,35 @@ spec:
         sort: none
 
     targets:
+    - alias: php_fpm_fatal_errors
+      refId: php_fpm_fatal_errors
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php_fpm_fatal_errors
     - alias: php_fpm_request_timeouts
       refId: php_fpm_request_timeouts
       groupBy:

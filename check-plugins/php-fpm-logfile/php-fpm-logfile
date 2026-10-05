@@ -25,23 +25,25 @@ import lib.human
 import lib.lftest
 import lib.logmatch
 import lib.logsource
+import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100502'
+__version__ = '2026100503'
 
 DESCRIPTION = """Scans the PHP-FPM error log for the events an administrator has to act
 on: rejected configurations, worker crashes, workers killed with SIGKILL, requests that
-ran into `request_terminate_timeout` or `request_slowlog_timeout`, workers that waited on
-a connection the web server never sent a request over, pools that hit
-`pm.max_children`, and the emergency reload PHP-FPM performs after repeated worker
-failures. Startups, reloads and shutdowns are counted alongside them, so a pool that
+ran into `request_terminate_timeout` or `request_slowlog_timeout`, workers that hang after
+the SIGTERM such a timeout sent, workers that waited on a connection the web server never
+sent a request over, pools that hit `pm.max_children`, PHP fatal errors, and the
+emergency reload PHP-FPM performs after repeated worker failures. Startups, reloads and shutdowns are counted alongside them, so a pool that
 keeps restarting is visible.
 Alerts when one of those events shows up, when the lines a slow site provokes cross
 the rates the thresholds set, and when a line arrives at a level `--critical-level`
 or `--warning-level` covers.
-Requests that ran long and a pool spawning workers in bursts are counted within
+Requests that ran long, a pool spawning workers in bursts and PHP fatal errors are
+counted within
 `--lookback` and judged by how many of them arrived, not by the fact that they did: one
 slow page is nobody's night, dozens within ten minutes say the pool is mis-sized. Those
 lines are counted there and nowhere else, so a site with one heavy report page does not
@@ -59,10 +61,8 @@ distributions probed when that yields nothing, and the journal of the PHP-FPM un
 along with it, because a master that fails to start writes why to its standard error and
 never reaches the error log. What both hold is counted once. The most recent
 rotated file is read along with the live one, so the window does not end where
-logrotate last ran.
-Note that PHP-FPM discards everything its workers write unless
-`catch_workers_output = yes` is set, so an error log that only ever shows master
-events is the default behaviour rather than a quiet application.
+logrotate last ran. PHP's own messages go to the `error_log` file each pool names, which
+is read along with it; only its fatal errors are counted there.
 Requires root or sudo."""
 
 # What `--critical-level` and `--warning-level` accept on top of the levels
@@ -71,6 +71,8 @@ Requires root or sudo."""
 LEVEL_NONE = 'none'
 
 DEFAULT_CRITICAL_LEVEL = 'ERROR'
+DEFAULT_FATAL_ERRORS_CRITICAL = 100
+DEFAULT_FATAL_ERRORS_WARNING = 10
 DEFAULT_ICINGA_CALLBACK = False
 DEFAULT_INSECURE = True
 DEFAULT_LOOKBACK = 600  # seconds
@@ -121,6 +123,19 @@ CONFIG_FILES = (
 )
 ERROR_LOG_REGEX = re.compile(r'^\s*error_log\s*=\s*(\S+)', re.MULTILINE)
 
+# The pool files, where every pool names the file PHP writes its own errors to
+# (`php_admin_value[error_log]`, which the RHEL family sets by default). That
+# file is where a PHP fatal error lands; the PHP-FPM error log above never sees
+# it. `$pool` in the value is replaced by the name of the pool, as PHP-FPM does
+# (`fpm_conf_expand_pool_name()` in php-src).
+POOL_CONFIG_FILES = (
+    '/etc/php-fpm.d/*.conf',
+    '/etc/php/*/fpm/pool.d/*.conf',
+    '/usr/local/etc/php-fpm.d/*.conf',
+)
+POOL_SECTION_REGEX = re.compile(r'^\s*\[([^\]]+)\]')
+POOL_ERROR_LOG_REGEX = re.compile(r'^\s*php(?:_admin)?_value\[error_log\]\s*=\s*(\S+)')
+
 # What PHP-FPM accepts instead of a path, matched case-insensitively the way
 # PHP-FPM itself compares it.
 SYSLOG_TARGET = 'syslog'
@@ -156,6 +171,29 @@ LEVEL_REGEX = re.compile(
 # transport's.
 TIMESTAMP_REGEX = re.compile(r'\[(\d{2}-\w{3}-\d{4} \d{2}:\d{2}:\d{2})\]')
 TIMESTAMP_FORMAT = '%d-%b-%Y %H:%M:%S'
+
+# What PHP itself writes into the `error_log` of a pool: `[05-Oct-2026 04:03:05
+# Europe/Zurich] PHP Fatal error:  Uncaught ...`, and the same prefix in front of
+# what an application hands to `error_log()`. The time is in the zone of
+# `date.timezone`, which PHP names behind it (`php_log_err_with_severity()`,
+# format `d-M-Y H:i:s e`), so it is converted rather than read as local time.
+# A message that spans several lines - the stack trace of an uncaught exception -
+# continues on lines that carry no prefix at all.
+PHP_LINE_REGEX = re.compile(r'^\[(\d{2}-\w{3}-\d{4} \d{2}:\d{2}:\d{2}) ([^\]\s]+)\] ')
+# The error types PHP calls fatal (`php_error_cb()`): `Fatal error` covers
+# E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR and E_USER_ERROR, and an uncaught
+# exception arrives as one too.
+PHP_FATAL_REGEX = re.compile(
+    r'\] PHP (?:Fatal error|Parse error|Recoverable fatal error):'
+)
+
+# A request timeout names the pool and the worker, and so does the exit of that
+# worker. A worker that is reported as timed out a second time without having
+# exited in between survived the SIGTERM `request_terminate_timeout` sent it.
+TIMEOUT_WORKER_REGEX = re.compile(
+    r'\[pool ([^\]]+)\] child (\d+), script .* execution timed out'
+)
+EXIT_WORKER_REGEX = re.compile(r'\[pool ([^\]]+)\] child (\d+) exited')
 
 # The levels that say something is wrong, worst first. Which of them raise which
 # state is left to `--critical-level` and `--warning-level`: a pool that logs one
@@ -242,6 +280,29 @@ EVENTS = (
         ),
     },
     {
+        'key': 'hung_workers',
+        'label': 'hung worker',
+        'perfdata': 'php_fpm_hung_workers',
+        # PHP-FPM checks for timed-out requests on every heartbeat (a third of
+        # the smallest timeout, `fpm_conf.c`) and sends SIGTERM again each time
+        # (`fpm_request_check_timed_out()`). A worker keeps the default action
+        # for SIGTERM (`fpm_signals_init_child()`), so the second report about
+        # the same worker means the kernel could not deliver it: the process is
+        # in uninterruptible sleep, which is what a hung NFS or storage mount
+        # does to every process touching it. Seen with php-fpm 8.5 on Rocky 9
+        # behind a hung NFS server: 50 workers reported every 21 minutes for 17
+        # hours. Not matched by a pattern but by pairing lines, see main().
+        'regex': None,
+        'state': STATE_CRIT,
+        'recommendation': (
+            'Workers outlived the SIGTERM that `request_terminate_timeout` sent'
+            ' and are stuck, almost always in uninterruptible I/O on a hung NFS'
+            ' or storage mount; look for PHP-FPM workers in state `D` in'
+            ' `ps -eo pid,stat,wchan:32,args` and for `nfs: server ... not'
+            ' responding` in the kernel log'
+        ),
+    },
+    {
         'key': 'pool_saturations',
         'label': 'pool saturation',
         'perfdata': 'php_fpm_pool_saturations',
@@ -250,19 +311,27 @@ EVENTS = (
             r'|the maximum number of processes has been reached',
             re.IGNORECASE,
         ),
-        'state': STATE_CRIT,
+        # A pool that ran full once and recovered is a queue of a few seconds:
+        # an editor's backend page firing a dozen parallel requests at a pool
+        # of five does it. PHP-FPM logs the line once and only again after the
+        # pool has spawned a worker in between (`warn_max_children` in
+        # `fpm_process_ctl.c`), so a second one within `--lookback`, or one
+        # next to requests that timed out or workers that hang, is a pool that
+        # stays full, and that is CRITICAL (see main()).
+        'state': STATE_WARN,
         # Raising the cap is the obvious lever and the wrong one to reach for
-        # first: a scanner walking a few hundred 404s fills a pool exactly the
-        # way real traffic does, and where the app renders its own 404 through
-        # PHP every one of those costs a worker. A higher cap then multiplies
-        # the memory the pool can claim and hands the next burst more of it, so
-        # the access log decides which case this is before the pool is resized.
+        # first. Workers that hang or wait on a stalled backend keep the pool
+        # full however large it is, and a crawler or a scanner walking a few
+        # hundred 404s fills it exactly the way real traffic does. A higher cap
+        # then multiplies the memory the pool can claim and hands the next
+        # burst more of it.
         'recommendation': (
             'A pool ran out of workers and clients waited in the listen queue;'
-            ' check the web server access log around the timestamp above before'
-            ' raising `pm.max_children` (or `process.max`), because a scanner'
-            ' walking 404s fills a pool the same way real traffic does and a'
-            ' higher cap only hands it more workers'
+            ' before raising `pm.max_children` (or `process.max`), check whether'
+            ' workers were stuck (request timeouts or hung workers above, a'
+            ' stalled database or NFS mount) or a crawler drove the load (web'
+            ' server access log at that time), because a higher cap only lets'
+            ' either claim more memory'
         ),
     },
     {
@@ -304,8 +373,9 @@ RATE_EVENTS = (
         'critical': 'REQUEST_TIMEOUTS_CRITICAL',
         'warning': 'REQUEST_TIMEOUTS_WARNING',
         'recommendation': (
-            'Requests were terminated after `request_terminate_timeout`; profile'
-            ' the scripts named above or raise the timeout for that pool'
+            'Requests were killed after `request_terminate_timeout`; when many'
+            ' different scripts timed out at once a backend (database, NFS,'
+            ' remote API) stalled, otherwise profile the scripts listed above'
         ),
     },
     {
@@ -340,6 +410,24 @@ RATE_EVENTS = (
         'recommendation': (
             'A pool had to spawn workers in bursts; raise `pm.start_servers` and'
             ' `pm.min_spare_servers` so requests do not wait for a fork'
+        ),
+    },
+    {
+        'key': 'fatal_errors',
+        'label': 'PHP fatal error',
+        'perfdata': 'php_fpm_fatal_errors',
+        # From the `error_log` files of the pools, not from PHP-FPM. One fatal
+        # error is one broken page for one visitor and happens on every site
+        # now and then; dozens within minutes are a deployment that went wrong
+        # or a database that went away. Warnings, notices and deprecations
+        # are left out: a busy application writes thousands of them a day.
+        'regex': PHP_FATAL_REGEX,
+        'critical': 'FATAL_ERRORS_CRITICAL',
+        'warning': 'FATAL_ERRORS_WARNING',
+        'recommendation': (
+            'PHP scripts died with fatal errors, so pages failed for their'
+            ' visitors; many of them at once follow a deployment or a backend'
+            ' that went away, otherwise fix the code the lines above name'
         ),
     },
 )
@@ -438,6 +526,30 @@ def parse_args():
         dest='CRITICAL_LEVEL',
         choices=LEVEL_CHOICES,
         default=DEFAULT_CRITICAL_LEVEL,
+    )
+
+    parser.add_argument(
+        '--fatal-errors-critical',
+        help='Number of PHP fatal errors in the `error_log` of the pools within '
+        '`--lookback` that returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--fatal-errors-critical=50`. '
+        'Default: %(default)s',
+        dest='FATAL_ERRORS_CRITICAL',
+        type=int,
+        default=DEFAULT_FATAL_ERRORS_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--fatal-errors-warning',
+        help='Number of PHP fatal errors in the `error_log` of the pools within '
+        '`--lookback` that returns WARNING. '
+        '0 turns the threshold off. '
+        'Example: `--fatal-errors-warning=1`. '
+        'Default: %(default)s',
+        dest='FATAL_ERRORS_WARNING',
+        type=int,
+        default=DEFAULT_FATAL_ERRORS_WARNING,
     )
 
     parser.add_argument(
@@ -594,7 +706,8 @@ def parse_args():
         'If omitted, the check reads the `error_log` directive of the PHP-FPM '
         'configuration, falls back to the common locations of the '
         'distributions, and reads the journal of the PHP-FPM unit along with it; '
-        'what the two share is counted once. '
+        'what the two share is counted once. It also reads the `error_log` file '
+        'every pool names for the messages of PHP itself. '
         'Example: `--server-log=systemd:php-fpm.service`.',
         action='append',
         default=None,
@@ -714,6 +827,42 @@ def get_log_file_real_path(config_root=''):
     return None
 
 
+def get_pool_error_logs(allowed_roots, config_root=''):
+    """Return the existing `error_log` files the PHP-FPM pools name for PHP itself.
+
+    PHP creates such a file on its first message only, so a pool that has not
+    logged anything yet has none, and that is not worth a warning. A path that
+    is not absolute is skipped for the same reason as the global `error_log`.
+    A path outside `allowed_roots` is skipped before it is looked at, so a pool
+    file an unprivileged user may edit cannot learn through this check which
+    files exist elsewhere on the host.
+    """
+    found = []
+    for candidate in POOL_CONFIG_FILES:
+        for filename in sorted(lib.disk.glob(f'{config_root}{candidate}')):
+            success, content = lib.disk.read_file(filename)
+            if not success or not content:
+                continue
+            pool = None
+            for line in content.splitlines():
+                section = POOL_SECTION_REGEX.match(line)
+                if section:
+                    pool = section.group(1)
+                    continue
+                match = POOL_ERROR_LOG_REGEX.match(line)
+                if not match or pool is None:
+                    continue
+                path = match.group(1).replace('$pool', pool)
+                if not path.startswith('/'):
+                    continue
+                path = f'{config_root}{path}'
+                if path in found or not lib.disk.is_within(path, allowed_roots):
+                    continue
+                if lib.disk.file_exists(path, allow_empty=True):
+                    found.append(path)
+    return found
+
+
 def parse_timestamp(log_line):
     """Return the moment PHP-FPM stamped a line with, or None when it carries none.
 
@@ -723,12 +872,28 @@ def parse_timestamp(log_line):
     own carries none.
     """
     match = TIMESTAMP_REGEX.search(log_line)
+    if match:
+        try:
+            return datetime.datetime.strptime(match.group(1), TIMESTAMP_FORMAT)
+        except ValueError:
+            return None
+    match = PHP_LINE_REGEX.match(log_line)
     if not match:
         return None
     try:
-        return datetime.datetime.strptime(match.group(1), TIMESTAMP_FORMAT)
+        written_at = datetime.datetime.strptime(match.group(1), TIMESTAMP_FORMAT)
     except ValueError:
         return None
+    zone = match.group(2)
+    if zone[:1] in '+-':
+        try:
+            offset = datetime.datetime.strptime(zone.replace(':', ''), '%z').tzinfo
+        except ValueError:
+            return written_at
+        written_at = written_at.replace(tzinfo=offset)
+    else:
+        written_at = written_at.replace(tzinfo=lib.time.get_timezone(zone))
+    return written_at.astimezone().replace(tzinfo=None)
 
 
 def get_level_states(critical_level, warning_level):
@@ -825,6 +990,17 @@ def main():
         )
 
     # fetch data
+    # The plugin runs as root via sudo, so restrict an on-disk log to the system
+    # log directory. The path the PHP-FPM configuration reports is deliberately
+    # not trusted beyond that: a pool file an unprivileged user may edit could
+    # otherwise point the check at any file on the host. The plugin's own
+    # unit-test/ directory is allowed so the fixture tests work; it does not
+    # exist next to the flat, root-owned plugin in production. Bind-mount a
+    # custom log directory under /var/log to include it (see the README).
+    allowed_roots = [
+        '/var/log',
+        os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
+    ]
     server_logs = args.SERVER_LOG
     if not server_logs:
         # The unit alongside the file, not instead of it: a master that failed to
@@ -835,6 +1011,7 @@ def main():
             args.CONFIG_ROOT
         )
         server_logs = [found_log] if found_log else []
+        server_logs += get_pool_error_logs(allowed_roots, args.CONFIG_ROOT)
         server_logs += [f'systemd:{unit}' for unit in get_units(args.CONFIG_ROOT)]
     if not server_logs:
         lib.base.cu(
@@ -882,17 +1059,6 @@ def main():
             STATE_OK,
         )
 
-    # The plugin runs as root via sudo, so restrict an on-disk log to the system
-    # log directory. The path the PHP-FPM configuration reports is deliberately
-    # not trusted beyond that: a pool file an unprivileged user may edit could
-    # otherwise point the check at any file on the host. The plugin's own
-    # unit-test/ directory is allowed so the fixture tests work; it does not
-    # exist next to the flat, root-owned plugin in production. Bind-mount a
-    # custom log directory under /var/log to include it (see the README).
-    allowed_roots = [
-        '/var/log',
-        os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
-    ]
     # No position is kept on purpose: this check reports on a window of the log,
     # counting startups, reloads and shutdowns next to the problems, so every run
     # has to see the whole window rather than only what is new.
@@ -978,6 +1144,13 @@ def main():
         acked_fingerprints = lib.base.coe(lib.logmatch.suppressed(ack_conn))
 
     # analyze data
+    # Workers reported as timed out and not seen exiting since, per pool and
+    # PID, and the ones already reported as hung, so a worker counts once.
+    timed_out_workers = set()
+    hung_workers = set()
+    # Whether the previous line was one PHP itself wrote, whose message may go
+    # on over the following lines without a prefix of their own.
+    in_php_message = False
     for log_line in result['lines']:
         haystack = log_line.lower()
         if any(item.search(haystack) for item in compiled_ignore):
@@ -1003,19 +1176,47 @@ def main():
             # is PHP-FPM's line, and counting them as lines without a level
             # would report the wrong source on a host where the source is right.
             continue
+        # A line PHP itself wrote into the `error_log` of a pool. Only its
+        # fatal errors are counted; the warnings and deprecations a busy
+        # application writes all day are read and left alone.
+        if PHP_LINE_REGEX.match(log_line):
+            in_php_message = True
+            recognized_cnt += 1
+            if PHP_FATAL_REGEX.search(log_line):
+                found['fatal_errors'].append(log_line)
+            continue
         level_match = LEVEL_REGEX.search(log_line)
         if not level_match:
+            if in_php_message and not log_line.startswith('['):
+                # The stack trace of an uncaught exception, or another message
+                # of PHP's that went on over several lines.
+                continue
             # Not a line PHP-FPM wrote. Counted rather than dropped silently,
             # because a log full of them means the check is pointed at the wrong
             # file.
             unrecognized_cnt += 1
             continue
+        in_php_message = False
         recognized_cnt += 1
         level, message = level_match.group(1), level_match.group(2)
+        timed_out = TIMEOUT_WORKER_REGEX.search(message)
+        if timed_out:
+            worker = timed_out.groups()
+            if worker in timed_out_workers and worker not in hung_workers:
+                hung_workers.add(worker)
+                found['hung_workers'].append(log_line)
+            timed_out_workers.add(worker)
+        exited = EXIT_WORKER_REGEX.search(message)
+        if exited:
+            timed_out_workers.discard(exited.groups())
         rate_hits = [event for event in RATE_EVENTS if event['regex'].search(message)]
         for event in rate_hits:
             found[event['key']].append(log_line)
-        hits = [event for event in EVENTS if event['regex'].search(message)]
+        hits = [
+            event
+            for event in EVENTS
+            if event['regex'] is not None and event['regex'].search(message)
+        ]
         for event in hits:
             found[event['key']].append(log_line)
         # A line one of the catalogs owns is left out of the per-level counts.
@@ -1144,6 +1345,7 @@ def main():
     # are collected before the level counts are rendered, because a run that has
     # something to say about them is not the quiet one the literal below claims.
     rate_counts = {}
+    rate_states = {}
     rate_facts = []
     for event in RATE_EVENTS:
         hits = found[event['key']]
@@ -1154,6 +1356,7 @@ def main():
             hits, rate_since, parse_line=parse_timestamp
         )
         rate_counts[event['key']] = window['count']
+        rate_states[event['key']] = STATE_OK
         if not hits:
             continue
         rate_state = lib.base.get_state(
@@ -1161,6 +1364,7 @@ def main():
             getattr(args, event['warning']) or None,
             getattr(args, event['critical']) or None,
         )
+        rate_states[event['key']] = rate_state
         state = lib.base.get_worst(state, rate_state)
         fact = (
             f'{window["count"]} '
@@ -1193,7 +1397,11 @@ def main():
             f'{lib.base.state2str(level_state, prefix=" ")}'
             f' (last: {lines[-1]})'
         )
-    if not any(counts.values()) and not rate_facts:
+    if (
+        not any(counts.values())
+        and not rate_facts
+        and not any(found[event['key']] for event in EVENTS)
+    ):
         # Naming all three levels one by one would bury the one sentence a
         # healthy host is supposed to be.
         facts.append('No errors or warnings found')
@@ -1201,16 +1409,30 @@ def main():
     # Name the events, so the summary says what happened and not only how bad it
     # was, and raise the state for those PHP-FPM logs too quietly. Quiet events
     # stay out of the line, which keeps a healthy host down to a single sentence.
+    # A pool saturation is CRITICAL where the pool stays full: a second one
+    # within the rate window, or one next to timed-out or hung workers there.
+    event_states = {event['key']: event['state'] for event in EVENTS}
+    recent_saturations = lib.logsource.count_within(
+        found['pool_saturations'], rate_since, parse_line=parse_timestamp
+    )['count']
+    recent_hung = lib.logsource.count_within(
+        found['hung_workers'], rate_since, parse_line=parse_timestamp
+    )['count']
+    if recent_saturations >= 2 or (
+        recent_saturations and (rate_counts['request_timeouts'] or recent_hung)
+    ):
+        event_states['pool_saturations'] = STATE_CRIT
     named = []
     for event in EVENTS:
         hits = found[event['key']]
         if not hits:
             continue
-        state = lib.base.get_worst(state, event['state'])
+        event_state = event_states[event['key']]
+        state = lib.base.get_worst(state, event_state)
         named.append(
             f'{len(hits)} '
             f'{lib.txt.pluralize(event["label"], len(hits), event.get("suffix", "s"))}'
-            f'{lib.base.state2str(event["state"], prefix=" ")}'
+            f'{lib.base.state2str(event_state, prefix=" ")}'
         )
         recommendations.append(event['recommendation'])
     if named:
@@ -1287,6 +1509,26 @@ def main():
             )
             sections.append(
                 f'{label.capitalize()}:\n'
+                + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(lines))
+            )
+
+    # The lines behind a counted event that raised a state, from within the rate
+    # window. The recommendation points at them: the scripts that timed out say
+    # whether one page is slow or a backend stalled under all of them.
+    for event in RATE_EVENTS:
+        if rate_states[event['key']] == STATE_OK:
+            continue
+        lines = [
+            line
+            for line in found[event['key']]
+            if (lib.logsource.timestamp(line, parse_timestamp) or rate_since)
+            >= rate_since
+        ]
+        if lines:
+            label = lib.txt.pluralize(event['label'], len(lines))
+            sections.append(
+                f'{label[:1].upper()}{label[1:]} in the last'
+                f' {lib.human.seconds2human(args.LOOKBACK)}:\n'
                 + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(lines))
             )
 
