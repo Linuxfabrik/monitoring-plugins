@@ -126,6 +126,7 @@ postgres:16 ! 1Y 6M ! 405.3MiB ! [CRITICAL]
 ## States
 
 * WARN/CRIT if an image's age crosses `--warning` (default 90D) or `--critical` (default 365D).
+* An image without a usable build date shows `-` as its age and never alerts.
 * The state reported when no image matches the `--match` / `--ignore` filters (or no images exist) is configurable via `--no-match-severity` (default: ok).
 * CRIT if `docker images` fails, or if `docker image inspect` returns nothing that can be read. An image that is removed while the check runs makes `docker image inspect` fail as well; the images it did report are checked as usual.
 * WARN if the Docker commands do not finish within `--timeout` (default: 8 seconds).
