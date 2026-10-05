@@ -50,6 +50,7 @@ Icinga Director:
 
 * Active Directory Domain Service Set: also checks Netlogon
 * AIDE Service Set: evaluates the AIDE report with `aide-logfile`, and watches `aidecheck.service` and `aidecheck.timer`
+* FreeIPA Server Service Set: also checks the certificates of HTTPS, LDAPS, Dogtag and the KDC, and watches `certmonger.service`
 * Lynis Service Set: evaluates the daily lynis audit of each tagged host with `lynis-logfile`, and watches `lynis.service` and `lynis.timer`
 * OS - * Basic Service Sets: a failed `aidecheck.service` is left to the AIDE Service Set
 * OS - Debian * Basic Service Sets: `networking.service` is left to the networking Service Set, so a Debian host can carry both tags
