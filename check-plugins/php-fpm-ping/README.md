@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks whether PHP-FPM is alive by fetching its ping monitoring page. Alerts when the reply differs from the expected "pong", at the level `--severity` sets.
+Checks whether PHP-FPM is alive by fetching its ping monitoring page. Alerts when the reply differs from the expected "pong" or the page cannot be fetched at all, at the level `--severity` sets.
 
 **Important Notes:**
 
@@ -50,8 +50,8 @@ usage: php-fpm-ping [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
                     [--severity {warn,crit}] [--timeout TIMEOUT] [-u URL]
 
 Checks whether PHP-FPM is alive by fetching its ping monitoring page. Alerts
-when the reply differs from the expected "pong", at the level `--severity`
-sets.
+when the reply differs from the expected "pong" or the page cannot be fetched
+at all, at the level `--severity` sets.
 
 options:
   -h, --help            show this help message and exit
@@ -103,6 +103,7 @@ pong
 
 * OK if PHP-FPM responds with the expected string (default: "pong").
 * WARN or CRIT (depending on `--severity`, default: WARN) if the response does not match the expected string.
+* WARN or CRIT (depending on `--severity`) if the page cannot be fetched at all. A pool worker answers the ping, so a timeout means every worker is busy or stuck, and a refused connection means PHP-FPM or the web server in front of it is not running.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

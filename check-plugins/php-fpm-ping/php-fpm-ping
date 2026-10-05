@@ -20,10 +20,11 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026100501'
 
 DESCRIPTION = """Checks whether PHP-FPM is alive by fetching its ping monitoring page. Alerts when the
-reply differs from the expected "pong", at the level `--severity` sets."""
+reply differs from the expected "pong" or the page cannot be fetched at all, at the level
+`--severity` sets."""
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
@@ -140,15 +141,31 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        result = lib.base.coe(
-            lib.url.fetch(
-                args.URL,
-                insecure=args.INSECURE,
-                no_proxy=args.NO_PROXY,
-                proxy=args.PROXY,
-                timeout=args.TIMEOUT,
-            )
+        success, result = lib.url.fetch(
+            args.URL,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            proxy=args.PROXY,
+            timeout=args.TIMEOUT,
         )
+        if not success:
+            # A ping that does not come back is the very thing this check exists
+            # for, not a problem of the check: a pool worker answers the page
+            # (`fpm_status_handle_request()` runs in the worker's request loop),
+            # so a timeout means every worker is busy or stuck, and a refused
+            # connection that PHP-FPM or the web server in front of it is down.
+            state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
+            lib.base.oao(
+                f'{result}{lib.base.state2str(state, prefix=" ")}\n\n'
+                f'A pool worker answers the ping, so a timeout means every worker'
+                f' is busy or stuck (see php-fpm-status and php-fpm-logfile), and a'
+                f' refused connection means PHP-FPM or the web server in front of'
+                f' it is not running.',
+                state,
+                lib.base.get_perfdata('ping', state, _min=0, _max=STATE_UNKNOWN),
+                always_ok=args.ALWAYS_OK,
+                no_perfdata=args.NO_PERFDATA,
+            )
     else:
         # do not call the command, put in test data
         stdout, _stderr, _retc = lib.lftest.test(args.TEST)

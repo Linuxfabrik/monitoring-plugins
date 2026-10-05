@@ -12,6 +12,7 @@ import sys
 
 sys.path.insert(0, '..')
 
+import subprocess
 import unittest
 
 import lib.lftest
@@ -42,6 +43,24 @@ TESTS = [
 
 class TestCheck(unittest.TestCase):
     check = '../php-fpm-ping'
+
+
+class TestUnreachable(unittest.TestCase):
+    """A ping that cannot be fetched at all is what this check exists for, so it
+    raises `--severity` instead of UNKNOWN. No fixture can stand in for a refused
+    connection, so the check asks port 9 (discard), closed on any test host.
+    """
+
+    def test_warn_ping_cannot_be_fetched(self):
+        result = subprocess.run(
+            ['../php-fpm-ping', '--url=http://127.0.0.1:9/fpm-ping', '--timeout=2'],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, STATE_WARN)
+        self.assertIn('[WARNING]', result.stdout)
+        self.assertIn('A pool worker answers the ping', result.stdout)
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
