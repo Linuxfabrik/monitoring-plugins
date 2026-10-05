@@ -393,6 +393,36 @@ spec:
         operator: '='
         value: apache_httpd_startup_failures
 
+    - alias: apache_httpd_stuck_children
+      refId: apache_httpd_stuck_children
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_httpd_stuck_children
+
     - alias: apache_httpd_worker_pressure
       refId: apache_httpd_worker_pressure
       groupBy:

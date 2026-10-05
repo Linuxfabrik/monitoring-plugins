@@ -30,12 +30,13 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026100501'
 
 DESCRIPTION = """Scans the Apache HTTP Server error log for the events an administrator
-has to act on: children that died on a signal, a server that ran out of workers, processes
-it failed to fork, backends a reverse proxy could not reach, and stapling switched on for a
-certificate it cannot work for. Startups, restarts and shutdowns are counted alongside
+has to act on: children that died on a signal or had to be killed at a stop, a server that
+ran out of workers, processes it failed to fork, backends a reverse proxy or PHP-FPM could
+not reach or that dropped requests, and stapling switched on for a certificate it cannot
+work for. Startups, restarts and shutdowns are counted alongside
 them, so a server that keeps restarting is visible.
 Alerts when one of those events shows up, when the lines one client provokes cross
 the rates the thresholds set, and when a line arrives at a level `--critical-level`
@@ -64,7 +65,8 @@ The journal of the Apache unit is read along with them, because a server which f
 start writes to its standard error instead of into the error log, and a rejected
 configuration or an address already in use is in the journal only. What the sources hold in
 common is counted once. The most recent rotated file is read along with the live one, so
-the window does not end where logrotate last ran.
+the window does not end where logrotate last ran. A problem Apache reports while loading its
+configuration counts until the next start or reload that no longer reports it.
 Requires root or sudo."""
 
 # What `--critical-level` and `--warning-level` accept on top of the levels
@@ -247,8 +249,11 @@ CODE_REGEX = re.compile(r'\bAH\d{5}\b')
 # reads into it. Most of what arrives at that level is about one request and one
 # client rather than about the server: `AH01630: client denied by server
 # configuration` for every bot that probes a path the configuration protects,
-# `AH01276: Cannot serve directory`, and `AH01071: Got error 'PHP message: ...'`
-# for every notice a PHP application prints. Getting somebody out of bed at 02:00
+# `AH01276: Cannot serve directory`, and `AH01071: Got error '...'` for whatever a
+# FastCGI backend wrote to its standard error - PHP-FPM's own `Primary script
+# unknown`, and PHP's messages where a pool has no usable `error_log`. Those are
+# request-scoped and counted as a rate (see RATE_EVENTS), but the same holds for
+# the ones that are not. Getting somebody out of bed at 02:00
 # for those teaches them to ignore the check, so `error` warns by default and
 # only `crit` and above alerts. What is genuinely about the server and still
 # logged below `crit` is named in EVENTS and raises its own state regardless of
@@ -291,6 +296,28 @@ EVENTS = (
         'recommendation': (
             'Children died on a signal Apache did not send them; look for a core'
             ' dump, a faulty module, or the OOM killer in the kernel log'
+        ),
+    },
+    {
+        'key': 'stuck_children',
+        'label': 'stuck child',
+        'suffix': 'ren',
+        'perfdata': 'apache_httpd_stuck_children',
+        # On a stop or restart Apache asks its children to exit, sends SIGTERM to
+        # the ones still there after 3, 5 and 7 seconds (AH00045, `warn`, left to
+        # the level count, which does not alert by default), SIGKILL after 9
+        # (AH00046) and gives up after 10 (AH00047), in
+        # `ap_reclaim_child_processes()` of `server/mpm_unix.c`. Only the last
+        # two cut a request off: a child that needed SIGKILL was busy, almost
+        # always in a long proxied request or a WebSocket.
+        'regex': re.compile(r'\bAH(?:00046|00047)\b'),
+        'state': STATE_WARN,
+        'recommendation': (
+            'Apache had to kill children that did not exit within 10 seconds of a'
+            ' stop or restart, so the requests they served were cut off; this is'
+            ' usually a long proxied request (`timeout=`, `ProxyTimeout`) or a'
+            ' WebSocket, so use `apachectl graceful` (`systemctl reload`) where'
+            ' the configuration change allows it'
         ),
     },
     {
@@ -348,23 +375,29 @@ EVENTS = (
         # `SSLUseStapling on` for a certificate stapling cannot be set up for.
         # Apache says so once per certificate on every start and then serves TLS
         # without stapling, which is why the level alone leaves an administrator
-        # looking for a certificate problem that is not one. Since Let's Encrypt
-        # stopped publishing OCSP responders this reaches every host that kept
-        # the directive on. All four reasons `ssl_stapling_init_cert()` can fail
-        # are here - no OCSP URI in the certificate (AH02218, and AH02814 where
-        # another virtual host already parsed it), no issuer certificate to ask
-        # about (AH02217), and a request that could not be built (AH02815) -
+        # looking for a certificate problem that is not one. All four reasons
+        # `ssl_stapling_init_cert()` can fail are here: the issuer certificate is
+        # neither in the configured chain nor in the store (AH02217, checked
+        # first), the certificate names no OCSP responder (AH02218, and AH02814
+        # where another virtual host already parsed it; Let's Encrypt issues no
+        # OCSP URIs since 2025), and a request that could not be built (AH02815),
         # together with the line its caller writes per certificate (AH02604).
-        # What the module logs about a responder that answered badly is left
-        # out: that is a working setup with a failing responder, and a different
-        # problem with a different fix.
-        'regex': re.compile(r'\bAH(?:02217|02218|02604|02814|02815)\b'),
+        # A responder that cannot be reached for an otherwise working setup is
+        # here too: the summary of a failed renewal (AH01941, server-scoped) and
+        # the name of the responder that did not resolve (AH01972), which mod_ssl
+        # logs on whatever client connection happened to trigger the renewal and
+        # which would otherwise be blamed on that client. Read off httpd 2.4.62.
+        'regex': re.compile(r'\bAH(?:01941|01972|02217|02218|02604|02814|02815)\b'),
         'state': STATE_WARN,
+        'resolved_by_start': True,
         'recommendation': (
-            'Stapling is switched on for a certificate whose issuer publishes no'
-            ' OCSP responder, so it does nothing; turn `SSLUseStapling off` for'
-            ' that host, or point `SSLStaplingForceURL` at a responder that'
-            ' answers for it'
+            'Stapling is on for a certificate it cannot staple: AH02218 means the'
+            " certificate names no OCSP responder (Let's Encrypt since 2025), so"
+            ' set `SSLUseStapling off`; AH02217 means the issuer certificate is'
+            ' missing from the configured chain, so add it to'
+            ' `SSLCertificateFile` (or turn stapling off where a CDN terminates'
+            ' TLS anyway); AH01941 means the responder could not be reached, so'
+            ' check DNS and outbound HTTP from this host'
         ),
     },
     {
@@ -383,6 +416,7 @@ EVENTS = (
             r'\bAH(?:00015|00072|00526)\b|no listening sockets available'
         ),
         'state': STATE_CRIT,
+        'resolved_by_start': True,
         'recommendation': (
             'Apache refused to start; `apachectl configtest` names a rejected'
             ' directive, and a port that is already taken names the process'
@@ -421,7 +455,10 @@ RATE_EVENTS = (
         'recommendation': (
             'Clients are being denied access in bulk; the paths in the log say'
             ' whether somebody is walking the site, and an intrusion prevention'
-            ' system or the firewall is where that is answered'
+            ' system or the firewall is where that is answered. Where the one'
+            ' address is a reverse proxy or a NAT gateway in front of this'
+            ' server, every client counts as that one: let Apache see the real'
+            ' address with `mod_remoteip`, or use `--no-per-source`'
         ),
     },
     {
@@ -441,44 +478,48 @@ RATE_EVENTS = (
         'critical': 'AUTH_FAILURES_CRITICAL',
         'warning': 'AUTH_FAILURES_WARNING',
         'recommendation': (
-            'Passwords are failing in bulk, which is what a guessing run looks'
-            ' like; the user names in the log say whether real accounts are'
-            ' being targeted'
+            'Passwords are failing in bulk; many different user names are a'
+            ' guessing run, the same name over and over is a client with stale'
+            ' credentials, which the user names in the log tell apart'
         ),
     },
     {
         'key': 'proxy_failures',
         'label': 'proxy failure',
         'perfdata': 'apache_httpd_proxy_failures',
-        # Judged by the total rather than per peer: this counter is about
-        # backends that could not be reached, and whether that was one backend
-        # ten times or ten backends once, what matters is how many requests fell
-        # through. The peer of such a line is the backend anyway, not a client.
+        # Judged by the total rather than per client: this counter is about
+        # backends, and whether one client or ten were turned away, what
+        # matters is how many requests fell through. Behind a reverse proxy
+        # every client is the proxy anyway.
         'per_source': False,
-        # Everything `mod_proxy` and its protocol modules log when they cannot
-        # reach a backend or lose its reply: a refused connection over TCP
-        # (AH00939, AH00957), through a CONNECT proxy (AH00958) or over a Unix
-        # socket (AH02454), the same from the AJP, FastCGI, SCGI, uwsgi,
-        # WebSocket and HTTP modules (AH00896, AH01079, AH00866, AH10101,
-        # AH02452, AH01114), a worker taken out of the pool over it (AH00940,
-        # AH00959), and a reply that broke off (AH00860, AH00898, AH01102,
-        # AH01110). Counted as a rate rather than reported one by one, because
-        # one of these is a backend being restarted - a `systemctl reload
-        # php-fpm` leaves exactly one line - while a backend that is really gone
-        # writes one per request. `mod_proxy_ftp` is left out: its EPSV and PASV
-        # failures are about an FTP data channel and a firewall, not about a
-        # backend of the web server. So is `AH10404`, which Apache itself logs
-        # at `warn` and which the level count picks up.
+        # One line per request that failed, so the thresholds count requests.
+        # Read off httpd 2.4.62: a connection the protocol module could not get,
+        # from the HTTP, FastCGI, AJP, SCGI, uwsgi and WebSocket modules
+        # (AH01114, AH01079, AH00896, AH00866, AH10101, AH02452, all
+        # `ap_log_rerror()`), a request sent to a worker that is out of the pool
+        # (AH00940), a reply that broke off (AH00898, the summary
+        # `ap_proxyerror()` writes; AH01110 and AH00860 mid-response) and a
+        # FastCGI request the backend dropped or did not answer in time
+        # (AH01075). What these modules log next to them about the same request
+        # - the failed connection attempt (AH00939, AH00957, AH00958, AH02454),
+        # the status line or FastCGI header that did not arrive (AH01102,
+        # AH01067) and the worker being taken out of the pool (AH00959) - names
+        # the backend and the reason, see PROXY_DETAIL_REGEX, and is not counted
+        # a second time. `mod_proxy_ftp` is left out: its EPSV and PASV failures
+        # are about an FTP data channel and a firewall, not about a backend of
+        # the web server. So is `AH10404`, which Apache itself logs at `warn`
+        # and which the level count picks up.
         'regex': re.compile(
-            r'\bAH(?:00860|00866|00896|00898|00939|00940|00957|00958|00959'
-            r'|01079|01102|01110|01114|02452|02454|10101)\b'
+            r'\bAH(?:00860|00866|00896|00898|00940|01075|01079|01110|01114'
+            r'|02452|10101)\b'
         ),
         'critical': 'PROXY_FAILURES_CRITICAL',
         'warning': 'PROXY_FAILURES_WARNING',
+        # Replaced by the recommendations per cause that main() builds from the
+        # lines within the window, see PROXY_CAUSES.
         'recommendation': (
-            'Backends behind the reverse proxy could not be reached; check that'
-            ' they are running and that Apache may open the connection to them,'
-            ' and whether the count matches the times one of them was restarted'
+            'Backends behind the reverse proxy failed; compare the times with'
+            ' the log of the backend'
         ),
     },
     {
@@ -512,13 +553,139 @@ RATE_EVENTS = (
     },
 )
 
-# Apache prints this in front of the message whenever the line is about one
-# request, and never otherwise: `[client 198.51.100.7:4000]`, or `[remote ...]`
-# when the peer is a backend rather than a browser. It is not a heuristic but the
-# boundary in Apache's own logging API - `ap_log_rerror()` has a request and adds
-# the field, `ap_log_error()` has none and cannot. A line carrying it says
-# something went wrong with that one request, which is worth a rate and not an
-# alert of its own.
+# What the proxy modules log next to a counted failure about the same request:
+# the connection attempt that failed, with the backend and the reason, the
+# status line or FastCGI header that did not arrive, and the worker being taken
+# out of the pool. Read for the backend and the cause, counted nowhere.
+PROXY_DETAIL_REGEX = re.compile(r'\bAH(?:00939|00957|00958|00959|01067|01102|02454)\b')
+
+# A FastCGI request that failed while Apache was still reading the request body
+# from the client: the client went away, not the backend (`dispatch()` in
+# mod_proxy_fcgi.c sets `bad_request` and answers 400).
+CLIENT_ABORT_REGEX = re.compile(r'AH01075: .*\(reading input brigade\)')
+
+# Why a backend failed, told apart by what the lines within the window say, with
+# what the administrator does about it. A backend appears in a line as
+# `(host:port)`, `remote server host:port`, `backend: host` or as a Unix socket.
+PROXY_CAUSES = (
+    {
+        'regex': re.compile(
+            r'Connection refused|No such file or directory|\(111\)|\(2\)'
+            r'|disabled connection for'
+        ),
+        'recommendation': (
+            '{backends} refused the connection or its socket was missing,'
+            ' so it was not running or not listening; start it or find out why'
+            ' it stopped. A restart of PHP-FPM removes its socket for a moment,'
+            ' `systemctl reload php-fpm` does not'
+        ),
+    },
+    {
+        'regex': re.compile(
+            r'timed out|timeout specified has expired|\(polling\)|\(70007\)'
+        ),
+        'recommendation': (
+            '{backends} did not answer in time; it hangs or is overloaded'
+            ' (for PHP-FPM: all workers busy or stuck, see php-fpm-logfile), or'
+            ' `ProxyTimeout`, `Timeout` or the `timeout=` of the worker is shorter'
+            ' than its requests legitimately take, so keep it at least as long as'
+            " the backend's own limit, `request_terminate_timeout` for PHP-FPM"
+        ),
+    },
+    {
+        'regex': re.compile(
+            r'Connection reset by peer|\(104\)|Failed to read FastCGI header'
+            r'|error reading response'
+        ),
+        'recommendation': (
+            '{backends} dropped requests in progress: it was restarted,'
+            ' crashed, or killed them itself; for PHP-FPM that is'
+            ' `request_terminate_timeout` (keep it below the proxy timeout so'
+            ' clients get a 504 instead of a reset) or a reload, which only lets'
+            ' running requests finish with `process_control_timeout` set.'
+            " Compare the times with the backend's log"
+        ),
+    },
+)
+BACKEND_REGEXES = (
+    re.compile(r'Unix domain socket (\S+)'),
+    re.compile(r'attempt to connect to \S+ \(([^)]+)\)'),
+    re.compile(r'remote server (\S+?)(?:,|$|\s)'),
+    re.compile(r'failed to make connection to backend: (\S+?)(?:,|$|\s)'),
+    re.compile(r'Error dispatching request to (\S+):'),
+)
+
+# Lines that look like problems and are not, kept out of every count. PHP-FPM
+# sends its own `the log buffer is full` notice over the FastCGI connection
+# whenever an `access.format` with a long URI overflows its 1024-byte buffer;
+# only its access log line is shortened (`fpm_log.c`). mod_wsgi relays whatever
+# an application writes to its standard error at `error`, so the level says
+# nothing, and a line the application itself marked INFO or DEBUG - every
+# command FreeIPA runs - is not a problem. mod_http2 reports every stream it
+# still waits for while the client connection closes (`h2_stream(...,CLEANUP)`,
+# `m_report_stream_iter()`); that is the symptom of a slow backend, which the
+# proxy counter reports. mod_perl logs a client that went away as `Broken pipe`
+# or `(-102)` without a request scope.
+NOISE_REGEX = re.compile(
+    r"AH01071: Got error 'the log buffer is full"
+    r'|\[wsgi:\w+\] .*?\b(?:INFO|DEBUG)\b:'
+    r'|h2_stream\([^)]*\): started='
+    r'|:Apache2 IO write: \(32\) Broken pipe'
+    r'|Apache2::RequestIO::read: \(-102\)'
+)
+
+# What the request-scoped fallback counter holds that has a cause of its own,
+# with what to do about it. Offered next to the general recommendation when the
+# counter raised a state and such lines are within the window.
+REQUEST_CAUSES = (
+    {
+        # PHP-FPM writes this at DEBUG, and it still reaches Apache: a worker
+        # hands every message to the web server before its level is checked
+        # (`vzlog()` in `sapi/fpm/fpm/zlog.c`, php-8.3.31).
+        'regex': re.compile(r"AH01071: Got error 'Primary script unknown"),
+        'recommendation': (
+            'Requests for PHP files that do not exist are passed to PHP-FPM,'
+            ' which answers 404 and ties up a worker for each of them; wrap the'
+            ' `SetHandler "proxy:..."` in `<If "-f %{REQUEST_FILENAME}">` so'
+            ' Apache answers 404 itself. If every PHP request fails this way,'
+            ' check that `DocumentRoot` is the path PHP-FPM sees'
+        ),
+    },
+    {
+        # PHP sends a message to the web server only when it cannot write it to
+        # the `error_log` of the pool (`php_log_err_with_severity()`).
+        'regex': re.compile(r"AH01071: Got error '.*PHP message: "),
+        'recommendation': (
+            'PHP messages reach the Apache error log, which happens only when the'
+            " pool's `error_log` is unset or the pool user cannot write it; point"
+            ' `php_admin_value[error_log]` at a file that user can write, then'
+            ' fix the warnings and fatal errors it collects'
+        ),
+    },
+)
+
+# A start or a reload of the server, from Apache itself or, where it logs through
+# syslog with a `LogLevel` that drops its `notice` lines, from systemd in the
+# journal of the unit. A problem Apache reports while it loads its configuration
+# is logged again on every start; one that is older than the last start and was
+# not logged again since is fixed. The configuration is read a few seconds before
+# the server says it is up, and the line from systemd can come either side of it,
+# hence the margin.
+SYSTEMD_START_REGEX = re.compile(
+    r'(?:Started|Reloaded) (?:\S+\.service - )?The Apache HTTP Server\.'
+)
+START_MARGIN = 300  # seconds
+
+# Apache prints this in front of the message whenever it logs about a request or
+# a connection: `[client 198.51.100.7:4000]`, or `[remote ...]` for a connection
+# that has no scoreboard handle (`ap_log_error_core()` in `server/log.c`), which
+# is every HTTP/2 stream and every request a mod_wsgi daemon serves. The address
+# is the client's in both cases. It is not a heuristic but the boundary in
+# Apache's own logging API - `ap_log_rerror()` and `ap_log_cerror()` have a
+# request or a connection and add the field, `ap_log_error()` has neither and
+# cannot. A line carrying it is about that one client, which is worth a rate and
+# not an alert of its own; the few server problems Apache happens to log on a
+# client connection are named above or in NOISE_REGEX.
 SCOPE_REGEX = re.compile(r'\[(?:client|remote) [^\]]*\]')
 
 # Where the peer of a request-scoped line stands. Apache builds the field as
@@ -1064,10 +1231,44 @@ def describe_matching(event, hits, origins):
     commands = []
     if files:
         commands.append(f'grep -n {expression} {" ".join(files)}')
+    # Process substitution rather than a pipe: `lib.base.oao()` replaces every
+    # `|` in the message, and the command would no longer run.
     commands.extend(
-        f'journalctl --unit={unit} | grep -n {expression}' for unit in units
+        f'grep -n {expression} <(journalctl --unit={unit})' for unit in units
     )
     return [f'{heading}:'] + [f'  {item}' for item in commands]
+
+
+def get_proxy_recommendations(lines):
+    """Return what to do about the backends the lines name, one sentence per cause.
+
+    The lines within the rate window are sorted by what they say happened -
+    refused, timed out, dropped - and every cause names the backends it hit,
+    because "a backend failed" leaves the administrator to find out which one
+    and why, and those are the two things the lines already say.
+    """
+    recommendations = []
+    for cause in PROXY_CAUSES:
+        backends = []
+        for line in lines:
+            if not cause['regex'].search(line):
+                continue
+            for regex in BACKEND_REGEXES:
+                match = regex.search(line)
+                if match and match.group(1).strip(':') not in backends:
+                    backends.append(match.group(1).strip(':'))
+                    break
+        if any(cause['regex'].search(line) for line in lines):
+            # `httpd-UDS` is the name Apache gives every Unix socket backend and
+            # says nothing; the socket path is in the line next to it.
+            backends = [item for item in backends if item != 'httpd-UDS']
+            named = (
+                'Backend ' + ', '.join(f'`{item}`' for item in backends[:5])
+                if backends
+                else 'The backend'
+            )
+            recommendations.append(cause['recommendation'].format(backends=named))
+    return recommendations
 
 
 def parse_timestamp(log_line):
@@ -1640,6 +1841,9 @@ def main():
         acked_fingerprints = lib.base.coe(lib.logmatch.suppressed(ack_conn))
 
     # analyze data
+    # When the server last started or reloaded, by systemd's word in the journal.
+    systemd_starts = []
+    proxy_details = []
     for log_line in result['lines']:
         haystack = log_line.lower()
         if any(item.search(haystack) for item in compiled_ignore):
@@ -1656,6 +1860,8 @@ def main():
             suppressed_cnt += 1
             continue
         identifier = lib.logsource.syslog_identifier(log_line)
+        if identifier == 'systemd' and SYSTEMD_START_REGEX.search(log_line):
+            systemd_starts.append(log_line)
         if identifier is not None and identifier not in IDENTIFIERS:
             # Somebody else writing into the same place: systemd's own
             # bookkeeping about the unit ("Starting ...", "Started ..."), and
@@ -1682,10 +1888,19 @@ def main():
             unrecognized_cnt += 1
             continue
         recognized_cnt += 1
+        if NOISE_REGEX.search(log_line):
+            continue
+        if PROXY_DETAIL_REGEX.search(log_line):
+            proxy_details.append(log_line)
+            continue
         rate_hits = [
             event
             for event in RATE_EVENTS
-            if event['regex'] and event['regex'].search(log_line)
+            if event['regex']
+            and event['regex'].search(log_line)
+            and not (
+                event['key'] == 'proxy_failures' and CLIENT_ABORT_REGEX.search(log_line)
+            )
         ]
         level = level_match.group(1) if level_match else None
         # Everything else Apache logged about one request goes to the rate
@@ -1719,6 +1934,25 @@ def main():
         found[key] = lib.logsource.sort_by_time(lines, parse_timestamp)
     for level, lines in levels.items():
         levels[level] = lib.logsource.sort_by_time(lines, parse_timestamp)
+
+    # A problem Apache reports while loading its configuration is logged again on
+    # every start or reload. One older than the last of them, and not logged
+    # again since, has been fixed and is no longer reported.
+    starts = [
+        lib.logsource.timestamp(line, parse_timestamp)
+        for line in found['startups'] + found['restarts'] + systemd_starts
+    ]
+    starts = [moment for moment in starts if moment is not None]
+    if starts:
+        cutoff = max(starts) - datetime.timedelta(seconds=START_MARGIN)
+        for event in EVENTS:
+            if not event.get('resolved_by_start'):
+                continue
+            found[event['key']] = [
+                line
+                for line in found[event['key']]
+                if (lib.logsource.timestamp(line, parse_timestamp) or cutoff) >= cutoff
+            ]
 
     # `--match` narrowed the run down to nothing, so this run looked at no line at
     # all rather than at a quiet log. Only reachable when the operator set a
@@ -1866,8 +2100,37 @@ def main():
                 f' not counted'
             )
         rate_facts.append(fact)
-        if rate_state != STATE_OK:
-            recommendations.append(event['recommendation'])
+        if rate_state == STATE_OK:
+            continue
+        recent = [
+            line
+            for line in hits
+            if (lib.logsource.timestamp(line, parse_timestamp) or rate_since)
+            >= rate_since
+        ]
+        if event['key'] == 'proxy_failures':
+            recommendations.extend(
+                get_proxy_recommendations(
+                    recent
+                    + [
+                        line
+                        for line in proxy_details
+                        if (
+                            lib.logsource.timestamp(line, parse_timestamp) or rate_since
+                        )
+                        >= rate_since
+                    ]
+                )
+                or [event['recommendation']]
+            )
+            continue
+        recommendations.append(event['recommendation'])
+        if event['key'] == SCOPE_FALLBACK_KEY:
+            recommendations.extend(
+                cause['recommendation']
+                for cause in REQUEST_CAUSES
+                if any(cause['regex'].search(line) for line in recent)
+            )
 
     counts = {}
     for item in LEVELS:
@@ -1883,7 +2146,11 @@ def main():
             f'{lib.base.state2str(level_state, prefix=" ")}'
             f' (last: {lines[-1]})'
         )
-    if not any(counts.values()) and not rate_facts:
+    if (
+        not any(counts.values())
+        and not rate_facts
+        and not any(found[event['key']] for event in EVENTS)
+    ):
         # Naming all five levels one by one would bury the one sentence a healthy
         # host is supposed to be.
         facts.append('No errors or warnings found')

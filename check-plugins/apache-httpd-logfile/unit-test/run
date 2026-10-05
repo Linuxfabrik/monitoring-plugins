@@ -118,7 +118,9 @@ CASES = [
             '1 worker saturation',
             # An unreachable backend is a rate, not a single event: these two are
             # a backend that was restarted, and they are hours old by now.
-            '0 proxy failures (2 in the whole window)',
+            # one refused request: the connection attempt names the backend and is
+            # not counted a second time
+            '0 proxy failures (1 in the whole window)',
             '2 startups detected',
             '1 restart detected',
             '1 shutdown detected',
@@ -136,7 +138,9 @@ CASES = [
         'assert-in': [
             '1 child crash',
             '1 worker saturation',
-            '0 proxy failures (2 in the whole window)',
+            # one refused request: the connection attempt names the backend and is
+            # not counted a second time
+            '0 proxy failures (1 in the whole window)',
             '2 startups detected',
             '1 restart detected',
             '1 shutdown detected',
@@ -181,7 +185,7 @@ CASES = [
             '--warning-level=none',
         ],
         'assert-retc': STATE_WARN,
-        'assert-in': ['4 stapling failures', 'turn `SSLUseStapling off`'],
+        'assert-in': ['4 stapling failures', 'set `SSLUseStapling off`'],
     },
     {
         'id': 'ok-levels-turned-off-entirely',
@@ -318,22 +322,91 @@ CASES = [
         'assert-not-in': ['proxy failure'],
     },
     {
-        # A backend that is really gone writes one of these per request, which is
-        # what separates it from the single line a `systemctl reload php-fpm`
-        # leaves behind. The FastCGI socket failure the fixture holds is the one
-        # a reverse proxy in front of PHP-FPM produces.
+        # Apache in front of PHP-FPM on a Rocky 8 host (httpd 2.4.37): a restart
+        # of PHP-FPM, a request it dropped, one it did not answer in time and a
+        # client that went away while sending its body. Every failed request
+        # counts once, the client abort not at all, and each cause gets its own
+        # recommendation naming the backend.
+        'id': 'warn-php-fpm-backend-failures-by-cause',
+        'params': [
+            f'--server-log={fixture("rocky8-php-fpm-backend.txt")}',
+            '--lookback=1000000000',
+            '--proxy-failures-warning=1',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '4 proxy failures [WARNING]',
+            'Backend `/run/php-fpm/www.sock` refused the connection or its socket'
+            ' was missing',
+            'The backend did not answer in time',
+            'The backend dropped requests in progress',
+        ],
+    },
+    {
+        # PHP-FPM answering `Primary script unknown` for every probe of a
+        # scanner, and a PHP message that reached Apache because the pool has no
+        # usable `error_log`: each cause comes with what to do about it.
+        'id': 'warn-request-errors-name-their-cause',
+        'params': [
+            f'--server-log={fixture("rocky8-php-fpm-backend.txt")}',
+            '--lookback=1000000000',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '7 request errors from 192.0.2.66 [WARNING]',
+            '`<If "-f %{REQUEST_FILENAME}">`',
+            "pool's `error_log` is unset or the pool user cannot write it",
+        ],
+    },
+    {
+        # The log buffer notice of PHP-FPM, an INFO line a mod_wsgi application
+        # wrote, the streams mod_http2 still waits for and a client mod_perl lost
+        # are not problems and stay out of every count.
+        'id': 'ok-noise-is-not-counted',
+        'params': [
+            f'--server-log={fixture("rocky8-php-fpm-backend.txt")}',
+            '--match=buffer is full|ipa: info|h2_stream|broken pipe',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': ['No errors or warnings found'],
+        'assert-not-in': ['request error', 'warn line', 'error line'],
+    },
+    {
+        # A child that needed SIGKILL at a stop cut its request off.
+        'id': 'warn-stuck-child',
+        'params': [
+            f'--server-log={fixture("rocky8-php-fpm-backend.txt")}',
+            '--match=ah00046',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Found 1 stuck child [WARNING]', 'apachectl graceful'],
+    },
+    {
+        # The certificate stapling could not work for was dealt with: the
+        # graceful restart a day later no longer reports it.
+        'id': 'ok-stapling-fixed-before-the-last-restart',
+        'params': [f'--server-log={fixture("rocky8-stapling-fixed.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['No errors or warnings found', '1 restart detected'],
+        'assert-not-in': ['stapling failure'],
+    },
+    {
+        # A backend that is really gone fails every request sent to it, which is
+        # what separates it from the few a restart of the backend costs. Every
+        # failed request counts once, however many lines Apache writes about it.
         'id': 'warn-a-backend-that-is-really-gone',
         'params': [
             f'--server-log={fixture("rocky9-busy-server.txt")}',
             '--lookback=31536000',
-            '--proxy-failures-warning=2',
+            '--proxy-failures-warning=1',
             '--critical-level=none',
             '--warning-level=none',
         ],
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            '2 proxy failures',
-            'Backends behind the reverse proxy',
+            '1 proxy failure [WARNING]',
+            # The recommendation names the backend and what the refusal means.
+            'Backend `127.0.0.1:9999` refused the connection',
         ],
     },
     {

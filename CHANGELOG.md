@@ -35,6 +35,7 @@ Monitoring Plugins:
 
 * the end of life comes from the distribution for software that RHEL, Debian and Ubuntu ship themselves, on most *-version checks
 * about-me: proposes the tags of the AIDE, database dump, Fangfrisch, Lynis and security lane sets, and recognises ClamAV on Debian and Ubuntu and WordPress below `/var/www`
+* apache-httpd-logfile: names backend and cause of proxy failures with what to do, counts each request once, clears fixed configuration problems after a reload
 * crypto-policy: compares only the base policy and lists the subpolicies, unless `--policy` names subpolicies itself
 * librenms-validate: reports the validations as a compact list instead of a wide table
 * lynis: lists every finding and suggestion with the host it was found on, and refuses to run as root
@@ -76,7 +77,7 @@ Monitoring Plugins:
 * arguments with umlauts and other non-ASCII characters are no longer garbled by the Icinga 2 agent, on all Windows plugins
 * HTTPS on Windows no longer fails for sites whose root certificate Windows has not cached yet, on all plugins
 * apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: no journal warning on hosts without systemd ([#1544](https://github.com/Linuxfabrik/monitoring-plugins/issues/1544))
-* apache-httpd-logfile: no false warning when the server and all sites log to syslog
+* apache-httpd-logfile: no false warning when the server and all sites log to syslog, for FreeIPA INFO lines, HTTP/2 cleanup reports and PHP-FPM log buffer notices
 * borgbackup: a running backup is reported as running instead of UNKNOWN
 * by-winrm: patterns see the output as PowerShell shows it again, JEA endpoints accept the command, a failed login returns UNKNOWN, and the first line says what raised the state
 * cert: `--source=file` works with the Python 3.6 of RHEL 8, the other sources say which Python they need instead of crashing
