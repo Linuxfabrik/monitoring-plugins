@@ -144,24 +144,12 @@ All plugins are written in Python and released under the [UNLICENSE](https://unl
 
 ### Monitoring of an Application
 
-Monitoring an application can be complex and produce a wide variety of data. In order to standardize the handling of threshold values on the command line, to reduce the number of command line parameters and their interdependencies and to enable independent and thus extended designs of the Grafana panels, each topic should be dealt with in a separate check (following the Linux mantra: "one tool, one task").
-
-Avoid an extensive check that covers a wide variety of aspects:
-
-* `myapp --action threading --warning 1500 --critical 2000`
-* `myapp --action memory-usage --warning 80 --critical 90`
-* `myapp --action deployment-status` (warning and critical command line options not supported)
-
-Better write three separate checks:
-
-* `myapp-threading --warning 1500 --critical 2000`
-* `myapp-memory-usage --warning 80 --critical 90`
-* `myapp-deployment-status`
+One topic per check ("one tool, one task"), for uniform thresholds, few interdependent parameters and independent Grafana panels: `myapp-threading --warning 1500 --critical 2000`, `myapp-memory-usage --warning 80 --critical 90` and `myapp-deployment-status` instead of one `myapp --action ...`.
 
 
 ### Setting up your Development Environment
 
-All plugins target Python 3.9 or newer (Python 3.9 is required for RHEL 8 compatibility). Clone the libraries and monitoring plugins and start working:
+All plugins target Python 3.9 or newer (Python 3.9 is required for RHEL 8 compatibility). Clone both repositories side by side:
 
 ```bash
 git clone git@github.com:Linuxfabrik/lib.git
@@ -171,89 +159,67 @@ git clone git@github.com:Linuxfabrik/monitoring-plugins.git
 
 ### Directory Layout
 
-Each plugin lives in its own directory and follows the same structure:
-
-```text
-└── plugin-name
-    ├── assets                      Additional resources, for example helper scripts like monitoring.php
-    ├── grafana                     Grafana dashboard definition
-    ├── icingaweb2-module-director  Icinga Director basket definition
-    ├── icingaweb2-module-grafana   Grafana panel definition for Icinga's Grafana module
-    ├── icon                        SVG icon for Web GUIs
-    ├── lib                         Link to the Linuxfabrik Python libraries
-    ├── unit-test                   Files for unit tests
-    │   ├── retc                    Files for simulating return codes
-    │   ├── stdin                   Files for simulating input to STDIN
-    │   ├── stdout                  Files for simulating output to STDOUT
-    │   └── run                     The unit test
-    └── plugin-name                 The monitoring plugin
-```
+Each plugin directory `plugin-name/` contains the plugin `plugin-name` and, as needed, `assets/` (helper scripts like `monitoring.php`), `grafana/` (dashboard), `icingaweb2-module-director/` (basket), `icingaweb2-module-grafana/` (panel for Icinga's Grafana module), `icon/` (SVG icon), `lib` (link to the Linuxfabrik Python libraries) and `unit-test/` (`run` plus `retc/`, `stdin/`, `stdout/` fixtures).
 
 
 ### Deliverables
 
-When creating a new plugin, make sure to deliver:
+A new plugin delivers:
 
 * The plugin itself, tested on RHEL and Debian.
 * README file explaining "How?" and "Why?"
-* A free, monochrome, transparent SVG icon from <https://simpleicons.org> or <https://fontawesome.com/search?ic=free>, placed in the `icon` directory.
-* Optional: `unit-test/run` - the unittest file (see [Unit Tests](#unit-tests))
-* Optional: extend the repo-root `requirements.in` with new Python deps; the per-Python lockfiles under `lockfiles/pyXX/requirements.txt` are regenerated from it
-* If providing performance data: Grafana dashboard (see [GRAFANA.md](GRAFANA.md)) and `.ini` file for the Icinga Web 2 Grafana Module
-* Icinga Director Basket Config for the check plugin. Run `tools/build-basket --auto` before every commit (not just for new plugins) so all basket JSONs stay in sync; a forgotten regeneration after a parameter change leaves a stale basket that only surfaces as an unrelated diff in a later contributor's `--auto` run.
-* Icinga Service Set in `all-the-rest.json` if appropriate (see the "Icinga Director: Service Set vs. Service Template" section below)
-* Optional: sudoers file (see [sudoers File](#sudoers-file))
-* Optional: A screenshot of the plugins' output from within Icinga, resized to 423x106, using background-color `#f5f9fa`, hosted on [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/), and listed alphabetically in [POSTER.md](POSTER.md).
+* A free, monochrome, transparent SVG icon from <https://simpleicons.org> or <https://fontawesome.com/search?ic=free> in the `icon` directory.
+* Optional: `unit-test/run` (see [Unit Tests](#unit-tests)).
+* Optional: new Python deps in the repo-root `requirements.in`; the lockfiles under `lockfiles/pyXX/requirements.txt` are regenerated from it.
+* If providing performance data: Grafana dashboard (see [GRAFANA.md](GRAFANA.md)) and `.ini` file for the Icinga Web 2 Grafana Module.
+* Icinga Director Basket Config. Run `tools/build-basket --auto` before every commit (not just for new plugins), otherwise a stale basket surfaces as an unrelated diff in someone else's later run.
+* Icinga Service Set in `all-the-rest.json` if appropriate (see "Icinga Director: Service Set vs. Service Template").
+* Optional: sudoers file (see [sudoers File](#sudoers-file)).
+* Optional: a screenshot of the output in Icinga, 423x106, background-color `#f5f9fa`, hosted on [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/) and listed alphabetically in [POSTER.md](POSTER.md).
 * Update `CHANGELOG.md`.
 
 
 ### Icinga Director: Service Set vs. Service Template
 
-A Director Service Set is a host-tagged bundle that activates one or more services as soon as the matching tag is set. It is the right granularity when the check is generic and host-typical, or when several related checks belong together.
+A Service Set activates one or more services on every host carrying its tag, with one default configuration each.
 
-For a single-plugin contribution, ask whether the plugin needs *per-instance* parameters (URL, hostname, account, API token, page id, repository path). If yes, a Service Set is the wrong shape: the tag activates one service with one default configuration, but admins typically need several instances with different parameters. Apply rules end up replacing the Set anyway, and the tag dropdown grows without giving real value.
+* **Service Set** when the check runs identically on every tagged host, or bundles several related checks (status + version + systemd unit). Examples: `chronyd`, `firewalld`, `Apache httpd`, `OS - RHEL 10 Basic Service Set`.
+* **Service Template only** when the check needs per-instance parameters (URL, hostname, account, API token, page id, repository path); admins create those services manually or via Apply rules. Examples: `atlassian-statuspage`, `kemp-services`, `uptimerobot`, `virustotal-scan-url`.
 
-Use:
+Ship the Service Template in `build-basket` either way, and add a Service Set to `all-the-rest.json` only for the generic or bundled shape.
 
-* **Service Set** when the check runs identically on every tagged host, or when it bundles several related checks (status + version + systemd unit). Examples: `chronyd`, `firewalld`, `Apache httpd`, `OS - RHEL 10 Basic Service Set`.
-* **Service Template only** when the check is per-instance parametrized (URL, account, token, hostname). Admins create services manually or via Apply rules, choosing the template and providing the values. Examples: `atlassian-statuspage`, `kemp-services`, `uptimerobot`, `virustotal-scan-url`.
-
-Ship the Service Template in `build-basket` either way. Add a Service Set entry to `all-the-rest.json` only if the check fits the generic or bundled shape.
-
-There is one deliberate exception. A per-instance check may join a Set anyway when its subject is important enough that an unconfigured host should not stay silent about it. The service the tag creates then reports UNKNOWN until the missing parameter is supplied, which is the point: the tag says the host runs the thing, and the UNKNOWN says nobody has finished setting up the check for it. Document the behaviour in the plugin's README so the state is not read as a defect. Reference implementation: [wordpress-security-scan](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wordpress-security-scan) in the WordPress Service Set, where `--url` cannot be guessed.
+Deliberate exception: a per-instance check whose subject is too important for an unconfigured host to stay silent may join a Set anyway. Its service reports UNKNOWN until the parameter is supplied; document that in the README so it is not read as a defect. Reference: [wordpress-security-scan](check-plugins/wordpress-security-scan.md) in the WordPress Service Set, where `--url` cannot be guessed.
 
 
 ### Icinga Director: Cluster Zones
 
-The shipped base templates `tpl-host-generic` and `tpl-service-generic` pin `"zone": "master"` in `all-the-rest.json`. Every other host and service template, including the per-plugin and `-no-agent` templates, sets no zone and inherits master through the template imports, so those two base templates are the single control point for the zone of the whole shipped configuration. This is a deliberate security default: it keeps host and service configuration, and any credentials on a host or service object, on the master and its HA peers instead of on every agent. When editing templates:
+`tpl-host-generic` and `tpl-service-generic` in `all-the-rest.json` pin `"zone": "master"`; every other template sets no zone and inherits it. This security default keeps configuration and credentials on the master and its HA peers instead of on every agent.
 
-* Keep the two base templates pinned to `master` and leave every other template's zone unset, so the whole tree inherits from that single control point. A distributed site that needs the checks on satellite- or agent-authoritative hosts unsets the zone on the two base templates (moving them to the global zone), accepting that host and service configuration is then distributed to every agent. That trade-off is documented in ICINGA.md.
-* Never put a credential (password, SNMP community, API token) on a template or on a Service Set. A secret on a shared template applies to every service that imports it, and a Service Set copies its variables onto every service it generates. Both are distributed to every agent as soon as a site unsets the base-template zone. Keep secrets on the concrete host or service object, which is deployed only to the zone that runs the check.
+* Keep the two base templates pinned to `master`, every other zone unset. A distributed site unsets the base-template zone, accepting distribution to every agent (see ICINGA.md).
+* Never put a credential (password, SNMP community, API token) on a template or a Service Set: it applies to every importing or generated service and reaches every agent once the zone is unset. Keep secrets on the concrete host or service object.
 
 
 ### Rules of Thumb
 
-* Be brief by default. Report what needs to be reported to fix a problem. If there is more information that might help the admin, support a `--lengthy` parameter. If the default output still grows unbounded on large systems (thousands of disk mounts, DHCP scopes, backends, services), also support a `--brief` parameter that hides rows within the thresholds. See "Verbosity parameter convention" below.
-* The plugin should be "self configuring" and/or using best practise defaults, so that it runs without parameters wherever possible.
-* Develop with a minimal Linux in mind.
-* Develop with Icinga 2 in mind.
+* Be brief by default; report what is needed to fix a problem. Offer more via `--lengthy`, and add `--brief` where the default output grows unbounded on large systems (see "Verbosity parameter convention").
+* Be "self configuring" with best-practice defaults, so the plugin runs without parameters wherever possible.
+* Develop with a minimal Linux and with Icinga 2 in mind.
 * Avoid complicated or fancy (and therefore unreadable) Python statements.
-* If possible avoid libraries that have to be installed.
+* Avoid libraries that have to be installed, if possible.
 * Validate user input.
-* It is ok to use temp files if needed.
-* Much better: use a local SQLite database if you want to use a temp file.
-* Keep in mind: Plugins have a limited runtime - typically 10 seconds max. Therefore it is ideal if the plugin executes fast and uses minimal resources (CPU time, memory etc.).
+* Temp files are ok if needed, a local SQLite database is much better.
+* Plugins have a limited runtime (typically 10 seconds max), so execute fast and use minimal resources.
 * Timeout gracefully on errors (for example `df` on a failed network drive) and return WARN.
 * Return UNKNOWN on missing dependencies or wrong parameters.
-* Mainly return WARN. Only return CRIT if the operators want to or have to wake up at night. CRIT means "react immediately".
-* EAFP: Easier to ask for forgiveness than permission. This common Python coding style assumes the existence of valid keys or attributes and catches exceptions if the assumption proves false. This clean and fast style is characterized by the presence of many try and except statements.
-* **Pick the right unit-test flavor.** If the plugin parses the output of a shell command, the body of a file, or an HTTP endpoint that returns a stable text format, write fixture-based tests driven by `lib.lftest.run()` and a `TESTS` list. They run in a fraction of a second, are fully reproducible, and cover the full `tox` / Python matrix. Only reach for container-based tests (via `lib.lftest.run_container()` and testcontainers-python) when the check's behaviour really depends on live runtime state of the service (log markers, cluster topology, write-then-read flows, version-dependent API responses that cannot be captured statically).
-* **Combine container tests with fixtures for real coverage.** Container tests anchor the happy path against a real service, but they rarely expose the interesting edge cases: a service that just crashed, a stale cache, a half-configured cluster, a component that responds with a 503, a counter that overflowed, a config that is syntactically valid but semantically broken. Those behaviours almost only show up in real operation, not in a freshly-started clean container. The pragmatic pattern is: one testcontainers scenario for the nominal state (so we notice when the vendor changes their API), plus a handful of fixture-based testcases that capture the weird states — ideally captured from real incidents, or synthesised from the plugin code and the vendor's documentation. Both flavours live side-by-side in the same `unit-test/run` file; `tools/run-unit-tests --no-container` picks the fixture path for the fast matrix and `tools/run-container-tests` picks the live scenarios for the integration runner.
+* Mainly return WARN. CRIT means "react immediately", only if the operators want to or have to wake up at night.
+* EAFP: assume valid keys or attributes and catch the exceptions (many `try` / `except`).
+* **Pick the right unit-test flavor.** Fixture-based tests (`lib.lftest.run()` and a `TESTS` list) for command output, file bodies or HTTP endpoints with a stable format: fast, reproducible, full `tox` matrix. Container-based tests (`lib.lftest.run_container()`) only when the behaviour depends on live runtime state (log markers, cluster topology, write-then-read flows, version-dependent API responses).
+* **Combine container tests with fixtures for real coverage.** One testcontainers scenario for the nominal state (catches vendor API changes), plus fixture testcases for the weird states a fresh container never shows (crashed service, stale cache, half-configured cluster, 503, overflowed counter, valid but broken config), ideally captured from real incidents. Both live in one `unit-test/run`; `tools/run-unit-tests --no-container` and `tools/run-container-tests` pick their part.
 
 
 ### Return Codes
 
-Plugins must return one of the following POSIX-compliant exit codes. Use the constants from `lib.base`:
+Plugins return one of the following exit codes, using the constants from `lib.base`:
 
 | Exit Code | Status | Constant | Meaning |
 |---|---|---|---|
@@ -262,73 +228,36 @@ Plugins must return one of the following POSIX-compliant exit codes. Use the con
 | 2 | Critical | `STATE_CRIT` | Service not running or above critical threshold |
 | 3 | Unknown | `STATE_UNKNOWN` | Invalid arguments, missing dependencies, or internal plugin failures |
 
-Guidelines:
-
-* `STATE_WARN` and `STATE_CRIT` typically trigger notifications (email, SMS, paging) to operators, so pick them deliberately. Reserve them for conditions the user genuinely needs to act on, and avoid raising them for plugin-internal problems that are not the monitored service's fault.
-* Return `STATE_UNKNOWN` on missing dependencies, wrong parameters, or when `--help`/`--version` is requested.
-* Report internal plugin failures such as unhandled exceptions or tracebacks as `STATE_UNKNOWN`. A broken plugin says nothing about the monitored service, and routing these to UNKNOWN keeps them off the operators' alert path instead of spamming them with false CRITs.
-* One exception to the missing-dependency rule: where the missing thing is an external tool that belongs on the host by the very fact that the check was deployed there, `STATE_WARN` is the better answer, because it puts the gap on the list of things to fix instead of on the UNKNOWN pile nobody reads. Use this sparingly, only for a tool the administrator installs (not for a Python module the package pulls in), and say so in the plugin's README. Reference implementation: [wordpress-security-scan](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wordpress-security-scan) reporting a missing `wpscan`.
-* Return `STATE_WARN` for most alert conditions. Only return `STATE_CRIT` if the situation requires immediate human intervention ("wake up at night").
-* Never return any exit code other than 0, 1, 2, or 3.
-* Use `lib.base.oao()` (output and out) to print the result and exit with the appropriate state in a single call.
+* `STATE_WARN` and `STATE_CRIT` trigger notifications. Reserve them for conditions the user needs to act on, never for plugin-internal problems.
+* Return `STATE_UNKNOWN` on missing dependencies, wrong parameters, `--help` / `--version`, and internal failures such as unhandled exceptions or tracebacks; a broken plugin says nothing about the service.
+* Exception: when the missing thing is an external tool that belongs on the host because the check was deployed there, return `STATE_WARN`, so the gap lands on the to-fix list instead of the UNKNOWN pile. Only for tools the administrator installs (not Python modules the package pulls in), and say so in the README. Reference: [wordpress-security-scan](check-plugins/wordpress-security-scan.md) reporting a missing `wpscan`.
+* Return `STATE_WARN` for most alert conditions, `STATE_CRIT` only if immediate human intervention is required ("wake up at night").
+* Never return anything other than 0, 1, 2 or 3.
+* Use `lib.base.oao()` (output and out) to print the result and exit in a single call.
 
 
 ### Bytes vs. Unicode
 
-Short:
+Use `txt.to_text()` and `txt.to_bytes()`. Incoming data is UTF-8 bytes: decode it as early as possible, **use unicode throughout the plugin**, and let library functions (`base.oao`, `url.fetch_json`, ...) do the output conversion. See <https://nedbatchelder.com/text/unipain.html>.
 
-* Use `txt.to_text()` and `txt.to_bytes()`.
-
-The theory:
-
-* Data coming into your plugins must be bytes, encoded with `UTF-8`.
-* Decode incoming bytes as soon as possible (best by using the `txt` library), producing unicode.
-* **Use unicode throughout your plugin.**
-* When outputting data, use library functions, they should do output conversions for you. Library functions like `base.oao` or `url.fetch_json` will take care of the conversion to and from bytes.
-
-When you decode external bytes whose real encoding is not reliably known (subprocess output, a file read over SMB, a sensor payload) and that will end up in the plugin's printed result, pass `errors='strict_or_latin1'`:
-
-```python
-text = lib.txt.to_text(raw_bytes, errors='strict_or_latin1')
-```
-
-This decodes as UTF-8 and, on any invalid byte, retries the whole input as Latin-1, which maps every byte one-to-one to a real Unicode scalar. The default handler (`surrogateescape`) does not fail at decode either, but it produces lone surrogates that raise `UnicodeEncodeError` later when the plugin prints its result, moving the crash away from its cause (see [Linuxfabrik/lib#256](https://github.com/Linuxfabrik/lib/issues/256)). Values that are always ASCII or already declare their encoding do not need the handler.
-
-See <https://nedbatchelder.com/text/unipain.html> for details.
+External bytes of unreliable encoding (subprocess output, a file over SMB, a sensor payload) that end up in the printed result are decoded with `lib.txt.to_text(raw_bytes, errors='strict_or_latin1')`: UTF-8, and on any invalid byte the whole input as Latin-1. The default `surrogateescape` produces lone surrogates that raise `UnicodeEncodeError` later at print time, far from the cause ([Linuxfabrik/lib#256](https://github.com/Linuxfabrik/lib/issues/256)). Always-ASCII values or values with a declared encoding do not need it.
 
 
 ### Names, Naming Conventions
 
-The plugin name should match the following regex: `^[a-zA-Z0-9\-\_]*$`. This allows the plugin name to be used as the grafana dashboard uid (according to [here](https://github.com/grafana/grafana/blob/552ecfeda320a422bfc7ca9978c94ffea887134a/pkg/util/shortid_generator.go#L11)).
+The plugin name matches `^[a-zA-Z0-9\-\_]*$`, so it can serve as the Grafana dashboard uid (see [here](https://github.com/grafana/grafana/blob/552ecfeda320a422bfc7ca9978c94ffea887134a/pkg/util/shortid_generator.go#L11)).
 
 
 ### Parameters, Option Processing
 
-There are a few Nagios-compatible reserved options that should not be used for other purposes:
+Nagios-compatible reserved options, not to be used for other purposes: `-a, --authentication` (authentication password), `-C, --community` (SNMP community), `-c, --critical` (critical threshold), `-h, --help`, `-H, --hostname`, `-l, --logname` (login name), `-p, --password`, `-p, --port` (network port), `-t, --timeout`, `-u, --url`, `-u, --username`, `-V, --version`, `-v, --verbose`, `-w, --warning` (warning threshold).
 
-```text
--a, --authentication    authentication password
--C, --community         SNMP community
--c, --critical          critical threshold
--h, --help              help
--H, --hostname          hostname
--l, --logname           login name
--p, --password          password
--p, --port              network port
--t, --timeout           timeout
--u, --url               URL
--u, --username          username
--V, --version           version
--v, --verbose           verbose
--w, --warning           warning threshold
-```
+Every plugin supports at least:
 
-Every plugin must support at least `--help` and `--version`:
+* `--help` (`-h`): short usage, then all options with their defaults, ending with a link to the online documentation. Within 80 characters width. Exits with `STATE_UNKNOWN` (3).
+* `--version` (`-V`): plugin name and `__version__`. Exits with `STATE_UNKNOWN` (3).
 
-* `--help` (`-h`): Print a short usage statement followed by a detailed description of all options with their defaults, ending with a link to the plugin's online documentation. Keep the output within 80 characters width. Exit with `STATE_UNKNOWN` (3).
-* `--version` (`-V`): Print the plugin name and version (`__version__`). Exit with `STATE_UNKNOWN` (3).
-
-The documentation link comes from `lib.args`, so build the parser like this:
+The documentation link comes from `lib.args`:
 
 ```python
     parser = argparse.ArgumentParser(
@@ -338,166 +267,26 @@ The documentation link comes from `lib.args`, so build the parser like this:
     )
 ```
 
-`lib.args.epilog()` derives the URL from the plugin's file name, `lib.args.HelpFormatter` keeps that URL on one line instead of breaking it at its hyphens. Notification and event plugins name their family, for example `lib.args.epilog(__file__, section='notification-plugins')`.
+`lib.args.epilog()` derives the URL from the file name, `lib.args.HelpFormatter` keeps it on one line. Notification and event plugins name their family, e.g. `lib.args.epilog(__file__, section='notification-plugins')`.
 
-Positional arguments are not allowed. All parameters must be named options.
+No positional arguments. All other options are long parameters only, words separated by `-`. Recommended names: `--activestate`, `--alarm-duration`, `--always-ok`, `--argument`, `--authtype`, `--brief`, `--cache-expire`, `--command`, `--community`, `--config`, `--count`, `--critical` (also `--critical-count`, `-cpu`, `-maxchildren`, `-mem`, `-pattern`, `-regex`, `-slowreq`, `-steal`), `--database`, `--datasource`, `--date`, `--device`, `--donor`, `--filename`, `--filter`, `--full`, `--hide-ok`, `--hostname`, `--icinga-callback` (also `--icinga-password`, `-service-name`, `-url`, `-username`), `--idsite`, `--ignore`, `--input`, `--insecure`, `--instance`, `--interface`, `--interval`, `--ipv6`, `--key`, `--latest`, `--lengthy`, `--loadstate`, `--match`, `--message`, `--message-key`, `--metric`, `--mib`, `--mibdir`, `--mode`, `--module`, `--mount`, `--no-kthreads`, `--no-match-severity`, `--no-perfdata`, `--no-proxy`, `--no-summary`, `--node`, `--only-dirs`, `--only-files`, `--password`, `--path`, `--pattern`, `--per-cpu`, `--perfdata`, `--perfdata-key`, `--period`, `--port`, `--portname`, `--prefix`, `--privlevel`, `--response`, `--service`, `--severity`, `--snmp-version`, `--starttype`, `--state`, `--state-key`, `--status`, `--substate`, `--suppress-lines`, `--task`, `--team`, `--test`, `--timeout`, `--timerange`, `--token`, `--trigger`, `--type`, `--unit`, `--unitfilestate`, `--url`, `--username`, `--version`, `--virtualenv`, `--warning` (with the same suffixes as `--critical`).
 
-For all other options, use long parameters only. Separate words using a `-`. We recommend using some out of those:
+Usual [parameter types](https://docs.python.org/3/library/argparse.html): `type=float`, `type=int`, `type=lib.args.csv`, `type=lib.args.float_or_none`, `type=lib.args.int_or_none`, `type=str` (default), `choices=[...]`, and `action='store_true'` / `'store_false'` for switches.
 
-```text
---activestate
---alarm-duration
---always-ok
---argument
---authtype
---brief
---cache-expire
---command
---community
---config
---count
---critical
---critical-count
---critical-cpu
---critical-maxchildren
---critical-mem
---critical-pattern
---critical-regex
---critical-slowreq
---critical-steal
---database
---datasource
---date
---device
---donor
---filename
---filter
---full
---hide-ok
---hostname
---icinga-callback
---icinga-password
---icinga-service-name
---icinga-url
---icinga-username
---idsite
---ignore
---input
---insecure
---instance
---interface
---interval
---ipv6
---key
---latest
---lengthy
---loadstate
---match
---message
---message-key
---metric
---mib
---mibdir
---mode
---module
---mount
---no-kthreads
---no-match-severity
---no-perfdata
---no-proxy
---no-summary
---node
---only-dirs
---only-files
---password
---path
---pattern
---per-cpu
---perfdata
---perfdata-key
---period
---port
---portname
---prefix
---privlevel
---response
---service
---severity
---snmp-version
---starttype
---state
---state-key
---status
---substate
---suppress-lines
---task
---team
---test
---timeout
---timerange
---token
---trigger
---type
---unit
---unitfilestate
---url
---username
---version
---virtualenv
---warning
---warning-count
---warning-cpu
---warning-maxchildren
---warning-mem
---warning-pattern
---warning-regex
---warning-slowreq
---warning-steal
-```
-
-[Parameter types](https://docs.python.org/3/library/argparse.html) are usually:
-
-* `type=float`
-* `type=int`
-* `type=lib.args.csv`
-* `type=lib.args.float_or_none`
-* `type=lib.args.int_or_none`
-* `type=str` (the default)
-* `choices=['udp', 'udp6', 'tcp', 'tcp6']`
-* `action='store_true'`, `action='store_false'` for switches
-
-**Threshold parameters** (`--warning`, `--critical`) in new plugins must use `type=str` (not `int` or `float`) to support [Nagios range expressions](https://www.monitoring-plugins.org/doc/guidelines.html#THRESHOLDFORMAT) like `80`, `10:`, `~:50`, `@10:20`. In `main()`, use `lib.base.get_state(value, args.WARN, args.CRIT, _operator='range')`. See the [example](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/example/example) plugin and the [Threshold and Ranges](#threshold-and-ranges) section for details.
+**Threshold parameters** (`--warning`, `--critical`) in new plugins use `type=str` to support [Nagios range expressions](https://www.monitoring-plugins.org/doc/guidelines.html#THRESHOLDFORMAT) (`80`, `10:`, `~:50`, `@10:20`), evaluated with `lib.base.get_state(value, args.WARN, args.CRIT, _operator='range')`. See the `example` plugin and [Threshold and Ranges](#threshold-and-ranges).
 
 Hints:
 
-* For complex parameter tupels, use the `csv` type. `--input='Name, Value, Warn, Crit'` results in `[ 'Name', 'Value', 'Warn', 'Crit' ]`
-* For repeating parameters, use the `append` action. A `default` variable has to be a list then. `--input=a --input=b` results in `[ 'a', 'b' ]`
-* If you combine `csv` type and `append` action, you get a two-dimensional list: `--repeating-csv='1, 2, 3' --repeating-csv='a, b, c'` results in `[['1', '2', '3'], ['a', 'b', 'c']]`
-* If you want to provide default values together with `append`, in `parser.add_argument()`, leave the `default` as `None`. If after `main:parse_args()` the value is still `None`, put the desired default list (or any other object) there. The primary purpose of the parser is to parse the commandline - to figure out what the user wants to tell you. There's nothing wrong with tweaking (and checking) the `args` Namespace after parsing. (According to <https://bugs.python.org/issue16399>)
-* When it comes to parameters, stay backwards compatible. If you have to rename or drop parameters, keep the old ones, but silently ignore them. This helps admins deploy the monitoring plugins to thousands of servers, while the monitoring server is updated later for various reasons. To be as tolerant as possible, replace the parameter's help text with `help=argparse.SUPPRESS`:
-
-```python
-def parse_args():
-    """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(
-        description=DESCRIPTION,
-        epilog=lib.args.epilog(__file__),
-        formatter_class=lib.args.HelpFormatter,
-    )
-
-    parser.add_argument(
-        '--my-old-and-deprecated-parameter',
-        help=argparse.SUPPRESS,
-        dest='MY_OLD_VAR',
-    )
-```
-
-* A plugin should tolerate unknown parameters. Imagine an monitoring system that checks thousand hosts. You want to update a plugin offering a new parameter that is essential for you, so you adjust the service definition, add the new parameter and update the plugin on one host. The non-updated plugin on the other 999 hosts will throw an 'UNKNOWN' error when argparse is used with `parser.parse_args()`. This would significantly disrupt operations and cause stress. Therefore, it makes more sense to be tolerant and use `parser.parse_known_args()`.
+* `csv` type for complex tuples: `--input='Name, Value, Warn, Crit'` gives `['Name', 'Value', 'Warn', 'Crit']`.
+* `append` action for repeating parameters (the `default` must be a list): `--input=a --input=b` gives `['a', 'b']`. Combined with `csv`, a two-dimensional list.
+* For `append` defaults, leave `default=None` in `add_argument()` and fill in the default list after `parse_args()` if the value is still `None` (see <https://bugs.python.org/issue16399>).
+* Stay backwards compatible: keep renamed or dropped parameters, silently ignored, with `help=argparse.SUPPRESS`, so hosts can be updated before the monitoring server.
+* Tolerate unknown parameters with `parser.parse_known_args()`, so a new parameter in the service definition does not turn not-yet-updated hosts UNKNOWN.
 
 
 #### Parameter Help Text Format
 
-Help texts must be consistent across all plugins. Each property of a parameter goes on its own line (using Python implicit string concatenation). This makes it easy to scan, compare, and maintain. The order is:
+Help texts are consistent across all plugins. Each property goes on its own line (implicit string concatenation), in this order:
 
 1. Purpose (what the parameter does)
 2. Data type or format (if not obvious)
@@ -507,27 +296,9 @@ Help texts must be consistent across all plugins. Each property of a parameter g
 6. Example (if helpful)
 7. Default value (always last, always present if there is one)
 
-Standard help texts for common parameters are defined centrally in `lib.args.HELP_TEXTS`. Use `lib.args.help('--parameter-name')` wherever possible instead of writing help text inline:
+Standard help texts live in `lib.args.HELP_TEXTS`; use `lib.args.help('--parameter-name')` wherever possible, write plugin-specific ones inline in the same format, or prefix the standard one:
 
 ```python
-# standard parameter - use lib.args.help()
-parser.add_argument(
-    '--timeout',
-    help=lib.args.help('--timeout'),
-    dest='TIMEOUT',
-    type=int,
-    default=DEFAULT_TIMEOUT,
-)
-
-# plugin-specific parameter - write help text inline, same format
-parser.add_argument(
-    '--token',
-    help='Software API token.',
-    dest='TOKEN',
-    required=True,
-)
-
-# plugin-specific prefix + global help text
 parser.add_argument(
     '--url',
     help='GitLab health URL endpoint. ' + lib.args.help('--url'),
@@ -536,48 +307,32 @@ parser.add_argument(
 )
 ```
 
-Rules:
-
-* Use `%(default)s` for defaults, never hardcode the value. Omit the default for `store_true`/`store_false` switches (e.g. `--always-ok`, `--insecure`, `--no-perfdata`, `--no-proxy`, `--lengthy`) since they are always False when not specified.
+* Use `%(default)s`, never a hardcoded value. No default for `store_true` / `store_false` switches (`--always-ok`, `--insecure`, `--no-perfdata`, `--no-proxy`, `--lengthy`).
 * Defaults and examples go on their own lines.
-* Say "Can be specified multiple times." for `action='append'` parameters (not "(repeating)").
-* Say "Supports Nagios ranges." when `lib.base.get_state()` is used with the value.
-* Always state case-sensitivity explicitly: "Case-insensitive." or "Case-sensitive."
-* Say "Uses Python regular expressions." when the parameter accepts a regex.
+* "Can be specified multiple times." for `action='append'` (not "(repeating)").
+* "Supports Nagios ranges." when the value goes through `lib.base.get_state()`.
+* Always state "Case-insensitive." or "Case-sensitive."
+* "Uses Python regular expressions." when the parameter accepts a regex.
 * End every help text with a period.
-* Parameters that are identical across plugins must use identical help texts.
-* The developer-only `--test` parameter is centrally mapped to `argparse.SUPPRESS` in `lib.args`, so it stays accepted on the command line but is hidden from `--help` (and therefore from the generated READMEs and Director baskets), like the deprecated parameters. Declare it with `help=lib.args.help('--test')` like any other standard parameter; never write an inline help text for it.
+* Identical parameters across plugins get identical help texts.
+* The developer-only `--test` is mapped to `argparse.SUPPRESS` in `lib.args` (accepted, but hidden from `--help`, READMEs and baskets). Declare it with `help=lib.args.help('--test')`, never inline.
 
 
 ### Commit Scopes
 
-Use the plugin name as commit scope:
-
-```
-fix(about-me): cryptography deprecation warning (fix #341)
-```
-
-For the first commit, use the message `Add <plugin-name>`.
+Use the plugin name as commit scope, e.g. `fix(about-me): cryptography deprecation warning (fix #341)`. The first commit is `Add <plugin-name>`.
 
 
 ### Threshold and Ranges
 
-The user-facing range syntax (`start:end`, `~`, `@`, inclusive/exclusive semantics) is documented in [THRESHOLDS.md](THRESHOLDS.md). Read that first.
-
-To evaluate a value against `--warning` / `--critical` in a plugin, keep `type=str` on the argparse definition and pass `_operator='range'` to `lib.base.get_state()`:
+The range syntax (`start:end`, `~`, `@`, inclusive/exclusive) is documented in [THRESHOLDS.md](THRESHOLDS.md). In a plugin, keep `type=str` and evaluate with the library, never with a per-plugin range parser:
 
 ```python
 item_state = lib.base.get_state(value, args.WARN, args.CRIT, _operator='range')
 state = lib.base.get_worst(state, item_state)
 ```
 
-The library parses the range expression and returns `STATE_OK`, `STATE_WARN`, or `STATE_CRIT`. Never reimplement range parsing per plugin. See `check-plugins/procs/procs` and the `example` plugin for reference implementations with multiple metrics and per-row worst-state aggregation.
-
-The rule covers every bound the operator picks for themselves: a percentage, a count, an age, a temperature, whatever the admin decides is too much on their systems. That is what ranges are for, and it is the case a plugin must never solve on its own.
-
-A parameter that names a fixed classification boundary defined outside the plugin is a different thing and keeps a plain numeric type (`type=float`, `type=int`) with a direct comparison. A CVSS base score is scored on a published scale whose severity bands are given, so "at or above this score" is the whole semantic, and a range expression there would offer syntax (`@10:20`, `~:50`) that means nothing for the value. Reference implementation: `--critical-cvss` in [wordpress-security-scan](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wordpress-security-scan). Say so in the README, so the missing range support reads as a decision rather than as an omission.
-
-Multi-threshold worked example: `--warning 2:100 --critical 1:150`. The per-value state the library will return:
+References with multiple metrics and per-row worst-state aggregation: `check-plugins/procs/procs` and `example`. Example `--warning 2:100 --critical 1:150`:
 
 ```text
 val   0   1   2 .. 100 101 .. 150 151
@@ -586,425 +341,200 @@ val   0   1   2 .. 100 101 .. 150 151
 =>   CR  WA  OK     OK  WA     WA  CR
 ```
 
-If the plugin ships ranges with a single bound (`--warning 190: --critical 200:`), the same aggregation applies; the library handles `~` (negative infinity) and the trailing empty bound (positive infinity).
+Single-bound ranges (`--warning 190: --critical 200:`) aggregate the same way.
+
+Ranges cover every bound the operator picks (a percentage, count, age, temperature). A parameter naming a fixed classification boundary defined outside the plugin keeps a plain numeric type with a direct comparison, e.g. a CVSS base score, where range syntax would mean nothing. Reference: `--critical-cvss` in [wordpress-security-scan](check-plugins/wordpress-security-scan.md). Say so in the README, so the missing range support reads as a decision.
 
 
 ### Caching temporary data, SQLite database
 
-Use `cache` if you need a simple key-value store, for example as used in `nextcloud-version`. Otherwise, use `db_sqlite` as used in `cpu-usage`.
+Use `cache` for a simple key-value store (see `nextcloud-version`), otherwise `db_sqlite` (see `cpu-usage`).
 
 
 ### Error Handling
 
-* Catch exceptions using `try`/`except`, especially in functions. Never use bare `except:` without specifying the exception type. Use `except Exception:` as the broadest acceptable catch-all.
-* In functions, if you have to catch exceptions, on such an exception always return `(False, errormessage)`. Otherwise return `(True, result)` if the function succeeds in any way. For example, returning `(True, False)` means that the function has not raised an exception and its result is simply `False`.
-* A function calling a function with such an extended error handling has to return a `(retc, result)` tuple itself.
-* In `main()` you can use `lib.base.coe()` to simplify error handling.
-* Have a look at `nextcloud-version` for details.
-
-By the way, when running the compiled variants, this gives the nice and intended error if the module is missing:
-
-```python
-try:
-    import psutil
-except ImportError:
-    print('Python module "psutil" is not installed.')
-    sys.exit(STATE_UNKNOWN)
-```
-
-while this leads to an ugly multi-exception stacktrace:
-
-```python
-try:
-    import psutil
-except ImportError:
-    lib.base.cu('Python module "psutil" is not installed.')
-```
+* Catch exceptions with `try` / `except`, never bare `except:`; `except Exception:` is the broadest acceptable catch-all.
+* A function that catches exceptions returns `(False, errormessage)` on error and `(True, result)` otherwise (`(True, False)` means no exception, result `False`). A caller of such a function returns a `(retc, result)` tuple itself.
+* In `main()`, use `lib.base.coe()`. See `nextcloud-version`.
+* For a missing module, `print('Python module "psutil" is not installed.')` plus `sys.exit(STATE_UNKNOWN)` in the `except ImportError:` gives a clean error in the compiled variants, while `lib.base.cu()` there leads to an ugly multi-exception stacktrace.
 
 
 ### Timeout Handling
 
-Plugins have a limited runtime - typically 10 seconds max. Every plugin must handle timeouts gracefully to prevent hanging processes (e.g. `df` on a failed network drive, unresponsive API endpoints, stuck database connections).
+Every plugin handles timeouts gracefully (e.g. `df` on a failed network drive, unresponsive APIs, stuck database connections):
 
-* Always support a `--timeout` parameter (default: 8 seconds, leaving headroom for Icinga's own 10s timeout).
-* Use `lib.base.coe(lib.url.fetch(..., timeout=args.TIMEOUT))` for HTTP requests - the library handles timeouts.
-* For shell commands, pass a timeout to `lib.shell.shell_exec()`.
-* If a timeout occurs, return `STATE_WARN` with a meaningful message (e.g. "Timeout after 8s while connecting to ...").
+* Always support `--timeout` (default: 8 seconds, below Icinga's own 10s).
+* HTTP: `lib.base.coe(lib.url.fetch(..., timeout=args.TIMEOUT))`. Shell commands: pass a timeout to `lib.shell.shell_exec()`.
+* On timeout, return `STATE_WARN` with a meaningful message (e.g. "Timeout after 8s while connecting to ...").
 
 
 ### Security
 
-Two questions decide most of this section. Ask both for every plugin that runs as root (it ships in `assets/sudoers/`, or its README tells the admin to grant sudo), and ask them again for every parameter you add:
+Ask two questions for every plugin that runs as root (it ships in `assets/sudoers/`, or its README tells the admin to grant sudo), and again for every parameter you add:
 
-1. **What else can a local attacker who controls all arguments do?** The unprivileged monitoring user (`icinga`/`nagios`) supplies every command-line value and owns any file or directory they can create (`/tmp`, their home). Walk each parameter through to the file the plugin opens, the command it runs, the socket it connects to, and ask what that reaches when the value and the surrounding filesystem are hostile, not just when they are the intended ones.
-2. **For each parameter: who may set it, and with what privileges does the resulting action run?** A value that only chooses *data the plugin reads back and filters* is low risk. A value that *redirects a privileged action* (which file to open as root, which binary to execute, which socket to talk to) hands the caller that privilege unless the plugin confines it. That is the class behind [GHSA-q8c8-wxhc-3h4c](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-q8c8-wxhc-3h4c) and [GHSA-f54c-p5vg-mr5c](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-f54c-p5vg-mr5c): the guidance below covered a value travelling *into* a trusted command (shell injection, option injection) but not a value *choosing the target of a root action*.
+1. **What else can a local attacker who controls all arguments do?** The monitoring user (`icinga` / `nagios`) supplies every value and owns what they can create (`/tmp`, their home). Follow each parameter to the file, command or socket it reaches, assuming value and filesystem are hostile.
+2. **Who may set the parameter, and with what privileges does the resulting action run?** Selecting *data the plugin reads back and filters* is low risk; *redirecting a privileged action* (file opened as root, binary executed, socket used) hands over that privilege unless confined. That is the class behind [GHSA-q8c8-wxhc-3h4c](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-q8c8-wxhc-3h4c) and [GHSA-f54c-p5vg-mr5c](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-f54c-p5vg-mr5c).
 
-* **External commands**: When executing system commands, use `lib.shell.shell_exec()`. Avoid `os.system()` or `subprocess` with `shell=True`, as these are vulnerable to shell injection. `lib.shell.shell_exec()` requires the command as a list of arguments (argv) and always runs with `shell=False`, so arguments are passed verbatim to the executable and are never interpreted by a shell. Build commands as lists and put each user-supplied value in its own element, for example `['restic', f'--repo={repo}', 'check']` or `['ping', '-q', hostname]`; never assemble a command string from user input. This closes shell injection, but a value that starts with `-` can still be picked up as an *option* by the program being run (for example an ssh destination `-oProxyCommand=...`, or `ping -f`). For values that reach a command as a positional argument or as a command target, guard them with `lib.shell.safe_cli_value()` (`coe(lib.shell.safe_cli_value(args.HOSTNAME, '--hostname'))`). The official Monitoring Plugins guidelines require full paths for all external commands to prevent PATH-based trojan hijacking. We accept PATH-based command resolution for cross-platform compatibility (paths differ across distributions), but be aware that a compromised PATH could still redirect commands.
-* **Input validation**: Validate all user-supplied input. Use `argparse` type converters (`type=int`, `type=float`, `type=lib.args.csv`) to enforce expected types.
-* **Temporary files**: Avoid temporary files where possible. Prefer a local SQLite database via `lib.db_sqlite` or `lib.cache`. If temp files are unavoidable, fail cleanly if the file cannot be created, and delete it when done.
-* **Confining a path a privileged plugin was pointed at**: When a plugin runs as root (it ships in `assets/sudoers/`, or its README tells the admin to grant sudo) and it opens, reads, stats, globs or lists a location that any caller-supplied value can steer (`--path`, `--filename`, `--socket`, a directory it scans, or a file it discovers *inside* such a directory), the unprivileged monitoring user can plant a symlink there and make the root process read a file of their choosing (`/etc/shadow`, a private key). A caller-chosen root cannot be trusted just because the plugin would legitimately read the default location: `--path=/var/crash` is fine, `--path=/tmp/attacker` is not, and the plugin cannot tell them apart without a containment check. Confine every such access, at **every** edge (the directory scanned, each file found inside it, and the final read), not just the first one:
+* **External commands**: Use `lib.shell.shell_exec()` with an argv list (always `shell=False`), never `os.system()` or `subprocess` with `shell=True`. Put each user-supplied value in its own element (`['restic', f'--repo={repo}', 'check']`, `['ping', '-q', hostname]`), never assemble a command string. A value starting with `-` can still become an *option* (an ssh destination `-oProxyCommand=...`, `ping -f`), so guard values that reach a command as a positional argument or target with `coe(lib.shell.safe_cli_value(args.HOSTNAME, '--hostname'))`. Unlike the official Monitoring Plugins guidelines, we accept PATH-based resolution for cross-platform compatibility, aware that a compromised PATH could redirect commands.
+* **Input validation**: Validate all user input; use `argparse` type converters (`type=int`, `type=float`, `type=lib.args.csv`).
+* **Temporary files**: Avoid them; prefer `lib.db_sqlite` or `lib.cache`. If unavoidable, fail cleanly when the file cannot be created, and delete it when done.
+* **Confining a path a privileged plugin was pointed at**: When a root plugin opens, stats, globs or lists a location a caller-supplied value can steer (`--path`, `--filename`, `--socket`, a scanned directory or a file found *inside* it), a planted symlink makes root read e.g. `/etc/shadow`; `--path=/var/crash` and `--path=/tmp/attacker` look alike without a containment check. Confine **every** edge (directory, each file found, final read):
 
-There are two kinds of access, and each has its own guard.
+    * **Reading a file**: let `lib.disk` open it, `success, content = lib.disk.read_file(candidate, allowed_roots=[root], nofollow=True)`. Never check and then `open()` yourself (check-then-use; `O_NOFOLLOW` guards only the last component): `lib.disk.open_file()`, behind `read_file()` and `read_env()`, verifies the opened handle against the path and accepts only regular files. Take everything from that handle; a second look at the path (`os.stat()`, `file_exists()`, `open()`) may see another file. For log lines, `lib.logsource.read(..., allowed_roots=...)` does the same.
+    * **Executing a file, connecting to a socket, or taking an account from a file's owner**: these cannot be checked on a handle, so call `success, resolved = lib.disk.resolve_trusted_path(candidate)` (`lib.base.cu(resolved)` on failure) and use `resolved`, never `candidate`. It requires that only root (and the given `owners`) can change the object and every directory above it. References: `--command` in `apache-httpd-security` and `nginx-security`, `--socket` in `fail2ban` and `strongswan-connections`, and `lib.nextcloud.run_occ()`, which runs `occ` as the owner of `config/config.php` and refuses a symlinked `config.php`.
+    * A location is never trusted by its prefix: the monitoring user owns `/run/icinga2` and `/var/log/icinga2`, `/run/user/<uid>` exists per session, and `/opt` trees often belong to service accounts. Only the ownership check decides.
+    * Answer "does not exist" and "not allowed" identically for paths outside the roots, and check the roots first, otherwise the plugin reveals which files exist. Under `--test`, read fixtures only through `lib.lftest.test_text()` or `lib.lftest.test_json()`, never with `file_exists()` first.
+    * Never weaken this to a filename check (`if name == 'vmcore-dmesg.txt'`), which binds the symlink's name, not its target. Where a shared `lib` function reads, the guard belongs in the `lib`. As defense in depth, pin arguments in the sudoers entry (see the `LF_LIBRENMS_VALIDATE` alias in `assets/sudoers/`), but never rely on it alone. Treat a socket like a binary: a planted one feeds root a chosen response, which is code execution when the client deserializes it (`fail2ban-client` uses `pickle`).
 
-**Reading a file.** Let `lib.disk` do the open, with `allowed_roots` and `nofollow`:
-
-```python
-success, content = lib.disk.read_file(candidate, allowed_roots=[root], nofollow=True)
-```
-
-A containment check followed by an `open()` of your own is check-then-use, and `O_NOFOLLOW` guards only the last path component: a second local process can swap a directory higher up for a symlink between the check and the open. `lib.disk.open_file()`, which `read_file()` and `read_env()` use, therefore compares the handle it opened with what the path names afterwards, and refuses anything but a regular file (a FIFO would block the check, a device can have side effects). Take everything you need from that one handle; a second look at the path (`os.stat()`, `file_exists()`, another `open()`) can see a different file. For a stream of log lines, `lib.logsource.read(..., allowed_roots=...)` does the same.
-
-**Executing a file, connecting to a socket, or taking an account from the owner of a file.** None of these can be checked on a handle afterwards, so the path has to be out of everybody else's reach before it is used:
-
-```python
-success, resolved = lib.disk.resolve_trusted_path(candidate)
-if not success:
-    lib.base.cu(resolved)
-# execute or connect to `resolved`, never to `candidate`
-```
-
-`resolve_trusted_path()` accepts the path only if root (and the accounts passed as `owners`) alone can change the object and every directory above it, and returns the resolved path. Use that path: a symlink on the way is then already resolved, and swapping it afterwards changes nothing. Reference implementations: `--command` in `apache-httpd-security` and `nginx-security`, `--socket` in `fail2ban` and `strongswan-connections`, and `lib.nextcloud.run_occ()`, which runs `occ` as the owner of `config/config.php` and therefore also refuses a `config.php` that is a symlink.
-
-A location is never trusted because of its prefix. The monitoring user owns directories below `/run` and `/var/log` on every host that runs the Icinga agent (`/run/icinga2`, `/var/log/icinga2`), `/run/user/<uid>` exists for every session, and a vendor tree below `/opt` often belongs to a service account. A prefix check such as `is_within(path, ['/run'])` narrows what can be named, but only the ownership check decides whether it can be trusted.
-
-Answer "does not exist" and "not allowed" the same way for a path outside the roots, and check the roots first: a plugin that reports "not found" for `/root/.ssh/id_ed25519` but something else for `/root/.ssh/nope` tells the caller which files exist. The same holds for `--test`: read fixtures through `lib.lftest.test_text()` or `lib.lftest.test_json()` only, never with `file_exists()` first.
-
-Do not weaken this to a filename check (`if name == 'vmcore-dmesg.txt'`): that binds the symlink's name, never its target. Where a shared `lib` function does the reading, the guard belongs in the `lib` so every consumer inherits it. As defense in depth, pin the arguments in the sudoers entry so the monitoring user cannot pass an arbitrary value at all (see the `LF_LIBRENMS_VALIDATE` alias in `assets/sudoers/`), but never rely on the sudoers file as the only guard. A socket a root plugin connects to deserves the same care as a binary it runs: whoever can put a socket in its place feeds the root process a response of their choosing, which is a remote-code-execution primitive when the client deserializes it (`fail2ban-client` uses `pickle`).
-* **Credentials**: Never log or print passwords, tokens, or other secrets in plugin output - not even in verbose mode.
-* **Network communication**: Use HTTPS by default. Support `--insecure` to allow self-signed certificates where needed, but never make insecure the default.
-* **Internal management endpoints**: Checks that talk to an internal management endpoint are the one exception to the rule above. An Icinga API port, a BMC, a storage controller or a backup appliance practically always presents a certificate signed by its own CA, which no host trusts out of the box, so verifying by default would break every deployment of the check. Those plugins may set `DEFAULT_INSECURE = True`, and then must offer `--no-insecure` as the counterpart so an admin who added the CA to the system trust store can enforce verification:
-
-```python
-    parser.add_argument(
-        '--insecure',
-        help=lib.args.help('--insecure'),
-        dest='INSECURE',
-        action='store_true',
-        default=DEFAULT_INSECURE,
-    )
-
-    parser.add_argument(
-        '--no-insecure',
-        help=lib.args.help('--no-insecure'),
-        dest='INSECURE',
-        action='store_false',
-        default=DEFAULT_INSECURE,
-    )
-```
-
-Both arguments share the `INSECURE` destination and repeat the same `default`, so the outcome does not depend on the order in which they are declared. Checks against public or customer-facing endpoints keep `DEFAULT_INSECURE = False` and offer `--insecure` only, where a `--no-insecure` counterpart would be a no-op.
+* **Credentials**: Never log or print passwords, tokens or other secrets, not even in verbose mode.
+* **Network communication**: HTTPS by default. Support `--insecure` for self-signed certificates, never make insecure the default.
+* **Internal management endpoints** (Icinga API, BMC, storage controller, backup appliance) are the one exception: they practically always use their own CA, so plugins for them may set `DEFAULT_INSECURE = True` and must then offer `--no-insecure` (`help=lib.args.help('--no-insecure')`, `action='store_false'`) as the counterpart to `--insecure` (`action='store_true'`). Both share `dest='INSECURE'` and the same `default=DEFAULT_INSECURE`, so declaration order does not matter. Checks against public or customer-facing endpoints keep `DEFAULT_INSECURE = False` and offer `--insecure` only.
 
 
 ### Plugin Output
 
-Plugins must only print to STDOUT. Never print to STDERR, as Icinga/Nagios does not capture it.
-
-The output structure follows the Monitoring Plugins standard:
+Print to STDOUT only, never to STDERR (Icinga/Nagios does not capture it). Structure:
 
 ```text
-STATUS_TEXT - summary message | perfdata
+message | perfdata
 detailed line 1
 detailed line 2 | more_perfdata
 ```
 
-The first line is the most important - Icinga/Nagios uses it for notifications, web interface display, and SMS alerts. Everything after the first newline is considered "long output" and only shown in detail views.
+The first line is used for notifications, the web interface and SMS; everything after the first newline is "long output" for detail views.
 
-Rules:
-
-* Print a short concise message in the first line within the first 80 chars if possible.
-* Use multi-line output for details (`msg_body`), with the most important output in the first line (`msg_header`).
-* Performance data is separated from text output by a pipe (`|`) character. Additional perfdata can follow on subsequent lines after a pipe.
-* Do not use the pipe character (`|`) in the text output itself, as Icinga/Nagios uses it as a delimiter to separate text from performance data. `lib.base.oao()` automatically replaces stray pipes in the message.
+* A short, concise first line within 80 chars if possible (`msg_header`), details in further lines (`msg_body`).
+* Perfdata follows a pipe (`|`), also on subsequent lines. Never use `|` in the text itself; `lib.base.oao()` replaces stray pipes.
 * Don't print "OK".
-* Print "\[WARNING\]" or "\[CRITICAL\]" for clarification next to a specific item using `lib.base.state2str()`.
+* Print "\[WARNING\]" or "\[CRITICAL\]" next to a specific item using `lib.base.state2str()`.
 * If possible give a help text to solve the problem.
-* Multiple items checked, and ...
-    * ... everything ok? Print "Everything is ok." or the most important output in the first line, and optional the items and their data attached in multiple lines.
-    * ... there are warnings or errors? Print "There are warnings." or "There are errors." or the most important output in the first line, and optional the items and their data attached in multiple lines.
-* Based on parameters etc. nothing is checked at the end? Print "Nothing checked." Where the plugin still knows what its filters dropped, name that instead: "2 version locks and 1 exclusion in place, filtered out by `--match` or `--ignore`." tells the admin what the host carries and why none of it is listed, while "Nothing checked." reads like a check that never ran. Put "Everything is ok." in front of it only after everything else has had its say on the state, so the line never claims all is well and then reports a problem below it. Reference implementations: `rpm-versionlock` and `deb-versionlock`.
-* Wrong username or password? Print "Failed to authenticate."
-* Use short "Units of Measurements" without white spaces, including these terms:
-    * Bits: use `human.bits2human()`
-    * Bytes: use `human.bytes2human()`
-    * I/O and Throughput: `human.bytes2human() + '/s'` (Byte per Second)
-    * Network: "Rx/s", "Tx/s", use `human.bps2human()`
-    * Numbers: use `human.number2human()`
-    * Percentage: 93.2%
-    * Read/Write: "R/s", "W/s", "IO/s"
-    * Seconds, Minutes etc.: use `human.seconds2human()`
-    * Temperatures: 7.3C, 45F.
-* Use ISO format for date or datetime ("yyyy-mm-dd", "yyyy-mm-dd hh:mm:ss")
-* Print human readable datetimes and time periods ("Up 3d 4h", "2019-12-31 23:59:59", "1.5s")
+* Multiple items checked: print "Everything is ok." or "There are warnings." / "There are errors." (or the most important output) in the first line, optionally followed by the items.
+* Nothing checked because of the parameters: "Nothing checked.", or better name what the filters dropped ("2 version locks and 1 exclusion in place, filtered out by `--match` or `--ignore`."). Prefix "Everything is ok." only once nothing else affects the state. References: `rpm-versionlock`, `deb-versionlock`.
+* Wrong username or password: print "Failed to authenticate."
+* Short units without white space: bits `human.bits2human()`, bytes `human.bytes2human()`, throughput `human.bytes2human() + '/s'`, network "Rx/s" / "Tx/s" with `human.bps2human()`, numbers `human.number2human()`, percentage `93.2%`, "R/s", "W/s", "IO/s", durations `human.seconds2human()`, temperatures `7.3C`, `45F`.
+* ISO dates ("yyyy-mm-dd", "yyyy-mm-dd hh:mm:ss") and human-readable periods ("Up 3d 4h", "1.5s").
 
 
 ### Verbose Output
 
-If a plugin supports `-v`/`--verbose`, it should implement up to three verbosity levels (stackable `-v -v -v` or `--verbose --verbose --verbose`):
-
-| Level | Output |
-|---|---|
-| 0 (default) | Single-line summary, minimal output |
-| 1 (`-v`) | Single-line with additional detail (e.g. list of affected items) |
-| 2 (`-v -v`) | Multi-line with configuration debug info (e.g. commands executed, API endpoints queried) |
-| 3 (`-v -v -v`) | Extensive diagnostic detail for troubleshooting |
-
-Note: Most of our plugins use `--lengthy` instead of `-v` for extended output. The verbosity levels above apply if the plugin explicitly supports `--verbose`.
+With `-v` / `--verbose`, up to three stackable levels: 0 single-line summary, 1 (`-v`) single line with more detail, 2 (`-v -v`) multi-line debug info (commands, API endpoints), 3 (`-v -v -v`) extensive diagnostics. Most plugins use `--lengthy` instead.
 
 
 ### Verbosity parameter convention: `--lengthy` and `--brief`
 
-`--lengthy` and `--brief` are the two verbosity knobs admins use to tune what a plugin prints. They are **orthogonal** (not mutually exclusive) and control different axes of the output:
+The two knobs are **orthogonal**: `--lengthy` **adds** columns to every row, `--brief` **hides** rows within the thresholds (only WARN/CRIT remain), both together hide OK rows and widen the rest.
 
-| Parameter | Axis | Effect |
-|-----------|------|--------|
-| default | rows × columns | Show all checked items with the core columns. |
-| `--lengthy` | columns | **Add** extra columns to every row (e.g. full details, debug info). |
-| `--brief` | rows | **Hide** rows that are within the thresholds. Show only items in WARN/CRIT state. |
-| `--lengthy --brief` | rows × columns | Hide OK rows, show extra columns on the rows that remain. |
-
-Rules:
-
-* **Perfdata is always complete.** `--brief` and `--lengthy` only reshape the human-readable message. Every checked item still emits perfdata so Grafana can trend everything.
-* **Alerting is unaffected.** All items (including the ones `--brief` hides) still drive the overall check state. `--brief` is a display filter, not a threshold.
-* **When `--brief` hides everything**, the plugin prints only the summary header ("Everything is ok. (thresholds)"), not an empty table. Admins on a quiet system see one line.
-* **`--lengthy` and `--brief` are always combinable.** Do not mark them mutually exclusive in `argparse`.
-* **When to support `--brief`**: add it whenever the default output can grow unbounded on large systems (hundreds of disk mounts, thousands of DHCP scopes, hundreds of HAProxy backends, etc.). Reference implementations: `check-plugins/disk-usage` and `check-plugins/dhcp-scope-usage`.
-* **Help text** for `--brief` should describe the filter semantic and explicitly state that perfdata and alerting are unaffected, so the admin understands that `--brief` is safe to use on production without losing trending data.
+* **Perfdata is always complete**; both only reshape the message.
+* **Alerting is unaffected**; hidden items still drive the state.
+* **When `--brief` hides everything**, print only the summary header ("Everything is ok. (thresholds)"), not an empty table.
+* **Always combinable**; never mutually exclusive in `argparse`.
+* **Support `--brief`** whenever the default output can grow unbounded (hundreds of mounts, thousands of DHCP scopes, hundreds of HAProxy backends). References: `check-plugins/disk-usage`, `check-plugins/dhcp-scope-usage`.
+* The `--brief` **help text** states the filter semantic and that perfdata and alerting are unaffected.
 
 
 ### Plugin Performance Data, Perfdata
 
-"UOM" means "Unit of Measurement".
+Format, space-separated, UOM = Unit of Measurement: `'label'=value[UOM];[warn];[crit];[min];[max]`
 
-Format (space-separated label/value pairs):
-
-```text
-'label'=value[UOM];[warn];[crit];[min];[max]
-```
-
-Rules:
-
-* Labels may contain any characters except `=` (equals) and `'` (single quote).
-* **Prefer `snake_case` labels.** Multi-word labels should use underscores, not spaces (`active_processes`, not `active processes`). Per-instance labels should prefix the instance name with an underscore (`<instance>_<metric>`), for example `sda_read_bytes`, `www_saturation`, `procs_cpu_percent`. This matches the convention used by `procs`, `disk-io`, and other per-instance plugins, makes Grafana regex and InfluxDB tag matching trivial, and avoids the need for single quotes around labels in the `STATUS_TEXT | perfdata` line. Sanitize pool/instance names with `re.sub(r'\W+', '_', name)` so exotic names like `my-app` become `my_app_<metric>`.
-* Single quotes around the label are optional but required if the label contains spaces. Prefer underscores over spaces so the quotes are never needed.
-* The first 19 characters of a label should be unique (RRD data source limitation).
-* `value`, `min`, and `max` must match the character class `[-0-9.]` and share the same UOM.
+* Labels may contain anything except `=` and `'`.
+* **Prefer `snake_case` labels** (`active_processes`), per-instance as `<instance>_<metric>` (`sda_read_bytes`, `www_saturation`), as in `procs` and `disk-io`. This eases Grafana regex and InfluxDB tag matching and makes quotes unnecessary. Sanitize names with `re.sub(r'\W+', '_', name)`.
+* Quotes around the label are required only if it contains spaces.
+* The first 19 characters of a label should be unique (RRD limitation).
+* `value`, `min` and `max` match `[-0-9.]` and share the same UOM; `min` / `max` are not required for `%`.
 * `warn` and `crit` use the range format (see [Threshold and Ranges](#threshold-and-ranges)).
-* `min` and `max` are not required for percentage (`%`) UOM.
 * Trailing unfilled semicolons may be dropped.
+* UOM: none (a number of things), `s` (also `us`, `ms`), `%`, `B` (also `KB`, `MB`, `TB`; bytes preferred, they are exact), `c` (continuous counter, do not use).
 
-UOM suffixes:
+**Do not use continuous counters** (`c`). Compute the delta between two runs in the plugin, store the previous measurement with `lib.db_sqlite`, and emit an absolute value with a real unit ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320)). This spares Grafana `non_negative_difference()`, keeps aggregations and legend tables correct, and preserves the unit. The `example` plugin implements the pattern.
 
-```text
-no unit specified - assume a number (int or float) of things (eg, users, processes, load averages)
-s - seconds (also us, ms etc.)
-% - percentage
-B - bytes (also KB, MB, TB etc.). Bytes preferred, they are exact.
-c - a continuous counter (such as bytes transmitted on an interface [so instead of 'B']) - do not use
-```
-
-**Do not use continuous counters** (`c`). Instead, calculate the delta between two measurements in the plugin itself and emit the result as an absolute value with a real unit ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320)). Store the previous measurement in a local SQLite database using `lib.db_sqlite`. This approach:
-
-* Avoids forcing Grafana to compute `non_negative_difference()` over millions of data points on every panel refresh.
-* Enables correct aggregation in Grafana (`mean()`, `min()`, `max()` work as expected on absolute values, but produce wrong results on cumulative counters).
-* Allows meaningful legend tables (first, min, mean, max, last) in Grafana panels.
-* Preserves the actual unit of measurement (`B`, `%`, `s`, etc.) in perfdata.
-* Saves resources on the monitoring server by doing the calculation once per check run instead of repeatedly in Grafana.
-
-See the [example](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/example/example) plugin for a complete implementation of this pattern.
-
-Wherever possible, prefer percentages over absolute values to assist users in comparing different systems with different absolute sizes.
-
-Be aware of already-aggregated values returned by systems and applications. Apache for example returns a value "137.5 kB/request". Sounds good, but this is not a value at the current time of measurement. Instead, it is the average of all requests during the lifetime of the Apache worker process. If you use this in some sort of Grafana panel, you just get a boring line which converges towards a constant value very fast. Not useful at all.
-
-A monitoring plugin has to calculate such values always on its own. If this is not possible because of missing data, discard them.
+Prefer percentages over absolute values, so systems of different size compare. Never emit already-aggregated values such as Apache's lifetime average "137.5 kB/request" (a flat line); calculate them in the plugin or discard them.
 
 
 ### PEP 8
 
-We use [PEP 8 -- Style Guide for Python Code](https://www.python.org/dev/peps/pep-0008/) where it makes sense.
+We use [PEP 8](https://www.python.org/dev/peps/pep-0008/) where it makes sense.
 
-**String quoting:** Use single quotes as the default. Use double quotes only inside f-string expressions (e.g. `f'{lib.base.state2str(state, prefix=" ")}'`) or when the string itself contains single quotes (e.g. `'Python module "psutil" is not installed.'`). Use `"""` for all triple-quoted strings (docstrings, `DESCRIPTION`, SQL, etc.). This is enforced by `ruff format`.
+**String quoting:** single quotes by default; double quotes only inside f-string expressions (`f'{lib.base.state2str(state, prefix=" ")}'`) or when the string contains single quotes. `"""` for all triple-quoted strings (docstrings, `DESCRIPTION`, SQL). Enforced by `ruff format`.
 
 
 ### Imports
 
-Import every `lib.X` module the plugin actually uses, even when another `lib.*` module already pulls it in transitively. Relying on transitive imports breaks the moment an upstream `lib` module reorganises its own imports, and ruff/pylint cannot warn about something the file itself does not declare.
-
-Bad:
-
-```python
-import lib.base
-
-# works today only because lib.base happens to import lib.time
-now = lib.time.now()
-```
-
-Good:
-
-```python
-import lib.base
-import lib.time
-
-now = lib.time.now()
-```
-
-Keep `import lib.*` lines sorted alphabetically. `ruff` (via the import-sorting rules in `pyproject.toml`) groups them with the other third-party imports.
+Import every `lib.X` module the plugin uses, even if another `lib.*` module pulls it in transitively (e.g. `import lib.time` for `lib.time.now()` although `lib.base` imports it). Transitive imports break when `lib` reorganises, and linters cannot warn. Keep `import lib.*` lines sorted; `ruff` groups them with the third-party imports.
 
 
 ### DESCRIPTION Variable
 
-Every plugin must define a `DESCRIPTION` variable that is passed to `argparse.ArgumentParser(description=DESCRIPTION)`. Rules:
+Every plugin defines a `DESCRIPTION`, passed to `argparse.ArgumentParser(description=DESCRIPTION)`:
 
-* At least 2-3 sentences that explain what the plugin does, from the perspective of the admin deploying it.
-* Written in fluent English, no implementation details (no mention of library functions, class names, or internal patterns).
-* The first sentence must describe the purpose: what the plugin monitors or collects (e.g. "Monitors CPU utilization on ...", "Checks the installed ... version against ...").
-* Must include at least one "Alerts when ..." or "Alerts if ..." clause that tells the admin under which conditions the plugin raises a warning or critical state.
-* Use `"""` triple quotes.
-* Keep line length around 90 characters.
-* Plugins of the same type (e.g. all `-version` checks, all `huawei-dorado-*` checks) must use identical or near-identical DESCRIPTION text, with only the product name swapped. Consistency across plugin families is mandatory.
-* If the plugin has a sudoers file in `assets/sudoers/`, the DESCRIPTION must end with "Requires root or sudo."
-* If the plugin uses `lib.smb`, the DESCRIPTION must mention SMB share support.
-* If the plugin uses `--count` for consecutive threshold violations (Handles Periods), the DESCRIPTION must mention this behavior, e.g. "Alerts only if the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes."
-* If the plugin supports `--lengthy`, the DESCRIPTION must mention "Supports extended reporting via --lengthy."
-* The README Overview must include at least the text from the `DESCRIPTION`.
+* At least 2-3 sentences from the perspective of the admin deploying it, in fluent English, without implementation details (no library functions, class names, internal patterns).
+* The first sentence states the purpose ("Monitors CPU utilization on ...", "Checks the installed ... version against ...").
+* At least one "Alerts when ..." or "Alerts if ..." clause.
+* `"""` triple quotes, lines around 90 characters.
+* Plugins of the same type (all `-version` checks, all `huawei-dorado-*`) use identical or near-identical text with only the product name swapped. Mandatory.
+* With a sudoers file in `assets/sudoers/`, end with "Requires root or sudo."
+* With `lib.smb`, mention SMB share support.
+* With `--count`, mention it, e.g. "Alerts only if the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes."
+* With `--lengthy`, mention "Supports extended reporting via --lengthy."
+* The README Overview includes at least the `DESCRIPTION` text.
 
 
 ### Docstrings
 
-Docstrings in the plugins and in our [Libraries](https://github.com/Linuxfabrik/lib) follow the [numpydoc standard](https://numpydoc.readthedocs.io/en/latest/format.html#docstring-standard), so that calling `pydoc lib/base.py` works, for example.
+Docstrings in the plugins and the [Libraries](https://github.com/Linuxfabrik/lib) follow the [numpydoc standard](https://numpydoc.readthedocs.io/en/latest/format.html#docstring-standard), so `pydoc lib/base.py` works.
 
 
 ### Ruff
 
-We use [ruff](https://docs.astral.sh/ruff/) as the primary linter and formatter. It covers PEP 8 enforcement, import sorting (replaces isort), and common bug patterns. Configuration is in `pyproject.toml`. Both `ruff-check` and `ruff-format` run automatically as pre-commit hooks.
-
-```bash
-# check a single plugin
-ruff check check-plugins/my-check/my-check
-
-# format a single plugin
-ruff format check-plugins/my-check/my-check
-```
+[ruff](https://docs.astral.sh/ruff/) is the primary linter and formatter (PEP 8, import sorting, common bug patterns), configured in `pyproject.toml` and run by the pre-commit hooks `ruff-check` and `ruff-format`. By hand: `ruff check check-plugins/my-check/my-check`, `ruff format check-plugins/my-check/my-check`.
 
 
 ### PyLint
 
-PyLint is a manual, per-plugin tool. It catches issues that ruff does not cover (e.g. undefined variables across module boundaries), but it is not a pre-commit hook: its metric checks (`R0912` branches, `R0914` locals, `R0915` statements) fire on almost every plugin, because a check plugin is one long linear function by design, and `C0301` measures against PyLint's own 100-character default while the house limit is the 88 characters ruff enforces. Run it by hand when you want to audit a plugin, and read the metric findings as a hint rather than a verdict.
-
-```bash
-# lint a single plugin
-pylint check-plugins/my-check/my-check
-```
+PyLint is a manual audit tool (`pylint check-plugins/my-check/my-check`), not a pre-commit hook: it finds what ruff misses, but its metric checks (`R0912`, `R0914`, `R0915`) fire on almost every plugin by design and `C0301` uses 100 instead of 88 characters. Read metric findings as a hint.
 
 
 ### Unit Tests
 
-Unit tests are implemented using the `unittest` framework (<https://docs.python.org/3/library/unittest.html>) with a declarative, data-driven approach. Test definitions are a list of dicts (or a list of platform/image items for container tests), materialised into one real `unittest` test method per item via `lib.lftest.attach_tests()` or `lib.lftest.attach_each()`. See the [example](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/example/unit-test/run) plugin for the reference implementation.
+Tests use `unittest`, data-driven: a list of dicts (or platforms/images for container tests), one real test method per item via `lib.lftest.attach_tests()` or `lib.lftest.attach_each()`. Reference: [example](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/example/unit-test/run).
 
 
 #### Test directory structure
 
-```text
-check-plugins/my-check/unit-test/
-├── run                     # the test file
-└── stdout/                 # test data files (fixtures)
-    ├── empty-response      # scenario-based names, not EXAMPLE01
-    ├── three-nodes-healthy
-    └── three-nodes-one-down
-```
+`unit-test/` holds the `run` file and the fixtures, e.g. `stdout/empty-response`, `stdout/three-nodes-healthy` (scenario names, not `EXAMPLE01`). Create `stderr/` only when a test injects stderr, and no empty `retc/` or `stderr/` directories.
 
-Only create `stderr/` if a test actually needs to inject stderr data. Do not create empty `retc/` or `stderr/` directories.
-
-A plugin that reads configuration files instead of command output cannot be driven by `--test`, because there is no command whose stdout a fixture could stand in for. Those plugins take a second, `argparse.SUPPRESS`ed hook that prefixes every path they open, and their fixtures are whole directory trees under `config/` that stand in for the host's `/etc`:
-
-```text
-check-plugins/my-check/unit-test/
-├── run
-└── config/
-    ├── no-locks/etc/dnf/plugins/versionlock.list
-    └── two-locks/etc/dnf/plugins/versionlock.list
-```
-
-Name the hook so that `--test` cannot abbreviate into it. `--config-root` works, `--test-config-root` does not: once `--test` itself is gone from the parser, argparse resolves `--test=` to the longer option and the fixture root silently becomes the empty string. Reference implementations: `check-plugins/rpm-versionlock` (files only) and `check-plugins/deb-versionlock` (both hooks side by side, `--test` for the commands and `--config-root` for the files).
-
-The directory a fixture lives in says what the plugin reads it as, so pick the name by the shape of the input rather than by the plugin:
+The directory names how the plugin reads a fixture:
 
 | Directory | Holds | Reached through |
 |---|---|---|
 | `stdout/`, `stderr/`, `retc/` | one file per stream of a command | `--test` |
 | `config/` | directory trees standing in for the host's `/etc` | a hidden root hook such as `--config-root` |
-| `<app>/` | directory trees standing in for an installation the plugin inspects, named after the application (`wordpress/`) | a normal path parameter such as `--path` |
-| `fixtures/` | single files the plugin opens by path, a token file for example | a normal path parameter such as `--api-token-file` |
-| `<service>/` | answers of a remote service the plugin reads through a library, named after the service (`endoflifedate/`) | the test seeds them where the library looks, before the plugin subprocess starts |
+| `<app>/` | trees standing in for an inspected installation, named after the application (`wordpress/`) | a path parameter such as `--path` |
+| `fixtures/` | single files opened by path, e.g. a token file | a path parameter such as `--api-token-file` |
+| `<service>/` | answers of a remote service read through a library, named after it (`endoflifedate/`) | seeded where the library looks, before the plugin runs |
 
-`<app>/` and `fixtures/` hold input an administrator points the plugin at deliberately, which is why they sit behind a documented parameter instead of a hidden hook. Reference implementations: `check-plugins/wordpress-checksums` (`wordpress/`) and `check-plugins/wordpress-security-scan` (`wordpress/` and `fixtures/` side by side).
-
-`<service>/` is the exception that no parameter reaches. Where a shared library answers from a remote service, neither `--test` nor a path parameter gets between the two, and pinning a verdict against the live service makes the testcase age: it breaks as soon as upstream changes its data or a date passes. The test therefore puts the answer where the library looks for it and drives the plugin normally. Because the library is the same code in every plugin that uses it, cover the service's answer shapes in **one** plugin and have the others point at it in their module docstring, rather than repeating near-identical cases across the tree. Reference implementation: `check-plugins/mysql-version` (`endoflifedate/`, seeded into the `lib.cache` entry `lib.version.check_eol()` reads, with `TMPDIR` pointed at a throwaway directory so the shared per-user cache stays untouched). Note the guard it carries: one testcase asserts that the seeded file really landed in the throwaway directory, because a seeding mechanism that quietly stops working turns every other case into a live test against the real service without failing.
-
-The Redfish checks keep their fixtures in `stdout/`, but a scenario there is not the output of one command. It is the output of a `--verbose` run, a `### GET <path>` block for every response the check evaluated, and `lib.redfish.replay()` answers every request of the walk from those blocks, matched by path. The test therefore runs the very code that walks a controller, a scenario holds any number of members, and the output a user attaches to a bug report becomes a test case without being taken apart first. Reference implementation: `check-plugins/redfish-sensors`.
+* Plugins reading configuration files get a second, `argparse.SUPPRESS`ed hook prefixing every path, with trees under `config/` (e.g. `config/two-locks/etc/dnf/plugins/versionlock.list`). `--config-root` works, `--test-config-root` does not: argparse would resolve an abbreviated `--test=` to it. References: `check-plugins/rpm-versionlock`, `check-plugins/deb-versionlock` (both hooks).
+* `<app>/` and `fixtures/` hold input an admin points the plugin at deliberately, hence a documented parameter. References: `check-plugins/wordpress-checksums`, `check-plugins/wordpress-security-scan` (both side by side).
+* `<service>/`: where a shared library answers from a remote service, pinning a verdict against the live service makes the test age. Seed the answer where the library looks and run the plugin normally. Cover the answer shapes in **one** plugin and point to it from the others' module docstring. Reference: `check-plugins/mysql-version` (`endoflifedate/` seeded into the `lib.cache` entry `lib.version.check_eol()` reads, `TMPDIR` pointed at a throwaway directory). One testcase asserts the seeded file landed there, so broken seeding cannot silently turn every case into a live test.
+* Redfish checks keep `--verbose` runs (`### GET <path>` blocks) in `stdout/`, replayed by path via `lib.redfish.replay()`, so a bug report's output is a test case as is. Reference: `check-plugins/redfish-sensors`.
 
 
 #### Test data file naming
 
-Fixture files in `stdout/` are named after the **scenario** they represent, not after an expected plugin state. The expected state depends on the combination of fixture content and plugin parameters (thresholds, filters, switches) and therefore cannot be encoded in the fixture filename alone.
-
-Use descriptive, lowercase, hyphenated names that describe the shape of the data:
-
-* `empty-response`, `single-node`, `three-nodes-healthy`
-* `cpu-80-percent`, `disk-nearly-full`, `memory-400mb-used`
-* `three-nodes-one-down`, `malformed-json`, `service-unreachable`
-
-The same fixture may (and should) be reused by multiple testcases that vary the plugin parameters to reach different states. For example, a single `cpu-80-percent` fixture can drive an `ok-below-warn` test with `--warning 90 --critical 95`, a `warn-above-warn` test with `--warning 70 --critical 95`, and a `crit-above-crit` test with `--warning 50 --critical 75`.
-
-The expected state is encoded in the testcase `id` instead (see below).
+Name fixtures after the **scenario**, not the expected state, which depends on fixture plus parameters: lowercase, hyphenated, describing the data (`empty-response`, `single-node`, `three-nodes-healthy`, `cpu-80-percent`, `disk-nearly-full`, `memory-400mb-used`, `three-nodes-one-down`, `malformed-json`, `service-unreachable`). Reuse a fixture across testcases with different parameters (`cpu-80-percent` for `ok-below-warn`, `warn-above-warn`, `crit-above-crit`). The state goes into the testcase `id`.
 
 
 #### Writing tests
 
-Define a `TESTS` list and use `lib.lftest.attach_tests()` to materialise one real `unittest` test method per testcase. The testcase `id` should lead with the expected state (`ok-`, `warn-`, `crit-`, `unknown-`), or with what it verifies where it pins no state, followed by a short description of what is being verified. The id becomes the test method name, so it shows up in `./run -v` output and in the unittest test count.
+Define a `TESTS` list and materialise it with `lib.lftest.attach_tests()`:
 
 ```python
-#!/usr/bin/env python3
-import sys
-
-sys.path.insert(0, '..')
-
-import unittest
-
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
-import lib.lftest
-
-
 TESTS = [
-    # Same fixture, three different threshold combinations.
-    {
-        'id': 'ok-below-warn',
-        'test': 'stdout/cpu-80-percent,,0',
-        'params': '--warning 90 --critical 95',
-        'assert-retc': STATE_OK,
-        'assert-in': ['80%'],
-    },
     {
         'id': 'warn-above-warn',
         'test': 'stdout/cpu-80-percent,,0',
         'params': '--warning 70 --critical 95',
         'assert-retc': STATE_WARN,
         'assert-regex': r'80%.*\[WARNING\]',
-    },
-    {
-        'id': 'crit-above-crit',
-        'test': 'stdout/cpu-80-percent,,0',
-        'params': '--warning 50 --critical 75',
-        'assert-retc': STATE_CRIT,
-        'assert-regex': r'80%.*\[CRITICAL\]',
-    },
-    # Different fixture, different scenario.
-    {
-        'id': 'unknown-malformed-json',
-        'test': 'stdout/malformed-json,,0',
-        'params': '--warning 80 --critical 90',
-        'assert-retc': STATE_UNKNOWN,
     },
 ]
 
@@ -1014,251 +544,104 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
-
-
-if __name__ == '__main__':
-    unittest.main()
 ```
 
-The reason for `attach_tests()` over a plain `for` loop with `subTest()` is reporting accuracy. A plain `for ... subTest()` loop runs every testcase but unittest only counts the surrounding method, so `./run` reports `Ran 1 test in ...s` regardless of how many fixtures the file actually exercises. `attach_tests()` materialises one `test_<id>` method per entry in TESTS, so `./run` reports the real count and `./run -v` lists every scenario by name. Failures still surface in either pattern, but the count is misleading without the helper.
+The complete file, with imports and `unittest.main()`, is [example/unit-test/run](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/example/unit-test/run).
 
-Naming rules for the testcase `id`:
+`attach_tests()` creates one `test_<id>` method per entry, so `./run` reports the real count and `./run -v` names every scenario; a plain `for ... subTest()` loop reports `Ran 1 test`.
 
-* Lead with the expected state: `ok-`, `warn-`, `crit-`, `unknown-`. A testcase that deliberately pins no state (see `assert-retc` below) leads with what it does verify instead, `parses-` for example.
-* Follow with a short description of what the test verifies (not the fixture name): `ok-below-warn`, `warn-above-warn`, `crit-disk-full`, `unknown-missing-dependency`, `parses-rhel9-httpd-2-4-62`.
-* `id` must be unique within the `TESTS` list.
+Testcase `id`:
 
-Available assertion keys in each testcase dict:
+* Lead with the expected state (`ok-`, `warn-`, `crit-`, `unknown-`), or, for a testcase pinning no state, with what it verifies (`parses-`).
+* Follow with what the test verifies, not the fixture name: `crit-disk-full`, `unknown-missing-dependency`, `parses-rhel9-httpd-2-4-62`.
+* Unique within `TESTS`.
 
-* `assert-retc` (`int`, optional): Expected return code (`STATE_OK`, `STATE_WARN`, `STATE_CRIT`, `STATE_UNKNOWN`). Pin it wherever the fixture and the parameters decide the state, which is almost everywhere. Leave it out where something outside the testcase does: a check whose verdict comes from a remote service the fixture does not stand in for would otherwise go red when that service changes its data, with nothing wrong in the plugin. Such a testcase asserts the parsed output it does control and leaves the state alone. Reference implementations: `check-plugins/apache-httpd-version` and the `TESTS` list of `check-plugins/mysql-version`, both of which grade the version their parser found and let `check-plugins/mysql-version`'s `EOL_TESTS` cover the verdict against fixtures.
-* `assert-in` (`list` of `str`, optional): Strings that must appear in stdout.
-* `assert-not-in` (`list` of `str`, optional): Strings that must not appear in stdout.
-* `assert-regex` (`str`, optional): Regex pattern that must match stdout.
-* `assert-stderr` (`str`, optional): Expected stderr content. Default: `''`.
+Assertion keys:
+
+* `assert-retc` (`int`, optional): expected return code. Pin it wherever fixture and parameters decide the state. Leave it out where something outside the testcase decides, e.g. a remote service the fixture does not stand in for; assert the parsed output instead. References: `check-plugins/apache-httpd-version` and the `TESTS` of `check-plugins/mysql-version`, whose `EOL_TESTS` cover the verdict against fixtures.
+* `assert-in` / `assert-not-in` (`list` of `str`, optional): strings that must (not) appear in stdout.
+* `assert-regex` (`str`, optional): regex that must match stdout.
+* `assert-stderr` (`str`, optional): expected stderr, default `''`.
 
 
 #### Iterating over TESTS vs. platforms
 
-Two iteration shapes show up in the test files, and each has its own helper. Both materialise one real `unittest` test method per item so `./run` reports an accurate count and `./run -v` names every case.
+* **TESTS list** (default, fixtures via `--test=stdout/...`): `lib.lftest.attach_tests(TestCheck, TESTS)`.
+* **Platform list** (container tests, each item needing its own setup): `lib.lftest.attach_each(TestCheck, ITEMS, action, id_func=...)` with an `action(test, item)` callable; `id_func` turns an item into the method name. Examples: `check-plugins/mysql-connections/unit-test/run` (`IMAGES` of `(image, label)`, `id_func=lambda it: it[1]`), `check-plugins/cpu-usage/unit-test/run` (`CONTAINERFILES`, default `id_func=str`), `check-plugins/apache-httpd-status/unit-test/run` (`SCENARIOS` dicts, resetting a cache DB per item).
 
-* **TESTS list** (the default): a list of testcase dicts executed by `lib.lftest.run()`. Use `lib.lftest.attach_tests(TestCheck, TESTS)`. This is the right shape for everything that injects fixture data via `--test=stdout/...`.
-* **Platform list** (container-based tests): a list of images, Containerfiles, or scenario dicts where each item needs its own setup (spin up a container, build an image, reset a cache DB). Use `lib.lftest.attach_each(TestCheck, ITEMS, action, id_func=...)` with an `action(test, item)` callable that does the per-item work. The `id_func` turns one item into the test method name. Examples in-tree:
-
-    * `check-plugins/mysql-connections/unit-test/run` iterates over an `IMAGES` list of `(image, label)` tuples, with `id_func=lambda it: it[1]`.
-    * `check-plugins/cpu-usage/unit-test/run` iterates over a `CONTAINERFILES` list of strings, with the default `id_func=str`.
-    * `check-plugins/apache-httpd-status/unit-test/run` iterates over a `SCENARIOS` list of dicts where the action resets a cache DB and then replays a multi-step sequence.
-
-Do not fall back to a plain `for ... subTest()` loop. It still executes every case and failures still surface, but unittest collapses the whole loop into a single method and reports `Ran 1 test`, which hides the real coverage count from `./run` and from the `tox` summary.
+Never fall back to a plain `for ... subTest()` loop; it hides the real coverage count from `./run` and `tox`.
 
 
 #### Running tests
 
-Unit tests come in two flavors:
+* **Fast tests** inject fixtures via `--test`, run in a fraction of a second, and are safe for CI and the `tox` matrix.
+* **Container tests** use testcontainers or a `lib.lftest` container helper, need podman, and take minutes per plugin.
 
-* **Fast tests** use `--test` to inject fixture data and run in a fraction of a second. They are safe for CI and for the multi-Python-version `tox` matrix.
-* **Container tests** build a podman image per target OS, inject the plugin and `lib/`, and exercise the check against a live service. They need podman on the host and take minutes per plugin. A plugin counts as a container test when its `unit-test/run` uses testcontainers or one of the `lib.lftest` container helpers.
+Run `./run` in a plugin's `unit-test/`, or from the repo root `python tools/run-unit-tests [my-check]` with `--no-container` (fast tests only, used by `tox`) or `--only-container` (same as `tools/run-container-tests`). `tox` runs the fast tests for all Python versions, `tox -e py39` one environment.
 
-Everyday commands:
-
-```bash
-# single plugin (from its unit-test directory)
-cd check-plugins/my-check/unit-test
-./run
-
-# single plugin (from the repo root)
-python tools/run-unit-tests my-check
-
-# all plugins (fast + container)
-python tools/run-unit-tests
-
-# only the fast tests (used by tox)
-python tools/run-unit-tests --no-container
-
-# only the container tests (also available as a thin wrapper)
-python tools/run-unit-tests --only-container
-python tools/run-container-tests
-```
-
-Multi-Python coverage via `tox`:
-
-```bash
-tox                      # all supported Python versions, fast tests only
-tox -e py39              # single environment
-```
-
-`tox` invokes `tools/run-unit-tests --no-container` so the multi-Python matrix skips the container suite. Each environment installs the lockfile of its Python version (`lockfiles/pyXX/requirements.txt`), and the plugins import the lib through their `lib` symlink, so the lib repository has to be checked out beside this one (`../lib`). Run `tools/run-container-tests` separately before a release for full integration coverage.
-
-The dependencies install from pure wheels (plus a few pure-Python sdists), so no compiler or development headers are needed on the host. `skip_missing_interpreters = true` already skips environments for Python versions that are not installed at all.
+Each `tox` environment installs `lockfiles/pyXX/requirements.txt` (pure wheels and a few pure-Python sdists, no compiler needed), and the plugins import the lib via their `lib` symlink, so check it out beside this repository (`../lib`). Missing Pythons are skipped. Run `tools/run-container-tests` before a release.
 
 #### Continuous integration
 
-The `Linuxfabrik: Unit Tests` workflow runs the tests every night on `main`, not on every push or pull request, against `main` of the lib. Start it by hand with `gh workflow run lf-unit-tests.yml`, adding `--field container-tests=true` for the container tests. It runs:
-
-* the fast tests for every supported Python version, through `tox`
-* the fast tests of the plugins that ship for Windows (those with a `.windows` file), on Windows
-* a parse of every plugin with the Python 3.6 of Rocky Linux 8, the default `python3` of RHEL 8. The plugins require Python 3.9, so a plugin that Python 3.6 cannot parse is reported as a warning, not as a failure.
-* the container tests, once a week
-
-The lib repository runs the same workflow for its modules.
+`Linuxfabrik: Unit Tests` runs every night on `main` (not per push or pull request), against `main` of the lib. Start it by hand with `gh workflow run lf-unit-tests.yml`, plus `--field container-tests=true` for the container tests. It runs the fast tests per Python via `tox`, the fast tests of `.windows` plugins on Windows, a parse with Rocky Linux 8's Python 3.6 (warning only, plugins require 3.9), and weekly the container tests. The lib runs the same workflow.
 
 
 #### Container-based tests
 
-Container-based tests come in two shapes:
-
-* **Plugin runs from the host, service runs in the container.** Used when the plugin talks to a real service over the network (Keycloak, Redis, a database, a web API). Pull an upstream service image, expose its port, point the plugin at the container from outside. This is the common case.
-* **Plugin runs inside the container.** Used when the plugin reads host-local resources (`/proc`, `/sys`, distro-shipped binaries, distro-specific Python/psutil field availability) and there is no meaningful way to fixture the input. The plugin is bind-mounted into the container and executed via `container.exec()`. See `check-plugins/cpu-usage/unit-test/run` for the reference implementation.
+* **Plugin on the host, service in the container**: the common case, for plugins talking to a service over the network (Keycloak, Redis, a database, a web API).
+* **Plugin inside the container**: for plugins reading host-local resources (`/proc`, `/sys`, distro binaries, distro-specific psutil fields) that cannot be fixtured. The plugin is bind-mounted and run via `container.exec()`. Reference: `check-plugins/cpu-usage/unit-test/run`.
 
 ##### Plugin runs from the host, service runs in the container
 
-Use the `lib.lftest.run_container()` helper from the `linuxfabrik-lib` package. It wraps [testcontainers-python](https://testcontainers-python.readthedocs.io/) so that container lifecycle, port exposure, environment variables and log-based readiness waits are declarative rather than hand-rolled podman orchestration.
+Use `lib.lftest.run_container()`, a wrapper around [testcontainers-python](https://testcontainers-python.readthedocs.io/) for lifecycle, ports, environment and log-based readiness waits: `with lib.lftest.run_container(image, env={...}, ports=[8080], command='start-dev', wait_log='Listening on:') as container:`, then point the plugin at `container.get_container_host_ip()` and `container.get_exposed_port(8080)`. Reference: `check-plugins/keycloak-version/unit-test/run`.
 
-Minimal example (see `check-plugins/keycloak-version/unit-test/run` for the full reference):
-
-```python
-import subprocess
-import sys
-import unittest
-
-sys.path.append('..')
-
-import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN, STATE_CRIT
-
-IMAGES = [
-    ('quay.io/keycloak/keycloak:25.0.6', 'v25'),
-    ('quay.io/keycloak/keycloak:26.6', 'v26'),
-]
-
-
-class TestCheck(unittest.TestCase):
-    pass
-
-
-def _check_image(test, image_pair):
-    image, version_tag = image_pair
-    with lib.lftest.run_container(
-        image,
-        env={
-            'KEYCLOAK_ADMIN': 'admin',
-            'KEYCLOAK_ADMIN_PASSWORD': 'admin',
-        },
-        ports=[8080],
-        command='start-dev',
-        wait_log='Listening on:',
-    ) as container:
-        url = f'http://{container.get_container_host_ip()}:{container.get_exposed_port(8080)}'
-        result = subprocess.run(
-            [
-                'python3',
-                '../keycloak-version',
-                f'--url={url}',
-                '--username=admin',
-                '--password=admin',
-                '--path=/nonexistent',
-            ],
-            capture_output=True,
-            text=True,
-        )
-        test.assertRegex(
-            result.stdout + result.stderr,
-            rf'Keycloak\s+{version_tag}',
-        )
-        test.assertIn(
-            result.returncode,
-            (STATE_OK, STATE_WARN, STATE_CRIT),
-        )
-
-
-lib.lftest.attach_each(TestCheck, IMAGES, _check_image, id_func=lambda it: it[1])
-```
-
-Rules and tips:
-
-* **Pull upstream images whenever possible.** You do not need a custom `Containerfile` that injects Python into the service image, because the plugin runs from the host and connects to the container via the exposed port. That is the common case for API-driven checks.
-* **Wait on a log marker, not a sleep.** The `wait_log` argument takes a substring that the service writes to stdout/stderr when it is ready (e.g. `Listening on:` for Keycloak, `ready for connections.` for MariaDB). Use `wait_log_timeout` for services that take longer than 2 minutes to start.
-* **Do not hardcode state-shifting assertions.** If the plugin reports something that depends on today's date (EOL windows, "last seen N days ago", "expires in X days"), assert only that the plugin returned a valid state (any of `STATE_OK`, `STATE_WARN`, `STATE_CRIT`) and that the output contains the expected version / service identifier. Locking in a specific state will break the test every time the calendar moves past a boundary.
-* **Multi-version matrix** goes in an `IMAGES` list (or `CONTAINERFILES`, `SCENARIOS`, ...) at the top of the test file, materialised into one real test method per item via `lib.lftest.attach_each()`. Add a new major release at the bottom of the list when it becomes available upstream. See the "Iterating over TESTS vs. platforms" subsection below for the rationale.
-* **Rootless podman**: testcontainers-python works, but the Ryuk cleanup container needs to be disabled. Set `TESTCONTAINERS_RYUK_DISABLED=true` and `CONTAINER_HOST=unix:///run/user/$UID/podman/podman.sock` before running the tests. `tools/run-unit-tests` sets both automatically when it detects a container-based test.
-* **Do not run container tests via `tox`.** They are integration tests and belong in `tools/run-container-tests`, not in the multi-Python matrix. `tools/run-unit-tests` detects them automatically by inspecting the `run` file for `podman` or `testcontainers` references.
-* **Keep hand-rolled podman orchestration out of new tests.** If you find a plugin that still builds containers via `subprocess.run(['podman', 'build', ...])`, migrate it to `lib.lftest.run_container()`; the old pattern is being retired.
+* **Pull upstream images whenever possible**; the plugin runs on the host, so no custom `Containerfile` is needed.
+* **Wait on a log marker, not a sleep** (`wait_log`, e.g. `Listening on:` for Keycloak, `ready for connections.` for MariaDB; `wait_log_timeout` for services taking longer than 2 minutes).
+* **Do not hardcode state-shifting assertions.** For date-dependent results (EOL windows, "last seen N days ago", "expires in X days"), assert only a valid state and the expected version or identifier.
+* **Multi-version matrix** in an `IMAGES` list (or `CONTAINERFILES`, `SCENARIOS`) at the top, via `lib.lftest.attach_each()`. Add new major releases at the bottom.
+* **Rootless podman**: set `TESTCONTAINERS_RYUK_DISABLED=true` and `CONTAINER_HOST=unix:///run/user/$UID/podman/podman.sock`; `tools/run-unit-tests` does both automatically.
+* **Do not run container tests via `tox`**; `tools/run-unit-tests` detects them by `podman` or `testcontainers` in the `run` file.
+* **No hand-rolled podman orchestration in new tests.** Migrate `subprocess.run(['podman', 'build', ...])` to `lib.lftest.run_container()`.
 
 
 ##### Plugin runs inside the container
 
-Some plugins can only be tested meaningfully when they run inside a distribution they target, because the data source is host-local (`/proc`, `/sys`, a distro binary like `mariadb --version`, or a `psutil` field whose availability depends on kernel version + python version + distro packaging). There is no network endpoint we can redirect, and a static fixture would hide the thing we actually want to test: "does this plugin run cleanly on the distros our customers run".
+For host-local data sources (a fixture would hide whether the plugin runs cleanly on our customers' distros), use a `Containerfile` per distro under `unit-test/containerfiles/<distro>-v<version>` that installs python3 and the requirements and keeps running via `CMD ["sleep", "infinity"]`. Iterate with `lib.lftest.attach_each()` (one `test_<distro>` per file), bind-mount `lib/` and the plugin into `/tmp`, and run them via `container.exec()`.
 
-For that case, use a `Containerfile` per target distro under `unit-test/containerfiles/<distro>-v<version>` that installs python3, the plugin's requirements and keeps the container alive via `CMD ["sleep", "infinity"]`. Iterate over the file list via `lib.lftest.attach_each()` so every distro shows up as its own `test_<distro>` method. Bind-mount `lib/` and the plugin script into `/tmp` and run them via `container.exec()`.
+**Containerfile naming**: `<distro>-v<version>`, lowercase, dash-separated, with a mandatory `v` as the separator (sorts naturally, fits `archlinux-vlatest` into the scheme): `archlinux-vlatest`, `debian-v12` / `v13`, `fedora-v43`, `rhel-v8` / `v9` / `v10`, `sles-v15` / `v16`, `ubuntu-v2204` / `v2404` / `v2604`. Image tags follow as `lfmp-<plugin>-<distro>-v<version>`.
 
-**Containerfile naming convention.** Files in `containerfiles/` follow the pattern `<distro>-v<version>`, lowercase, dash-separated, with the literal `v` prefixing the version part:
+**SLE vs. SLES**: Containerfiles use `sles-v*` (the server product; BCI is SLES-derived), while `build/linuxfabrik-monitoring-plugins.sle.spec` and `repo.linuxfabrik.ch/monitoring-plugins/sle/<version>/` name the platform (SLES and SLED). The repo URL is a public contract with customer `/etc/zypp/repos.d/` files; never rename it without coordinated migration.
 
-```text
-archlinux-vlatest
-debian-v12 / v13
-fedora-v43
-rhel-v8 / v9 / v10
-sles-v15 / v16
-ubuntu-v2204 / v2404 / v2604
-```
+The canonical distro matrix is the cpu-usage `CONTAINERFILES` list; new tests of this kind target the same platforms where possible.
 
-The `v` is mandatory and machine-readable: it is the unambiguous separator between distro and version, sorts the matrix naturally, and lets `archlinux-vlatest` slot into the same scheme as `rhel-v8`. Image tags derived from the file name follow the same shape (`lfmp-<plugin>-<distro>-v<version>`).
-
-**SLE vs. SLES.** SUSE distinguishes the platform brand `SLE` (SUSE Linux Enterprise) from the server product `SLES` (SUSE Linux Enterprise Server) under that platform. We use both deliberately:
-
-* `sles-v15`, `sles-v16` for **test and build Containerfiles** — we explicitly target the server edition (the BCI base image is SLES-derived, never SLED), so the identifier names the product.
-* `sle.spec` (`build/linuxfabrik-monitoring-plugins.sle.spec`) and the public repo path `repo.linuxfabrik.ch/monitoring-plugins/sle/<version>/` for the **platform** — the same RPM and the same repo URL are valid for SLES *and* SLED, so the platform name is what belongs there.
-
-The repo URL is a public contract with customer `/etc/zypp/repos.d/` configurations and must not be renamed without coordinated migration.
-
-The canonical distro matrix is the cpu-usage `CONTAINERFILES` list. **Where possible, new "plugin runs inside the container" tests should target the same OS platforms** so the coverage stays consistent across plugins and adding a new distro is a single-line change everywhere.
-
-Rules and tips:
-
-* **Reuse cpu-usage's `containerfiles/`** as a starting point for a new plugin - the per-distro bootstrap (pacman / apt / dnf / zypper + venv + `pip install -r lockfiles/pyXX/requirements.txt --require-hashes`, where `pyXX` matches the distro's Python LTS) is identical, only the bind-mount path for the plugin script changes.
-* **`clean_up=False` on `DockerImage`**. Testcontainers' default cleans up the built image and prunes dangling parent layers on exit, which turns every run into a full rebuild. `clean_up=False` keeps the image around so subsequent runs hit podman's layer cache and finish in seconds.
-* **`,Z` on bind mounts**. On SELinux-enforcing hosts (RHEL, Fedora, Rocky) unrelabelled bind mounts are denied by the container runtime. `mode='ro,Z'` relabels the source so the container can read it; without the `Z` flag the plugin inside the container sees "Permission denied" on `import lib`.
-* **Rootless podman caveats** - same as for the service-container pattern: `TESTCONTAINERS_RYUK_DISABLED=true` must be set, `CONTAINER_HOST` / `DOCKER_HOST` must point at the rootless socket. `tools/run-unit-tests` does this automatically.
+* **Reuse cpu-usage's `containerfiles/`**; the bootstrap (package manager + venv + `pip install -r lockfiles/pyXX/requirements.txt --require-hashes`) is identical, only the bind-mount path changes.
+* **`clean_up=False` on `DockerImage`**, so the image stays and later runs hit podman's layer cache instead of rebuilding.
+* **`,Z` on bind mounts** (`mode='ro,Z'`) on SELinux-enforcing hosts, otherwise `import lib` fails with "Permission denied" inside the container.
+* **Rootless podman**: as above (`CONTAINER_HOST` / `DOCKER_HOST` at the rootless socket).
 
 
 ### sudoers File
 
-If the plugin requires `sudo`-permissions to run, please add the plugin to the `sudoers`-files for all supported operating systems in `assets/sudoers/`. The OS name should match the ansible variables `ansible_facts['distribution'] + ansible_facts['distribution_major_version']` (eg `CentOS7`). Use symbolic links to prevent duplicate files.
+If the plugin requires `sudo`, add it to the `sudoers` files of all supported operating systems in `assets/sudoers/`. File names match `ansible_facts['distribution'] + ansible_facts['distribution_major_version']` (e.g. `CentOS7`); use symbolic links to prevent duplicates.
 
 > **Attention:** The newline at the end is required!
 
 
 ### Icinga Director Basket Config
 
-Each plugin should provide its required Director config in form of a Director basket. The basket usually contains at least one Command, one Service Template and some associated Datafields. The rest of the Icinga Director configuration (Host Templates, Service Sets, Notification Templates, Tag Lists, etc) can be placed in the `assets/icingaweb2-module-director/all-the-rest.json` file.
-
-The Icinga Director Basket for one or all plugins can be created using the `build-basket` tool.
+Each plugin provides its Director config as a basket, usually at least one Command, one Service Template and some Datafields. Everything else (Host Templates, Service Sets, Notification Templates, Tag Lists, ...) goes into `assets/icingaweb2-module-director/all-the-rest.json`. Baskets are generated by `build-basket`.
 
 > **Always review the basket before committing.**
 
 
 #### Create a Basket File from Scratch
 
-After writing a new check called `new-check`, generate a basket file using:
-
-```bash
-./tools/build-basket --plugin-file check-plugins/new-check/new-check
-```
-
-The basket will be saved as `check-plugins/new-check/icingaweb2-module-director/new-check.json`. Inspect the basket, paying special attention to:
-
-* Command: `timeout`
-* ServiceTemplate: `check_interval`
-* ServiceTemplate: `criticality`
-* ServiceTemplate: `enable_perfdata`
-* ServiceTemplate: `max_check_attempts`
-* ServiceTemplate: `retry_interval`
+`./tools/build-basket --plugin-file check-plugins/new-check/new-check` writes `check-plugins/new-check/icingaweb2-module-director/new-check.json`. Inspect especially the Command `timeout` and the ServiceTemplate `check_interval`, `criticality`, `enable_perfdata`, `max_check_attempts` and `retry_interval`.
 
 
 #### Fine-tune a Basket File
 
-**Never directly edit a basket JSON file.** If adjustments must be made to the basket, create a YML/YAML config file for `build-basket`.
-
-For example, to set the timeout to 30s, to enable notifications and some other options, the config in `check-plugins/new-check/icingaweb2-module-director/new-check.yml` should look as follows:
+**Never directly edit a basket JSON file.** Put adjustments into `check-plugins/new-check/icingaweb2-module-director/new-check.yml` and re-run `build-basket`, also after adding, changing or deleting a parameter:
 
 ```yml
 ---
@@ -1267,137 +650,97 @@ variants:
   - windows
 
 overwrites:
-  '["Command"]["cmd-check-new-check"]["command"]': '/usr/bin/sudo /usr/lib64/nagios/plugins/new-check'
   '["Command"]["cmd-check-new-check"]["timeout"]': 30
-  '["ServiceTemplate"]["tpl-service-new-check"]["check_command"]': 'cmd-check-new-check-sudo'
   '["ServiceTemplate"]["tpl-service-new-check"]["check_interval"]': 3600
-  '["ServiceTemplate"]["tpl-service-new-check"]["enable_perfdata"]': true
-  '["ServiceTemplate"]["tpl-service-new-check"]["max_check_attempts"]': 5
-  '["ServiceTemplate"]["tpl-service-new-check"]["retry_interval"]': 30
-  '["ServiceTemplate"]["tpl-service-new-check"]["use_agent"]': false
   '["ServiceTemplate"]["tpl-service-new-check"]["vars"]["criticality"]': 'C'
 ```
 
-Then, re-run `build-basket` to apply the overwrites:
-
-```bash
-./tools/build-basket --plugin-file check-plugins/new-check/new-check
-```
-
-If a parameter was added, changed or deleted in the plugin, simply re-run the `build-basket` to update the basket file.
+Any key of the generated JSON can be overwritten this way, e.g. `command`, `check_command`, `enable_perfdata`, `max_check_attempts`, `retry_interval` or `use_agent`.
 
 
 #### Basket File for different OS
 
-The `build-basket` tool also offers to generate so-called `variants` of the checks (different flavours of the check command call to run on different operating systems):
+`variants` in the same `.yml` generate flavours of the command call:
 
-* `linux`: This is the default, and will be used if no other variant is defined. It generates a `cmd-check-...`, `tpl-service-...` and the associated datafields.
-* `windows`: Generates a `cmd-check-...-windows`, `tpl-service-...-windows` and the associated datafields.
-* `sudo`: Generates a `cmd-check-...-sudo` importing the `cmd-check-...`, but with `/usr/bin/sudo` prepended to the command, and a `tpl-service...-sudo` importing the `tpl-service...`, but with the `cmd-check-...-sudo` as the check command.
-* `no-agent`: Generates a `tpl-service...-no-agent` importing the `tpl-service...`, but with command endpoint set to the Icinga 2 master.
-
-Specify them in the `check-plugins/new-check/icingaweb2-module-director/new-check.yml` configuration as follows:
-
-```yml
----
-variants:
-  - linux
-  - sudo
-  - windows
-  - no-agent
-```
+* `linux` (default if none is defined): `cmd-check-...`, `tpl-service-...` and the datafields.
+* `windows`: `cmd-check-...-windows`, `tpl-service-...-windows` and the datafields.
+* `sudo`: `cmd-check-...-sudo` importing `cmd-check-...` with `/usr/bin/sudo` prepended, and `tpl-service...-sudo` using it as check command.
+* `no-agent`: `tpl-service...-no-agent` importing `tpl-service...`, with the command endpoint set to the Icinga 2 master.
 
 
 #### Create Basket Files for all Check Plugins
 
-To run `build-basket` against all checks, for example due to a change in the `build-basket` script itself, use:
-
-```bash
-./tools/build-basket --auto
-```
+`./tools/build-basket --auto`, for example after a change to `build-basket` itself.
 
 
 #### Service Sets
 
-If you want to create a Service Set, edit `assets/icingaweb2-module-director/all-the-rest.json` and append the definition using JSON. Provide new unique UUIDs. Do a syntax check using `cat assets/icingaweb2-module-director/all-the-rest.json | jq` afterwards.
-
-If you want to move a service from one Service Set to another, you have to create a new UUID for the new service (this isn't even possible in the Icinga Director GUI).
-
-Within one Service Set, every service needs a unique `object_name`, and it should be identical to the JSON key above it. Two services sharing a name are both stored, each under its own UUID, but the Director indexes a set's services by name when it renders them, so only one of them ends up in the Icinga configuration and the other checks never run. Duplicate names also make `icingacli director basket restore` abort with a duplicate UUID on every run after the first.
-
-A `$` inside a variable value is macro syntax to Icinga 2 and has to be doubled. A regular expression such as `^linuxfabrik-monitoring-plugins$` has to be written `^linuxfabrik-monitoring-plugins$$` in the JSON, otherwise config validation fails with "Closing $ not found in macro format string" and rejects the whole deployment, not just that service. The plugin receives the single `$` after Icinga resolves the value.
-
-To make an exception for a single host, override the variable on that host's service instead of editing the Service Set (the Director renders every Service Set service with `import DirectorOverrideTemplate`, which merges `host.vars._override_servicevars["<service name>"]` over the values from the set). Editing the set itself changes every host carrying the tag.
+* Append new Service Sets to `assets/icingaweb2-module-director/all-the-rest.json` with new unique UUIDs, and check the syntax with `cat assets/icingaweb2-module-director/all-the-rest.json | jq`.
+* Moving a service to another Service Set needs a new UUID (impossible in the Director GUI).
+* Every service in a set needs a unique `object_name`, identical to the JSON key above it. The Director renders a set's services by name, so of two equal names only one runs, and `icingacli director basket restore` aborts with a duplicate UUID on every later run.
+* Double every `$` in a variable value (`^linuxfabrik-monitoring-plugins$$`), otherwise config validation fails with "Closing $ not found in macro format string" and rejects the whole deployment. The plugin receives a single `$`.
+* For a single-host exception, override the variable on that host's service instead of editing the set (`import DirectorOverrideTemplate` merges `host.vars._override_servicevars["<service name>"]` over the set's values). Editing the set changes every tagged host.
 
 
 ### README Structure
 
-Each plugin README follows a fixed structure. Use [check-plugins/example/README.md](check-plugins/example/README.md) as the reference template for the structure, and [check-plugins/php-fpm-status/README.md](check-plugins/php-fpm-status/README.md) as the reference for the level of detail and especially for troubleshooting depth that a Linux system engineer expects. When updating or writing READMEs, orient yourself on these two. The sections are:
+Each plugin README follows a fixed structure. Use [check-plugins/example/README.md](check-plugins/example/README.md) as the reference template for the structure, and [check-plugins/php-fpm-status/README.md](check-plugins/php-fpm-status/README.md) as the reference for the level of detail and especially for troubleshooting depth that a Linux system engineer expects. The sections are:
 
-1. **Overview**: Describes *what* the plugin does. A leading sentence stating the main purpose. This must include at least the text from the plugin's `DESCRIPTION` variable. Followed by subsections:
+1. **Overview**: *what* the plugin does, starting with its main purpose and including at least the `DESCRIPTION` text. Subsections:
 
-    * **Important Notes** (optional, but comes first if present): Operational edge cases the admin must know before deploying, for example: "Requires sudo", "Only works with Redis 3.0+", "First run returns OK with 'Waiting for more data.'", "After a reboot, counters reset and the check waits for a new baseline". No implementation details - only things that affect deployment and daily operations.
-    * **Data Collection**: How data is gathered (shell command, API, psutil, etc.), filtering options, SQLite usage, non-blocking measurement.
+    * **Important Notes** (optional, first if present): operational edge cases the admin must know before deploying ("Requires sudo", "Only works with Redis 3.0+", "First run returns OK with 'Waiting for more data.'", counters reset after a reboot). No implementation details.
+    * **Data Collection**: how data is gathered (shell command, API, psutil, ...), filtering options, SQLite usage, non-blocking measurement.
 
-2. **Fact Sheet**: Key properties as a table (download link, check name, check interval, parameters required, Windows support, 3rd party modules, state file path, etc.). Only list applicable rows, and only rows from the list below, in that order. The list is closed: a fact that fits none of these rows belongs into the Overview, not into a row of its own, otherwise the table stops being comparable across plugins. Write the separator line as `|----|----|`.
+2. **Fact Sheet**: only applicable rows from this closed list, in this order; other facts go into the Overview. Separator `|----|----|`.
 
     | Fact | Value |
     |----|----|
-    | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/example>. A notification plugin uses the label `Notification Plugin Download`, an event plugin `Event Plugin Download`. |
-    | Nagios/Icinga Check Name              | `check_example` (for SEO: helps admins find the plugin when searching for the traditional Nagios-style name). Always use underscores, never dashes. |
+    | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/example>. Notification / event plugins: `Notification Plugin Download` / `Event Plugin Download`. |
+    | Nagios/Icinga Check Name              | `check_example` (SEO for the Nagios-style name). Underscores, never dashes. |
     | Check Interval Recommendation         | Every minute, Every 5/15/30 minutes, Every hour, Every 4/8/12 hours, Every day, Every week |
     | Can be called without parameters      | Yes/No |
-    | Runs on                               | Cross-platform / Linux / Windows. Use "Cross-platform" by default since Python runs everywhere. Only use "Linux" if the plugin uses Linux-specific APIs (`/proc`, `systemd`, `dmesg`, `dnf`/`apt`/`yum`, `journalctl`, etc.). The absence of a `.windows` file does not mean the plugin is Linux-only. |
-    | Compiled for Windows                  | Yes (when `.windows` file exists) / No (runs with Python interpreter). Drop the parenthesis and write a bare "No" where "Runs on" says "Linux", and on notification and event plugins: no interpreter runs those on Windows either. |
+    | Runs on                               | Cross-platform (default) / Linux (only for Linux-specific APIs: `/proc`, `systemd`, `dmesg`, `dnf`/`apt`/`yum`, `journalctl`, ...) / Windows. A missing `.windows` file does not mean Linux-only. |
+    | Compiled for Windows                  | Yes (when `.windows` file exists) / No (runs with Python interpreter). A bare "No" for Linux-only, notification and event plugins. |
     | Requirements                          | command-line tool `foo`; User with higher permissions |
     | 3rd Party Python modules              | `module-name` |
     | Handles Periods                       | Yes (alerts only after `--count` consecutive threshold violations) |
-    | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-<plugin-name>.db`. Covers everything the check keeps between runs, an SQLite database included; do not invent a second label for it. A database opened with `in_memory=True` is not a state file and gets no row. |
+    | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-<plugin-name>.db`. Everything kept between runs, SQLite included; no second label. `in_memory=True` databases get no row. |
 
-3. **Help**: The full `--help` output in a code block. Regenerate via `tools/update-readmes`.
+3. **Help**: the full `--help` output in a code block, regenerated via `tools/update-readmes`.
+4. **Usage Examples**: realistic invocations with output, at least one OK case, and both variants if `--lengthy` exists.
+5. **States**: precisely *when* which state is returned (e.g. "WARN if the percentage value is >= `--warning`"), including `--always-ok`, consecutive-run requirements and first-run/reboot edge cases.
+6. **Perfdata / Metrics**: table with Name, Type, Description; types `Bytes`, `Number`, `Percentage`, `Seconds`. Use the vendor's official metric descriptions where possible.
+7. **Troubleshooting** (optional): one `### <short heading>` subsection per problem, ordered from most common to most obscure.
 
-4. **Usage Examples**: One or more realistic invocations with their output. Show at least one OK case. If the plugin has `--lengthy`, show both variants.
-
-5. **States**: Describes *when* the plugin returns which state. Be precise about OK, WARN, CRIT, UNKNOWN conditions (e.g. "WARN if the percentage value is >= `--warning`"). Include `--always-ok` behavior, consecutive-run requirements, and first-run/reboot edge cases.
-
-6. **Perfdata / Metrics**: Table with columns Name, Type, Description. Types: `Bytes`, `Number`, `Percentage`, `Seconds`. Where possible, use the metric descriptions from the vendor's official documentation (e.g. Redis INFO, psutil docs, API references).
-
-7. **Troubleshooting** (optional): Known problems with their solutions. Each problem is its own `### <short heading>` subsection, so the section stays scannable and every problem gets a clickable anchor. Within a subsection:
-
-    * Make the heading the thing an admin recognizes. When the literal error string is short and complete, use it as the `### heading` itself (in backticks) and write nothing else above the prose. When the error is long or contains placeholders (`host:port`, `<pattern>`, `/path/to/file`), use a short descriptive heading instead and put the literal string in backticks on its own line below it. Never do both - do not repeat the same error as the heading and again as a separate line.
-    * Then explain the fix in flowing prose. The cause is always optional: when it is known and specific, lead with it in the first paragraph and let the solution follow; when no cause is known or it would only be generic, write just the problem and the solution and nothing else. Never pad the text with a filler cause, and never invent a cause the plugin does not actually have.
-    * Do not use **Cause:** / **Solution:** labels. The prose carries the structure on its own, which keeps the writing free.
-    * For alert-state problems that have no literal error string (a metric crossing a threshold, a first-run baseline), use a descriptive heading and a short numbered runbook.
-    * Order the subsections from most common to most obscure.
+    * Heading: a short, complete error string in backticks; for long errors or placeholders (`host:port`, `<pattern>`, `/path/to/file`) a short descriptive heading with the literal string in backticks on its own line below. Never both.
+    * Then the fix in flowing prose. Lead with the cause only when it is known and specific; never pad with a filler cause or invent one.
+    * No **Cause:** / **Solution:** labels.
+    * Alert-state problems without an error string (a threshold crossed, a first-run baseline) get a descriptive heading and a short numbered runbook.
 
     Reference implementations: [`lynis`](check-plugins/lynis.md) for the error → cause-then-solution shape, and [`php-fpm-status`](check-plugins/php-fpm-status.md) for alert-state runbooks.
 
-8. **Credits, License**: Always present.
+8. **Credits, License**: always present.
 
 
 ### Grafana Dashboards
 
-Dashboard definitions live as YAML files under `check-plugins/<plugin>/grafana/<plugin>.yml`. The dashboard title is capitalized, the YAML filename (and the dashboard `uid`) matches the plugin directory name. Spaces in a panel-name component become `-`, `/` is dropped (e.g. `Network I/O` → `network-io`). Only define properties that differ from Grafana defaults, to keep the file small and diffable.
-
-Panels should be meaningful next to their siblings: if a plugin ships memory-usage and cpu-usage dashboards, the shared time ranges, thresholds and labels should line up so an admin can compare the two side by side.
-
-Provisioning and the Grizzly → grafanactl migration are documented in [GRAFANA.md](GRAFANA.md).
+Dashboards live in `check-plugins/<plugin>/grafana/<plugin>.yml`. The title is capitalized, file name and `uid` match the plugin directory. Spaces in a panel-name component become `-`, `/` is dropped (`Network I/O` → `network-io`). Define only properties that differ from Grafana defaults. Sibling dashboards (memory-usage, cpu-usage) line up time ranges, thresholds and labels for side-by-side comparison. Provisioning and the Grizzly → grafanactl migration are in [GRAFANA.md](GRAFANA.md).
 
 
 ### Plugins and Capabilities
 
-Non-obvious patterns worth copying from, when writing a new plugin. Each entry points at a single plugin that demonstrates the pattern well.
+Non-obvious patterns and the plugin that demonstrates each:
 
 | Pattern | Reference plugin |
 |---|---|
-| `--count`: alert only after N consecutive threshold violations | [cpu-usage](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage) |
-| SQLite `cut()` to keep the local state DB bounded | [cpu-usage](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage) |
-| Raw network communication via byte-structs and sockets | [dhcp-relayed](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dhcp-relayed) |
-| Check minimum required 3rd-party library version at import time | [disk-io](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io) |
-| Threshold warm-up (learns a baseline before alerting) | [disk-io](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io) |
-| `--icinga-callback`: acknowledgement-aware plugin | [logfile](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile) |
-| Credential file via MySQL option-file / `configparser` | All mysql-\* plugins, [icinga-topflap-services](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/icinga-topflap-services) |
-| Network scan of a subnet (host discovery via `--host`/`--network`/`--interface`, parallel per-host probing, worst-of aggregation) | [lynis](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/lynis) |
-| Optional asset script (`monitoring.php`) alongside the plugin | [php-status](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-status) |
-| Session caching (reuse an API session token / cookie across runs to avoid rate-limited logins) | [huawei-dorado-system](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/huawei-dorado-system) |
-| Cross-platform branching (`lib.base.LINUX` / `lib.base.WINDOWS`) | [users](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users) |
+| `--count`: alert only after N consecutive threshold violations | [cpu-usage](check-plugins/cpu-usage.md) |
+| SQLite `cut()` to keep the local state DB bounded | [cpu-usage](check-plugins/cpu-usage.md) |
+| Raw network communication via byte-structs and sockets | [dhcp-relayed](check-plugins/dhcp-relayed.md) |
+| Check minimum required 3rd-party library version at import time | [disk-io](check-plugins/disk-io.md) |
+| Threshold warm-up (learns a baseline before alerting) | [disk-io](check-plugins/disk-io.md) |
+| `--icinga-callback`: acknowledgement-aware plugin | [logfile](check-plugins/logfile.md) |
+| Credential file via MySQL option-file / `configparser` | All mysql-\* plugins, [icinga-topflap-services](check-plugins/icinga-topflap-services.md) |
+| Network scan of a subnet (host discovery via `--host`/`--network`/`--interface`, parallel per-host probing, worst-of aggregation) | [lynis](check-plugins/lynis.md) |
+| Optional asset script (`monitoring.php`) alongside the plugin | [php-status](check-plugins/php-status.md) |
+| Session caching (reuse an API session token / cookie across runs to avoid rate-limited logins) | [huawei-dorado-system](check-plugins/huawei-dorado-system.md) |
+| Cross-platform branching (`lib.base.LINUX` / `lib.base.WINDOWS`) | [users](check-plugins/users.md) |
