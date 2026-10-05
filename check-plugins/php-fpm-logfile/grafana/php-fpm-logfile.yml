@@ -237,6 +237,35 @@ spec:
         key: metric
         operator: '='
         value: php_fpm_emergency_restarts
+    - alias: php_fpm_idle_connection_timeouts
+      refId: php_fpm_idle_connection_timeouts
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php_fpm_idle_connection_timeouts
     - alias: php_fpm_pool_saturations
       refId: php_fpm_pool_saturations
       groupBy:
@@ -295,6 +324,35 @@ spec:
         key: metric
         operator: '='
         value: php_fpm_worker_crashes
+    - alias: php_fpm_worker_kills
+      refId: php_fpm_worker_kills
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php_fpm_worker_kills
   - title: PHP-FPM Logfile - Requests and Spawning
     type: timeseries
     gridPos:

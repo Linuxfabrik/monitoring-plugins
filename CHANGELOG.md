@@ -38,6 +38,7 @@ Monitoring Plugins:
 * crypto-policy: compares only the base policy and lists the subpolicies, unless `--policy` names subpolicies itself
 * librenms-validate: reports the validations as a compact list instead of a wide table
 * lynis: lists every finding and suggestion with the host it was found on, and refuses to run as root
+* php-fpm-logfile: warns about workers that waited on a FastCGI connection the web server kept open for reuse until they timed out
 * php-fpm-status: the pool table shows the state of each pool in its last column
 * redfish-sensors: CRIT only above the fatal threshold, as HPE iLO rates it, and alerts on degraded power supplies
 * scanrootkit: detects 23 more rootkits and implants, no false SunOS Rootkit alarm on Fedora 44
@@ -95,6 +96,7 @@ Monitoring Plugins:
 * metabase-stats: no longer aborts every run with a Python error
 * ntp-chronyd: names why `chronyc` failed
 * ntp-w32tm: evaluates German output, warns on a stopped Windows Time service, names a refused query, no longer hangs
+* php-fpm-logfile: a request timeout no longer counts a second time as a warning, and workers killed with SIGKILL are no longer reported as crashes
 * pip-updates: names what pip reports, which Python it checked and a `--virtualenv` that is no activate script
 * podman-stats: UNKNOWN instead of CRITICAL for rootless containers on cgroups v1
 * postfix-logfile: reads the journal of Postfix on Debian and Ubuntu

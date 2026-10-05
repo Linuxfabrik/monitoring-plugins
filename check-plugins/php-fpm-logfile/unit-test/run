@@ -112,7 +112,8 @@ CASES = [
         'params': [f'--server-log={fixture("rocky9-busy-pool.txt")}'],
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            '2 worker crashes',
+            '1 worker crash',
+            '1 killed worker',
             '1 pool saturation',
             # A request that ran long is judged by how many of them arrived, and
             # these are hours old by now.
@@ -127,8 +128,14 @@ CASES = [
             # and the access log cannot be read for the same minute.
             'Pool saturation:\n* [28-Aug-2026 15:20:09] WARNING: [pool www] server'
             ' reached pm.max_children setting (2), consider raising it',
-            'Worker crashes:\n* [28-Aug-2026 15:20:17] WARNING: [pool www] child 178'
+            'Worker crash:\n* [28-Aug-2026 15:20:17] WARNING: [pool www] child 178'
             ' exited on signal 11 (SIGSEGV - core dumped)',
+            # PHP-FPM sends SIGKILL itself to a worker that does not end in time,
+            # and so does the OOM killer, so it is no crash; the recommendation
+            # names both.
+            'Killed worker:\n* [28-Aug-2026 15:20:19] WARNING: [pool www] child 179'
+            ' exited on signal 9 (SIGKILL)',
+            'look for `Out of memory` in the kernel log',
             'Recommendations:',
             # Raising the cap is the wrong lever to reach for first, because a
             # scanner fills a pool the way real traffic does.
@@ -137,8 +144,35 @@ CASES = [
         ],
         # The two workers PHP-FPM terminated itself after
         # `request_terminate_timeout` also exit on a signal, but they are not
-        # crashes; counting them would make four out of two.
-        'assert-not-in': ['4 worker crashes'],
+        # crashes, and neither is the one it killed; counting them would make
+        # several out of one.
+        'assert-not-in': ['worker crashes'],
+    },
+    {
+        # PHP-FPM logs the worker it terminated after `request_terminate_timeout`
+        # a second time, as an exit on SIGTERM at WARNING. The timeout is judged
+        # by its rate, so the exit line must not turn it into a warning of its own.
+        'id': 'ok-request-timeouts-are-not-warning-lines',
+        'params': [f'--server-log={fixture("rocky8-request-timeouts.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['0 request timeouts in the last 10m (3 in the window read)'],
+        'assert-not-in': ['WARNING line', 'idle connection timeout', 'killed worker'],
+    },
+    {
+        # A worker kept on a connection the web server holds open for reuse times
+        # out without a script. That is never load, so it alerts from the first
+        # one on and stays out of the request timeout rate (taken from php-fpm 8.3
+        # behind Apache with `enablereuse=on` on Rocky 8).
+        'id': 'warn-idle-connection-timeouts',
+        'params': [f'--server-log={fixture("rocky8-idle-connection-timeouts.txt")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Found 3 idle connection timeouts [WARNING]',
+            'Idle connection timeouts:\n* [01-Oct-2026 04:01:57] WARNING: [pool www]'
+            ' child 764180, script \'\' (request: " ") execution timed out',
+            '`enablereuse=on` in Apache `mod_proxy_fcgi`',
+        ],
+        'assert-not-in': ['request timeouts in the last', 'WARNING line'],
     },
     {
         # PHP-FPM has not reworded any of these messages between the oldest PHP
@@ -148,7 +182,8 @@ CASES = [
         'params': [f'--server-log={fixture("rocky8-php72-busy-pool.txt")}'],
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            '2 worker crashes',
+            '1 worker crash',
+            '1 killed worker',
             '1 pool saturation',
             '0 request timeouts in the last 10m (2 in the window read)',
             '0 slow requests in the last 10m (3 in the window read)',
@@ -263,7 +298,7 @@ CASES = [
         # Six rather than nine: the three lines a named event claimed - the
         # worker crashes and the saturation - are counted there and not by
         # their level as well.
-        'assert-in': ['6 WARNING lines found', '1 pool saturation'],
+        'assert-in': ['4 WARNING lines found', '1 pool saturation'],
         'assert-not-in': ['ERROR line'],
     },
     {
@@ -319,7 +354,7 @@ CASES = [
         'id': 'crit-log-path-from-the-redhat-configuration',
         'params': [f'--config-root={config_root("rhel")}'],
         'assert-retc': STATE_CRIT,
-        'assert-in': ['error.log', '2 worker crashes'],
+        'assert-in': ['error.log', '1 worker crash', '1 killed worker'],
     },
     {
         'id': 'ok-log-path-from-the-debian-configuration',

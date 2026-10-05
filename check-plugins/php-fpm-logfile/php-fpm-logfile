@@ -29,11 +29,12 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026100501'
 
 DESCRIPTION = """Scans the PHP-FPM error log for the events an administrator has to act
-on: rejected configurations, worker crashes, requests that ran into
-`request_terminate_timeout` or `request_slowlog_timeout`, pools that hit
+on: rejected configurations, worker crashes, workers killed with SIGKILL, requests that
+ran into `request_terminate_timeout` or `request_slowlog_timeout`, workers that waited on
+a connection the web server never sent a request over, pools that hit
 `pm.max_children`, and the emergency reload PHP-FPM performs after repeated worker
 failures. Startups, reloads and shutdowns are counted alongside them, so a pool that
 keeps restarting is visible.
@@ -179,15 +180,59 @@ EVENTS = (
         'perfdata': 'php_fpm_worker_crashes',
         # `SIGQUIT` is how PHP-FPM ends a worker gracefully and `SIGTERM` is how
         # it terminates one that ran over `request_terminate_timeout` (which logs
-        # a line of its own), so both are ordinary. Every other signal means the
-        # worker died on a fault or was killed from outside, the OOM killer for
-        # example. The lookahead also lets the line through when PHP-FPM has no
+        # a line of its own), so both are ordinary. `SIGKILL` is counted as a
+        # killed worker below, because PHP-FPM sends it itself. Every other
+        # signal is one PHP-FPM never sends its workers, so the worker died on a
+        # fault. The lookahead also lets the line through when PHP-FPM has no
         # name for the signal and prints an empty pair of brackets.
-        'regex': re.compile(r'exited on signal \d+ \((?!SIGQUIT|SIGTERM)'),
+        'regex': re.compile(r'exited on signal \d+ \((?!SIGKILL|SIGQUIT|SIGTERM)'),
         'state': STATE_WARN,
         'recommendation': (
-            'Workers died on a signal PHP-FPM did not send them; look for a core'
-            ' dump, a faulty PHP extension, or the OOM killer in the kernel log'
+            'Workers died on a fault; look for a core dump or a faulty PHP extension'
+        ),
+    },
+    {
+        'key': 'worker_kills',
+        'label': 'killed worker',
+        'perfdata': 'php_fpm_worker_kills',
+        # PHP-FPM sends `SIGKILL` itself: to an idle worker that is still alive
+        # one maintenance tick (a second) after the `SIGQUIT` that was to shrink
+        # the pool, and as the last step of a reload or stop, one second after
+        # `SIGTERM` (`fpm_pctl_kill_idle_child()` and `fpm_pctl_action_next()` in
+        # php-src). Either way the worker did not end when told to, which is what
+        # a host short of memory looks like. The kernel's OOM killer sends the
+        # same signal, and the log line cannot tell the two apart.
+        'regex': re.compile(r'exited on signal 9 \(SIGKILL'),
+        'state': STATE_WARN,
+        'recommendation': (
+            'Workers were killed with SIGKILL, either by PHP-FPM because they did'
+            ' not end in time when the pool shrank, reloaded or stopped, or by the'
+            ' kernel when memory ran out; look for `Out of memory` in the kernel'
+            ' log around the timestamps above'
+        ),
+    },
+    {
+        'key': 'idle_connection_timeouts',
+        'label': 'idle connection timeout',
+        'perfdata': 'php_fpm_idle_connection_timeouts',
+        # A worker that kept a connection open for the web server to reuse
+        # (FastCGI `FCGI_KEEP_CONN`) does not go back to `accept()`; it marks
+        # itself as reading headers and waits on that connection for the next
+        # request (`fcgi_accept_request()` in php-src). If none arrives,
+        # `request_terminate_timeout` ends it like a request that ran too long,
+        # with no script and no request line. A real request always names its
+        # script, so this is never load: Apache's `mod_proxy_fcgi` with
+        # `enablereuse=on` produced one of these about every 12 minutes for weeks
+        # (php-fpm 8.3 and httpd 2.4.37 on Rocky 8), each below any rate
+        # threshold. The slowlog never fires for it, because PHP-FPM only traces
+        # a worker that is executing.
+        'regex': re.compile(r'script \'\' \(request: " "\) execution timed out'),
+        'state': STATE_WARN,
+        'recommendation': (
+            'Workers waited on a connection that never delivered a request until'
+            ' `request_terminate_timeout` ended them; the web server keeps FastCGI'
+            ' connections open for reuse (`enablereuse=on` in Apache'
+            ' `mod_proxy_fcgi`), so turn that off for this pool'
         ),
     },
     {
@@ -244,7 +289,12 @@ RATE_EVENTS = (
         # PHP-FPM kills the worker and the client gets nothing, so the threshold
         # is the lowest of the three: a handful of these is already a bad
         # afternoon for somebody.
-        'regex': re.compile(r'execution timed out \([\d.]+ sec\), terminating'),
+        # A timeout without a script is no request at all and is named as an
+        # idle connection timeout above, so the lookbehind leaves it out here.
+        'regex': re.compile(
+            r'(?<!script \'\' \(request: " "\) )'
+            r'execution timed out \([\d.]+ sec\), terminating'
+        ),
         'critical': 'REQUEST_TIMEOUTS_CRITICAL',
         'warning': 'REQUEST_TIMEOUTS_WARNING',
         'recommendation': (
@@ -287,6 +337,15 @@ RATE_EVENTS = (
         ),
     },
 )
+
+# A worker PHP-FPM ended with `SIGTERM`: after `request_terminate_timeout`, which
+# the `execution timed out` line just before it already counts, or while the
+# master stops or reloads, which the lifecycle counts below. PHP-FPM writes every
+# exit on a signal other than `SIGQUIT` at `WARNING` (`fpm_children_bury()` in
+# php-src), so counting this line by its level as well turned every timeout into
+# a second warning that no rate threshold holds back (seen with php-fpm 8.3 on
+# Rocky 8, one exit line per timeout line).
+TERMINATED_EXIT_REGEX = re.compile(r'exited on signal 15 \(SIGTERM\)')
 
 # PHP-FPM writes this once into the fresh file when logrotate has moved the old
 # one away and signalled it with SIGUSR1, so the window of a just-rotated log
@@ -958,7 +1017,12 @@ def main():
         # yellow. A named event carries its own state and says what happened,
         # which the level cannot; reporting the same lines once by level and
         # once by name says the same thing twice and doubles them in the graphs.
-        if not rate_hits and not hits and level in levels:
+        if (
+            not rate_hits
+            and not hits
+            and level in levels
+            and not TERMINATED_EXIT_REGEX.search(message)
+        ):
             levels[level].append(log_line)
         for item in LIFECYCLE:
             if item['regex'].search(message):

@@ -3,7 +3,7 @@
 
 ## Overview
 
-Scans the PHP-FPM error log for the events an administrator has to act on: rejected configurations, worker crashes, requests that ran into `request_terminate_timeout` or `request_slowlog_timeout`, pools that hit `pm.max_children`, and the emergency reload PHP-FPM performs after repeated worker failures. Startups, reloads and shutdowns are counted alongside them, so a pool that keeps restarting is visible. Alerts when one of those events shows up, when the lines a slow site provokes cross the rates the thresholds set, and when a line arrives at a level `--critical-level` or `--warning-level` covers. Requests that ran long and a pool spawning workers in bursts are counted within `--lookback` and judged by how many of them arrived, not by the fact that they did: one slow page is nobody's night, dozens within ten minutes say the pool is mis-sized. Those lines are counted there and nowhere else, so a site with one heavy report page does not leave the check permanently yellow. What is left is counted by the level PHP-FPM writes at the head of the line: `ALERT` and `ERROR` return CRITICAL and `WARNING` returns WARNING, which `--critical-level` and `--warning-level` move. The events named above carry their own state and are counted there and nowhere else, because the level says nothing about what happened. A message that merely contains the word "error" never counts. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times, and everything named is then read as one window. Without it the file path is taken from the `error_log` directive of the PHP-FPM configuration, with the common locations of the distributions probed when that yields nothing, and the journal of the PHP-FPM unit is read along with it, because a master that fails to start writes why to its standard error and never reaches the error log. What both hold is counted once. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Note that PHP-FPM discards everything its workers write unless `catch_workers_output = yes` is set, so an error log that only ever shows master events is the default behaviour rather than a quiet application. Requires root or sudo.
+Scans the PHP-FPM error log for the events an administrator has to act on: rejected configurations, worker crashes, workers killed with SIGKILL, requests that ran into `request_terminate_timeout` or `request_slowlog_timeout`, workers that waited on a connection the web server never sent a request over, pools that hit `pm.max_children`, and the emergency reload PHP-FPM performs after repeated worker failures. Startups, reloads and shutdowns are counted alongside them, so a pool that keeps restarting is visible. Alerts when one of those events shows up, when the lines a slow site provokes cross the rates the thresholds set, and when a line arrives at a level `--critical-level` or `--warning-level` covers. Requests that ran long and a pool spawning workers in bursts are counted within `--lookback` and judged by how many of them arrived, not by the fact that they did: one slow page is nobody's night, dozens within ten minutes say the pool is mis-sized. Those lines are counted there and nowhere else, so a site with one heavy report page does not leave the check permanently yellow. What is left is counted by the level PHP-FPM writes at the head of the line: `ALERT` and `ERROR` return CRITICAL and `WARNING` returns WARNING, which `--critical-level` and `--warning-level` move. The events named above carry their own state and are counted there and nowhere else, because the level says nothing about what happened. A message that merely contains the word "error" never counts. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times, and everything named is then read as one window. Without it the file path is taken from the `error_log` directive of the PHP-FPM configuration, with the common locations of the distributions probed when that yields nothing, and the journal of the PHP-FPM unit is read along with it, because a master that fails to start writes why to its standard error and never reaches the error log. What both hold is counted once. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Note that PHP-FPM discards everything its workers write unless `catch_workers_output = yes` is set, so an error log that only ever shows master events is the default behaviour rather than a quiet application. Requires root or sudo.
 
 **Important Notes:**
 
@@ -67,13 +67,14 @@ usage: php-fpm-logfile [-h] [-V] [--always-ok]
                        [--warning-level {ALERT,ERROR,WARNING,none}]
 
 Scans the PHP-FPM error log for the events an administrator has to act on:
-rejected configurations, worker crashes, requests that ran into
-`request_terminate_timeout` or `request_slowlog_timeout`, pools that hit
-`pm.max_children`, and the emergency reload PHP-FPM performs after repeated
-worker failures. Startups, reloads and shutdowns are counted alongside them,
-so a pool that keeps restarting is visible. Alerts when one of those events
-shows up, when the lines a slow site provokes cross the rates the thresholds
-set, and when a line arrives at a level `--critical-level` or
+rejected configurations, worker crashes, workers killed with SIGKILL, requests
+that ran into `request_terminate_timeout` or `request_slowlog_timeout`,
+workers that waited on a connection the web server never sent a request over,
+pools that hit `pm.max_children`, and the emergency reload PHP-FPM performs
+after repeated worker failures. Startups, reloads and shutdowns are counted
+alongside them, so a pool that keeps restarting is visible. Alerts when one of
+those events shows up, when the lines a slow site provokes cross the rates the
+thresholds set, and when a line arrives at a level `--critical-level` or
 `--warning-level` covers. Requests that ran long and a pool spawning workers
 in bursts are counted within `--lookback` and judged by how many of them
 arrived, not by the fact that they did: one slow page is nobody's night,
@@ -275,7 +276,7 @@ Read 3 lines from 1 source:
 Output of a host whose pool ran out of workers and whose application crashed a worker:
 
 ```text
-2026-08-28 15:20 .. 2026-08-28 15:20 (20s): 3 ERROR lines found [CRITICAL] (last: [28-Aug-2026 15:20:15] ERROR: failed to ptrace(ATTACH) child 178: Operation not permitted (1)). 6 WARNING lines found [WARNING] (last: [28-Aug-2026 15:20:21] WARNING: [pool www] child 184 said into stderr: "  thrown in /srv/fatal.php on line 3"). Found 2 worker crashes [WARNING], 1 pool saturation [CRITICAL]. 0 request timeouts in the last 10m (2 in the window read). 0 slow requests in the last 10m (3 in the window read). 2 startups detected (last: [28-Aug-2026 15:20:22] NOTICE: fpm is running, pid 194). 1 reload detected (last: [28-Aug-2026 15:20:22] NOTICE: reloading: execvp("/usr/sbin/php-fpm", {"/usr/sbin/php-fpm", "--daemonize"})). 1 shutdown detected (last: [28-Aug-2026 15:20:25] NOTICE: exiting, bye-bye!).
+2026-08-28 15:20 .. 2026-08-28 15:20 (20s): 3 ERROR lines found [CRITICAL] (last: [28-Aug-2026 15:20:15] ERROR: failed to ptrace(ATTACH) child 178: Operation not permitted (1)). 4 WARNING lines found [WARNING] (last: [28-Aug-2026 15:20:21] WARNING: [pool www] child 184 said into stderr: "  thrown in /srv/fatal.php on line 3"). Found 1 worker crash [WARNING], 1 killed worker [WARNING], 1 pool saturation [CRITICAL]. 0 request timeouts in the last 10m (2 in the window read). 0 slow requests in the last 10m (3 in the window read). 2 startups detected (last: [28-Aug-2026 15:20:22] NOTICE: fpm is running, pid 194). 1 reload detected (last: [28-Aug-2026 15:20:22] NOTICE: reloading: execvp("/usr/sbin/php-fpm", {"/usr/sbin/php-fpm", "--daemonize"})). 1 shutdown detected (last: [28-Aug-2026 15:20:25] NOTICE: exiting, bye-bye!).
 
 Error lines:
 * [28-Aug-2026 15:20:10] ERROR: failed to ptrace(ATTACH) child 171: Operation not permitted (1)
@@ -283,15 +284,15 @@ Error lines:
 * [28-Aug-2026 15:20:15] ERROR: failed to ptrace(ATTACH) child 178: Operation not permitted (1)
 
 Warning lines:
-* [28-Aug-2026 15:20:12] WARNING: [pool www] child 171 exited on signal 15 (SIGTERM) after 7.334101 seconds from start
-* [28-Aug-2026 15:20:14] WARNING: [pool www] child 177 exited on signal 15 (SIGTERM) after 5.663659 seconds from start
 * [28-Aug-2026 15:20:21] WARNING: [pool www] child 184 said into stderr: "NOTICE: PHP message: PHP Fatal error:  Uncaught Error: Call to undefined function undefined_function_call() in /srv/fatal.php:3"
 * [28-Aug-2026 15:20:21] WARNING: [pool www] child 184 said into stderr: "Stack trace:"
 * [28-Aug-2026 15:20:21] WARNING: [pool www] child 184 said into stderr: "#0 {main}"
 * [28-Aug-2026 15:20:21] WARNING: [pool www] child 184 said into stderr: "  thrown in /srv/fatal.php on line 3"
 
-Worker crashes:
+Worker crash:
 * [28-Aug-2026 15:20:17] WARNING: [pool www] child 178 exited on signal 11 (SIGSEGV - core dumped) after 4.769535 seconds from start
+
+Killed worker:
 * [28-Aug-2026 15:20:19] WARNING: [pool www] child 179 exited on signal 9 (SIGKILL) after 5.345946 seconds from start
 
 Pool saturation:
@@ -301,7 +302,8 @@ Read 33 lines from 1 source:
 * `/var/log/php-fpm/error.log` (size: 3.1KiB)
 
 Recommendations:
-* Workers died on a signal PHP-FPM did not send them; look for a core dump, a faulty PHP extension, or the OOM killer in the kernel log
+* Workers died on a fault; look for a core dump or a faulty PHP extension
+* Workers were killed with SIGKILL, either by PHP-FPM because they did not end in time when the pool shrank, reloaded or stopped, or by the kernel when memory ran out; look for `Out of memory` in the kernel log around the timestamps above
 * A pool ran out of workers and clients waited in the listen queue; check the web server access log around the timestamp above before raising `pm.max_children` (or `process.max`), because a scanner walking 404s fills a pool the same way real traffic does and a higher cap only hands it more workers
 ```
 
@@ -309,8 +311,8 @@ Recommendations:
 
 * CRIT if the window holds `ALERT` lines. PHP-FPM only writes those when it rejects its own configuration, and it refuses to start afterwards.
 * CRIT if the window holds `ERROR` lines, and with `--critical-level` also on `WARNING`.
-* WARN if the window holds `WARNING` lines, which `--warning-level` moves. Everything a pool reports about a single request has a counter of its own and is not counted here.
-* CRIT if a pool reached `pm.max_children`, or reloaded itself after repeated worker failures. WARN if a worker died on a signal. PHP-FPM logs all three at `WARNING`, so none of them would stand out by level alone.
+* WARN if the window holds `WARNING` lines, which `--warning-level` moves. Everything a pool reports about a single request has a counter of its own and is not counted here, and neither is the exit of a worker PHP-FPM ended with SIGTERM, which follows a request timeout, a stop or a reload.
+* CRIT if a pool reached `pm.max_children`, or reloaded itself after repeated worker failures. WARN if a worker crashed, was killed with SIGKILL, or waited on a connection that never delivered a request until `request_terminate_timeout` ended it. PHP-FPM logs all of them at `WARNING`, so none of them would stand out by level alone.
 * WARN or CRIT if more request timeouts, slow requests or spawn pressure warnings arrived within `--lookback` than `--request-timeouts-warning` / `--request-timeouts-critical`, `--slow-requests-warning` / `--slow-requests-critical` and `--spawn-pressure-warning` / `--spawn-pressure-critical` allow.
 * WARN if the log file is configured but is not an existing regular file.
 * WARN if a log this check was told to read could not be read at all. The run goes on with the other sources rather than reporting the state of the ones that happened to work.
@@ -329,6 +331,7 @@ Recommendations:
 | php_fpm_alert_lines | Number | Number of `ALERT` lines found in the log. |
 | php_fpm_emergency_restarts | Number | Number of times PHP-FPM reloaded itself after `emergency_restart_threshold` worker failures. |
 | php_fpm_error_lines | Number | Number of `ERROR` lines found in the log; what a pool reported about a single request is counted separately. |
+| php_fpm_idle_connection_timeouts | Number | Number of workers ended by `request_terminate_timeout` while they waited on a connection the web server never sent a request over. |
 | php_fpm_log_rotations | Number | Number of times PHP-FPM re-opened the error log, which is what logrotate makes it do. |
 | php_fpm_logfile_size | Bytes | Log file size. |
 | php_fpm_pool_saturations | Number | Number of times a pool reached `pm.max_children` or `process.max`. |
@@ -339,7 +342,8 @@ Recommendations:
 | php_fpm_spawn_pressure | Number | Number of times a pool had to spawn workers in bursts, within the lookback window. |
 | php_fpm_startups | Number | Number of startups found in the log. |
 | php_fpm_warning_lines | Number | Number of `WARNING` lines found in the log; what a pool reported about a single request is counted separately. |
-| php_fpm_worker_crashes | Number | Number of workers that died on a signal PHP-FPM did not send them. |
+| php_fpm_worker_crashes | Number | Number of workers that died on a fault, a signal PHP-FPM never sends its workers. |
+| php_fpm_worker_kills | Number | Number of workers killed with SIGKILL, by PHP-FPM because they did not end in time or by the kernel when memory ran out. |
 
 
 ## Troubleshooting
@@ -370,6 +374,12 @@ PHP-FPM attaches to a worker to write the backtrace of a slow request into the `
 ### `Refusing to read "…": resolved path is outside the allowed roots`
 
 The check runs as root and therefore only opens a log that resolves inside `/var/log`. Bind-mount the directory holding the log under `/var/log`; a symlink is rejected, because the confinement resolves symlinks before it decides.
+
+### Workers time out without a script
+
+`[pool www] child 764180, script '' (request: " ") execution timed out (248.831385 sec), terminating`
+
+The worker was not running a request. It waited on a FastCGI connection the web server keeps open for reuse, and PHP-FPM counts that wait against `request_terminate_timeout` like a request that ran too long. Apache does this with `enablereuse=on` on the `ProxySet` or `SetHandler` of the pool. Remove it (or set `enablereuse=off`) and reload Apache; the check reports these as idle connection timeouts and stays quiet once they stop. Raising `request_terminate_timeout` only stretches the wait, because the connection never delivers a request.
 
 ### A pool keeps reaching `pm.max_children`
 
