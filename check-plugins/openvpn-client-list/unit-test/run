@@ -49,6 +49,52 @@ TESTS = [
         'assert-retc': STATE_CRIT,
         'assert-in': ['5 users connected to OpenVPN Server.'],
     },
+    # Recorded from OpenVPN 2.7.7 (Copr) on Rocky 8 with `proto udp6`: client01 connects
+    # over IPv4 (printed as IPv4-mapped address), client02 over IPv6 to ::1.
+    {
+        'id': 'ok-parses-status-version-1',
+        'test': 'stdout/openvpn27-v1-ipv4-and-ipv6-client,,0',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'client01 +! 192\.168\.100\.157 +! 192\.168\.42\.3 ',
+        'assert-in': ['2 users connected to OpenVPN Server.', '! ::1 ', '192.168.42.2'],
+        'assert-not-in': ['udp6'],
+    },
+    {
+        'id': 'ok-parses-status-version-2',
+        'test': 'stdout/openvpn27-v2-ipv4-and-ipv6-client,,0',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'client01 +! 192\.168\.100\.157 +! 192\.168\.42\.3 ',
+        'assert-in': ['2 users connected to OpenVPN Server.', '! ::1 ', '192.168.42.2'],
+        'assert-not-in': ['udp6'],
+    },
+    {
+        'id': 'ok-parses-status-version-3',
+        'test': 'stdout/openvpn27-v3-ipv4-and-ipv6-client,,0',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'client01 +! 192\.168\.100\.157 +! 192\.168\.42\.3 ',
+        'assert-in': ['2 users connected to OpenVPN Server.', '! ::1 ', '192.168.42.2'],
+        'assert-not-in': ['udp6'],
+    },
+    {
+        'id': 'ok-strips-udp4-prefix',
+        'test': 'stdout/openvpn27-v2-one-udp4-client,,0',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'client01 +! 192\.168\.100\.157 +! 192\.168\.42\.2 ',
+        'assert-in': ['1 user connected to OpenVPN Server.'],
+        'assert-not-in': ['udp4'],
+    },
+    {
+        'id': 'ok-empty-file-while-openvpn-rewrites-it',
+        'test': 'stdout/empty-file,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['0 users connected to OpenVPN Server.'],
+    },
+    {
+        'id': 'unknown-not-a-status-file',
+        'test': 'stdout/openvpn-log-instead-of-status,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Unknown status file format.'],
+    },
 ]
 
 

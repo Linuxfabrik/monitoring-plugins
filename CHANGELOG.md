@@ -99,6 +99,7 @@ Monitoring Plugins:
 * metabase-stats: no longer aborts every run with a Python error
 * ntp-chronyd: names why `chronyc` failed
 * ntp-w32tm: evaluates German output, warns on a stopped Windows Time service, names a refused query, no longer hangs
+* openvpn-client-list: shows the external IP of clients on OpenVPN 2.7 and IPv6, and reads status files written with `status-version` 1 or 3
 * php-fpm-logfile: a request timeout no longer counts a second time as a warning, and workers killed with SIGKILL are no longer reported as crashes
 * pip-updates: names what pip reports, which Python it checked and a `--virtualenv` that is no activate script
 * podman-stats: UNKNOWN instead of CRITICAL for rootless containers on cgroups v1

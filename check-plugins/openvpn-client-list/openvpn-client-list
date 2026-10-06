@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import re
 import sys
 
 import lib.args
@@ -21,11 +22,12 @@ import lib.txt
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026100601'
 
 DESCRIPTION = """Lists all clients currently connected to an OpenVPN server by parsing the status
-log file. Reports client name, remote address, bytes received and sent, and connection
-time. Alerts when the number of connected clients reaches `--warning` or `--critical`.
+log file in any of the formats OpenVPN writes (`status-version` 1, 2 or 3). Reports client
+name, external and internal address, and connection time. Alerts when the number of
+connected clients reaches `--warning` or `--critical`.
 Requires root or sudo."""
 
 DEFAULT_FILENAME = '/var/log/openvpn-status.log'
@@ -38,6 +40,13 @@ ALLOWED_LOG_ROOTS = ['/var/log']
 
 DEFAULT_WARN = None
 DEFAULT_CRIT = None
+
+# OpenVPN 2.7 prefixes the real address with the transport protocol, e.g.
+# "udp4:203.0.113.5:1194", "tcp4-server:203.0.113.5:1194" or "udp6:[2001:db8::5]:1194"
+# (mroute_addr_print_ex() in mroute.c, MR_WITH_PROTO). Older releases print
+# "203.0.113.5:1194" or "2001:db8::5". An IPv4-mapped IPv6 address is printed as IPv4.
+# Verified against the OpenVPN source, tags v2.4.12 to v2.7.7.
+PROTO_PREFIX_RE = re.compile(r'^(?:udp|tcp)[46]?(?:-server|-client)?:')
 
 
 def parse_args():
@@ -108,6 +117,93 @@ def parse_args():
     return args
 
 
+def strip_port(real_address):
+    """Return the IP address of an OpenVPN "Real Address" without protocol and port."""
+    address = PROTO_PREFIX_RE.sub('', real_address)
+    if address.startswith('['):
+        # IPv6 with port: [2001:db8::5]:1194
+        return address[1 : address.find(']')]
+    if address.count(':') == 1:
+        # IPv4 with port: 203.0.113.5:1194
+        return address.split(':')[0]
+    # IPv6 or IPv4 without port
+    return address
+
+
+def parse_status_v1(lines):
+    """Parse `status-version 1`: a client list followed by a routing table, the
+    internal address of a client is only listed in the routing table."""
+    clients = []
+    virtual_addresses = {}
+    section = None
+    for line in lines:
+        line = line.rstrip('\r\n')
+        if line in ('OpenVPN CLIENT LIST', 'ROUTING TABLE', 'GLOBAL STATS', 'END'):
+            section = line
+            continue
+        if line.startswith(('Updated,', 'Common Name,', 'Virtual Address,')):
+            continue
+        fields = line.split(',')
+        if section == 'OpenVPN CLIENT LIST' and len(fields) >= 5:
+            clients.append(
+                {
+                    'name': fields[0],
+                    'real_address': fields[1],
+                    'connection_time': fields[4],
+                }
+            )
+        elif section == 'ROUTING TABLE' and len(fields) >= 3:
+            # first IPv4 route of a client is its tunnel address; skip learned
+            # routes ("C" flag) and networks (iroute, "/24")
+            virtual = fields[0]
+            if '/' in virtual or virtual.endswith('C') or ':' in virtual:
+                continue
+            virtual_addresses.setdefault((fields[1], fields[2]), virtual)
+    for client in clients:
+        client['virtual_address'] = virtual_addresses.get(
+            (client['name'], client['real_address']), ''
+        )
+    return clients
+
+
+def parse_status_v2(lines, sep):
+    """Parse `status-version` 2 (comma-separated) or 3 (tab-separated). The
+    columns are taken from the HEADER line, so additional columns of later
+    releases do not shift the ones the plugin reads."""
+    columns = []
+    clients = []
+    for line in lines:
+        fields = line.rstrip('\r\n').split(sep)
+        if fields[:2] == ['HEADER', 'CLIENT_LIST']:
+            columns = fields[2:]
+            continue
+        if fields[0] != 'CLIENT_LIST' or not columns:
+            continue
+        row = dict(zip(columns, fields[1:]))
+        clients.append(
+            {
+                'name': row.get('Common Name', ''),
+                'real_address': row.get('Real Address', ''),
+                'virtual_address': row.get('Virtual Address', ''),
+                'connection_time': row.get('Connected Since', ''),
+            }
+        )
+    return clients
+
+
+def parse_status(lines):
+    """Detect the format of an OpenVPN status file and return the connected
+    clients, or None if the content is not an OpenVPN status file."""
+    for line in lines:
+        if line.startswith('HEADER\tCLIENT_LIST'):
+            return parse_status_v2(lines, '\t')
+        if line.startswith('HEADER,CLIENT_LIST'):
+            return parse_status_v2(lines, ',')
+        if line.startswith('OpenVPN CLIENT LIST'):
+            return parse_status_v1(lines)
+    return None
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -141,20 +237,29 @@ def main():
         stdout, _, _ = lib.lftest.test(args.TEST)
         lines = stdout.splitlines(keepends=True)
 
-    counter = 0
+    # init some vars
     table = []
-    for line in lines:
-        if line.startswith('CLIENT_LIST'):
-            counter += 1
-            line = line.split(',')
-            table.append(
-                {
-                    'name': line[1],
-                    'ext_ip': line[2].split(':')[0],
-                    'int_ip': line[3],
-                    'connection_time': line[7],
-                }
+
+    # analyze data
+    clients = parse_status(lines)
+    if clients is None:
+        if any(line.strip() for line in lines):
+            lib.base.cu(
+                'Unknown status file format. Expected the output of OpenVPN `status` with '
+                '`status-version` 1, 2 or 3.'
             )
+        # OpenVPN truncates the file before it rewrites it
+        clients = []
+    for client in clients:
+        table.append(
+            {
+                'name': client['name'],
+                'ext_ip': strip_port(client['real_address']),
+                'int_ip': client['virtual_address'],
+                'connection_time': client['connection_time'],
+            }
+        )
+    counter = len(table)
 
     state = lib.base.get_state(counter, args.WARN, args.CRIT)
     perfdata = lib.base.get_perfdata(

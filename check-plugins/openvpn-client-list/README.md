@@ -3,7 +3,7 @@
 
 ## Overview
 
-Lists all clients currently connected to an OpenVPN server by parsing the status log file. Reports client name, remote address, bytes received and sent, and connection time. Optionally checks the number of connected clients against thresholds.
+Lists all clients currently connected to an OpenVPN server by parsing the status log file in any of the formats OpenVPN writes (`status-version` 1, 2 or 3). Reports client name, external and internal address, and connection time. Optionally checks the number of connected clients against thresholds.
 
 **Important Notes:**
 
@@ -13,7 +13,9 @@ Lists all clients currently connected to an OpenVPN server by parsing the status
 **Data Collection:**
 
 * Reads the OpenVPN status log file (default: `/var/log/openvpn-status.log`)
-* Parses `CLIENT_LIST` entries to extract client name, external IP, internal IP, and connection time
+* Detects the format by its content: `status-version 1` (client list and routing table), `2` (comma-separated, the default of the `openvpn-server@.service` unit) and `3` (tab-separated). In formats 2 and 3, the columns are found by their names in the `HEADER` line.
+* Extracts client name, external IP, internal IP and connection time. The external IP is shown without the protocol prefix OpenVPN 2.7 adds (`udp4:`, `tcp4-server:`) and without the port, IPv4 and IPv6 alike.
+* An empty file counts as zero connected clients, since OpenVPN truncates the file before it rewrites it.
 * The status log file must be configured on the OpenVPN server using `status /var/log/openvpn-status.log`
 
 
@@ -36,9 +38,10 @@ usage: openvpn-client-list [-h] [-V] [--always-ok] [-c CRIT]
                            [--filename FILENAME] [--no-perfdata] [-w WARN]
 
 Lists all clients currently connected to an OpenVPN server by parsing the
-status log file. Reports client name, remote address, bytes received and sent,
-and connection time. Alerts when the number of connected clients reaches
-`--warning` or `--critical`. Requires root or sudo.
+status log file in any of the formats OpenVPN writes (`status-version` 1, 2 or
+3). Reports client name, external and internal address, and connection time.
+Alerts when the number of connected clients reaches `--warning` or
+`--critical`. Requires root or sudo.
 
 options:
   -h, --help           show this help message and exit
@@ -95,6 +98,10 @@ e@linuxfabrik.ch 5.6.7.8      10.123.11.2 Mon May 31 23:08:38 2021
 
 
 ## Troubleshooting
+
+### `Unknown status file format.`
+
+The file named by `--filename` is not an OpenVPN status file. Check the `status` line in the OpenVPN server configuration and point `--filename` at the file it names.
 
 ### Status log file cannot be read
 
