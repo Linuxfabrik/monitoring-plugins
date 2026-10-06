@@ -131,6 +131,12 @@ Icinga Director:
 * PHP-FPM Service Set: no false alert about a missing `php-fpm.service` on Debian and Ubuntu
 * Windows service sets: a stopped service is no longer hidden by one with a similar name
 
+Grafana:
+
+* disk-io: re-deploy the `icingaweb2-module-grafana` assets, Icinga Web 2 shows the graphs again instead of a 404 page
+* network-io: re-deploy the `icingaweb2-module-grafana` assets, Icinga Web 2 shows the graphs again instead of a 404 page
+* psi-io: re-deploy the `icingaweb2-module-grafana` assets, Icinga Web 2 shows the graphs again instead of a 404 page
+
 Build, CI/CD:
 
 * RPM: no more `EOFError: marshal data too short`, removing `-selinux` unloads its SELinux module ([#1543](https://github.com/Linuxfabrik/monitoring-plugins/issues/1543))
