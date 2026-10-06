@@ -12,6 +12,7 @@
 
 import argparse
 import datetime
+import ipaddress
 import os
 import re
 import stat
@@ -30,7 +31,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100501'
+__version__ = '2026100601'
 
 DESCRIPTION = """Scans the Apache HTTP Server error log for the events an administrator
 has to act on: children that died on a signal or had to be killed at a stop, a server that
@@ -455,10 +456,7 @@ RATE_EVENTS = (
         'recommendation': (
             'Clients are being denied access in bulk; the paths in the log say'
             ' whether somebody is walking the site, and an intrusion prevention'
-            ' system or the firewall is where that is answered. Where the one'
-            ' address is a reverse proxy or a NAT gateway in front of this'
-            ' server, every client counts as that one: let Apache see the real'
-            ' address with `mod_remoteip`, or use `--no-per-source`'
+            ' system or the firewall is where that is answered'
         ),
     },
     {
@@ -635,14 +633,17 @@ NOISE_REGEX = re.compile(
 )
 
 # What the request-scoped fallback counter holds that has a cause of its own,
-# with what to do about it. Offered next to the general recommendation when the
-# counter raised a state and such lines are within the window.
+# with what the lines are about in a few words for the summary, and what to do
+# about it. Offered ahead of the general recommendation when the counter raised a
+# state and such lines are within the window; the general one follows only for
+# lines none of these explains.
 REQUEST_CAUSES = (
     {
         # PHP-FPM writes this at DEBUG, and it still reaches Apache: a worker
         # hands every message to the web server before its level is checked
         # (`vzlog()` in `sapi/fpm/fpm/zlog.c`, php-8.3.31).
         'regex': re.compile(r"AH01071: Got error 'Primary script unknown"),
+        'label': 'requests for PHP files that do not exist',
         'recommendation': (
             'Requests for PHP files that do not exist are passed to PHP-FPM,'
             ' which answers 404 and ties up a worker for each of them; wrap the'
@@ -655,6 +656,7 @@ REQUEST_CAUSES = (
         # PHP sends a message to the web server only when it cannot write it to
         # the `error_log` of the pool (`php_log_err_with_severity()`).
         'regex': re.compile(r"AH01071: Got error '.*PHP message: "),
+        'label': 'PHP messages',
         'recommendation': (
             'PHP messages reach the Apache error log, which happens only when the'
             " pool's `error_log` is unset or the pool user cannot write it; point"
@@ -695,6 +697,27 @@ SCOPE_REGEX = re.compile(r'\[(?:client|remote) [^\]]*\]')
 # the field is taken as it stands and `get_source()` decides what of it is the
 # address.
 CLIENT_REGEX = re.compile(r'\[(?:client|remote) (\[[^\]]+\](?::\d+)?|[^\]\s]+)\]')
+
+# The networks a reverse proxy in front of this server sits in. Behind one, every
+# request-scoped line names the proxy, so all of them arrive from a single
+# address of these. Spelled out rather than taken from `is_private`, which also
+# holds the documentation ranges (`192.0.2.0/24` and friends) that stand in for
+# public clients in examples and tests.
+INTERNAL_NETWORKS = tuple(
+    ipaddress.ip_network(item)
+    for item in (
+        '10.0.0.0/8',
+        '127.0.0.0/8',
+        '172.16.0.0/12',
+        '192.168.0.0/16',
+        '::1/128',
+        'fc00::/7',
+        'fe80::/10',
+    )
+)
+
+# How much of a message the summary quotes when no cause above names it.
+MESSAGE_MAX_LEN = 60
 
 # The levels at which a request-scoped line is counted as a rate instead of by
 # its level. `crit` and above stay level-driven whatever their scope: across the
@@ -1112,6 +1135,69 @@ def get_source(log_line):
     if field.startswith('[') and ']' in field:
         return lib.net.normalize_address(field[1 : field.index(']')])
     return lib.net.normalize_address(field.rsplit(':', 1)[0])
+
+
+def get_proxy(lines):
+    """Return the address that looks like a reverse proxy in front of this
+    server, or None.
+
+    Behind a reverse proxy Apache writes the proxy into every request-scoped
+    line, so every client counts as that one address and a rate meant for one
+    client compares a whole crowd. That is the situation where every line in the
+    window names the same address, and that address is an internal one. A
+    single client in the internal network looks the same, which is why the
+    output says "probably".
+    """
+    sources = {get_source(line) for line in lines}
+    sources.discard(None)
+    if len(sources) != 1:
+        return None
+    address = sources.pop()
+    try:
+        parsed = ipaddress.ip_address(address)
+    except ValueError:
+        return None
+    if any(parsed in network for network in INTERNAL_NETWORKS):
+        return address
+    return None
+
+
+def get_message(log_line):
+    """Return what a request-scoped line says, without the head Apache puts in
+    front of it and without the referer it appends."""
+    match = SCOPE_REGEX.search(log_line)
+    message = log_line[match.end() :] if match else log_line
+    return message.split(', referer: ', 1)[0].strip()
+
+
+def describe_lines(lines):
+    """Return what most of the lines are about, for the summary, or ''.
+
+    A known cause is named in words, anything else by the message code and the
+    beginning of the most recent message carrying it, because the rest of a
+    message (a path, a host name) differs from line to line.
+    """
+    if not lines:
+        return ''
+    groups = {}
+    for line in lines:
+        cause = next(
+            (item for item in REQUEST_CAUSES if item['regex'].search(line)), None
+        )
+        if cause:
+            key, text = cause['label'], cause['label']
+        else:
+            message = get_message(line)
+            code = CODE_REGEX.search(message)
+            key = code.group(0) if code else message
+            if len(message) > MESSAGE_MAX_LEN:
+                message = message[:MESSAGE_MAX_LEN].rstrip() + '...'
+            text = f'`{message}`'
+        # The text of the most recent line wins, the lines are in time order.
+        groups[key] = (groups.get(key, (0, ''))[0] + 1, text)
+    count, text = max(groups.values(), key=lambda item: item[0])
+    share = 'all of them' if count == len(lines) else f'{count} of them'
+    return f'{share} {text}'
 
 
 def split_alternatives(pattern):
@@ -1790,8 +1876,6 @@ def main():
     # the end as a `Recommendations:\n* ...` bulleted block, regardless of which
     # combinations of paths fire.
     recommendations = []
-    if main_log_recommendation:
-        recommendations.append(main_log_recommendation)
     level_states = get_level_states(args.CRITICAL_LEVEL, args.WARNING_LEVEL)
     levels = {item['level']: [] for item in LEVELS}
     found = {item['key']: [] for item in EVENTS}
@@ -2050,8 +2134,22 @@ def main():
     # something to say about them is not the quiet one the literal below claims.
     rate_counts = {}
     rate_facts = []
+    # Behind a reverse proxy every client counts as the proxy. Only the counters
+    # judged per source are affected, so only their lines decide.
+    proxy = None
+    if args.PER_SOURCE:
+        proxy = get_proxy(
+            [
+                line
+                for event in RATE_EVENTS
+                if event.get('per_source', True)
+                for line in found[event['key']]
+            ]
+        )
+    proxy_alerted = False
     for event in RATE_EVENTS:
         hits = found[event['key']]
+        per_source = args.PER_SOURCE and event.get('per_source', True)
         # Counted per client where the lines name one, because that is what
         # makes the number mean something: a handful of denied requests from one
         # address within the window is somebody working on this server, the same
@@ -2067,9 +2165,7 @@ def main():
             # A counter that is not about who caused the lines judges the
             # total: a backend that failed and a server that ran out of slots
             # are one situation however many peers were on the other end.
-            key=get_source
-            if args.PER_SOURCE and event.get('per_source', True)
-            else None,
+            key=get_source if per_source else None,
         )
         rate_counts[event['key']] = window['count']
         if not hits:
@@ -2080,9 +2176,17 @@ def main():
             getattr(args, event['critical']) or None,
         )
         state = lib.base.get_worst(state, rate_state)
+        recent = [
+            line
+            for line in hits
+            if (lib.logsource.timestamp(line, parse_timestamp) or rate_since)
+            >= rate_since
+        ]
         fact = f'{window["count"]} {lib.txt.pluralize(event["label"], window["count"])}'
         if window['busiest']:
             fact += f' from {window["busiest"]}'
+            if window['busiest'] == proxy:
+                fact += ' (probably a reverse proxy)'
         fact += lib.base.state2str(rate_state, prefix=' ')
         extras = []
         if window['total'] != window['count']:
@@ -2099,15 +2203,22 @@ def main():
                 f', {window["undated"]} of them without a timestamp and therefore'
                 f' not counted'
             )
+        # The fallback counter holds whatever Apache logged about a request, so
+        # its number alone does not say what failed. What the counted lines are
+        # about does, and it is the first thing an administrator reads.
+        if event['key'] == SCOPE_FALLBACK_KEY and window['count']:
+            what_failed = describe_lines(
+                [line for line in recent if get_source(line) == window['busiest']]
+                if window['busiest']
+                else recent
+            )
+            if what_failed:
+                fact += f', {what_failed}'
         rate_facts.append(fact)
         if rate_state == STATE_OK:
             continue
-        recent = [
-            line
-            for line in hits
-            if (lib.logsource.timestamp(line, parse_timestamp) or rate_since)
-            >= rate_since
-        ]
+        if window['busiest'] and window['busiest'] == proxy:
+            proxy_alerted = True
         if event['key'] == 'proxy_failures':
             recommendations.extend(
                 get_proxy_recommendations(
@@ -2124,13 +2235,30 @@ def main():
                 or [event['recommendation']]
             )
             continue
-        recommendations.append(event['recommendation'])
-        if event['key'] == SCOPE_FALLBACK_KEY:
-            recommendations.extend(
-                cause['recommendation']
-                for cause in REQUEST_CAUSES
-                if any(cause['regex'].search(line) for line in recent)
-            )
+        if event['key'] != SCOPE_FALLBACK_KEY:
+            recommendations.append(event['recommendation'])
+            continue
+        # What to do about a known cause comes first. The general advice to look
+        # at the paths and host names only follows for lines no cause explains.
+        causes = [
+            cause
+            for cause in REQUEST_CAUSES
+            if any(cause['regex'].search(line) for line in recent)
+        ]
+        recommendations.extend(cause['recommendation'] for cause in causes)
+        if any(
+            not any(cause['regex'].search(line) for cause in causes) for line in recent
+        ):
+            recommendations.append(event['recommendation'])
+    if proxy_alerted:
+        recommendations.append(
+            f'Every request-scoped line in the window comes from the internal address'
+            f' {proxy}, which is probably a reverse proxy in front of this server, so'
+            f' every client counts as that one address and the thresholds compare'
+            f' all of them against the rate meant for one: let Apache log the real'
+            f' client with `mod_remoteip` (`RemoteIPHeader X-Forwarded-For` and'
+            f' `RemoteIPInternalProxy {proxy}`)'
+        )
 
     counts = {}
     for item in LEVELS:
@@ -2281,6 +2409,10 @@ def main():
             )
         )
 
+    # Last, because it is about what this check can see rather than about what
+    # raised the state.
+    if main_log_recommendation:
+        recommendations.append(main_log_recommendation)
     if recommendations:
         sections.append(
             'Recommendations:\n' + '\n'.join(f'* {item}' for item in recommendations)

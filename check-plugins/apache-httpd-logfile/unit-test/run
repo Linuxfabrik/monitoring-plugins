@@ -31,7 +31,7 @@ import importlib.machinery
 import importlib.util
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404 - runs the plugin and grep, argv lists only
 import sys
 import tempfile
 import unittest
@@ -354,8 +354,29 @@ CASES = [
         'assert-retc': STATE_WARN,
         'assert-in': [
             '7 request errors from 192.0.2.66 [WARNING]',
+            'all of them requests for PHP files that do not exist',
             '`<If "-f %{REQUEST_FILENAME}">`',
             "pool's `error_log` is unset or the pool user cannot write it",
+            # the client that went away while sending its body is explained by
+            # no cause, so the general advice follows for it
+            'Requests are failing in bulk',
+        ],
+        # three public clients, so nothing points at a reverse proxy
+        'assert-not-in': ['probably a reverse proxy', 'mod_remoteip'],
+    },
+    {
+        # Request errors without a known cause are named by the message code
+        # and the beginning of the most recent message carrying it.
+        'id': 'warn-request-errors-name-their-most-frequent-message',
+        'params': [
+            f'--server-log={fixture("rocky9-scanner-noise.txt")}',
+            '--lookback=1000000000',
+            '--request-errors-warning=4',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '4 of them `AH10244: invalid URI path (/../../../etc/passwd)`',
+            'Requests are failing in bulk',
         ],
     },
     {
@@ -601,7 +622,8 @@ class TestCheck(unittest.TestCase):
 
 
 def _run(params):
-    result = subprocess.run(
+    # The plugin under test with the testcase's own parameters, no shell.
+    result = subprocess.run(  # nosec B603
         [PLUGIN, *params],
         capture_output=True,
         text=True,
@@ -701,6 +723,93 @@ class TestArrivalRate(unittest.TestCase):
         returncode, combined = _run([f'--server-log={path}', '--lookback=7200'])
         self.assertEqual(returncode, STATE_WARN, combined)
         self.assertIn('Last 2h: 20 client denials from 198.51.100.7', combined)
+
+
+# A request PHP-FPM refused because the script does not exist, as Apache 2.4.37
+# on Rocky 8 writes it, taken from a host behind a reverse proxy.
+PRIMARY_SCRIPT_UNKNOWN_LINE = (
+    '[{timestamp}] [proxy_fcgi:error] [pid 1820:tid 140511591458560]'
+    " [client {peer}:35822] AH01071: Got error 'Primary script unknown'"
+)
+
+
+class TestReverseProxy(unittest.TestCase):
+    """Behind a reverse proxy every client is the proxy.
+
+    A scanner probing for PHP files that reaches the server through a reverse
+    proxy in the internal network leaves only the proxy's address in the log.
+    The check has to say what the requests were and that the one address is
+    probably not a client. The log is written here for the same reason as in
+    TestArrivalRate.
+    """
+
+    def setUp(self):
+        self.scratch_dir = tempfile.mkdtemp(prefix='proxy-', dir=HERE)
+
+    def tearDown(self):
+        shutil.rmtree(self.scratch_dir, ignore_errors=True)
+
+    def _write(self, peers):
+        """Write one refused PHP request per entry of `peers`, the last one
+        five minutes ago."""
+        path = os.path.join(self.scratch_dir, 'error_log')
+        first = datetime.datetime.now() - datetime.timedelta(minutes=5)
+        with open(path, 'w', encoding='utf-8') as handle:
+            for index, peer in enumerate(peers):
+                logged_at = first - datetime.timedelta(seconds=len(peers) - index)
+                handle.write(
+                    PRIMARY_SCRIPT_UNKNOWN_LINE.format(
+                        timestamp=logged_at.strftime(APACHE_TIMESTAMP_FORMAT),
+                        peer=peer,
+                    )
+                    + '\n'
+                )
+        return path
+
+    def test_a_scanner_behind_the_proxy_is_named_and_the_proxy_too(self):
+        path = self._write(['10.0.0.4'] * 21)
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_WARN, combined)
+        self.assertIn(
+            'Last 10m: 21 request errors from 10.0.0.4 (probably a reverse proxy)'
+            ' [WARNING], all of them requests for PHP files that do not exist',
+            combined,
+        )
+        self.assertIn('`RemoteIPInternalProxy 10.0.0.4`', combined)
+        # the summary of the requests must not take the place of the sources
+        self.assertIn('Read 21 lines from 1 source:\n* `', combined)
+        # every line has a known cause, so the general advice stays out
+        self.assertNotIn('Requests are failing in bulk', combined)
+        # what to do about the cause comes before what to do about the proxy
+        self.assertLess(
+            combined.index('<If "-f %{REQUEST_FILENAME}">'),
+            combined.index('mod_remoteip'),
+            combined,
+        )
+
+    def test_a_public_address_is_a_client(self):
+        path = self._write(['198.51.100.7'] * 21)
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_WARN, combined)
+        self.assertIn('21 request errors from 198.51.100.7 [WARNING]', combined)
+        self.assertNotIn('probably a reverse proxy', combined)
+        self.assertNotIn('mod_remoteip', combined)
+
+    def test_a_second_address_in_the_window_is_no_proxy(self):
+        path = self._write(['10.0.0.5'] + ['10.0.0.4'] * 21)
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_WARN, combined)
+        self.assertNotIn('probably a reverse proxy', combined)
+        self.assertNotIn('mod_remoteip', combined)
+
+    def test_below_the_threshold_the_proxy_is_named_without_advice(self):
+        path = self._write(['10.0.0.4'] * 3)
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_OK, combined)
+        self.assertIn(
+            '3 request errors from 10.0.0.4 (probably a reverse proxy)', combined
+        )
+        self.assertNotIn('Recommendations:', combined)
 
 
 class TestConfigParsing(unittest.TestCase):
@@ -975,7 +1084,9 @@ class TestMatchingIsReproducible(unittest.TestCase):
                 for fixture_path in fixtures:
                     with open(fixture_path, encoding='utf-8', errors='replace') as fh:
                         counted = sum(1 for line in fh if regex.search(line))
-                    completed = subprocess.run(
+                    # grep from the command the plugin prints, on a fixture
+                    # of this directory, no shell.
+                    completed = subprocess.run(  # nosec B603
                         [*command, fixture_path],
                         capture_output=True,
                         text=True,
