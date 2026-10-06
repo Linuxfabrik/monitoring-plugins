@@ -28,6 +28,7 @@ import lib.net
 import lib.shell
 import lib.time
 import lib.txt
+import lib.url
 import lib.wordpress
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
@@ -40,7 +41,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100501 / v8.0.0'
+__version__ = '2026100601 / v8.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -411,6 +412,15 @@ def get_lftags(distro):
         lib.disk.read_file(path)[1].strip().startswith('LVM-')
         for path in lib.disk.glob('/sys/block/dm-*/dm/uuid')
     )
+    # A loaded mod_qos is no reason for the tag, its status page is: that page is
+    # what the mod-qos-stats check reads, and without it the check can only fail.
+    # In the `?auto` form the page always starts with the system load line
+    # (qos_ext_status_short() in mod_qos.c), which tells it apart from any other
+    # page that answers below the same path. Verified against mod_qos 11.74 (EPEL 9).
+    success, result = lib.url.fetch(
+        'http://localhost/qos-status?auto', no_proxy=True, timeout=3
+    )
+    has_mod_qos_status = success and result.startswith('b;system.load: ')
     lftags = [
         # template: {'sw': '<entry_value from all-the-rest.json tag_list>',
         #            'package': ['<pkg1>', '<pkg2>'],   # admin-installed → tag fires
@@ -932,16 +942,8 @@ def get_lftags(distro):
         },
         {
             'sw': 'mod_qos',
-            'package': ['mod_qos'],
-            # httpd writes DUMP_MODULES to stderr, so cmd_output_contains checks both streams
-            'expr': [
-                lib.disk.file_exists(
-                    '/usr/lib64/httpd/modules/mod_qos.so', allow_empty=True
-                ),
-                lib.disk.dir_exists('/var/lib/mod_security'),
-                cmd_output_contains(['httpd', '-t', '-D', 'DUMP_MODULES'], 'mod_qos'),
-                cmd_output_contains(['apache2', '-t', '-D', 'DUMP_MODULES'], 'mod_qos'),
-            ],
+            'package': [],
+            'expr': [has_mod_qos_status],
         },
         {
             'sw': 'MongoDB',
@@ -1833,18 +1835,6 @@ def get_virt_info():
         stdout, _, _ = result
         return stdout.strip()
     return 'Unknown'
-
-
-def cmd_output_contains(cmd, needle):
-    """Run cmd (argv list) and return True if needle appears in its stdout/stderr."""
-    env = os.environ.copy()
-    env['LC_ALL'] = 'C'
-    env['PATH'] += ':/usr/local/bin:/usr/local/sbin'
-    success, result = lib.shell.shell_exec(cmd, env=env)
-    if not success:
-        return False
-    stdout, stderr, _retc = result
-    return needle in stdout or needle in stderr
 
 
 def has_nfs_filesystem():
