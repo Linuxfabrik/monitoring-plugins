@@ -133,9 +133,7 @@ Icinga Director:
 
 Grafana:
 
-* disk-io: re-deploy the `icingaweb2-module-grafana` assets, Icinga Web 2 shows the graphs again instead of a 404 page
-* network-io: re-deploy the `icingaweb2-module-grafana` assets, Icinga Web 2 shows the graphs again instead of a 404 page
-* psi-io: re-deploy the `icingaweb2-module-grafana` assets, Icinga Web 2 shows the graphs again instead of a 404 page
+* several minor fixes, re-import the dashboards and re-deploy the `icingaweb2-module-grafana` assets
 
 Build, CI/CD:
 
