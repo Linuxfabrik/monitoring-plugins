@@ -146,6 +146,15 @@ srv-cloud01     ! Nextcloud Stats         ! 2   ! [OK]
 There is no perfdata.
 
 
+## Troubleshooting
+
+### Password file does not parse
+
+`` `/path/to/pwfile` is not a valid INI file, see line 3. ``
+
+The password file does not parse. The message names the line but not its content, since `--pwfile` may point to any file. The file needs a section header such as `[icingaweb2]` and one `key = value` pair per line, see the example in the Overview.
+
+
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)

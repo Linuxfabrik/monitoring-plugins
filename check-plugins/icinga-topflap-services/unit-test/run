@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # The fixtures are anonymized excerpts of a production Icinga DB Web history export
 # (`/icingadb/history`, JSON), cut to the events of one service in a short window,
@@ -109,6 +109,39 @@ TESTS = [
         'assert-not-in': ['Windows Service'],
     },
 ]
+
+# `--pwfile` may point at any file, so nothing of its content may reach the output,
+# neither through the message of a configparser exception nor through its traceback.
+# The files in fixtures/ mark their content with "linuxfabrik", one per way
+# configparser rejects a file. A `%` in a password must not trip interpolation.
+for name, lineno in (
+    ('duplicate-option', 3),
+    ('duplicate-section', 3),
+    ('invalid-utf8', None),
+    ('line-without-separator', 3),
+    ('no-section', 1),
+):
+    TESTS.append(
+        {
+            'id': f'unknown-pwfile-{name}-hides-content',
+            'test': 'stdout/cancelled-downtime,,0',
+            'params': f'--pwfile=fixtures/pwfile-{name}',
+            'assert-retc': STATE_UNKNOWN,
+            'assert-in': [
+                'is not a valid INI file' + (f', see line {lineno}.' if lineno else '.')
+            ],
+            'assert-not-in': ['linuxfabrik', 'Traceback'],
+        }
+    )
+TESTS.append(
+    {
+        'id': 'ok-pwfile-percent-in-password',
+        'test': 'stdout/cancelled-downtime,,0',
+        'params': '--pwfile=fixtures/pwfile-percent-in-password',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['fabrik'],
+    }
+)
 
 
 class TestCheck(unittest.TestCase):

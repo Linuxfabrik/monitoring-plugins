@@ -149,6 +149,7 @@ Monitoring Plugins:
 * apache-httpd-security, nginx-security: `--command` runs only a root-owned binary
 * docker-service, docker-swarm: `--test` can no longer probe which files exist
 * fail2ban: `--socket` must be root-owned
+* icinga-topflap-services: never shows the password or other lines of the `--pwfile` file, and accepts a `%` in the password
 * logfile, \*-logfile, openvpn-client-list: a swapped directory can no longer escape `/var/log`, nor a caller probe which files exist
 * mastodon-version: `--path` no longer follows a symlink out of the installation
 * mysql-logfile: a non-regular `--defaults-file` no longer hangs the check

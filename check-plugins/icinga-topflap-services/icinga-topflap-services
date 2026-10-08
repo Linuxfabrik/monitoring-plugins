@@ -27,7 +27,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100802'
+__version__ = '2026100803'
 
 DESCRIPTION = """Detects fast-flapping Icinga services by counting state changes per service within a
 configurable lookback interval. Queries the Icinga DB event history and alerts when
@@ -234,55 +234,70 @@ def in_downtime(event_time, service_id, downtimes):
     )
 
 
-def read_credentials(args):
-    """Complete URL, username and password from the password file. Values given on
-    the command line take precedence. Exits UNKNOWN if one of them is missing.
+def check_credentials(args, pwfile_read):
+    """Exit UNKNOWN if the URL, the username or the password is still missing after
+    the command line and the password file were read.
     """
-    have_creds = args.USERNAME and args.PASSWORD and args.URL
-    have_pwfile = args.PWFILE
-    if not (have_creds or have_pwfile):
+    if args.USERNAME and args.PASSWORD and args.URL:
+        return
+    if not args.PWFILE:
         lib.base.cu(
             'The three parameters `--url`, `--username` and `--password` are required. '
             'Alternatively, you can provide a password file for Icinga Web 2 to read '
             'the "url", "user" or "password" from, using `--pwfile`.'
         )
+    msg = 'The Icinga Web 2 URL, username or password is missing.'
+    if not pwfile_read:
+        msg += (
+            f' `{args.PWFILE}` does not exist or is not readable by the account'
+            ' running this plugin. Create it, or pass `--url`, `--username` and'
+            ' `--password`.'
+        )
+    else:
+        msg += (
+            f' Add the missing ones to `{args.PWFILE}`, or pass them with `--url`,'
+            ' `--username` and `--password`.'
+        )
+    lib.base.cu(msg)
 
-    # if given, read password INI-file, but cmdline takes precedence
-    config = configparser.ConfigParser()
-    pwfile_read = False
+
+def read_pwfile(args):
+    """Fill in URL, username and password from the password file where the command
+    line left them out. Returns True if the file could be read.
+
+    Nothing of the file's content goes into a message, since `--pwfile` may point
+    at any file: configparser quotes the offending lines in its exceptions, so only
+    the line number is passed on. Interpolation is off, otherwise a `%` in a
+    password raises an error that quotes the password.
+    """
+    if not args.PWFILE:
+        return False
+    config = configparser.ConfigParser(interpolation=None)
     try:
         # configparser skips a file it cannot open without saying so, which is why
-        # the result is kept to tell a missing file from an incomplete one below
-        pwfile_read = bool(args.PWFILE and config.read(args.PWFILE))
-        if pwfile_read:
-            # there is a password file
-            for section in config.sections():
-                for key, value in config.items(section):
-                    if args.USERNAME is None and key.lower().startswith('user'):
-                        args.USERNAME = value
-                    if args.PASSWORD is None and key.lower() == 'password':
-                        args.PASSWORD = value
-                    if args.URL is None and key.lower() == 'url':
-                        args.URL = value
-    except configparser.Error as e:
-        print(e)
-        sys.exit(STATE_UNKNOWN)
+        # the result is kept to tell a missing file from an incomplete one later
+        if not config.read(args.PWFILE, encoding='utf-8'):
+            return False
+    except (configparser.Error, UnicodeDecodeError) as e:
+        lineno = getattr(e, 'lineno', None)
+        if lineno is None and getattr(e, 'errors', None):
+            lineno = e.errors[0][0]
+        msg = f'`{args.PWFILE}` is not a valid INI file'
+        if lineno:
+            msg += f', see line {lineno}'
+        # no traceback, it would carry the quoted line along
+        lib.base.cu(f'{msg}.', traceback=False)
 
-    have_creds = args.USERNAME and args.PASSWORD and args.URL
-    if not have_creds:
-        msg = 'The Icinga Web 2 URL, username or password is missing.'
-        if args.PWFILE and not pwfile_read:
-            msg += (
-                f' `{args.PWFILE}` does not exist or is not readable by the account'
-                ' running this plugin. Create it, or pass `--url`, `--username` and'
-                ' `--password`.'
-            )
-        elif args.PWFILE:
-            msg += (
-                f' Add the missing ones to `{args.PWFILE}`, or pass them with `--url`,'
-                ' `--username` and `--password`.'
-            )
-        lib.base.cu(msg)
+    # the command line takes precedence
+    for section in config.sections():
+        for key, value in config.items(section):
+            if args.USERNAME is None and key.lower().startswith('user'):
+                args.USERNAME = value
+            if args.PASSWORD is None and key.lower() == 'password':
+                args.PASSWORD = value
+            if args.URL is None and key.lower() == 'url':
+                args.URL = value
+    return True
 
 
 def main():
@@ -295,8 +310,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
+    pwfile_read = read_pwfile(args)
     if args.TEST is None:
-        read_credentials(args)
+        check_credentials(args, pwfile_read)
         events = lib.base.coe(get_data(args))
     else:
         # do not call the endpoint, put in test data
