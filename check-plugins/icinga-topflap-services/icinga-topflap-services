@@ -13,7 +13,6 @@
 import argparse
 import base64
 import configparser
-import datetime
 import sys
 
 import lib.args
@@ -21,25 +20,27 @@ import lib.base
 import lib.db_sqlite
 import lib.disk
 import lib.human
+import lib.lftest
 import lib.time
 import lib.txt
 import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026100801'
 
 DESCRIPTION = """Detects fast-flapping Icinga services by counting state changes per service within a
 configurable lookback interval. Queries the Icinga DB event history and alerts when
-any service exceeds the configured number of state changes."""
+any service exceeds the configured number of state changes. State changes that happened
+during a downtime of the service are not counted."""
 
-DEFAULT_CRIT = 19
+DEFAULT_CRIT = '19'
 DEFAULT_INSECURE = False
 DEFAULT_LOOKBACK = 4 * 3600
 DEFAULT_NO_PROXY = False
 DEFAULT_PWFILE = '/var/spool/icinga2/.icingaweb'
 DEFAULT_TIMEOUT = 8
-DEFAULT_WARN = 7
+DEFAULT_WARN = '7'
 
 
 def parse_args():
@@ -72,7 +73,6 @@ def parse_args():
         'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='CRIT',
-        type=int,
         default=DEFAULT_CRIT,
     )
 
@@ -126,6 +126,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -154,7 +161,6 @@ def parse_args():
         'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='WARN',
-        type=int,
         default=DEFAULT_WARN,
     )
 
@@ -179,15 +185,63 @@ def get_data(args):
     )
 
 
-def main():
-    """The main function. This is where the magic happens."""
+def get_downtimes(events):
+    """Collect the service downtime periods from the `downtime_start` and
+    `downtime_end` events of the history.
 
-    # parse the command line
-    try:
-        args = parse_args()
-    except SystemExit:
-        sys.exit(STATE_UNKNOWN)
+    Every downtime event carries the whole downtime, so a downtime is known even if
+    only one of its two events is part of the fetched history. `start_time` and
+    `end_time` are the effective period (counted from the trigger for a flexible
+    downtime), a downtime that never triggered has no events at all, and a cancelled
+    one ends at its `cancel_time`, also on its `downtime_start` event. Verified
+    against Icinga 2 (`lib/icingadb/icingadb-objects.cpp`) and Icinga DB
+    (`pkg/icingadb/v1/history/downtime.go`, `downtime_history` is upserted by
+    `downtime_id`).
 
+    Host downtimes are left out: Icinga 2 does not put a service into a downtime
+    because its host is in one (`Checkable::IsInDowntime()` only looks at the
+    service's own downtimes). A host downtime scheduled with its services creates
+    a downtime for each of them anyway.
+
+    Returns a dict mapping the service id to a set of `(start, end)` epoch tuples.
+    """
+    downtimes = {}
+    for event in events:
+        if event.get('event_type') not in ('downtime_end', 'downtime_start'):
+            continue
+        downtime = event.get('downtime') or {}
+        if downtime.get('object_type') != 'service':
+            continue
+        end_time = downtime.get('end_time')
+        if downtime.get('has_been_cancelled') and downtime.get('cancel_time'):
+            end_time = downtime.get('cancel_time')
+        try:
+            period = (iso2epoch(downtime.get('start_time')), iso2epoch(end_time))
+        except (AttributeError, TypeError, ValueError):
+            continue
+        downtimes.setdefault(downtime.get('service_id'), set()).add(period)
+    return downtimes
+
+
+def in_downtime(event_time, service_id, downtimes):
+    """Return True if `event_time` falls into a downtime of the service."""
+    # [start, end), like `Downtime::IsInEffect()` in Icinga 2
+    return any(
+        start <= event_time < end for start, end in downtimes.get(service_id, set())
+    )
+
+
+def iso2epoch(timestr):
+    """Icinga DB Web returns every timestamp in UTC, for example
+    `2025-02-26T13:45:15.207+00:00`.
+    """
+    return lib.time.timestr2epoch(timestr, pattern='iso8601')
+
+
+def read_credentials(args):
+    """Complete URL, username and password from the password file. Values given on
+    the command line take precedence. Exits UNKNOWN if one of them is missing.
+    """
     have_creds = args.USERNAME and args.PASSWORD and args.URL
     have_pwfile = args.PWFILE
     if not (have_creds or have_pwfile):
@@ -234,9 +288,40 @@ def main():
             )
         lib.base.cu(msg)
 
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        read_credentials(args)
+        events = lib.base.coe(get_data(args))
+    else:
+        # do not call the endpoint, put in test data
+        events = lib.lftest.test_json(args.TEST)
+
     # init some vars
     msg = ''
     state = STATE_OK
+    downtimes = get_downtimes(events)
+    if args.TEST is None:
+        now = lib.time.now()
+    else:
+        # a fixture does not age: its lookback ends at its newest event
+        now = max(
+            (
+                iso2epoch(event['event_time'])
+                for event in events
+                if event.get('event_time')
+            ),
+            default=0,
+        )
 
     # create the db table
     definition = """
@@ -253,29 +338,25 @@ def main():
     lib.base.coe(lib.db_sqlite.create_table(conn, definition))
     lib.base.coe(lib.db_sqlite.create_index(conn, 'host_id, service_id'))
 
-    now = lib.time.now()
-
-    # fetch data, filter events and enrich them
-    for event in lib.base.coe(get_data(args)):
-        if event.get('object_type') != 'service':
+    # analyze data
+    for event in events:
+        if event.get('event_type') != 'state_change':
             continue
-        if event.get('service').get('state').get('in_downtime'):
+        if event.get('object_type') != 'service':
             continue
 
         data = {}
-        data['state_event_time'] = event.get('state').get('event_time')
+        data['state_event_time'] = (event.get('state') or {}).get('event_time')
         if not data['state_event_time']:
             continue
-        data['state_event_time'] = lib.time.timestr2epoch(
-            data['state_event_time'][:19],  # 2025-02-26T13:45:15.207+00:00
-            pattern='%Y-%m-%dT%H:%M:%S',  # 2025-02-26T13:45:15
-            tzinfo=datetime.timezone.utc,  # icinga works with UTC timezone format
-        )
+        data['state_event_time'] = iso2epoch(data['state_event_time'])
         # ignore if event is outside lookback interval
         if abs(now - data['state_event_time']) > args.LOOKBACK:
             continue
 
-        data['service_display_name'] = event.get('service').get('display_name')
+        service = event.get('service') or {}
+        host = event.get('host') or {}
+        data['service_display_name'] = service.get('display_name')
         # ignore events with "Waiting for Icinga DB to synchronize the config."
         if data['service_display_name'] is None:
             continue
@@ -287,13 +368,18 @@ def main():
         ):
             continue
 
-        data['host_id'] = event.get('host').get('id')
-        data['host_display_name'] = event.get('host').get('display_name')
-        data['service_id'] = event.get('service').get('id')
+        data['host_id'] = host.get('id')
+        data['host_display_name'] = host.get('display_name')
+        data['service_id'] = service.get('id')
+
+        # A state change during a downtime is an expected one. `service.state` cannot
+        # tell, it is the current state of the service, not the one at `event_time`.
+        if in_downtime(data['state_event_time'], data['service_id'], downtimes):
+            continue
+
         lib.base.coe(lib.db_sqlite.insert(conn, data))
     lib.base.coe(lib.db_sqlite.commit(conn))
 
-    # analyze data
     # from here on just working on the database
     data = lib.base.coe(
         lib.db_sqlite.select(

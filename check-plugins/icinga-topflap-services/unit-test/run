@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+# The fixtures are anonymized excerpts of a production Icinga DB Web history export
+# (`/icingadb/history`, JSON), cut to the events of one service in a short window,
+# plus the downtimes of its host. Under `--test`, the lookback ends at the newest
+# event of the fixture, so the fixtures do not age.
+#
+# Every service below is in a downtime during some of its state changes. Its
+# `service.state.in_downtime` is the current state of the service, not the one at
+# the time of the event, and must not decide whether a state change is counted.
+#
+# * `past-downtime`: reboot window, 5 state changes inside the downtime, 3 outside
+#   (one of them 1 s after the downtime ended). The service is not in a downtime now.
+# * `host-downtime`: `past-downtime` without the service downtime events, so only the
+#   host downtime covers the reboot. Like in Icinga, it does not cover the service.
+#   Derived: in the export, every host downtime came with service downtimes
+#   (`all_services`).
+# * `current-downtime`: 5 state changes before a downtime that is still running, the
+#   later ones inside it. The service is in a downtime now.
+# * `cancelled-downtime`: 6 state changes after the downtime was cancelled, but
+#   before its scheduled end.
+# * `downtime-end-only`: 12 state changes inside a 17-day downtime whose
+#   `downtime_start` lies before the excerpt, only its `downtime_end` is part of it.
+# * `back-to-back-downtimes`: the history excerpt from issue #1564, two downtimes
+#   from 18:30 to 00:00 and from 00:00 to 06:00 with 18 state changes inside them,
+#   laid onto the event shape of the export.
+TESTS = [
+    {
+        'id': 'ok-past-downtime-not-counted',
+        'test': 'stdout/past-downtime,,0',
+        'params': '--lookback=259200',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Uptime +! 3 +! \[OK\]',
+    },
+    {
+        'id': 'warn-range-threshold',
+        'test': 'stdout/past-downtime,,0',
+        'params': '--lookback=259200 --warning=@3:3',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'Uptime +! 3 +! \[WARNING\]',
+    },
+    {
+        'id': 'crit-past-downtime-outside-changes',
+        'test': 'stdout/past-downtime,,0',
+        'params': '--lookback=259200 --warning=1 --critical=2',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'Uptime +! 3 +! \[CRITICAL\]',
+    },
+    {
+        'id': 'warn-host-downtime-does-not-cover-service',
+        'test': 'stdout/host-downtime,,0',
+        'params': '--lookback=259200',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'Uptime +! 8 +! \[WARNING\]',
+    },
+    {
+        'id': 'warn-current-downtime-earlier-changes-counted',
+        'test': 'stdout/current-downtime,,0',
+        'params': '--lookback=691200 --warning=4',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'PHP Status +! 5 +! \[WARNING\]',
+    },
+    {
+        'id': 'ok-lookback-drops-older-changes',
+        'test': 'stdout/current-downtime,,0',
+        'params': '--lookback=86400 --warning=4',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+        'assert-not-in': ['PHP Status'],
+    },
+    {
+        'id': 'warn-after-cancelled-downtime',
+        'test': 'stdout/cancelled-downtime,,0',
+        'params': '--warning=5',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'MySQL Logfile +! 6 +! \[WARNING\]',
+    },
+    {
+        'id': 'ok-downtime-known-from-end-event',
+        'test': 'stdout/downtime-end-only,,0',
+        'params': '--lookback=345600',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+        'assert-not-in': ['MySQL Logfile'],
+    },
+    {
+        'id': 'ok-back-to-back-downtimes',
+        'test': 'stdout/back-to-back-downtimes,,0',
+        'params': '--lookback=86400',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+        'assert-not-in': ['Windows Service'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../icinga-topflap-services'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

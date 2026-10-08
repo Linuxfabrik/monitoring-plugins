@@ -3,12 +3,13 @@
 
 ## Overview
 
-Detects fast-flapping Icinga services by counting state changes per service within a configurable lookback interval. Queries the Icinga DB event history and alerts when any service exceeds the configured number of state changes.
+Detects fast-flapping Icinga services by counting state changes per service within a configurable lookback interval. Queries the Icinga DB event history and alerts when any service exceeds the configured number of state changes. State changes that happened during a downtime of the service are not counted.
 
 **Important Notes:**
 
 * Requires Icinga DB with the Icinga Web 2 module
 * The Icinga Web 2 user needs at least the "icingadb > General Module Access" permission
+* Downtimes are taken from the same history, so the `limit` in the URL has to reach back over the lookback period. A downtime whose start and end both lie outside the fetched events is not known, and the state changes during it are counted
 * Instead of specifying URL, username and password on the command line, you can create and specify an INI file:
 
     ```text
@@ -22,7 +23,8 @@ Detects fast-flapping Icinga services by counting state changes per service with
 
 * Fetches data from the Icinga DB event history via the Icinga Web 2 REST API using HTTP Basic authentication
 * Groups events by host and service, then counts state changes per service within the lookback window
-* Uses a temporary SQLite database to store and aggregate event data per check run (dropped and recreated each run)
+* Skips state changes that fall into a downtime of the service, including flexible downtimes from the moment they were triggered and cancelled downtimes up to their cancellation
+* Uses an in-memory SQLite database to aggregate the events of a check run
 * Credentials can be provided via command-line parameters or a password INI file (command-line takes precedence)
 
 
@@ -51,6 +53,7 @@ usage: icinga-topflap-services [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
 Detects fast-flapping Icinga services by counting state changes per service
 within a configurable lookback interval. Queries the Icinga DB event history
 and alerts when any service exceeds the configured number of state changes.
+State changes that happened during a downtime of the service are not counted.
 
 options:
   -h, --help           show this help message and exit
@@ -131,8 +134,9 @@ srv-cloud01     ! Nextcloud Stats         ! 2   ! [OK]
 ## States
 
 * OK if no service exceeds the warning threshold for state changes within the lookback period.
-* WARN if any service has >= `--warning` (default: 7) state changes.
-* CRIT if any service has >= `--critical` (default: 19) state changes.
+* WARN if any service has more than `--warning` (default: 7) state changes.
+* CRIT if any service has more than `--critical` (default: 19) state changes.
+* State changes during a downtime of the service are not counted. Like in Icinga, a downtime of the host alone does not cover its services; schedule host downtimes together with their services.
 * UNKNOWN on missing credentials, unreadable password file, or invalid command-line arguments.
 * `--always-ok` suppresses all alerts and always returns OK.
 

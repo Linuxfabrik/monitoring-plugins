@@ -88,7 +88,7 @@ Monitoring Plugins:
 * dns: names each address once, stops waiting after `--timeout`, and says why a name did not resolve, also on Windows
 * docker-image, podman-image: no false CRITICAL for images from reproducible builds (e.g. Jib) that report 1970 as their build date
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
-* icinga-topflap-services: says whether the credentials file is missing or incomplete
+* icinga-topflap-services: ignores state changes made during a downtime instead of those of services currently in one ([#1564](https://github.com/Linuxfabrik/monitoring-plugins/issues/1564)), accepts Nagios ranges and says whether the credentials file is missing or incomplete
 * journald-\*, ntp-systemd-timesyncd, pip-updates: name missing journal rights, a missing timesyncd or a missing pip instead of a raw error
 * journald-query, journald-usage: UNKNOWN instead of a false OK when the account may read only its own part of the journal; journald-query no longer crashes on kernel and syslog entries
 * file-ownership: no false warning for the DNSSEC trust anchor of unbound on Fedora 44
