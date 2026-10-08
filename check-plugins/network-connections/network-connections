@@ -44,15 +44,15 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026100801'
 
 DESCRIPTION = """Counts system-wide socket connections by type (TCP, TCP6, UDP, UDP6) and state.
 Alerts when the total number of connections in a specific state exceeds the configured
 thresholds. Useful for detecting connection leaks or applications that do not properly
 close sockets."""
 
-DEFAULT_CONN_STATUS = 'all'
-DEFAULT_CONN_TYPE = 'all'
+DEFAULT_CONN_STATUS = ['all']
+DEFAULT_CONN_TYPE = ['all']
 DEFAULT_CRIT = None
 DEFAULT_WARN = None
 
@@ -83,7 +83,7 @@ def parse_args():
     parser.add_argument(
         '--conn-status',
         help='Filter connections by status. Can be specified multiple times. '
-        'Default: %(default)s',
+        f'Default: {", ".join(DEFAULT_CONN_STATUS)}.',
         default=None,  # due to https://bugs.python.org/issue16399, see in main() below
         dest='CONN_STATUS',
         action='append',
@@ -107,7 +107,7 @@ def parse_args():
     parser.add_argument(
         '--conn-type',
         help='Filter connections by family/type. Can be specified multiple times. '
-        'Default: %(default)s',
+        f'Default: {", ".join(DEFAULT_CONN_TYPE)}.',
         default=None,  # due to https://bugs.python.org/issue16399, see in main() below
         dest='CONN_TYPE',
         action='append',

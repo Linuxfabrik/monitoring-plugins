@@ -97,6 +97,7 @@ Monitoring Plugins:
 * lynis: names an unreadable lynis installation on SUSE instead of a page of errors, leaves no temporary directories
 * mastodon-version: also finds the version of a rootless Podman installation
 * metabase-stats: no longer aborts every run with a Python error
+* network-connections: the message for no matching connections shows `all` instead of `a,l,l`
 * ntp-chronyd: names why `chronyc` failed
 * ntp-w32tm: evaluates German output, warns on a stopped Windows Time service, names a refused query, no longer hangs
 * openvpn-client-list: shows the external IP of clients on OpenVPN 2.7 and IPv6, and reads status files written with `status-version` 1 or 3

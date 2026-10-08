@@ -68,10 +68,10 @@ options:
   --always-ok           Always returns OK.
   --conn-status {all,close,close_wait,closing,established,fin_wait1,fin_wait2,last_ack,listen,none,syn_recv,syn_sent,time_wait}
                         Filter connections by status. Can be specified
-                        multiple times. Default: None
+                        multiple times. Default: all.
   --conn-type {all,tcp,tcp6,udp,udp6}
                         Filter connections by family/type. Can be specified
-                        multiple times. Default: None
+                        multiple times. Default: all.
   -c, --critical CRIT   CRIT threshold for the number of connections. Default:
                         None
   --no-perfdata         Suppress the performance data section from the output.
