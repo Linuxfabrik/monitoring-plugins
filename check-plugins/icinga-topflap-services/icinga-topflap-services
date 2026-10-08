@@ -27,7 +27,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100801'
+__version__ = '2026100802'
 
 DESCRIPTION = """Detects fast-flapping Icinga services by counting state changes per service within a
 configurable lookback interval. Queries the Icinga DB event history and alerts when
@@ -216,7 +216,10 @@ def get_downtimes(events):
         if downtime.get('has_been_cancelled') and downtime.get('cancel_time'):
             end_time = downtime.get('cancel_time')
         try:
-            period = (iso2epoch(downtime.get('start_time')), iso2epoch(end_time))
+            period = (
+                lib.time.timestr2epoch(downtime.get('start_time'), pattern='iso8601'),
+                lib.time.timestr2epoch(end_time, pattern='iso8601'),
+            )
         except (AttributeError, TypeError, ValueError):
             continue
         downtimes.setdefault(downtime.get('service_id'), set()).add(period)
@@ -229,13 +232,6 @@ def in_downtime(event_time, service_id, downtimes):
     return any(
         start <= event_time < end for start, end in downtimes.get(service_id, set())
     )
-
-
-def iso2epoch(timestr):
-    """Icinga DB Web returns every timestamp in UTC, for example
-    `2025-02-26T13:45:15.207+00:00`.
-    """
-    return lib.time.timestr2epoch(timestr, pattern='iso8601')
 
 
 def read_credentials(args):
@@ -316,7 +312,7 @@ def main():
         # a fixture does not age: its lookback ends at its newest event
         now = max(
             (
-                iso2epoch(event['event_time'])
+                lib.time.timestr2epoch(event['event_time'], pattern='iso8601')
                 for event in events
                 if event.get('event_time')
             ),
@@ -349,7 +345,10 @@ def main():
         data['state_event_time'] = (event.get('state') or {}).get('event_time')
         if not data['state_event_time']:
             continue
-        data['state_event_time'] = iso2epoch(data['state_event_time'])
+        # Icinga DB Web returns every timestamp in UTC: 2025-02-26T13:45:15.207+00:00
+        data['state_event_time'] = lib.time.timestr2epoch(
+            data['state_event_time'], pattern='iso8601'
+        )
         # ignore if event is outside lookback interval
         if abs(now - data['state_event_time']) > args.LOOKBACK:
             continue
