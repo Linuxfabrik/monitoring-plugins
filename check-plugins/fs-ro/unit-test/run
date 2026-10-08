@@ -80,6 +80,22 @@ TESTS = [
         'assert-in': ['1 read-only mount point found', '/mounts/secrets'],
     },
     {
+        # --ignore replaces the defaults, so /sys/fs/cgroup is reported again
+        'id': 'warn-ignore-replaces-default-list',
+        'test': 'stdout/one-readonly-mount-v1,,0',
+        'params': '--ignore=/mnt/iso',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 read-only mount point found', '/sys/fs/cgroup'],
+    },
+    {
+        # --extend-ignore keeps the defaults, so /sys/fs/cgroup stays ignored (#1566)
+        'id': 'ok-extend-ignore-keeps-default-list',
+        'test': 'stdout/one-readonly-mount-v1,,0',
+        'params': '--extend-ignore=/mnt/iso',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
+    {
         'id': 'unknown-malformed-proc-mounts',
         'test': 'stdout/malformed-proc-mounts,,0',
         'assert-retc': STATE_UNKNOWN,

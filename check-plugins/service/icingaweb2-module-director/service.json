@@ -8,6 +8,14 @@
                 "--critical": {
                     "value": "$service_windows_critical$"
                 },
+                "--extend-starttype": {
+                    "value": "$service_windows_extend_starttype$",
+                    "repeat_key": true
+                },
+                "--extend-status": {
+                    "value": "$service_windows_extend_status$",
+                    "repeat_key": true
+                },
                 "--service": {
                     "value": "$service_windows_service$"
                 },
@@ -38,7 +46,7 @@
                 },
                 {
                     "datafield_id": 3,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -48,11 +56,21 @@
                 },
                 {
                     "datafield_id": 5,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -110,6 +128,8 @@
             "vars": {
                 "criticality": "C",
                 "service_windows_always_ok": false,
+                "service_windows_extend_starttype": [],
+                "service_windows_extend_status": [],
                 "service_windows_starttype": [],
                 "service_windows_status": [
                     "running"
@@ -122,6 +142,80 @@
         }
     },
     "DataList": {
+        "service_windows_extend_starttype_list": {
+            "list_name": "service_windows_extend_starttype_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "automatic",
+                    "entry_value": "Automatic",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "disabled",
+                    "entry_value": "Disabled",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "manual",
+                    "entry_value": "Manual",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "6138b2f7-2fc8-406f-a47e-92d2f9ea1181"
+        },
+        "service_windows_extend_status_list": {
+            "list_name": "service_windows_extend_status_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "continue_pending",
+                    "entry_value": "Continue Pending",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "pause_pending",
+                    "entry_value": "Pause Pending",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "paused",
+                    "entry_value": "Paused",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "running",
+                    "entry_value": "Running",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "start_pending",
+                    "entry_value": "Start Pending",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "stop_pending",
+                    "entry_value": "Stop Pending",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "stopped",
+                    "entry_value": "Stopped",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "ee2ef9d2-f13f-4d8c-9066-9897e5b1a437"
+        },
         "service_windows_starttype_list": {
             "list_name": "service_windows_starttype_list",
             "owner": "icinga-admin",
@@ -219,6 +313,32 @@
             "uuid": "482ad4b0-9399-47e1-82a4-2db938828426"
         },
         "3": {
+            "varname": "service_windows_extend_starttype",
+            "caption": "Service: Extend Starttype",
+            "description": "Filter by service start type, appended to the default or the `--starttype` list. Can be specified multiple times. Example: `--extend-starttype=manual`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "array",
+                "datalist": "service_windows_extend_starttype_list"
+            },
+            "uuid": "11e4b86a-690e-495b-97ac-b194ceccd4c3"
+        },
+        "4": {
+            "varname": "service_windows_extend_status",
+            "caption": "Service: Extend Status",
+            "description": "Expected service status, appended to the default or the `--status` list. Can be specified multiple times. Example: `--extend-status=start_pending`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "array",
+                "datalist": "service_windows_extend_status_list"
+            },
+            "uuid": "76e78754-381c-40d2-8a5e-e02b9d1db9f6"
+        },
+        "5": {
             "varname": "service_windows_service",
             "caption": "Service: Service",
             "description": "Name of the Windows service(s) to check. Supports Python regular expressions (regex).",
@@ -229,10 +349,10 @@
             },
             "uuid": "046363e7-2655-49c7-96e0-42f5449da328"
         },
-        "4": {
+        "6": {
             "varname": "service_windows_starttype",
             "caption": "Service: Starttype",
-            "description": "Filter by service start type. Can be specified multiple times. Default: automatic.",
+            "description": "Filter by service start type. Replaces the default list, use `--extend-starttype` to append to it. Can be specified multiple times. Default: automatic.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -242,10 +362,10 @@
             },
             "uuid": "9fe764dd-a4de-4e61-b8d6-40849a9bebc3"
         },
-        "5": {
+        "7": {
             "varname": "service_windows_status",
             "caption": "Service: Status",
-            "description": "Expected service status. Can be specified multiple times. Default: running.",
+            "description": "Expected service status. Replaces the default list, use `--extend-status` to append to it. Can be specified multiple times. Default: running.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -255,7 +375,7 @@
             },
             "uuid": "cfedc075-96bb-4911-97cb-efaa7022193a"
         },
-        "6": {
+        "8": {
             "varname": "service_windows_warning",
             "caption": "Service: Warning",
             "description": "WARN threshold for the number of services in the expected status. Accepts Nagios ranges.",

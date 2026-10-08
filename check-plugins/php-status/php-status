@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026100801'
 
 DESCRIPTION = """Checks PHP configuration and health, including startup errors, missing modules, and
 misconfigured php.ini directives. Optionally reads extended PHP information from a
@@ -213,6 +213,16 @@ def parse_args():
         default=False,
     )
     parser.add_argument(
+        '--extend-module',
+        help='PHP module name to check (startswith match), '
+        'appended to the default or the `--module` list. '
+        'Can be specified multiple times. '
+        'Example: `--extend-module=mbstring`.',
+        dest='EXTEND_MODULES',
+        action='append',
+        default=None,
+    )
+    parser.add_argument(
         '--ignore-multiple-masters',
         help='Do not warn when more than one PHP-FPM master is running. '
         'Use this on hosts where you intentionally run several PHP-FPM services '
@@ -231,8 +241,10 @@ def parse_args():
     parser.add_argument(
         '--module',
         help='PHP module name to check (startswith match). '
+        'Replaces the default list, use `--extend-module` to append to it. '
         'Can be specified multiple times. '
-        'Example: `--module json --module mbstring`',
+        'Example: `--module=json --module=mbstring`. '
+        f'Default: {", ".join(DEFAULT_MODULES)}.',
         dest='MODULES',
         action='append',
         default=None,
@@ -504,8 +516,12 @@ def main():
     # set default values for append parameters that were not specified
     if args.CONFIG is None:
         args.CONFIG = DEFAULT_CONFIG
+    if args.EXTEND_MODULES is None:
+        args.EXTEND_MODULES = []
     if args.MODULES is None:
         args.MODULES = DEFAULT_MODULES
+    # build a new list, `+=` would modify DEFAULT_MODULES in place
+    args.MODULES = args.MODULES + args.EXTEND_MODULES
 
     # fetch data
     # Request the per-file OPcache script list unless the top-scripts table is

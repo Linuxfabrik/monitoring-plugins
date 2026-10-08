@@ -26,7 +26,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091801'
+__version__ = '2026100801'
 
 DESCRIPTION = """Checks the tickets of the Avelon Cloud building management platform, which
 its devices and data points raise as alarms. Alerts when a ticket is in a status that
@@ -158,6 +158,30 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--extend-type',
+        help='Ticket type to check, '
+        'appended to the default or the `--type` list. '
+        'Can be specified multiple times. '
+        'Example: `--extend-type=SYSTEM_MONITOR`.',
+        dest='EXTEND_TYPE',
+        action='append',
+        choices=TYPES,
+        default=None,
+    )
+
+    parser.add_argument(
+        '--extend-warning',
+        help='Ticket status that returns WARN, '
+        'appended to the default or the `--warning` list. '
+        'Can be specified multiple times. '
+        'Example: `--extend-warning=ACKNOWLEDGED_AND_GONE`.',
+        dest='EXTEND_WARN',
+        action='append',
+        choices=[*STATUSES_UNCLOSED, 'none'],
+        default=None,
+    )
+
+    parser.add_argument(
         '--ignore',
         help=lib.args.help('--ignore-regex'),
         dest='IGNORE',
@@ -232,9 +256,10 @@ def parse_args():
         '`ALARM` is raised by a device or a data point, '
         '`BUILDING` is a report by a tenant or a user, '
         '`SYSTEM_MONITOR` is a system event. '
+        'Replaces the default list, use `--extend-type` to append to it. '
         'Can be specified multiple times. '
         'Example: `--type=ALARM --type=SYSTEM_MONITOR`. '
-        f'Default: {", ".join(DEFAULT_TYPE)}',
+        f'Default: {", ".join(DEFAULT_TYPE)}.',
         dest='TYPE',
         action='append',
         choices=TYPES,
@@ -260,9 +285,10 @@ def parse_args():
         '--warning',
         help='Ticket status that returns WARN. '
         '`none` returns WARN for no status. '
+        'Replaces the default list, use `--extend-warning` to append to it. '
         'Can be specified multiple times. '
         'Example: `--warning=OPEN --warning=REOPENED`. '
-        f'Default: {", ".join(DEFAULT_WARN)}',
+        f'Default: {", ".join(DEFAULT_WARN)}.',
         dest='WARN',
         action='append',
         choices=[*STATUSES_UNCLOSED, 'none'],
@@ -459,14 +485,22 @@ def main():
     # set default values for append parameters that were not specified
     if args.CRIT is None:
         args.CRIT = DEFAULT_CRIT
+    if args.EXTEND_TYPE is None:
+        args.EXTEND_TYPE = []
+    if args.EXTEND_WARN is None:
+        args.EXTEND_WARN = []
     if args.IGNORE is None:
         args.IGNORE = []
     if args.MATCH is None:
         args.MATCH = []
     if args.TYPE is None:
         args.TYPE = DEFAULT_TYPE
+    # build a new list, `+=` would modify DEFAULT_TYPE in place
+    args.TYPE = args.TYPE + args.EXTEND_TYPE
     if args.WARN is None:
         args.WARN = DEFAULT_WARN
+    # build a new list, `+=` would modify DEFAULT_WARN in place
+    args.WARN = args.WARN + args.EXTEND_WARN
     args.URL = args.URL.rstrip('/')
 
     # fetch data

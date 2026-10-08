@@ -54,7 +54,7 @@ warnings.filterwarnings('ignore', category=CryptographyDeprecationWarning)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092901'
+__version__ = '2026100801'
 
 DESCRIPTION = """Inspects X.509 certificates and alerts on days remaining until expiry,
 hostname mismatch and chain verification failures. Sources via --source: `url` fetches the
@@ -217,6 +217,17 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--extend-ports',
+        help='TCP port to probe on every scanned target, '
+        'appended to the default or the `--ports` list. '
+        'Can be specified multiple times. '
+        'Example: `--extend-ports=8443`.',
+        dest='EXTEND_PORTS',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--filename',
         help='Path to a certificate file or a glob pattern matching multiple certificate '
         'files. Required when --source=file. Files are read as PEM or DER (autodetected); '
@@ -316,10 +327,10 @@ def parse_args():
         '--ports',
         help='TCP port to probe on every scanned target. A range is written `start-end`. '
         'Only applies to --source=scan. '
+        'Replaces the default list, use `--extend-ports` to append to it. '
         'Can be specified multiple times. '
-        f'If not specified, a set of common data-center TLS ports is probed '
-        f'({", ".join(DEFAULT_PORTS)}). '
-        'Example: `--ports=443 --ports=993 --ports=8000-8100`',
+        'Example: `--ports=443 --ports=993 --ports=8000-8100`. '
+        f'Default: {", ".join(DEFAULT_PORTS)}.',
         dest='PORTS',
         action='append',
         default=None,
@@ -1281,8 +1292,12 @@ def main():
         args.CA_FILE = []
     if args.EXCLUDE is None:  # case 1: always treated as a list
         args.EXCLUDE = []
+    if args.EXTEND_PORTS is None:
+        args.EXTEND_PORTS = []
     if args.PORTS is None:  # case 2: fall back to the default port list
         args.PORTS = list(DEFAULT_PORTS)
+    # build a new list, `+=` would modify DEFAULT_PORTS in place
+    args.PORTS = args.PORTS + args.EXTEND_PORTS
     # args.HOST and args.NETWORK stay None
     # (case 3: None means "not set", which selects subnet auto-discovery)
 

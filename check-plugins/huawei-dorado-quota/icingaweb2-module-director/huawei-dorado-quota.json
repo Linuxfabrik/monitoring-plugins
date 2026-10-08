@@ -17,6 +17,10 @@
                 "--device-id": {
                     "value": "$huawei_dorado_quota_device_id$"
                 },
+                "--extend-quota-type": {
+                    "value": "$huawei_dorado_quota_extend_quota_type$",
+                    "repeat_key": true
+                },
                 "--ignore": {
                     "value": "$huawei_dorado_quota_ignore$",
                     "repeat_key": true
@@ -175,7 +179,7 @@
                 },
                 {
                     "datafield_id": 20,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -185,11 +189,16 @@
                 },
                 {
                     "datafield_id": 22,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 23,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 24,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -251,6 +260,7 @@
                 "huawei_dorado_quota_cache_expire": 15,
                 "huawei_dorado_quota_critical": "90",
                 "huawei_dorado_quota_device_id": "",
+                "huawei_dorado_quota_extend_quota_type": [],
                 "huawei_dorado_quota_ignore": [],
                 "huawei_dorado_quota_insecure": true,
                 "huawei_dorado_quota_lengthy": true,
@@ -270,6 +280,31 @@
         }
     },
     "DataList": {
+        "huawei_dorado_quota_extend_quota_type_list": {
+            "list_name": "huawei_dorado_quota_extend_quota_type_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "directory",
+                    "entry_value": "Directory",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "user",
+                    "entry_value": "User",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "user-group",
+                    "entry_value": "User Group",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "9aab7f16-01a7-45a9-be18-1acf832d66e3"
+        },
         "huawei_dorado_quota_no_match_severity_list": {
             "list_name": "huawei_dorado_quota_no_match_severity_list",
             "owner": "icinga-admin",
@@ -380,6 +415,19 @@
             "uuid": "3ee3aa61-a5ce-4a33-9162-16dc74f4170b"
         },
         "6": {
+            "varname": "huawei_dorado_quota_extend_quota_type",
+            "caption": "Huawei Dorado Quota: Extend Quota Type",
+            "description": "Type of quota to check, appended to the default or the `--quota-type` list. Can be specified multiple times. Example: `--extend-quota-type=user`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "array",
+                "datalist": "huawei_dorado_quota_extend_quota_type_list"
+            },
+            "uuid": "0243dcec-69fd-41a9-8cee-f3a191c993da"
+        },
+        "7": {
             "varname": "huawei_dorado_quota_ignore",
             "caption": "Huawei Dorado Quota: Ignore",
             "description": "Skip quotas. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The regex is anchored at the start of the string (Python `re.match`) and is matched against the share name, including the owner of a user or user group quota, so prefix with `.*` to match anywhere.",
@@ -390,7 +438,7 @@
             },
             "uuid": "63852309-008b-40f4-a625-622f001d06b2"
         },
-        "7": {
+        "8": {
             "varname": "huawei_dorado_quota_insecure",
             "caption": "Huawei Dorado Quota: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -399,7 +447,7 @@
             "settings": {},
             "uuid": "c178a783-1791-4e51-a0c4-a86c8a542133"
         },
-        "8": {
+        "9": {
             "varname": "huawei_dorado_quota_lengthy",
             "caption": "Huawei Dorado Quota: Lengthy?",
             "description": "Extended reporting.",
@@ -408,7 +456,7 @@
             "settings": {},
             "uuid": "58da8455-e5ba-446e-9e39-61cfadae0efc"
         },
-        "9": {
+        "10": {
             "varname": "huawei_dorado_quota_match",
             "caption": "Huawei Dorado Quota: Match",
             "description": "Limit to quotas. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against the share name, including the owner of a user or user group quota, so prefix with `.*` to match anywhere.",
@@ -419,7 +467,7 @@
             },
             "uuid": "f666b117-df14-4721-a18b-697c2f27634a"
         },
-        "10": {
+        "11": {
             "varname": "huawei_dorado_quota_no_insecure",
             "caption": "Huawei Dorado Quota: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -428,7 +476,7 @@
             "settings": {},
             "uuid": "6000485e-2ecf-42e8-a4d6-96c89c1aa778"
         },
-        "11": {
+        "12": {
             "varname": "huawei_dorado_quota_no_match_severity",
             "caption": "Huawei Dorado Quota: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -441,7 +489,7 @@
             },
             "uuid": "37271828-b7b9-45a0-a3a3-fbf3017cf9ee"
         },
-        "12": {
+        "13": {
             "varname": "huawei_dorado_quota_no_perfdata",
             "caption": "Huawei Dorado Quota: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -450,7 +498,7 @@
             "settings": {},
             "uuid": "130315ee-7d12-411e-984d-95b96969495c"
         },
-        "13": {
+        "14": {
             "varname": "huawei_dorado_quota_no_proxy",
             "caption": "Huawei Dorado Quota: No Proxy?",
             "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
@@ -459,7 +507,7 @@
             "settings": {},
             "uuid": "60a3edd2-a23e-4b7a-a2e7-4a965ee9ce63"
         },
-        "14": {
+        "15": {
             "varname": "huawei_dorado_quota_password",
             "caption": "Huawei Dorado Quota: Password",
             "description": "Huawei OceanStor Dorado API password.",
@@ -470,7 +518,7 @@
             },
             "uuid": "fe097c78-ce91-4fba-a2eb-30a2a18059b3"
         },
-        "15": {
+        "16": {
             "varname": "huawei_dorado_quota_password_file",
             "caption": "Huawei Dorado Quota: Password File",
             "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
@@ -481,7 +529,7 @@
             },
             "uuid": "bafc2cb9-a780-4a41-99e1-f1d63a8e7495"
         },
-        "16": {
+        "17": {
             "varname": "huawei_dorado_quota_proxy",
             "caption": "Huawei Dorado Quota: Proxy",
             "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
@@ -492,10 +540,10 @@
             },
             "uuid": "0ec5aa15-8c1c-49eb-aaeb-653379214c29"
         },
-        "17": {
+        "18": {
             "varname": "huawei_dorado_quota_quota_type",
             "caption": "Huawei Dorado Quota: Quota Type",
-            "description": "Type of quota to check. Can be specified multiple times. Example: `--quota-type=directory --quota-type=user`. Default: directory",
+            "description": "Type of quota to check. Replaces the default list, use `--extend-quota-type` to append to it. Can be specified multiple times. Example: `--quota-type=directory --quota-type=user`. Default: directory.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -505,7 +553,7 @@
             },
             "uuid": "032ad4fc-5577-4132-9f5d-7bd4e1f891f1"
         },
-        "18": {
+        "19": {
             "varname": "huawei_dorado_quota_scope",
             "caption": "Huawei Dorado Quota: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -516,7 +564,7 @@
             },
             "uuid": "ff9da7e3-e08c-49dc-9c57-832399242a06"
         },
-        "19": {
+        "20": {
             "varname": "huawei_dorado_quota_timeout",
             "caption": "Huawei Dorado Quota: Timeout",
             "description": "Network timeout in seconds.",
@@ -527,7 +575,7 @@
             },
             "uuid": "7f7e51c4-227c-4f50-a25a-cf5604a01f5a"
         },
-        "20": {
+        "21": {
             "varname": "huawei_dorado_quota_url",
             "caption": "Huawei Dorado Quota: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -538,7 +586,7 @@
             },
             "uuid": "bc8d9425-fdf0-4102-a614-e5f08b3a0d7a"
         },
-        "21": {
+        "22": {
             "varname": "huawei_dorado_quota_username",
             "caption": "Huawei Dorado Quota: Username",
             "description": "Huawei OceanStor Dorado API username.",
@@ -549,7 +597,7 @@
             },
             "uuid": "7a31373b-77bb-433f-ae9b-be9551bf3cb8"
         },
-        "22": {
+        "23": {
             "varname": "huawei_dorado_quota_verbose",
             "caption": "Huawei Dorado Quota: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",
@@ -558,7 +606,7 @@
             "settings": {},
             "uuid": "5706be66-7c3b-48ef-a51d-74fb03e67a1e"
         },
-        "23": {
+        "24": {
             "varname": "huawei_dorado_quota_warning",
             "caption": "Huawei Dorado Quota: Warning",
             "description": "WARN threshold in percent. Supports Nagios ranges.",

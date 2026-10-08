@@ -27,7 +27,7 @@ import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026100801'
 
 DESCRIPTION = """Checks the Icinga Web 2 modules installed on this host against their
 releases on GitHub, so a module installed from a tarball or a Git checkout does not
@@ -181,6 +181,17 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--extend-path',
+        help='Directory holding the Icinga Web 2 modules, '
+        'appended to the default or the `--path` list. '
+        'Can be specified multiple times. '
+        'Example: `--extend-path=/opt/icingaweb2/modules`.',
+        dest='EXTEND_PATH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--ignore',
         help=lib.args.help('--ignore-regex'),
         dest='IGNORE',
@@ -263,8 +274,9 @@ def parse_args():
         help='Directory holding the Icinga Web 2 modules. '
         'Set this where `module_path` in `/etc/icingaweb2/config.ini` names another '
         'one. '
+        'Replaces the default list, use `--extend-path` to append to it. '
         'Can be specified multiple times. '
-        f'Default: {DEFAULT_PATH}',
+        f'Default: {DEFAULT_PATH}.',
         dest='PATH',
         action='append',
         default=None,
@@ -566,12 +578,16 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # set default values for append parameters that were not specified
+    if args.EXTEND_PATH is None:
+        args.EXTEND_PATH = []
     if args.IGNORE is None:
         args.IGNORE = []
     if args.MATCH is None:
         args.MATCH = []
     if args.PATH is None:
         args.PATH = [DEFAULT_PATH]
+    # append --extend-path to the default or the --path list
+    args.PATH = args.PATH + args.EXTEND_PATH
     if args.REPO is None:
         args.REPO = []
 

@@ -149,9 +149,10 @@ On the subject of OPcache see also:
 
 ```text
 usage: php-status [-h] [-V] [--always-ok] [--config CONFIG] [-c CRIT] [--dev]
-                  [--ignore-multiple-masters] [--insecure] [--module MODULES]
-                  [--no-perfdata] [--no-proxy] [--proxy PROXY]
-                  [--timeout TIMEOUT] [--top TOP] [--url URL] [-w WARN]
+                  [--extend-module EXTEND_MODULES] [--ignore-multiple-masters]
+                  [--insecure] [--module MODULES] [--no-perfdata] [--no-proxy]
+                  [--proxy PROXY] [--timeout TIMEOUT] [--top TOP] [--url URL]
+                  [-w WARN]
 
 Checks PHP configuration and health, including startup errors, missing
 modules, and misconfigured php.ini directives. Optionally reads extended PHP
@@ -172,6 +173,11 @@ options:
                         percent. Default: >= None
   --dev                 Development mode. Tolerates `display_errors=On` and
                         `display_startup_errors=On`.
+  --extend-module EXTEND_MODULES
+                        PHP module name to check (startswith match), appended
+                        to the default or the `--module` list. Can be
+                        specified multiple times. Example: `--extend-
+                        module=mbstring`.
   --ignore-multiple-masters
                         Do not warn when more than one PHP-FPM master is
                         running. Use this on hosts where you intentionally run
@@ -179,9 +185,14 @@ options:
                         own check.
   --insecure            This option explicitly allows insecure SSL
                         connections.
-  --module MODULES      PHP module name to check (startswith match). Can be
-                        specified multiple times. Example: `--module json
-                        --module mbstring`
+  --module MODULES      PHP module name to check (startswith match). Replaces
+                        the default list, use `--extend-module` to append to
+                        it. Can be specified multiple times. Example:
+                        `--module=json --module=mbstring`. Default: calendar,
+                        Core, ctype, date, exif, fileinfo, filter, ftp,
+                        gettext, hash, iconv, json, libxml, openssl, pcntl,
+                        pcre, Phar, readline, Reflection, session, sockets,
+                        SPL, standard, tokenizer, xml, zlib.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

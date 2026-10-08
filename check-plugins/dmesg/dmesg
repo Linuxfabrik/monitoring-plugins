@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026100801'
 
 DESCRIPTION = """Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert,
 crit, and err. Known false positives and hardware-specific noise are filtered out by default; the
@@ -170,6 +170,17 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--extend-ignore',
+        help='Ignore a kernel message matching this Python regular expression, '
+        'appended to the default or the `--ignore` list. '
+        'Can be specified multiple times. '
+        'Example: `--extend-ignore="^.* unhandled (rd|wr)msr: "`.',
+        dest='EXTEND_IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--icinga-callback',
         help=lib.args.help('--icinga-callback'),
         dest='ICINGA_CALLBACK',
@@ -201,16 +212,11 @@ def parse_args():
         dest='ICINGA_USERNAME',
     )
 
-    # Append parameters use `default=None`; the actual default list (`DEFAULT_IGNORE`)
-    # is assigned in main() if the user did not pass `--ignore`. Specifying `--ignore`
-    # at least once therefore replaces the default list rather than extending it; this
-    # matches the convention documented in CONTRIBUTING.md and lets admins curate
-    # their own ignore list without inheriting the bundled defaults.
     parser.add_argument(
         '--ignore',
         help='Ignore a kernel message matching this Python regular expression. '
+        'Replaces the default list, use `--extend-ignore` to append to it. '
         'Can be specified multiple times. '
-        'Specifying this parameter replaces the bundled default ignore list. '
         'Example: `--ignore="^.* unhandled (rd|wr)msr: "`.',
         dest='IGNORE',
         action='append',
@@ -353,9 +359,13 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # apply default ignore list if the admin did not pass --ignore
+    # set default values for append parameters that were not specified
+    if args.EXTEND_IGNORE is None:
+        args.EXTEND_IGNORE = []
     if args.IGNORE is None:
         args.IGNORE = DEFAULT_IGNORE
+    # build a new list, `+=` would modify DEFAULT_IGNORE in place
+    args.IGNORE = args.IGNORE + args.EXTEND_IGNORE
     if args.MATCH is None:
         args.MATCH = []
 

@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026090302'
+__version__ = '2026100801'
 
 DESCRIPTION = """Checks how full the quotas of a Huawei OceanStor Pacific storage system are via the
 REST API (/file_service/fs_quota endpoint). Walks all file systems and their dtrees and reports the
@@ -111,6 +111,18 @@ def parse_args():
         + ' Supports Nagios ranges. Default: %(default)s',
         dest='CRIT',
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--extend-quota-type',
+        help='Type of quota to check, '
+        'appended to the default or the `--quota-type` list. '
+        'Can be specified multiple times. '
+        'Example: `--extend-quota-type=user`.',
+        dest='EXTEND_QUOTA_TYPE',
+        action='append',
+        choices=sorted(QUOTA_TYPES),
+        default=None,
     )
 
     parser.add_argument(
@@ -216,11 +228,12 @@ def parse_args():
     parser.add_argument(
         '--quota-type',
         help='Type of quota to check. '
+        'Replaces the default list, use `--extend-quota-type` to append to it. '
         'Can be specified multiple times. '
         'Example: `--quota-type=directory --quota-type=user`. '
         # An append parameter defaults to None so that user values do not pile
         # up on the default list, so %(default)s cannot be used here.
-        f'Default: {", ".join(DEFAULT_QUOTA_TYPE)}',
+        f'Default: {", ".join(DEFAULT_QUOTA_TYPE)}.',
         dest='QUOTA_TYPE',
         action='append',
         choices=sorted(QUOTA_TYPES),
@@ -426,6 +439,8 @@ def main():
         lib.base.cu('--url parameter has to start with "http://" or https://".')
 
     # set default values for append parameters that were not specified
+    if args.EXTEND_QUOTA_TYPE is None:
+        args.EXTEND_QUOTA_TYPE = []
     if args.IGNORE is None:
         args.IGNORE = []
     # `--ignore-regex` is the name this check used before the family settled on
@@ -436,6 +451,8 @@ def main():
         args.MATCH = []
     if args.QUOTA_TYPE is None:
         args.QUOTA_TYPE = DEFAULT_QUOTA_TYPE
+    # build a new list, `+=` would modify DEFAULT_QUOTA_TYPE in place
+    args.QUOTA_TYPE = args.QUOTA_TYPE + args.EXTEND_QUOTA_TYPE
 
     # fetch data
     quotas, truncated = collect_quotas(args)

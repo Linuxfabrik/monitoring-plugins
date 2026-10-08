@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026100801'
 
 DESCRIPTION = """Checks if screens attached to Grassfish digital signage players are on or off via
 the Grassfish API. The player list can be filtered by box state, customer ID, or
@@ -48,6 +48,8 @@ DEFAULT_TIMEOUT = 8
 DEFAULT_TRANSFER_STATUS = None
 DEFAULT_URL = '/gv2/webservices/API'
 DEFAULT_WARN = 8  # hours
+
+BOX_STATES = ['activated', 'deleted', 'new', 'reserved', 'undefined']
 
 
 def parse_args():
@@ -87,17 +89,12 @@ def parse_args():
     parser.add_argument(
         '--box-state',
         help='Filter by box state. '
+        'Replaces the default list, use `--extend-box-state` to append to it. '
         'Can be specified multiple times. '
-        'Default: %(default)s',
+        f'Default: {", ".join(DEFAULT_BOX_STATE)}.',
         dest='BOX_STATE',
         action='append',
-        choices=[
-            'activated',
-            'deleted',
-            'new',
-            'reserved',
-            'undefined',
-        ],
+        choices=BOX_STATES,
     )
     parser.add_argument(
         '--cache-expire',
@@ -113,6 +110,17 @@ def parse_args():
         'Supports Python regular expressions (case-insensitive). '
         'Example: `--custom-id "(?i)lobby"`.',
         dest='CUSTOM_ID',
+    )
+    parser.add_argument(
+        '--extend-box-state',
+        help='Filter by box state, '
+        'appended to the default or the `--box-state` list. '
+        'Can be specified multiple times. '
+        'Example: `--extend-box-state=new`.',
+        dest='EXTEND_BOX_STATE',
+        action='append',
+        choices=BOX_STATES,
+        default=None,
     )
     parser.add_argument(
         '-H',
@@ -256,9 +264,13 @@ def main():
         except re.error as rerr:
             lib.base.cu(f'Invalid regex "{args.CUSTOM_ID}": {rerr}')
 
-    # due to https://bugs.python.org/issue16399, set the default value here
+    # set default values for append parameters that were not specified
+    if args.EXTEND_BOX_STATE is None:
+        args.EXTEND_BOX_STATE = []
     if args.BOX_STATE is None:
         args.BOX_STATE = DEFAULT_BOX_STATE
+    # build a new list, `+=` would modify DEFAULT_BOX_STATE in place
+    args.BOX_STATE = args.BOX_STATE + args.EXTEND_BOX_STATE
     if args.IS_INSTALLED is None:
         args.IS_INSTALLED = DEFAULT_IS_INSTALLED
     if args.IS_LICENSED is None:

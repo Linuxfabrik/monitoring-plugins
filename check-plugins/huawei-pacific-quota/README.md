@@ -9,7 +9,7 @@ Checks how full the quotas of a Huawei OceanStor Pacific storage system are via 
 * Create a read-only API user that can perform queries only
 * The fill level is calculated against the **hard quota**. A quota that has only a soft or an advisory quota configured is skipped, because a fill level needs an upper limit to relate to
 * The API does not return `null` for a value that is unset or unavailable. It returns the maximum of the field's data type instead (`18446744073709551615` for a 64-bit field, `4294967295` for a 32-bit one). Such quotas are skipped rather than reported as 0%
-* By default only directory quotas are checked. Use `--quota-type` to check user or user group quotas as well. User and user group quotas repeat per share, so their rows carry the owner name in brackets
+* By default only directory quotas are checked. Use `--extend-quota-type` to check user or user group quotas as well. User and user group quotas repeat per share, so their rows carry the owner name in brackets
 * The file quota (number of files) is shown with `--lengthy` for context only. It does not alert; this check is about space
 * The check queries the API once per file system and once per dtree, so its runtime grows with the number of shares. The shipped Director basket therefore raises the command timeout to 60 seconds and lowers the check interval to 15 minutes
 * The credential/session token is cached in a local SQLite database between runs; `--cache-expire` controls how long it is reused before a fresh login
@@ -41,6 +41,7 @@ Checks how full the quotas of a Huawei OceanStor Pacific storage system are via 
 ```text
 usage: huawei-pacific-quota [-h] [-V] [--always-ok] [--brief]
                             [--cache-expire CACHE_EXPIRE] [-c CRIT]
+                            [--extend-quota-type {directory,user,user-group}]
                             [--ignore IGNORE] [--insecure] [--lengthy]
                             [--match MATCH] [--no-insecure]
                             [--no-match-severity {ok,warn,crit,unknown}]
@@ -72,6 +73,10 @@ options:
                         cache expires, in minutes. Default: 15
   -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
                         Default: 90
+  --extend-quota-type {directory,user,user-group}
+                        Type of quota to check, appended to the default or the
+                        `--quota-type` list. Can be specified multiple times.
+                        Example: `--extend-quota-type=user`.
   --ignore IGNORE       Skip quotas. Any item matching this Python regex will
                         be ignored. Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match. The
@@ -129,9 +134,10 @@ options:
                         visible to every user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
   --quota-type {directory,user,user-group}
-                        Type of quota to check. Can be specified multiple
-                        times. Example: `--quota-type=directory --quota-
-                        type=user`. Default: directory
+                        Type of quota to check. Replaces the default list, use
+                        `--extend-quota-type` to append to it. Can be
+                        specified multiple times. Example: `--quota-
+                        type=directory --quota-type=user`. Default: directory.
   --scope SCOPE         Huawei OceanStor Pacific API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Pacific API URL.

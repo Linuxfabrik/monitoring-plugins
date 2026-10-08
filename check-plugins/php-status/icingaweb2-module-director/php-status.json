@@ -15,6 +15,10 @@
                 "--dev": {
                     "set_if": "$php_status_dev$"
                 },
+                "--extend-module": {
+                    "value": "$php_status_extend_module$",
+                    "repeat_key": true
+                },
                 "--ignore-multiple-masters": {
                     "set_if": "$php_status_ignore_multiple_masters$"
                 },
@@ -119,6 +123,11 @@
                     "datafield_id": 14,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -176,6 +185,7 @@
                 "php_status_always_ok": false,
                 "php_status_config": [],
                 "php_status_dev": false,
+                "php_status_extend_module": [],
                 "php_status_ignore_multiple_masters": false,
                 "php_status_insecure": false,
                 "php_status_module": [],
@@ -233,6 +243,17 @@
             "uuid": "61f682f6-f855-4ec4-9a07-052c964c6f7f"
         },
         "5": {
+            "varname": "php_status_extend_module",
+            "caption": "PHP Status: Extend Module",
+            "description": "PHP module name to check (startswith match), appended to the default or the `--module` list. Can be specified multiple times. Example: `--extend-module=mbstring`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6619ff9f-aa55-4d7b-93ce-b8deca28b2d6"
+        },
+        "6": {
             "varname": "php_status_ignore_multiple_masters",
             "caption": "PHP Status: Ignore Multiple Masters?",
             "description": "Do not warn when more than one PHP-FPM master is running. Use this on hosts where you intentionally run several PHP-FPM services and monitor each one with its own check.",
@@ -241,7 +262,7 @@
             "settings": {},
             "uuid": "77de0d8f-e005-4b87-aefe-d0a294bfd692"
         },
-        "6": {
+        "7": {
             "varname": "php_status_insecure",
             "caption": "PHP Status: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -250,10 +271,10 @@
             "settings": {},
             "uuid": "f03ac94c-1259-4957-85fa-87d501eaf9f8"
         },
-        "7": {
+        "8": {
             "varname": "php_status_module",
             "caption": "PHP Status: Module",
-            "description": "PHP module name to check (startswith match). Can be specified multiple times. Example: `--module json --module mbstring`",
+            "description": "PHP module name to check (startswith match). Replaces the default list, use `--extend-module` to append to it. Can be specified multiple times. Example: `--module=json --module=mbstring`. Default: calendar, Core, ctype, date, exif, fileinfo, filter, ftp, gettext, hash, iconv, json, libxml, openssl, pcntl, pcre, Phar, readline, Reflection, session, sockets, SPL, standard, tokenizer, xml, zlib.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -261,7 +282,7 @@
             },
             "uuid": "0163dde8-1441-475e-8e3d-2041a7bc9509"
         },
-        "8": {
+        "9": {
             "varname": "php_status_no_perfdata",
             "caption": "PHP Status: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -270,7 +291,7 @@
             "settings": {},
             "uuid": "49536afb-98ac-45ad-8bd1-ce1fd943c02b"
         },
-        "9": {
+        "10": {
             "varname": "php_status_no_proxy",
             "caption": "PHP Status: No Proxy?",
             "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
@@ -279,7 +300,7 @@
             "settings": {},
             "uuid": "1cdf44d2-2b6b-434b-92d5-41bb2800dc19"
         },
-        "10": {
+        "11": {
             "varname": "php_status_proxy",
             "caption": "PHP Status: Proxy",
             "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
@@ -290,7 +311,7 @@
             },
             "uuid": "581b8d69-f592-4b2c-8618-8816f512033b"
         },
-        "11": {
+        "12": {
             "varname": "php_status_timeout",
             "caption": "PHP Status: Timeout",
             "description": "Network timeout in seconds.",
@@ -301,7 +322,7 @@
             },
             "uuid": "a45b9da4-1508-46db-b844-7797bcbd97ef"
         },
-        "12": {
+        "13": {
             "varname": "php_status_top",
             "caption": "PHP Status: Top",
             "description": "Number of largest OPcache scripts to list, sorted by memory consumption (descending). Use `--top=0` to disable.",
@@ -312,7 +333,7 @@
             },
             "uuid": "97fb6bd7-1514-4d58-a3e9-1e7d7066f4ec"
         },
-        "13": {
+        "14": {
             "varname": "php_status_url",
             "caption": "PHP Status: URL",
             "description": "URL to the optional PHP `monitoring.php` helper script. The helper runs in the context of the single PHP-FPM master that serves this URL and reports only that master's OPcache and php.ini settings. To check several PHP-FPM services on a host, deploy one monitoring.php per service and run this plugin once per URL. Without it the plugin still works, but with reduced accuracy.",
@@ -323,7 +344,7 @@
             },
             "uuid": "b12706cc-8a72-48e5-a89d-5581ccd96c32"
         },
-        "14": {
+        "15": {
             "varname": "php_status_warning",
             "caption": "PHP Status: Warning",
             "description": "WARN threshold for OPcache memory and key usage, in percent.",

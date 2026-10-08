@@ -28,7 +28,7 @@ object ApiUser "linuxfabrik-check-dmesg" {
 
 * Executes `dmesg --level=emerg,alert,crit,err --ctime` to read the kernel ring buffer
 * Known false positives are filtered out by default, including common harmless messages such as "Assuming drive cache: write through", "shpchp pci_hp_register failed with error -16" on virtualized hosts, BIOS and firmware quirks reported once at boot, and various KVM/EFI/SMBus/EDAC/IPMI messages. The bundled default ignore list is annotated inline with the rationale and reference URLs for each entry, so it can be re-evaluated as the plugin matures
-* Additional messages can be excluded using the `--ignore` parameter, which accepts Python regular expressions and may be specified multiple times. Once `--ignore` is given, the user-supplied list replaces the bundled default ignore list, so admins can curate their own catalogue without inheriting the defaults
+* Additional messages can be excluded using `--extend-ignore`, which accepts Python regular expressions and may be specified multiple times. `--ignore` replaces the bundled default ignore list instead, so admins can curate their own catalogue without inheriting the defaults
 * The default filter is deliberately narrow: messages that look similar but point at a real fault keep being reported, such as an I/O error on a real disk or device-mapper target, a PCIe hot-plug slot that fails to initialize, or a machine check event
 * If more than 10 error lines are found, the output is shortened to the first 5 and last 5 lines
 * With `--icinga-callback`: when the service is acknowledged in Icinga, the currently reported kernel messages are persisted to a SQLite state DB as "already handled". On following runs, these messages are filtered out of the dmesg output so they do not re-alert, and the plugin reports how many messages it suppressed. Each ignore list gets its own state DB, keyed by a short hash over it. Ack records older than 30 days are auto-pruned; by that age the message has been overwritten in the ring buffer anyway
@@ -50,8 +50,8 @@ object ApiUser "linuxfabrik-check-dmesg" {
 ## Help
 
 ```text
-usage: dmesg [-h] [-V] [--always-ok] [--icinga-callback]
-             [--icinga-password ICINGA_PASSWORD]
+usage: dmesg [-h] [-V] [--always-ok] [--extend-ignore EXTEND_IGNORE]
+             [--icinga-callback] [--icinga-password ICINGA_PASSWORD]
              [--icinga-service-name ICINGA_SERVICE_NAME]
              [--icinga-url ICINGA_URL] [--icinga-username ICINGA_USERNAME]
              [--ignore IGNORE] [--insecure] [--match MATCH] [--no-insecure]
@@ -72,6 +72,11 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --extend-ignore EXTEND_IGNORE
+                        Ignore a kernel message matching this Python regular
+                        expression, appended to the default or the `--ignore`
+                        list. Can be specified multiple times. Example:
+                        `--extend-ignore="^.* unhandled (rd|wr)msr: "`.
   --icinga-callback     Ask the monitoring server whether the service running
                         this check is acknowledged. Where it is, what this run
                         reports is remembered as already handled, so it no
@@ -91,10 +96,10 @@ options:
   --icinga-username ICINGA_USERNAME
                         Monitoring server API username.
   --ignore IGNORE       Ignore a kernel message matching this Python regular
-                        expression. Can be specified multiple times.
-                        Specifying this parameter replaces the bundled default
-                        ignore list. Example: `--ignore="^.* unhandled
-                        (rd|wr)msr: "`.
+                        expression. Replaces the default list, use `--extend-
+                        ignore` to append to it. Can be specified multiple
+                        times. Example: `--ignore="^.* unhandled (rd|wr)msr:
+                        "`.
   --insecure            Applies to the connection to the monitoring server
                         that `--icinga-callback` makes, which is the only
                         network connection this check opens. This option
@@ -153,10 +158,10 @@ Run with the bundled defaults:
 Add a regex to suppress noisy ACPI EC method-abort messages on top of the defaults:
 
 ```bash
-./dmesg --ignore="ACPI Error: Aborting method"
+./dmesg --extend-ignore="ACPI Error: Aborting method"
 ```
 
-Note: specifying `--ignore` replaces the bundled defaults. To keep the defaults plus an extra pattern, repeat the bundled patterns or wrap them in a single broader regex such as `--ignore="(unhandled (rd|wr)msr: |EFI MOKvar)"`.
+`--ignore` instead replaces the bundled defaults with a list of its own.
 
 Sample output on a host with real errors:
 

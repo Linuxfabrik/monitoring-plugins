@@ -28,7 +28,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026100801'
 
 DESCRIPTION = """Checks the state of one or more Windows services. Accepts the case-insensitive
 service name (not the display name) and supports regular expressions to match multiple
@@ -39,6 +39,17 @@ DEFAULT_SEVERITY = 'warn'
 DEFAULT_STATUS = ['running']
 DEFAULT_STARTTYPE = ['automatic']
 DEFAULT_WARN = '1:'
+
+STARTTYPES = ['automatic', 'disabled', 'manual']
+STATUSES = [
+    'continue_pending',
+    'pause_pending',
+    'paused',
+    'running',
+    'start_pending',
+    'stop_pending',
+    'stopped',
+]
 
 
 def parse_args():
@@ -75,6 +86,30 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--extend-starttype',
+        help='Filter by service start type, '
+        'appended to the default or the `--starttype` list. '
+        'Can be specified multiple times. '
+        'Example: `--extend-starttype=manual`.',
+        dest='EXTEND_STARTTYPE',
+        action='append',
+        choices=STARTTYPES,
+        default=None,
+    )
+
+    parser.add_argument(
+        '--extend-status',
+        help='Expected service status, '
+        'appended to the default or the `--status` list. '
+        'Can be specified multiple times. '
+        'Example: `--extend-status=start_pending`.',
+        dest='EXTEND_STATUS',
+        action='append',
+        choices=STATUSES,
+        default=None,
+    )
+
+    parser.add_argument(
         '--service',
         help='Name of the Windows service(s) to check. '
         'Supports Python regular expressions (regex).',
@@ -85,34 +120,24 @@ def parse_args():
     parser.add_argument(
         '--starttype',
         help='Filter by service start type. '
+        'Replaces the default list, use `--extend-starttype` to append to it. '
         'Can be specified multiple times. '
-        'Default: automatic.',
+        f'Default: {", ".join(DEFAULT_STARTTYPE)}.',
         dest='STARTTYPE',
         action='append',
-        choices=[
-            'automatic',
-            'disabled',
-            'manual',
-        ],
+        choices=STARTTYPES,
     )
 
     parser.add_argument(
         '--status',
         help='Expected service status. '
+        'Replaces the default list, use `--extend-status` to append to it. '
         'Can be specified multiple times. '
-        'Default: running.',
+        f'Default: {", ".join(DEFAULT_STATUS)}.',
         dest='STATUS',
         default=None,  # due to https://bugs.python.org/issue16399, see in main() below
         action='append',
-        choices=[
-            'continue_pending',
-            'pause_pending',
-            'paused',
-            'running',
-            'start_pending',
-            'stop_pending',
-            'stopped',
-        ],
+        choices=STATUSES,
     )
 
     parser.add_argument(
@@ -203,11 +228,19 @@ def main():
     if args.TEST is None and not lib.base.WINDOWS:
         lib.base.cu('This check runs on Windows only.')
 
-    # due to https://bugs.python.org/issue16399, set the default value here
+    # set default values for append parameters that were not specified
+    if args.EXTEND_STARTTYPE is None:
+        args.EXTEND_STARTTYPE = []
+    if args.EXTEND_STATUS is None:
+        args.EXTEND_STATUS = []
     if args.STARTTYPE is None:
         args.STARTTYPE = DEFAULT_STARTTYPE
+    # build a new list, `+=` would modify DEFAULT_STARTTYPE in place
+    args.STARTTYPE = args.STARTTYPE + args.EXTEND_STARTTYPE
     if args.STATUS is None:
         args.STATUS = DEFAULT_STATUS
+    # build a new list, `+=` would modify DEFAULT_STATUS in place
+    args.STATUS = args.STATUS + args.EXTEND_STATUS
 
     # init some vars
     msg = ''

@@ -35,8 +35,10 @@ Checks the state of one or more Windows services. Accepts the case-insensitive s
 ## Help
 
 ```text
-usage: service [-h] [-V] [--always-ok] [-c CRIT] --service SERVICE
-               [--starttype {automatic,disabled,manual}]
+usage: service [-h] [-V] [--always-ok] [-c CRIT]
+               [--extend-starttype {automatic,disabled,manual}]
+               [--extend-status {continue_pending,pause_pending,paused,running,start_pending,stop_pending,stopped}]
+               --service SERVICE [--starttype {automatic,disabled,manual}]
                [--status {continue_pending,pause_pending,paused,running,start_pending,stop_pending,stopped}]
                [-w WARN]
 
@@ -50,14 +52,24 @@ options:
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold for the number of services in the
                         expected status. Accepts Nagios ranges. Default: None
+  --extend-starttype {automatic,disabled,manual}
+                        Filter by service start type, appended to the default
+                        or the `--starttype` list. Can be specified multiple
+                        times. Example: `--extend-starttype=manual`.
+  --extend-status {continue_pending,pause_pending,paused,running,start_pending,stop_pending,stopped}
+                        Expected service status, appended to the default or
+                        the `--status` list. Can be specified multiple times.
+                        Example: `--extend-status=start_pending`.
   --service SERVICE     Name of the Windows service(s) to check. Supports
                         Python regular expressions (regex).
   --starttype {automatic,disabled,manual}
-                        Filter by service start type. Can be specified
-                        multiple times. Default: automatic.
+                        Filter by service start type. Replaces the default
+                        list, use `--extend-starttype` to append to it. Can be
+                        specified multiple times. Default: automatic.
   --status {continue_pending,pause_pending,paused,running,start_pending,stop_pending,stopped}
-                        Expected service status. Can be specified multiple
-                        times. Default: running.
+                        Expected service status. Replaces the default list,
+                        use `--extend-status` to append to it. Can be
+                        specified multiple times. Default: running.
   -w, --warning WARN    WARN threshold for the number of services in the
                         expected status. Accepts Nagios ranges. Default: 1:
 

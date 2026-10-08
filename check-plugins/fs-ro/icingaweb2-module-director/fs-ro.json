@@ -5,6 +5,10 @@
                 "--always-ok": {
                     "set_if": "$fs_ro_always_ok$"
                 },
+                "--extend-ignore": {
+                    "value": "$fs_ro_extend_ignore$",
+                    "repeat_key": true
+                },
                 "--ignore": {
                     "value": "$fs_ro_ignore$",
                     "repeat_key": true
@@ -20,6 +24,11 @@
                 },
                 {
                     "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -65,7 +74,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks for unexpectedly read-only mounted filesystems, such as a root filesystem that switched to read-only due to disk errors. Ignores ramfs, squashfs (snapd), and other pseudo-filesystems by default. Additional mountpoints can be excluded via --ignore. Alerts when a read-only filesystem is detected that should be writable.",
+            "notes": "Checks for unexpectedly read-only mounted filesystems, such as a root filesystem that switched to read-only due to disk errors. Ignores ramfs, squashfs (snapd), and other pseudo-filesystems by default. Additional mount points can be excluded via --extend-ignore. Alerts when a read-only filesystem is detected that should be writable.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-ro/",
             "object_name": "tpl-service-fs-ro",
             "object_type": "template",
@@ -77,6 +86,7 @@
             "vars": {
                 "criticality": "A",
                 "fs_ro_always_ok": false,
+                "fs_ro_extend_ignore": [],
                 "fs_ro_ignore": []
             },
             "volatile": null,
@@ -95,9 +105,20 @@
             "uuid": "710cb1d6-b40e-4485-be7d-19c9fffe9085"
         },
         "2": {
+            "varname": "fs_ro_extend_ignore",
+            "caption": "FS RO: Extend Ignore",
+            "description": "Mount point prefix to ignore, appended to the default or the `--ignore` list. Can be specified multiple times. Example: `--extend-ignore=/cvmfs`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "f1a6268e-3bca-405d-b074-9536309e50fc"
+        },
+        "3": {
             "varname": "fs_ro_ignore",
             "caption": "FS RO: Ignore",
-            "description": "Mount point prefix to ignore. All mount points starting with this value will be skipped. Can be specified multiple times. Example: `--ignore /sys/fs` ignores `/sys/fs/cgroup` and similar. Default: /dev/loop, /proc, /run/credentials, /snap, /sys/fs, /var/lib/docker/containers.",
+            "description": "Mount point prefix to ignore. All mount points starting with this value will be skipped. Replaces the default list, use `--extend-ignore` to append to it. Can be specified multiple times. Example: `--ignore=/sys/fs` ignores `/sys/fs/cgroup` and similar. Default: /dev/loop, /proc, /run/credentials, /snap, /sys/fs, /var/lib/docker/containers.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {

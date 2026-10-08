@@ -21,7 +21,7 @@ import lib.powershell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092704'
+__version__ = '2026100801'
 
 DESCRIPTION = """Checks the state of a Windows Scheduled Task and the result of its last run. Alerts
 when the task is not in one of the expected states, or when its last run failed, for
@@ -157,6 +157,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--extend-status',
+        help='Expected task state, '
+        'appended to the default or the `--status` list. '
+        'Can be specified multiple times. '
+        'Example: `--extend-status=Queued`.',
+        dest='EXTEND_STATUS',
+        action='append',
+        choices=sorted(TASK_STATES.values()),
+        default=None,
+    )
+
+    parser.add_argument(
         '--severity',
         help='Severity when the task is not in an expected state or its last run '
         'failed. '
@@ -169,12 +181,13 @@ def parse_args():
     parser.add_argument(
         '--status',
         help='Expected task state. '
+        'Replaces the default list, use `--extend-status` to append to it. '
         'Can be specified multiple times. '
-        f'Default: {", ".join(DEFAULT_STATUS)}',
+        f'Default: {", ".join(DEFAULT_STATUS)}.',
         dest='STATUS',
         default=None,
         action='append',
-        choices=['Disabled', 'Queued', 'Ready', 'Running', 'Unknown'],
+        choices=sorted(TASK_STATES.values()),
     )
 
     parser.add_argument(
@@ -219,8 +232,12 @@ def main():
         lib.base.cu('This check runs on Windows only.')
 
     # set default values for append parameters that were not specified
+    if args.EXTEND_STATUS is None:
+        args.EXTEND_STATUS = []
     if args.STATUS is None:
         args.STATUS = DEFAULT_STATUS
+    # build a new list, `+=` would modify DEFAULT_STATUS in place
+    args.STATUS = args.STATUS + args.EXTEND_STATUS
 
     # fetch data
     if args.TEST is None:

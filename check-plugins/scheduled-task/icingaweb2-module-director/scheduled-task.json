@@ -5,6 +5,10 @@
                 "--always-ok": {
                     "set_if": "$scheduled_task_windows_always_ok$"
                 },
+                "--extend-status": {
+                    "value": "$scheduled_task_windows_extend_status$",
+                    "repeat_key": true
+                },
                 "--severity": {
                     "value": "$scheduled_task_windows_severity$"
                 },
@@ -39,11 +43,16 @@
                 },
                 {
                     "datafield_id": 4,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 5,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -101,6 +110,7 @@
             "vars": {
                 "criticality": "C",
                 "scheduled_task_windows_always_ok": false,
+                "scheduled_task_windows_extend_status": [],
                 "scheduled_task_windows_severity": "warn",
                 "scheduled_task_windows_status": [],
                 "scheduled_task_windows_timeout": 8
@@ -111,6 +121,43 @@
         }
     },
     "DataList": {
+        "scheduled_task_windows_extend_status_list": {
+            "list_name": "scheduled_task_windows_extend_status_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "Disabled",
+                    "entry_value": "Disabled",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "Queued",
+                    "entry_value": "Queued",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "Ready",
+                    "entry_value": "Ready",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "Running",
+                    "entry_value": "Running",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "Unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "0e0d58aa-2639-4c4e-9ed3-e8ea9ff64ad9"
+        },
         "scheduled_task_windows_severity_list": {
             "list_name": "scheduled_task_windows_severity_list",
             "owner": "icinga-admin",
@@ -179,6 +226,19 @@
             "uuid": "eb9cfb92-893e-4f12-9c10-596f75351598"
         },
         "2": {
+            "varname": "scheduled_task_windows_extend_status",
+            "caption": "Scheduled Task: Extend Status",
+            "description": "Expected task state, appended to the default or the `--status` list. Can be specified multiple times. Example: `--extend-status=Queued`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "array",
+                "datalist": "scheduled_task_windows_extend_status_list"
+            },
+            "uuid": "16490646-cdc8-4348-b730-c45f55233e59"
+        },
+        "3": {
             "varname": "scheduled_task_windows_severity",
             "caption": "Scheduled Task: Severity",
             "description": "Severity when the task is not in an expected state or its last run failed.",
@@ -191,10 +251,10 @@
             },
             "uuid": "6108f0fe-b3cd-44a8-819e-7073b7078728"
         },
-        "3": {
+        "4": {
             "varname": "scheduled_task_windows_status",
             "caption": "Scheduled Task: Status",
-            "description": "Expected task state. Can be specified multiple times. Default: Ready, Running",
+            "description": "Expected task state. Replaces the default list, use `--extend-status` to append to it. Can be specified multiple times. Default: Ready, Running.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -204,7 +264,7 @@
             },
             "uuid": "226de678-87de-466d-95ae-6e36601a03f3"
         },
-        "4": {
+        "5": {
             "varname": "scheduled_task_windows_task",
             "caption": "Scheduled Task: Task",
             "description": "Path of the Windows scheduled task to check, its folder followed by its name, as the Task Scheduler shows it. Case-insensitive. Example: `--task=\\Microsoft\\Windows\\Defrag\\ScheduledDefrag`.",
@@ -215,7 +275,7 @@
             },
             "uuid": "3a365e0d-0cf9-4d47-8904-d1918162a3a2"
         },
-        "5": {
+        "6": {
             "varname": "scheduled_task_windows_timeout",
             "caption": "Scheduled Task: Timeout",
             "description": "Network timeout in seconds.",

@@ -3,13 +3,13 @@
 
 ## Overview
 
-Checks for unexpectedly read-only mounted filesystems, such as a root filesystem that switched to read-only due to disk errors. Ignores ramfs, squashfs (snapd), and other pseudo-filesystems by default. Additional mount points can be excluded via `--ignore`. Alerts when a read-only filesystem is detected that should be writable.
+Checks for unexpectedly read-only mounted filesystems, such as a root filesystem that switched to read-only due to disk errors. Ignores ramfs, squashfs (snapd), and other pseudo-filesystems by default. Additional mount points can be excluded via `--extend-ignore`. Alerts when a read-only filesystem is detected that should be writable.
 
 **Data Collection:**
 
 * Reads `/proc/mounts` and checks the mount options for each entry
 * Skips ramfs and squashfs filesystem types entirely
-* Skips mount points whose path starts with any `--ignore` prefix (default: `/dev/loop`, `/proc`, `/run/credentials`, `/snap`, `/sys/fs`, `/var/lib/docker/containers`)
+* Skips mount points whose path starts with any `--ignore` prefix (default: `/dev/loop`, `/proc`, `/run/credentials`, `/snap`, `/sys/fs`, `/var/lib/docker/containers`). `--ignore` replaces this list, `--extend-ignore` appends to it
 
 
 ## Fact Sheet
@@ -27,23 +27,30 @@ Checks for unexpectedly read-only mounted filesystems, such as a root filesystem
 ## Help
 
 ```text
-usage: fs-ro [-h] [-V] [--always-ok] [--ignore IGNORE]
+usage: fs-ro [-h] [-V] [--always-ok] [--extend-ignore EXTEND_IGNORE]
+             [--ignore IGNORE]
 
 Checks for unexpectedly read-only mounted filesystems, such as a root
 filesystem that switched to read-only due to disk errors. Ignores ramfs,
-squashfs (snapd), and other pseudo-filesystems by default. Additional
-mountpoints can be excluded via --ignore. Alerts when a read-only filesystem
+squashfs (snapd), and other pseudo-filesystems by default. Additional mount
+points can be excluded via --extend-ignore. Alerts when a read-only filesystem
 is detected that should be writable.
 
 options:
-  -h, --help       show this help message and exit
-  -V, --version    show program's version number and exit
-  --always-ok      Always returns OK.
-  --ignore IGNORE  Mount point prefix to ignore. All mount points starting
-                   with this value will be skipped. Can be specified multiple
-                   times. Example: `--ignore /sys/fs` ignores `/sys/fs/cgroup`
-                   and similar. Default: /dev/loop, /proc, /run/credentials,
-                   /snap, /sys/fs, /var/lib/docker/containers.
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  --extend-ignore EXTEND_IGNORE
+                        Mount point prefix to ignore, appended to the default
+                        or the `--ignore` list. Can be specified multiple
+                        times. Example: `--extend-ignore=/cvmfs`.
+  --ignore IGNORE       Mount point prefix to ignore. All mount points
+                        starting with this value will be skipped. Replaces the
+                        default list, use `--extend-ignore` to append to it.
+                        Can be specified multiple times. Example:
+                        `--ignore=/sys/fs` ignores `/sys/fs/cgroup` and
+                        similar. Default: /dev/loop, /proc, /run/credentials,
+                        /snap, /sys/fs, /var/lib/docker/containers.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-ro/

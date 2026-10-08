@@ -22,6 +22,10 @@
                     "value": "$cert_exclude$",
                     "repeat_key": true
                 },
+                "--extend-ports": {
+                    "value": "$cert_extend_ports$",
+                    "repeat_key": true
+                },
                 "--filename": {
                     "value": "$cert_filename$"
                 },
@@ -202,6 +206,11 @@
                     "datafield_id": 24,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 25,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -260,6 +269,7 @@
                 "cert_ca_file": [],
                 "cert_critical": "5:",
                 "cert_exclude": [],
+                "cert_extend_ports": [],
                 "cert_host": [],
                 "cert_insecure": false,
                 "cert_lengthy": true,
@@ -435,6 +445,17 @@
             "uuid": "ecdf2836-f640-4fda-8af9-d9777e488dd7"
         },
         "7": {
+            "varname": "cert_extend_ports",
+            "caption": "Cert: Extend Ports",
+            "description": "TCP port to probe on every scanned target, appended to the default or the `--ports` list. Can be specified multiple times. Example: `--extend-ports=8443`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "3459dbe5-27b7-4867-8abe-5feace275bbc"
+        },
+        "8": {
             "varname": "cert_filename",
             "caption": "Cert: Filename",
             "description": "Path to a certificate file or a glob pattern matching multiple certificate files. Required when --source=file. Files are read as PEM or DER (autodetected); when a PEM bundle contains multiple certificates (typical for fullchain.pem or a CA bundle), each certificate becomes its own row in the output. Globs follow Python conventions: `*` matches one path segment, `**` matches across directories. Always quote the pattern in shells so that the shell does not expand the wildcard before the plugin sees it. Example: `--filename='/etc/ssl/certs/*.pem'`. Recursive example: `--filename='/etc/letsencrypt/live/**/cert.pem'`",
@@ -445,7 +466,7 @@
             },
             "uuid": "e1a3f93c-3ba0-42eb-8a51-732381792f9a"
         },
-        "8": {
+        "9": {
             "varname": "cert_host",
             "caption": "Cert: Host",
             "description": "Target host to scan. Overrides subnet auto-discovery. Only applies to --source=scan. Can be specified multiple times. If not specified, the subnet of the default interface is scanned. Example: `--host=mail.example.com --host=192.0.2.10`",
@@ -456,7 +477,7 @@
             },
             "uuid": "5b597b98-bd57-479f-8748-9cc80f3ecb5b"
         },
-        "9": {
+        "10": {
             "varname": "cert_insecure",
             "caption": "Cert: Insecure?",
             "description": "Skip chain and hostname verification entirely. The certificate is still fetched and inspected, but the chain verdict is reported as \"verification skipped\".",
@@ -465,7 +486,7 @@
             "settings": {},
             "uuid": "ba4bc30f-2b0d-477e-ad51-79cb7ea0fa5c"
         },
-        "10": {
+        "11": {
             "varname": "cert_interface",
             "caption": "Cert: Interface",
             "description": "Network interface whose subnet is scanned. Only applies to --source=scan. Ignored when --host or --network is given. If not specified, the default interface (the one carrying the default route) is used.",
@@ -476,7 +497,7 @@
             },
             "uuid": "ac450e70-6865-4306-b40f-cb75bc733073"
         },
-        "11": {
+        "12": {
             "varname": "cert_lengthy",
             "caption": "Cert: Lengthy?",
             "description": "Extended reporting.",
@@ -485,7 +506,7 @@
             "settings": {},
             "uuid": "b2294ebc-36b0-4a9f-8f37-bb3520b255a5"
         },
-        "12": {
+        "13": {
             "varname": "cert_max_workers",
             "caption": "Cert: Max Workers",
             "description": "Maximum number of targets to scan in parallel. Only applies to --source=scan. Raising this shortens the run but multiplies the system time the kernel spends on connects to addresses where no host answers, which slows down every other check on the same host. Each worker also holds one socket, so the value is clamped to what the file-descriptor limit of the process allows. Default: derived from that limit, at most 200.",
@@ -496,7 +517,7 @@
             },
             "uuid": "c5e7b6e4-bef5-4eeb-97cc-931208607f31"
         },
-        "13": {
+        "14": {
             "varname": "cert_network",
             "caption": "Cert: Network",
             "description": "Network in CIDR notation to scan for targets via auto-discovery. Only applies to --source=scan. Takes precedence over --interface. Can be specified multiple times. Example: `--network=192.0.2.0/24`",
@@ -507,7 +528,7 @@
             },
             "uuid": "e53d3f87-c83b-48cd-8530-d10e4cec0e4f"
         },
-        "14": {
+        "15": {
             "varname": "cert_no_perfdata",
             "caption": "Cert: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -516,7 +537,7 @@
             "settings": {},
             "uuid": "dc8831c7-77d7-4cf3-9319-2104feba0c30"
         },
-        "15": {
+        "16": {
             "varname": "cert_no_proxy",
             "caption": "Cert: No Proxy?",
             "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
@@ -525,10 +546,10 @@
             "settings": {},
             "uuid": "0361af23-c4c0-41a8-ace0-07a0d8c2c929"
         },
-        "16": {
+        "17": {
             "varname": "cert_ports",
             "caption": "Cert: Ports",
-            "description": "TCP port to probe on every scanned target. A range is written `start-end`. Only applies to --source=scan. Can be specified multiple times. If not specified, a set of common data-center TLS ports is probed (443, 465, 636, 990, 993, 995, 3269, 5671, 5986, 6443, 8006, 8200, 8443, 8883, 9090, 9443, 10000). Example: `--ports=443 --ports=993 --ports=8000-8100`",
+            "description": "TCP port to probe on every scanned target. A range is written `start-end`. Only applies to --source=scan. Replaces the default list, use `--extend-ports` to append to it. Can be specified multiple times. Example: `--ports=443 --ports=993 --ports=8000-8100`. Default: 443, 465, 636, 990, 993, 995, 3269, 5671, 5986, 6443, 8006, 8200, 8443, 8883, 9090, 9443, 10000.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -536,7 +557,7 @@
             },
             "uuid": "e0648a84-95c0-4967-9444-7301dcd154a6"
         },
-        "17": {
+        "18": {
             "varname": "cert_proxy",
             "caption": "Cert: Proxy",
             "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`. Only applies to --source=url.",
@@ -547,7 +568,7 @@
             },
             "uuid": "fe0e1731-92cc-4faf-8d49-8239ff6ffeca"
         },
-        "18": {
+        "19": {
             "varname": "cert_severity",
             "caption": "Cert: Severity",
             "description": "Severity assigned to chain/trust verification failures (--source=url and --source=scan) and to hostname mismatches (--source=url only). A valid self-signed certificate is always tolerated. Defaults to %(default)s so that operators running internal CAs are not paged by trust issues that are expected in their environment. Set to `crit` to enforce strict trust.",
@@ -560,7 +581,7 @@
             },
             "uuid": "87d1027d-8b39-4dab-9539-b8ae3ef09d0b"
         },
-        "19": {
+        "20": {
             "varname": "cert_sni_hostname",
             "caption": "Cert: SNI Hostname",
             "description": "SNI hostname sent during the TLS handshake and used for hostname verification. Useful when --url points at an IP address or a load balancer that needs an explicit SNI. Default uses the hostname from --url.",
@@ -571,7 +592,7 @@
             },
             "uuid": "b5ca62eb-7883-4d08-87c8-d31190c9efad"
         },
-        "20": {
+        "21": {
             "varname": "cert_source",
             "caption": "Cert: Source",
             "description": "Where the certificates are fetched from. `url` fetches one from a TLS endpoint (requires --url). `file` reads one or many from local files (requires --filename, supports glob patterns). `scan` discovers the hosts of a subnet (via --host, --network, --interface or the default interface) and probes each one on --ports. `p12` and `jks` are reserved for future expansion.",
@@ -584,7 +605,7 @@
             },
             "uuid": "584dc1b2-48e8-40cb-82eb-6aa546b5d183"
         },
-        "21": {
+        "22": {
             "varname": "cert_timeout",
             "caption": "Cert: Timeout",
             "description": "Network timeout in seconds.",
@@ -595,7 +616,7 @@
             },
             "uuid": "2ae3b17a-3261-4167-a573-3034ff7c72c5"
         },
-        "22": {
+        "23": {
             "varname": "cert_url",
             "caption": "Cert: URL",
             "description": "URL of the TLS endpoint to inspect. Required when --source=url. Example: `https://www.example.com/`",
@@ -606,7 +627,7 @@
             },
             "uuid": "02140b96-19c6-4d46-8d9a-a50afb1278ea"
         },
-        "23": {
+        "24": {
             "varname": "cert_verbose",
             "caption": "Cert: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood.",
@@ -615,7 +636,7 @@
             "settings": {},
             "uuid": "e67f3663-39f4-4c0e-b565-ab4a4d9959be"
         },
-        "24": {
+        "25": {
             "varname": "cert_warning",
             "caption": "Cert: Warning",
             "description": "WARN threshold for the time remaining until the certificate expires. Accepts a Nagios range in days (`14:`), a percentage of the total validity period (`25%`, WARN when less than 25% of the lifetime is left), or a duration with a unit (`14d`, `12h`, `2W`, `1M`; WARN when less time than that is left). Examples: `14:` `25%` `14d`.",

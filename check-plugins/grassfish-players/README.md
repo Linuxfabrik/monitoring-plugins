@@ -37,11 +37,12 @@ Monitors Grassfish digital signage players via the Grassfish API. Lists players 
 usage: grassfish-players [-h] [-V] [--always-ok] [--api-version API_VERSION]
                          [--box-id BOX_ID]
                          [--box-state {activated,deleted,new,reserved,undefined}]
-                         [--custom-id CUSTOM_ID] -H HOSTNAME [--insecure]
-                         [--is-installed {yes,no}] [--is-licensed {yes,no}]
-                         [--lengthy] [--no-perfdata] [--no-proxy]
-                         [--port PORT] [--proxy PROXY] [--timeout TIMEOUT]
-                         --token TOKEN
+                         [--custom-id CUSTOM_ID]
+                         [--extend-box-state {activated,deleted,new,reserved,undefined}]
+                         -H HOSTNAME [--insecure] [--is-installed {yes,no}]
+                         [--is-licensed {yes,no}] [--lengthy] [--no-perfdata]
+                         [--no-proxy] [--port PORT] [--proxy PROXY]
+                         [--timeout TIMEOUT] --token TOKEN
                          [--transfer-status {complete,overdue,pending}]
                          [-u URL] [-w WARN]
 
@@ -62,12 +63,17 @@ options:
                         (case-insensitive). Example: `--box-id
                         "^player-0[1-3]$"`.
   --box-state {activated,deleted,new,reserved,undefined}
-                        Filter by box state. Can be specified multiple times.
-                        Default: None
+                        Filter by box state. Replaces the default list, use
+                        `--extend-box-state` to append to it. Can be specified
+                        multiple times. Default: activated.
   --custom-id CUSTOM_ID
                         Filter by custom ID. Supports Python regular
                         expressions (case-insensitive). Example: `--custom-id
                         "(?i)lobby"`.
+  --extend-box-state {activated,deleted,new,reserved,undefined}
+                        Filter by box state, appended to the default or the
+                        `--box-state` list. Can be specified multiple times.
+                        Example: `--extend-box-state=new`.
   -H, --hostname HOSTNAME
                         Grassfish hostname.
   --insecure            This option explicitly allows insecure SSL

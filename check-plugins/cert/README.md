@@ -46,7 +46,8 @@ Inspects X.509 certificates and alerts on days remaining until expiry, hostname 
 ```text
 usage: cert [-h] [-V] [--always-ok] [--ca-file CA_FILE]
             [--client-cert CLIENT_CERT] [--client-key CLIENT_KEY] [-c CRIT]
-            [--exclude EXCLUDE] [--filename FILENAME] [-H HOST] [--insecure]
+            [--exclude EXCLUDE] [--extend-ports EXTEND_PORTS]
+            [--filename FILENAME] [-H HOST] [--insecure]
             [--interface INTERFACE] [--lengthy] [--max-workers MAX_WORKERS]
             [--network NETWORK] [--no-perfdata] [--no-proxy] [--ports PORTS]
             [--proxy PROXY] [--severity {crit,warn}]
@@ -115,6 +116,10 @@ options:
                         --host, the given name. Only applies to --source=scan.
                         Can be specified multiple times. Example:
                         `--exclude=192.0.2.1 --exclude=192.0.2.254`
+  --extend-ports EXTEND_PORTS
+                        TCP port to probe on every scanned target, appended to
+                        the default or the `--ports` list. Can be specified
+                        multiple times. Example: `--extend-ports=8443`.
   --filename FILENAME   Path to a certificate file or a glob pattern matching
                         multiple certificate files. Required when
                         --source=file. Files are read as PEM or DER
@@ -164,11 +169,11 @@ options:
                         names. Overrides `--proxy`.
   --ports PORTS         TCP port to probe on every scanned target. A range is
                         written `start-end`. Only applies to --source=scan.
-                        Can be specified multiple times. If not specified, a
-                        set of common data-center TLS ports is probed (443,
-                        465, 636, 990, 993, 995, 3269, 5671, 5986, 6443, 8006,
-                        8200, 8443, 8883, 9090, 9443, 10000). Example:
-                        `--ports=443 --ports=993 --ports=8000-8100`
+                        Replaces the default list, use `--extend-ports` to
+                        append to it. Can be specified multiple times.
+                        Example: `--ports=443 --ports=993 --ports=8000-8100`.
+                        Default: 443, 465, 636, 990, 993, 995, 3269, 5671,
+                        5986, 6443, 8006, 8200, 8443, 8883, 9090, 9443, 10000.
   --proxy PROXY         Proxy to reach the target through. The scheme defaults
                         to `http` when omitted. Overrides the proxy the
                         environment names (`http_proxy`, `https_proxy`,

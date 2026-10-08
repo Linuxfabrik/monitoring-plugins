@@ -41,6 +41,7 @@ usage: grassfish-screens [-h] [-V] [--always-ok] [--api-version API_VERSION]
                          [--box-id BOX_ID]
                          [--box-state {activated,deleted,new,reserved,undefined}]
                          [--cache-expire CACHE_EXPIRE] [--custom-id CUSTOM_ID]
+                         [--extend-box-state {activated,deleted,new,reserved,undefined}]
                          -H HOSTNAME [--insecure] [--is-installed {yes,no}]
                          [--is-licensed {yes,no}] [--lengthy] [--no-perfdata]
                          [--no-proxy] [--port PORT] [--proxy PROXY]
@@ -63,8 +64,9 @@ options:
                         (case-insensitive). Example: `--box-id
                         "^player-0[1-3]$"`.
   --box-state {activated,deleted,new,reserved,undefined}
-                        Filter by box state. Can be specified multiple times.
-                        Default: None
+                        Filter by box state. Replaces the default list, use
+                        `--extend-box-state` to append to it. Can be specified
+                        multiple times. Default: activated.
   --cache-expire CACHE_EXPIRE
                         Time after which cached screen data expires, in hours.
                         Default: 8
@@ -72,6 +74,10 @@ options:
                         Filter by custom ID. Supports Python regular
                         expressions (case-insensitive). Example: `--custom-id
                         "(?i)lobby"`.
+  --extend-box-state {activated,deleted,new,reserved,undefined}
+                        Filter by box state, appended to the default or the
+                        `--box-state` list. Can be specified multiple times.
+                        Example: `--extend-box-state=new`.
   -H, --hostname HOSTNAME
                         Grassfish hostname.
   --insecure            This option explicitly allows insecure SSL

@@ -32,7 +32,9 @@ Checks the state of a Windows Scheduled Task and the result of its last run. Ale
 ## Help
 
 ```text
-usage: scheduled-task [-h] [-V] [--always-ok] [--severity {warn,crit}]
+usage: scheduled-task [-h] [-V] [--always-ok]
+                      [--extend-status {Disabled,Queued,Ready,Running,Unknown}]
+                      [--severity {warn,crit}]
                       [--status {Disabled,Queued,Ready,Running,Unknown}]
                       --task TASK [--timeout TIMEOUT]
 
@@ -46,12 +48,17 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --extend-status {Disabled,Queued,Ready,Running,Unknown}
+                        Expected task state, appended to the default or the
+                        `--status` list. Can be specified multiple times.
+                        Example: `--extend-status=Queued`.
   --severity {warn,crit}
                         Severity when the task is not in an expected state or
                         its last run failed. Default: warn
   --status {Disabled,Queued,Ready,Running,Unknown}
-                        Expected task state. Can be specified multiple times.
-                        Default: Ready, Running
+                        Expected task state. Replaces the default list, use
+                        `--extend-status` to append to it. Can be specified
+                        multiple times. Default: Ready, Running.
   --task TASK           Path of the Windows scheduled task to check, its
                         folder followed by its name, as the Task Scheduler
                         shows it. Case-insensitive. Example:

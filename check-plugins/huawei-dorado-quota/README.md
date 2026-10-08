@@ -11,7 +11,7 @@ A dtree is a directory directly below the root of a file system that the applian
 * Create a read-only API user that can perform queries only
 * The fill level is calculated against the **hard quota**. A quota that has only a soft quota configured is skipped, because a fill level needs an upper limit to relate to
 * The API reports an unset quota as `-1`. Such values are left out rather than reported as a quota of 0 bytes
-* By default only directory quotas are checked, which covers the dtree quotas. Use `--quota-type` to check user or user group quotas as well. User and user group quotas repeat per share, so their rows carry the owner name in brackets
+* By default only directory quotas are checked, which covers the dtree quotas. Use `--extend-quota-type` to check user or user group quotas as well. User and user group quotas repeat per share, so their rows carry the owner name in brackets
 * The soft quota and the file quota (number of files) are shown with `--lengthy` for context only. They do not alert; this check is about the hard limit on space
 * The check queries the API once for the list of file systems and once per file system that carries a quota, so its runtime grows with the number of file systems. The shipped Director basket therefore raises the command timeout to 120 seconds and runs the check once an hour
 * The credential/session token is cached in a local SQLite database between runs; `--cache-expire` controls how long it is reused before a fresh login
@@ -44,9 +44,10 @@ A dtree is a directory directly below the root of a file system that the applian
 ```text
 usage: huawei-dorado-quota [-h] [-V] [--always-ok] [--brief]
                            [--cache-expire CACHE_EXPIRE] [-c CRIT]
-                           [--device-id DEVICE_ID] [--ignore IGNORE]
-                           [--insecure] [--lengthy] [--match MATCH]
-                           [--no-insecure]
+                           [--device-id DEVICE_ID]
+                           [--extend-quota-type {directory,user,user-group}]
+                           [--ignore IGNORE] [--insecure] [--lengthy]
+                           [--match MATCH] [--no-insecure]
                            [--no-match-severity {ok,warn,crit,unknown}]
                            [--no-perfdata] [--no-proxy] [--password PASSWORD]
                            [--password-file PASSWORD_FILE] [--proxy PROXY]
@@ -81,6 +82,10 @@ options:
                         Huawei OceanStor Dorado API device ID. Optional: the
                         appliance reports its own at login, so this is only
                         needed to override that answer.
+  --extend-quota-type {directory,user,user-group}
+                        Type of quota to check, appended to the default or the
+                        `--quota-type` list. Can be specified multiple times.
+                        Example: `--extend-quota-type=user`.
   --ignore IGNORE       Skip quotas. Any item matching this Python regex will
                         be ignored. Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match. The
@@ -138,9 +143,10 @@ options:
                         visible to every user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
   --quota-type {directory,user,user-group}
-                        Type of quota to check. Can be specified multiple
-                        times. Example: `--quota-type=directory --quota-
-                        type=user`. Default: directory
+                        Type of quota to check. Replaces the default list, use
+                        `--extend-quota-type` to append to it. Can be
+                        specified multiple times. Example: `--quota-
+                        type=directory --quota-type=user`. Default: directory.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.

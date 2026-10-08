@@ -15,7 +15,7 @@ A ticket moves through these statuses. The check lists every unclosed ticket and
 * `EVENT`: an informative event rather than an alarm. Listed, but OK by default.
 * `CLOSED` and `EVENT_CLOSED`: done. Only listed with `--closed-ticket`, and never alert.
 
-`--warning` and `--critical` replace these defaults with a list of their own.
+`--warning` and `--critical` replace these defaults with a list of their own, `--extend-warning` appends to the WARN list.
 
 **Important Notes:**
 
@@ -51,6 +51,8 @@ A ticket moves through these statuses. The check lists every unclosed ticket and
 usage: avelon-tickets [-h] [-V] [--always-ok] --client-id CLIENT_ID
                       --client-secret CLIENT_SECRET [--closed-ticket]
                       [-c {ACKNOWLEDGED,ACKNOWLEDGED_AND_GONE,EVENT,GONE,OPEN,REOPENED,SUPPRESSED,none}]
+                      [--extend-type {ALARM,BUILDING,SYSTEM_MONITOR}]
+                      [--extend-warning {ACKNOWLEDGED,ACKNOWLEDGED_AND_GONE,EVENT,GONE,OPEN,REOPENED,SUPPRESSED,none}]
                       [--ignore IGNORE] [--insecure] [--lengthy]
                       [--match MATCH] [--no-proxy] --password PASSWORD
                       [--proxy PROXY] [--timeout TIMEOUT]
@@ -81,6 +83,15 @@ options:
                         for no status. Takes precedence over `--warning`. Can
                         be specified multiple times. Example: `--critical=OPEN
                         --critical=REOPENED`. Default: none
+  --extend-type {ALARM,BUILDING,SYSTEM_MONITOR}
+                        Ticket type to check, appended to the default or the
+                        `--type` list. Can be specified multiple times.
+                        Example: `--extend-type=SYSTEM_MONITOR`.
+  --extend-warning {ACKNOWLEDGED,ACKNOWLEDGED_AND_GONE,EVENT,GONE,OPEN,REOPENED,SUPPRESSED,none}
+                        Ticket status that returns WARN, appended to the
+                        default or the `--warning` list. Can be specified
+                        multiple times. Example: `--extend-
+                        warning=ACKNOWLEDGED_AND_GONE`.
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
@@ -113,18 +124,20 @@ options:
   --type {ALARM,BUILDING,SYSTEM_MONITOR}
                         Ticket type to check. `ALARM` is raised by a device or
                         a data point, `BUILDING` is a report by a tenant or a
-                        user, `SYSTEM_MONITOR` is a system event. Can be
-                        specified multiple times. Example: `--type=ALARM
-                        --type=SYSTEM_MONITOR`. Default: ALARM
+                        user, `SYSTEM_MONITOR` is a system event. Replaces the
+                        default list, use `--extend-type` to append to it. Can
+                        be specified multiple times. Example: `--type=ALARM
+                        --type=SYSTEM_MONITOR`. Default: ALARM.
   --url URL             Base URL of the Avelon Cloud. Default:
                         https://avelon.cloud
   --username USERNAME   Username.
   -w, --warning {ACKNOWLEDGED,ACKNOWLEDGED_AND_GONE,EVENT,GONE,OPEN,REOPENED,SUPPRESSED,none}
                         Ticket status that returns WARN. `none` returns WARN
-                        for no status. Can be specified multiple times.
-                        Example: `--warning=OPEN --warning=REOPENED`. Default:
-                        ACKNOWLEDGED, ACKNOWLEDGED_AND_GONE, GONE, OPEN,
-                        REOPENED
+                        for no status. Replaces the default list, use
+                        `--extend-warning` to append to it. Can be specified
+                        multiple times. Example: `--warning=OPEN
+                        --warning=REOPENED`. Default: ACKNOWLEDGED,
+                        ACKNOWLEDGED_AND_GONE, GONE, OPEN, REOPENED.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/avelon-tickets/
@@ -142,14 +155,14 @@ Output:
 ```text
 5 tickets need attention (1 ACKNOWLEDGED, 1 ACKNOWLEDGED_AND_GONE, 1 GONE, 1 OPEN, 1 REOPENED).
 
-ID       ! Created                         ! Message                              ! Status                         
+ID       ! Created                         ! Message                              ! Status
 ---------+---------------------------------+--------------------------------------+--------------------------------
-20000001 ! 2026-09-01 08:00:00 (2W 3D ago) ! Anlage 1: Pumpe P1 Störung           ! OPEN [CRITICAL]                
-20000002 ! 2026-09-01 08:05:00 (2W 3D ago) ! Anlage 1: Pumpe P2 Störung           ! REOPENED [CRITICAL]            
-20000003 ! 2026-09-01 09:00:00 (2W 3D ago) ! Anlage 1: Filter verschmutzt         ! ACKNOWLEDGED [WARNING]         
-20000004 ! 2026-09-01 10:00:00 (2W 3D ago) ! Anlage 1: Vorlauftemperatur zu tief  ! GONE [WARNING]                 
+20000001 ! 2026-09-01 08:00:00 (2W 3D ago) ! Anlage 1: Pumpe P1 Störung           ! OPEN [CRITICAL]
+20000002 ! 2026-09-01 08:05:00 (2W 3D ago) ! Anlage 1: Pumpe P2 Störung           ! REOPENED [CRITICAL]
+20000003 ! 2026-09-01 09:00:00 (2W 3D ago) ! Anlage 1: Filter verschmutzt         ! ACKNOWLEDGED [WARNING]
+20000004 ! 2026-09-01 10:00:00 (2W 3D ago) ! Anlage 1: Vorlauftemperatur zu tief  ! GONE [WARNING]
 20000005 ! 2026-09-01 11:00:00 (2W 3D ago) ! Anlage 1: Rücklauftemperatur zu hoch ! ACKNOWLEDGED_AND_GONE [WARNING]
-20000006 ! 2026-09-01 12:00:00 (2W 3D ago) ! Anlage 1: Wartungsschalter aktiv     ! SUPPRESSED                     
+20000006 ! 2026-09-01 12:00:00 (2W 3D ago) ! Anlage 1: Wartungsschalter aktiv     ! SUPPRESSED
 20000007 ! 2026-09-01 22:00:00 (2W 2D ago) ! Anlage 1: Betriebsart Nacht          ! EVENT
 ```
 
@@ -164,9 +177,9 @@ Output:
 ```text
 2 tickets need attention (1 ACKNOWLEDGED, 1 OPEN).
 
-ID       ! Type  ! Created                         ! Modified                        ! Message                                                     ! Status                
+ID       ! Type  ! Created                         ! Modified                        ! Message                                                     ! Status
 ---------+-------+---------------------------------+---------------------------------+-------------------------------------------------------------+-----------------------
-13927572 ! ALARM ! 2024-06-18 19:46:56 (2Y 3M ago) ! 2024-06-18 19:47:33 (2Y 3M ago) ! Abschaltend: 6102/5/22: Durchfluss Notkühlung FQ201 Störung ! OPEN [WARNING]        
+13927572 ! ALARM ! 2024-06-18 19:46:56 (2Y 3M ago) ! 2024-06-18 19:47:33 (2Y 3M ago) ! Abschaltend: 6102/5/22: Durchfluss Notkühlung FQ201 Störung ! OPEN [WARNING]
 13927573 ! ALARM ! 2024-06-18 19:46:56 (2Y 3M ago) ! 2024-06-19 14:43:35 (2Y 3M ago) ! Störung: 6102/5/0: Anlage Zustand Störung                   ! ACKNOWLEDGED [WARNING]
 ```
 

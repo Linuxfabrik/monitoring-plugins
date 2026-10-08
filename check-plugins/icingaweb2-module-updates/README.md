@@ -57,7 +57,8 @@ Whether a module belongs to a package is asked of `rpm` or `dpkg`, whichever the
 ```text
 usage: icingaweb2-module-updates [-h] [-V] [--always-ok] [--branch BRANCH]
                                  [--cache-expire CACHE_EXPIRE]
-                                 [--check-branch] [-c CRIT] [--ignore IGNORE]
+                                 [--check-branch] [-c CRIT]
+                                 [--extend-path EXTEND_PATH] [--ignore IGNORE]
                                  [--include-packaged] [--insecure] [--lengthy]
                                  [--match MATCH]
                                  [--no-match-severity {ok,warn,crit,unknown}]
@@ -97,6 +98,11 @@ options:
   -c, --critical CRIT   CRIT threshold for the number of commits a module is
                         behind its branch. Supports Nagios ranges. Only used
                         with `--check-branch`. Default: no critical threshold
+  --extend-path EXTEND_PATH
+                        Directory holding the Icinga Web 2 modules, appended
+                        to the default or the `--path` list. Can be specified
+                        multiple times. Example: `--extend-
+                        path=/opt/icingaweb2/modules`.
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
@@ -133,8 +139,10 @@ options:
                         module shipping no module.info at all. Default: ok
   --path PATH           Directory holding the Icinga Web 2 modules. Set this
                         where `module_path` in `/etc/icingaweb2/config.ini`
-                        names another one. Can be specified multiple times.
-                        Default: /usr/share/icingaweb2/modules
+                        names another one. Replaces the default list, use
+                        `--extend-path` to append to it. Can be specified
+                        multiple times. Default:
+                        /usr/share/icingaweb2/modules.
   --proxy PROXY         Proxy to reach the target through. The scheme defaults
                         to `http` when omitted. Overrides the proxy the
                         environment names (`http_proxy`, `https_proxy`,

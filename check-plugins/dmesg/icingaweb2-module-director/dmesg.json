@@ -5,6 +5,10 @@
                 "--always-ok": {
                     "set_if": "$dmesg_always_ok$"
                 },
+                "--extend-ignore": {
+                    "value": "$dmesg_extend_ignore$",
+                    "repeat_key": true
+                },
                 "--icinga-callback": {
                     "set_if": "$dmesg_icinga_callback$"
                 },
@@ -119,6 +123,11 @@
                     "datafield_id": 14,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -191,6 +200,7 @@
             "vars": {
                 "criticality": "A",
                 "dmesg_always_ok": false,
+                "dmesg_extend_ignore": [],
                 "dmesg_icinga_callback": false,
                 "dmesg_ignore": [],
                 "dmesg_insecure": true,
@@ -260,6 +270,17 @@
             "uuid": "e513f9c4-c288-4791-8384-9c2d639c2aa7"
         },
         "2": {
+            "varname": "dmesg_extend_ignore",
+            "caption": "Dmesg: Extend Ignore",
+            "description": "Ignore a kernel message matching this Python regular expression, appended to the default or the `--ignore` list. Can be specified multiple times. Example: `--extend-ignore=\"^.* unhandled (rd|wr)msr: \"`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e431357f-534a-4564-8194-f4930766c06f"
+        },
+        "3": {
             "varname": "dmesg_icinga_callback",
             "caption": "Dmesg: Icinga Callback?",
             "description": "Ask the monitoring server whether the service running this check is acknowledged. Where it is, what this run reports is remembered as already handled, so it no longer raises an alert on the following runs. Requires `--icinga-url`, `--icinga-username`, `--icinga-password` and `--icinga-service-name`.",
@@ -268,7 +289,7 @@
             "settings": {},
             "uuid": "b19e04e6-989a-473b-aa1a-fa382b60f429"
         },
-        "3": {
+        "4": {
             "varname": "dmesg_icinga_password",
             "caption": "Dmesg: Icinga Password",
             "description": "Monitoring server API password.",
@@ -279,7 +300,7 @@
             },
             "uuid": "2739389b-3c1f-4cfd-9b04-16d8d8d2e360"
         },
-        "4": {
+        "5": {
             "varname": "dmesg_icinga_service_name",
             "caption": "Dmesg: Icinga Service Name",
             "description": "Unique name of the service running this check, as the monitoring server knows it. Take it from the `__name` service attribute. Example: `monitoring-server!my-service-name`.",
@@ -290,7 +311,7 @@
             },
             "uuid": "01780927-5a9f-4a9e-8933-10e0bb442b45"
         },
-        "5": {
+        "6": {
             "varname": "dmesg_icinga_url",
             "caption": "Dmesg: Icinga URL",
             "description": "Monitoring server API URL. Example: `https://monitoring.example.com:5665`.",
@@ -301,7 +322,7 @@
             },
             "uuid": "6db5d9b7-82ec-43ca-9ca5-bada97d69955"
         },
-        "6": {
+        "7": {
             "varname": "dmesg_icinga_username",
             "caption": "Dmesg: Icinga Username",
             "description": "Monitoring server API username.",
@@ -312,10 +333,10 @@
             },
             "uuid": "09741d34-f460-417e-990d-605add6381a6"
         },
-        "7": {
+        "8": {
             "varname": "dmesg_ignore",
             "caption": "Dmesg: Ignore",
-            "description": "Ignore a kernel message matching this Python regular expression. Can be specified multiple times. Specifying this parameter replaces the bundled default ignore list. Example: `--ignore=\"^.* unhandled (rd|wr)msr: \"`.",
+            "description": "Ignore a kernel message matching this Python regular expression. Replaces the default list, use `--extend-ignore` to append to it. Can be specified multiple times. Example: `--ignore=\"^.* unhandled (rd|wr)msr: \"`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -323,7 +344,7 @@
             },
             "uuid": "b1799285-43f4-44b5-9bb6-7f37182bddf7"
         },
-        "8": {
+        "9": {
             "varname": "dmesg_insecure",
             "caption": "Dmesg: Insecure?",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. This option explicitly allows insecure SSL connections.",
@@ -332,7 +353,7 @@
             "settings": {},
             "uuid": "feffac00-3921-436f-8daf-b31a583114d2"
         },
-        "9": {
+        "10": {
             "varname": "dmesg_match",
             "caption": "Dmesg: Match",
             "description": "Only consider a kernel message matching this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Example: `--match='blk_update_request'`.",
@@ -343,7 +364,7 @@
             },
             "uuid": "4e4d1a78-625c-496a-a43b-b1d5c026ac4f"
         },
-        "10": {
+        "11": {
             "varname": "dmesg_no_insecure",
             "caption": "Dmesg: No Insecure?",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -352,7 +373,7 @@
             "settings": {},
             "uuid": "d8e81db5-3ddc-4188-a215-7fdde4807916"
         },
-        "11": {
+        "12": {
             "varname": "dmesg_no_perfdata",
             "caption": "Dmesg: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -361,7 +382,7 @@
             "settings": {},
             "uuid": "3dcaf1a7-b8dd-4de0-a684-99e54338a183"
         },
-        "12": {
+        "13": {
             "varname": "dmesg_no_proxy",
             "caption": "Dmesg: No Proxy?",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
@@ -370,7 +391,7 @@
             "settings": {},
             "uuid": "b2b7051d-346d-4604-a679-6e184a19a585"
         },
-        "13": {
+        "14": {
             "varname": "dmesg_proxy",
             "caption": "Dmesg: Proxy",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
@@ -381,7 +402,7 @@
             },
             "uuid": "436d571b-aa97-4d22-9fe6-02260d138e08"
         },
-        "14": {
+        "15": {
             "varname": "dmesg_timeout",
             "caption": "Dmesg: Timeout",
             "description": "Network timeout in seconds.",
