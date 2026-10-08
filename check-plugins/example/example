@@ -34,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091802'
+__version__ = '2026100801'
 
 # The skeleton demonstrates the standard patterns and library functions: argparse
 # with append/deprecated/suppress parameters, (success, result) error handling,
@@ -93,6 +93,22 @@ def parse_args():
         default=DEFAULT_CRIT,
     )
 
+    # Append parameters: see cases 1 to 3 below, starting at `--ignore`.
+    # Case 2b: companion of a case 2 parameter. `--module` replaces the default
+    #          list, `--extend-module` adds to it (or to the `--module` list).
+    #          Same pattern as `--exclude` / `--extend-exclude` in flake8 and ruff.
+    #          Assign `[]` as the default in main(), then merge.
+    parser.add_argument(
+        '--extend-module',
+        help='"modulename" to check (startswith), '
+        'appended to the default or the `--module` list. '
+        'Can be specified multiple times. '
+        'Example: `--extend-module json`.',
+        dest='EXTEND_MODULE',
+        action='append',
+        default=None,
+    )
+
     # Append parameters must always use `default=None` instead of a list,
     # because argparse appends user values to the default list instead of
     # replacing it (see https://bugs.python.org/issue16399).
@@ -141,11 +157,17 @@ def parse_args():
     #         is a non-empty default list that should be used if the user
     #         does not specify any values.
     #         Assign `DEFAULT_X` as the default in main().
+    #         State in the help text that the parameter replaces the default
+    #         list, and offer a case 2b `--extend-x` companion to append to it.
+    #         `%(default)s` would print None here, so build the default from
+    #         the constant.
     parser.add_argument(
         '--module',
         help='"modulename" to check (startswith). '
+        'Replaces the default list, use `--extend-module` to append to it. '
         'Can be specified multiple times. '
-        'Example: `--module json --module mbstring`.',
+        'Example: `--module json --module mbstring`. '
+        f'Default: {", ".join(DEFAULT_MODULE)}.',
         dest='MODULE',
         action='append',
         default=None,
@@ -278,12 +300,16 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # set default values for append parameters that were not specified
+    if args.EXTEND_MODULE is None:  # case 2b: default to empty list
+        args.EXTEND_MODULE = []
     if args.IGNORE is None:  # case 1: default to empty list
         args.IGNORE = []
     if args.MATCH is None:  # case 1: default to empty list
         args.MATCH = []
     if args.MODULE is None:  # case 2: default to non-empty list
         args.MODULE = DEFAULT_MODULE
+    # case 2b: build a new list, `+=` would modify DEFAULT_MODULE in place
+    args.MODULE = args.MODULE + args.EXTEND_MODULE
     # args.NAME is not set here          # case 3: None means "check all"
 
     # fetch data

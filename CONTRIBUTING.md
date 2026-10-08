@@ -280,6 +280,7 @@ Hints:
 * `csv` type for complex tuples: `--input='Name, Value, Warn, Crit'` gives `['Name', 'Value', 'Warn', 'Crit']`.
 * `append` action for repeating parameters (the `default` must be a list): `--input=a --input=b` gives `['a', 'b']`. Combined with `csv`, a two-dimensional list.
 * For `append` defaults, leave `default=None` in `add_argument()` and fill in the default list after `parse_args()` if the value is still `None` (see <https://bugs.python.org/issue16399>).
+* An `append` parameter with a non-empty default list gets an `--extend-<name>` companion that appends instead of replacing (see `example`).
 * Stay backwards compatible: keep renamed or dropped parameters, silently ignored, with `help=argparse.SUPPRESS`, so hosts can be updated before the monitoring server.
 * Tolerate unknown parameters with `parser.parse_known_args()`, so a new parameter in the service definition does not turn not-yet-updated hosts UNKNOWN.
 
@@ -307,7 +308,8 @@ parser.add_argument(
 )
 ```
 
-* Use `%(default)s`, never a hardcoded value. No default for `store_true` / `store_false` switches (`--always-ok`, `--insecure`, `--no-perfdata`, `--no-proxy`, `--lengthy`).
+* Use `%(default)s`, never a hardcoded value. For `append` defaults, join the `DEFAULT_X` constant. No default for `store_true` / `store_false` switches (`--always-ok`, `--insecure`, `--no-perfdata`, `--no-proxy`, `--lengthy`).
+* "Replaces the default list, use `--extend-<name>` to append to it." / "..., appended to the default or the `--<name>` list."
 * Defaults and examples go on their own lines.
 * "Can be specified multiple times." for `action='append'` (not "(repeating)").
 * "Supports Nagios ranges." when the value goes through `lib.base.get_state()`.

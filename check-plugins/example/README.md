@@ -35,11 +35,12 @@ This plugin is the skeleton for new check plugins. It demonstrates the standard 
 ## Help
 
 ```text
-usage: example [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
-               [--insecure] [--lengthy] [--match MATCH] [--module MODULE]
-               [--name NAME] [--no-match-severity {ok,warn,crit,unknown}]
-               [--no-perfdata] [--no-proxy] [--proxy PROXY]
-               [--timeout TIMEOUT] --token TOKEN [--url URL] [-w WARN]
+usage: example [-h] [-V] [--always-ok] [-c CRIT]
+               [--extend-module EXTEND_MODULE] [--ignore IGNORE] [--insecure]
+               [--lengthy] [--match MATCH] [--module MODULE] [--name NAME]
+               [--no-match-severity {ok,warn,crit,unknown}] [--no-perfdata]
+               [--no-proxy] [--proxy PROXY] [--timeout TIMEOUT] --token TOKEN
+               [--url URL] [-w WARN]
 
 Monitors the relative humidity reported by a sensor endpoint and the rate at
 which the host receives data, measured between two consecutive check runs.
@@ -53,6 +54,10 @@ options:
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
                         Default: 90
+  --extend-module EXTEND_MODULE
+                        "modulename" to check (startswith), appended to the
+                        default or the `--module` list. Can be specified
+                        multiple times. Example: `--extend-module json`.
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
@@ -68,9 +73,11 @@ options:
                         `(?i)example` to match "example" regardless of case.
                         `^(?!.*example).*$` to match any string except
                         "example" (negative lookahead).
-  --module MODULE       "modulename" to check (startswith). Can be specified
-                        multiple times. Example: `--module json --module
-                        mbstring`.
+  --module MODULE       "modulename" to check (startswith). Replaces the
+                        default list, use `--extend-module` to append to it.
+                        Can be specified multiple times. Example: `--module
+                        json --module mbstring`. Default: calendar, Core,
+                        ctype, date.
   --name NAME           Only check items with this name. Can be specified
                         multiple times. If not specified, all items are
                         checked.
