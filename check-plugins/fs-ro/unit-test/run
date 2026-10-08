@@ -96,6 +96,21 @@ TESTS = [
         'assert-regex': r'Everything is ok\.',
     },
     {
+        # lustre fs is reported
+        'id': 'warn-extend-ignore-type',
+        'test': 'stdout/one-readonly-mount-type-v1,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 read-only mount point found', '/users1/ost0'],
+    },
+    {
+        # --extend-ignore-type keeps the defaults, type lustre is ignored (#1565)
+        'id': 'ok-extend-ignore-type',
+        'test': 'stdout/one-readonly-mount-type-v1,,0',
+        'params': '--extend-ignore-type=lustre',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
+    {
         'id': 'unknown-malformed-proc-mounts',
         'test': 'stdout/malformed-proc-mounts,,0',
         'assert-retc': STATE_UNKNOWN,

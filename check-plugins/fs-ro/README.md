@@ -3,13 +3,14 @@
 
 ## Overview
 
-Checks for unexpectedly read-only mounted filesystems, such as a root filesystem that switched to read-only due to disk errors. Ignores ramfs, squashfs (snapd), and other pseudo-filesystems by default. Additional mount points can be excluded via `--extend-ignore`. Alerts when a read-only filesystem is detected that should be writable.
+Checks for unexpectedly read-only mounted filesystems, such as a root filesystem that switched to read-only due to disk errors. Ignores ramfs, squashfs (snapd), iso9660, and other pseudo-filesystems by default. Additional mount points can be excluded via `--extend-ignore` and fs types with `--extend-ignore-type`. Alerts when a read-only filesystem is detected that should be writable.
 
 **Data Collection:**
 
 * Reads `/proc/mounts` and checks the mount options for each entry
-* Skips ramfs and squashfs filesystem types entirely
+* Skips ramfs, squashfs and iso9660 filesystem types entirely
 * Skips mount points whose path starts with any `--ignore` prefix (default: `/dev/loop`, `/proc`, `/run/credentials`, `/snap`, `/sys/fs`, `/var/lib/docker/containers`). `--ignore` replaces this list, `--extend-ignore` appends to it
+* Skips filesystem types with `--extend-ignore-type`.
 
 
 ## Fact Sheet
@@ -28,13 +29,13 @@ Checks for unexpectedly read-only mounted filesystems, such as a root filesystem
 
 ```text
 usage: fs-ro [-h] [-V] [--always-ok] [--extend-ignore EXTEND_IGNORE]
-             [--ignore IGNORE]
+             [--ignore IGNORE] [--extend-ignore-type EXTEND_IGNORE_TYPE]
 
 Checks for unexpectedly read-only mounted filesystems, such as a root
 filesystem that switched to read-only due to disk errors. Ignores ramfs,
 squashfs (snapd), and other pseudo-filesystems by default. Additional mount
-points can be excluded via --extend-ignore. Alerts when a read-only filesystem
-is detected that should be writable.
+points can be excluded via --extend-ignore and filesystem types with `--extend-ignore-type`.
+Alerts when a read-only filesystem is detected that should be writable.
 
 options:
   -h, --help            show this help message and exit
@@ -44,6 +45,10 @@ options:
                         Mount point prefix to ignore, appended to the default
                         or the `--ignore` list. Can be specified multiple
                         times. Example: `--extend-ignore=/cvmfs`.
+  --extend-ignore-type EXTEND_IGNORE_TYPE
+                        Mount point fs type to ignore, appended to the default
+                        list. Can be specified multiple
+                        times. Example: `--extend-ignore-type=lustre`.
   --ignore IGNORE       Mount point prefix to ignore. All mount points
                         starting with this value will be skipped. Replaces the
                         default list, use `--extend-ignore` to append to it.
@@ -75,6 +80,13 @@ Output (with read-only mount):
 1 read-only mount point found: /dev/sda1 on / (type ext4)
 ```
 
+```bash
+./fs-ro
+1 read-only mount point found: users1-ost0/ost0 on /users1/ost0 (type lustre)
+
+./fs-ro --extend-ignore-type lustre
+Everything is ok. 18 mount points checked.
+```
 
 ## States
 
