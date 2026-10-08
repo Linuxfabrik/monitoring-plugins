@@ -96,6 +96,53 @@ TESTS = [
         'assert-regex': r'Everything is ok\.',
     },
     {
+        # A mounted ISO is reported, iso9660 is deliberately not a default fstype
+        'id': 'warn-iso9660-not-ignored-by-default',
+        'test': 'stdout/one-readonly-mount-v2,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 read-only mount point found', '(type iso9660)'],
+    },
+    {
+        # --extend-ignore-fstype keeps the defaults, so ramfs and squashfs stay ignored
+        'id': 'ok-extend-ignore-fstype-iso9660',
+        'test': 'stdout/three-readonly-mounts,,0',
+        'params': '--extend-ignore-fstype=iso9660 --extend-ignore=/mnt/external-disk',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
+    {
+        # Real /proc/mounts of a Lustre OST server, where the lustre targets are
+        # mounted read-only (#1568)
+        'id': 'warn-lustre-ost-server',
+        'test': 'stdout/lustre-ost-server,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 read-only mount point found', '/users1/ost0 (type lustre)'],
+    },
+    {
+        'id': 'ok-lustre-ost-server-extend-ignore-fstype',
+        'test': 'stdout/lustre-ost-server,,0',
+        'params': '--extend-ignore-fstype=lustre',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
+    {
+        # --ignore-fstype replaces the defaults; the fixture has no ramfs or
+        # squashfs, so lustre alone decides
+        'id': 'ok-lustre-ost-server-ignore-fstype',
+        'test': 'stdout/lustre-ost-server,,0',
+        'params': '--ignore-fstype=lustre',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
+    {
+        # Real /proc/mounts of Fedora 44 with a btrfs subvolume `/rwdata` mounted
+        # read-only: the "rw" inside `subvol=/rwdata` must not count as `rw`
+        'id': 'warn-btrfs-readonly-subvol-named-rwdata',
+        'test': 'stdout/fedora44-btrfs-readonly-subvol-named-rwdata,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 read-only mount point found', '/srv/archive (type btrfs)'],
+    },
+    {
         'id': 'unknown-malformed-proc-mounts',
         'test': 'stdout/malformed-proc-mounts,,0',
         'assert-retc': STATE_UNKNOWN,

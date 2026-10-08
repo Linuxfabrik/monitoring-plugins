@@ -92,7 +92,7 @@ Monitoring Plugins:
 * journald-\*, ntp-systemd-timesyncd, pip-updates: name missing journal rights, a missing timesyncd or a missing pip instead of a raw error
 * journald-query, journald-usage: UNKNOWN instead of a false OK when the account may read only its own part of the journal; journald-query no longer crashes on kernel and syslog entries
 * file-ownership: no false warning for the DNSSEC trust anchor of unbound on Fedora 44
-* fs-ro: `--extend-ignore` keeps the defaults ([#1566](https://github.com/Linuxfabrik/monitoring-plugins/issues/1566)), no false warning for Docker containers on SUSE
+* fs-ro: `--extend-ignore` keeps the defaults ([#1566](https://github.com/Linuxfabrik/monitoring-plugins/issues/1566)), no false warning for Docker containers on SUSE, no missed read-only mount when a mount option contains "rw" (for example `subvol=/rwdata`)
 * logfile: reads logfiles on Windows again
 * lynis: names an unreadable lynis installation on SUSE instead of a page of errors, leaves no temporary directories
 * mastodon-version: also finds the version of a rootless Podman installation
