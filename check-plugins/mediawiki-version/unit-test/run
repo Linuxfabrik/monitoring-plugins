@@ -10,9 +10,14 @@
 
 """Unit tests for the mediawiki-version check plugin.
 
-The plugin reads a local `Defines.php` and judges the release it finds. It
-has no `--test` hook; the `stdout/defines-php-1-39-3` fixture documents the
-expected file shape for reference.
+The plugin reads a local `Defines.php` (and, for releases without `MW_VERSION`,
+`DefaultSettings.php` in the same directory) and judges the release it finds. It
+has no `--test` hook, so every testcase points `--path` at a fixture instead; the
+`--test` argument `lib.lftest.run()` always appends is dropped by the plugin's
+`parse_known_args()`. Each directory under `mediawiki/` stands in for the
+`includes/` directory of an installation and holds the relevant lines of the real
+upstream files from the named release (`git show <tag>:includes/Defines.php`,
+`.../DefaultSettings.php`); `defines-php-1-39-3/Defines.php` is the whole file.
 
 The end-of-life half is not tested here: `lib.version.check_eol()` is the same code
 in every `*-version` plugin, and a verdict it derives from live endoflife.date data
@@ -23,3 +28,80 @@ where a case belongs: against synthetic cycles in the lib repo
 `check-plugins/mysql-version/unit-test/run`, whose fixtures sit next to it in
 `endoflifedate/`.
 """
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_UNKNOWN
+
+TESTS = [
+    {
+        'id': 'parses-mw-version-1-35-14',
+        # `DefaultSettings.php` says `$wgVersion = MW_VERSION;`, MW_VERSION wins
+        'test': 'none',
+        'params': '--path=mediawiki/mw-version-1-35-14/Defines.php',
+        'assert-in': ['MediaWiki v1.35.14 '],
+    },
+    {
+        'id': 'parses-mw-version-1-39-3',
+        'test': 'none',
+        'params': '--path=mediawiki/defines-php-1-39-3/Defines.php',
+        'assert-in': ['MediaWiki v1.39.3 '],
+    },
+    {
+        'id': 'parses-mw-version-1-44-0-rc-0',
+        'test': 'none',
+        'params': '--path=mediawiki/mw-version-1-44-0-rc-0/Defines.php',
+        'assert-in': ['MediaWiki v1.44.0-rc.0 ', "'mediawiki-version'=1.44;"],
+    },
+    {
+        'id': 'parses-mw-version-1-46-0-wmf-21',
+        'test': 'none',
+        'params': '--path=mediawiki/mw-version-1-46-0-wmf-21/Defines.php',
+        'assert-in': ['MediaWiki v1.46.0-wmf.21 ', "'mediawiki-version'=1.46;"],
+    },
+    {
+        'id': 'parses-wgversion-fallback-1-10-0rc1',
+        # tab-aligned, the glued pre-release suffix is shown, but not counted
+        'test': 'none',
+        'params': '--path=mediawiki/fallback-wgversion-1-10-0rc1/Defines.php',
+        'assert-in': ['MediaWiki v1.10.0rc1 ', "'mediawiki-version'=1.1;"],
+    },
+    {
+        'id': 'parses-wgversion-fallback-1-31-0',
+        'test': 'none',
+        'params': '--path=mediawiki/fallback-wgversion-1-31-0/Defines.php',
+        'assert-in': ['MediaWiki v1.31.0 '],
+    },
+    {
+        'id': 'unknown-no-version',
+        # quoted defines in `Defines.php`, `$wgVersion = MW_VERSION;` in
+        # `DefaultSettings.php`: neither is a version
+        'test': 'none',
+        'params': '--path=mediawiki/unknown-no-version/Defines.php',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['MediaWiki not found', '--path'],
+    },
+    {
+        'id': 'unknown-missing-file',
+        'test': 'none',
+        'params': '--path=mediawiki/nonexistent/Defines.php',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['MediaWiki not found', '--path'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../mediawiki-version'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

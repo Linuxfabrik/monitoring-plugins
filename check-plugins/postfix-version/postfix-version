@@ -22,7 +22,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026100901'
 
 DESCRIPTION = """Checks the installed Postfix version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -171,12 +171,20 @@ def get_installed_version(path, test_arg=None):
         stdout, _, _ = lib.lftest.test(test_arg)
         stdout = stdout.strip()
     # where to find the version number in output?
-    version_regex = r'= ([\d\.]+)'
-    try:
-        stdout = re.search(version_regex, stdout)
-        return stdout.group(1).strip()
-    except Exception:
+    # `postconf -d mail_version` prints `mail_version = <value>`
+    # (src/postconf/postconf_print.c). The value is DEF_MAIL_VERSION from
+    # src/global/mail_version.h: the version number (`3.10.3`, release candidates
+    # `3.11.0-RC1` or `2.3-RC1`), followed by `-<release date>` on a
+    # snapshot (`3.12-20260925`) and by `-<NONPROD>` on a non-production build
+    # (`2.11-20131216-nonprod`). The whole value is captured.
+    # Verified against Postfix 1.1.0 to 3.12-20260925 (src/global/mail_version.h)
+    # and postconf of postfix 3.5.8, 3.5.25, 3.8.5 (ubi8, ubi9, ubi10) and 3.10.3
+    # (Fedora 43).
+    version_regex = r'^mail_version = (\d+\.\d+\S*)'
+    match = re.search(version_regex, stdout, re.MULTILINE)
+    if not match:
         return ''
+    return match.group(1)
 
 
 def main():
@@ -196,9 +204,11 @@ def main():
         )
 
     # init some vars
+    # lib.version reads a suffix as version parts (4.5rc1 -> 4.51), use the core
+    installed_core = re.match(r'\d+(?:\.\d+)*', installed_version).group()
     perfdata = lib.base.get_perfdata(
         'postfix-version',
-        lib.version.version2float(installed_version),
+        lib.version.version2float(installed_core),
         uom=None,
         _min=0,
     )
@@ -206,7 +216,7 @@ def main():
     # analyze data
     state, eol = lib.version.check_eol(
         'https://endoflife.date/api/postfix.json',
-        installed_version,
+        installed_core,
         offset_eol=args.OFFSET_EOL,
         check_major=args.CHECK_MAJOR,
         check_minor=args.CHECK_MINOR,

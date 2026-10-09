@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the gitlab-version check plugin.
+
+The plugin reads the first line of the Omnibus `version-manifest.txt`. It has no
+`--test` hook, so every testcase points `--path` at a fixture under `gitlab/`; the
+`--test` argument `lib.lftest.run()` always appends is dropped by the plugin's
+`parse_known_args()`.
+
+omnibus-gitlab writes the file in `config/software/version-manifest.rb`: a line
+"<project name> <build version>", an empty line, and the component table of
+`Omnibus::Reports.pretty_version_map()` with its space-padded columns. The table in
+every fixture holds real rows of the published 17.3.1-ee manifest, trimmed to a
+handful. Only the first line varies, one fixture per form upstream has produced
+(release, FIPS, nightly, the 2016 nightly with the pipeline id, a 7.x pre-release tag,
+the project name `gitlab` before the CE/EE split). Since the table always says
+`v17.3.1`, a fixture whose first line names another version also proves that the
+table is never read.
+
+The end-of-life half is not tested here: `lib.version.check_eol()` is the same code
+in every `*-version` plugin, and a verdict it derives from live endoflife.date data
+and today's date cannot be pinned without breaking as soon as upstream re-dates a
+cycle or a date passes. It is covered without the network in the lib repo
+(`tests/version/unit-test/run`) and in `check-plugins/mysql-version/unit-test/run`.
+The testcases therefore only assert the parsed version and its perfdata value.
+"""
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_UNKNOWN
+
+TESTS = [
+    {
+        'id': 'parses-ee-17-3-1',
+        'test': 'none',
+        'params': '--path=gitlab/ee-17-3-1/version-manifest.txt',
+        'assert-in': ['GitLab v17.3.1 ', "'gitlab-version'=17.31;"],
+    },
+    {
+        'id': 'parses-ce-16-11-0',
+        'test': 'none',
+        'params': '--path=gitlab/ce-16-11-0/version-manifest.txt',
+        'assert-in': ['GitLab v16.11.0 ', "'gitlab-version'=16.11;"],
+    },
+    {
+        'id': 'parses-fips-17-3-1',
+        'test': 'none',
+        'params': '--path=gitlab/fips-17-3-1/version-manifest.txt',
+        'assert-in': ['GitLab v17.3.1 ', "'gitlab-version'=17.31;"],
+    },
+    {
+        # `+rnightly.<pipeline id>.<commit sha>` is shown, but not counted
+        'id': 'parses-ee-nightly-17-3-1',
+        'test': 'none',
+        'params': '--path=gitlab/ee-nightly-17-3-1/version-manifest.txt',
+        'assert-in': [
+            'GitLab v17.3.1+rnightly.1234567.0123abcd ',
+            "'gitlab-version'=17.31;",
+        ],
+    },
+    {
+        # nightly builds up to 2017 appended `.<pipeline id>` as a fourth field,
+        # which is numeric and therefore part of the core
+        'id': 'parses-ce-nightly-2016-8-10-0',
+        'test': 'none',
+        'params': '--path=gitlab/ce-nightly-2016-8-10-0/version-manifest.txt',
+        'assert-in': ['GitLab v8.10.0.123456 ', "'gitlab-version'=8.100123456;"],
+    },
+    {
+        # 7.x tag `7.12.0.rc3-ee.0`, which Omnibus turns into `7.12.0-rc3.ee.0`
+        'id': 'parses-ee-rc-7-12-0',
+        'test': 'none',
+        'params': '--path=gitlab/ee-rc-7-12-0/version-manifest.txt',
+        'assert-in': ['GitLab v7.12.0-rc3.ee.0 ', "'gitlab-version'=7.12;"],
+    },
+    {
+        # the Omnibus project was called `gitlab` before the CE/EE split in 2015
+        'id': 'parses-plain-gitlab-7-8-0',
+        'test': 'none',
+        'params': '--path=gitlab/plain-gitlab-7-8-0/version-manifest.txt',
+        'assert-in': ['GitLab v7.8.0 ', "'gitlab-version'=7.8;"],
+    },
+    {
+        # the component table alone: `gitlab-rails   v17.3.1-ee ...` is no version
+        'id': 'unknown-no-header-line',
+        'test': 'none',
+        'params': '--path=gitlab/no-header-line/version-manifest.txt',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['GitLab not found', '--path'],
+    },
+    {
+        'id': 'unknown-empty-file',
+        'test': 'none',
+        'params': '--path=gitlab/empty/version-manifest.txt',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['GitLab not found', '--path'],
+    },
+    {
+        'id': 'unknown-missing-file',
+        'test': 'none',
+        'params': '--path=gitlab/nonexistent/version-manifest.txt',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['GitLab not found', '--path'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../gitlab-version'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

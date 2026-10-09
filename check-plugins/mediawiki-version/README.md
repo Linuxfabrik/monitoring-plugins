@@ -11,7 +11,7 @@ Checks the installed MediaWiki version against the endoflife.date API and alerts
 
 **Data Collection:**
 
-* Reads the installed MediaWiki version from `Defines.php` (default: `/var/www/html/wiki/includes/Defines.php`, configurable via `--path`)
+* Reads the installed MediaWiki version from `MW_VERSION` in `Defines.php` (default: `/var/www/html/wiki/includes/Defines.php`, configurable via `--path`). Releases that do not define `MW_VERSION` there (up to 1.31.6, 1.32, 1.33.0 to 1.33.2 and 1.34.0) are read from `$wgVersion` in `DefaultSettings.php` in the same directory
 * Compares against the [endoflife.date API](https://endoflife.date/api/mediawiki.json) to determine EOL status and available updates
 * Caches endoflife.date responses locally for 24 hours to reduce external requests
 
@@ -109,7 +109,7 @@ MediaWiki v1.39.3 (EOL 2025-11-30 -30d, minor 1.41.0 available, patch 1.39.6 ava
 
 ## States
 
-* UNKNOWN if the MediaWiki `Defines.php` or version information cannot be found.
+* UNKNOWN if neither `Defines.php` nor `DefaultSettings.php` next to it contains a MediaWiki version.
 
 The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
 

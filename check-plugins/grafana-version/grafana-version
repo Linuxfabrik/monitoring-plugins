@@ -22,7 +22,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026100901'
 
 DESCRIPTION = """Checks the installed Grafana version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -171,12 +171,22 @@ def get_installed_version(path, test_arg=None):
         stdout, _, _ = lib.lftest.test(test_arg)
         stdout = stdout.strip()
     # where to find the version number in output?
-    version_regex = r'Version (.*?) '
-    try:
-        stdout = re.search(version_regex, stdout)
-        return stdout.group(1).strip()
-    except Exception:
+    # `grafana-server -v` and `grafana server -v` print
+    # `Version 12.4.3+security-02 (commit: 080f7325, branch: ...)` (an Enterprise build
+    # appends `, enterprise-commit: ...` inside the parentheses, Grafana 5 printed only
+    # `(commit: ...)`). The bare `grafana -v` prints `grafana version 12.4.3+security-02`.
+    # Since Grafana 10 `grafana-server` may print a deprecation banner line first. The
+    # version itself can carry a `-beta1` or `+security-02` suffix, which is part of
+    # the captured version; main() derives the numeric core from it.
+    # Verified against Grafana 5.4.5, 6.7.6, 7.5.17, 8.5.27, 9.5.21, 10.4.19, 11.6.0,
+    # 12.4.3+security-02 and 13.2.3 (docker.io/grafana/grafana).
+    version_regex = (
+        r'^(?:Version|grafana version) (\d+\.\d+\.\d+(?:[+-]\S*)?)(?: \(commit: |$)'
+    )
+    match = re.search(version_regex, stdout, re.MULTILINE)
+    if not match:
         return ''
+    return match.group(1)
 
 
 def main():
@@ -196,9 +206,11 @@ def main():
         )
 
     # init some vars
+    # lib.version reads a suffix as version parts (4.5rc1 -> 4.51), use the core
+    installed_core = re.match(r'\d+(?:\.\d+)*', installed_version).group()
     perfdata = lib.base.get_perfdata(
         'grafana-version',
-        lib.version.version2float(installed_version),
+        lib.version.version2float(installed_core),
         uom=None,
         _min=0,
     )
@@ -206,7 +218,7 @@ def main():
     # analyze data
     state, eol = lib.version.check_eol(
         'https://endoflife.date/api/grafana.json',
-        installed_version,
+        installed_core,
         offset_eol=args.OFFSET_EOL,
         check_major=args.CHECK_MAJOR,
         check_minor=args.CHECK_MINOR,

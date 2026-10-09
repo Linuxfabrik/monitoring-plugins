@@ -11,6 +11,8 @@
 """See the check's README for more details."""
 
 import argparse
+import os
+import re
 import sys
 
 import lib.args
@@ -21,7 +23,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026100901'
 
 DESCRIPTION = """Checks the installed Moodle version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -153,22 +155,38 @@ def parse_args():
 
 
 def get_installed_version(path):
-    version_file = path + '/version.php'
-    # A file that is not there means Moodle is not installed here, which the caller
-    # says in one sentence. Handing the reader's I/O error to the caller instead made
-    # that error the answer of the check.
-    if not lib.disk.file_exists(version_file):
-        return (True, False)
-    try:
-        success, version = lib.disk.grep_file(
-            version_file, r'\$release\s*=\s*\'(.*) \('
-        )
-    except Exception:
-        return (False, 'Unable to get Moodle version information.')
-    if not success:
-        return (success, version)
-    if version:
-        return (True, version)
+    # Moodle up to 5.0 keeps version.php in the installation directory, Moodle 5.1+
+    # in its `public/` subdirectory.
+    for version_file in (
+        os.path.join(path, 'version.php'),
+        os.path.join(path, 'public', 'version.php'),
+    ):
+        # A file that is not there means Moodle is not installed here, which the
+        # caller says in one sentence. Handing the reader's I/O error to the caller
+        # instead made that error the answer of the check.
+        if not lib.disk.file_exists(version_file):
+            continue
+        try:
+            # version.php: `$release  = '4.4.1 (Build: 20240610)';`. Weeklies and
+            # pre-releases append a suffix (`3.11.18+`, `4.5dev`, `4.5dev+`,
+            # `4.0beta+`, `4.5rc1`, `2.0 RC1`), Moodle 1.x has no build part and
+            # partly uses double quotes (`"1.4"`, `'1.4.5 +'`, `'1.0.9 Beta 1'`,
+            # `'1.5 unstable development'`). The token runs up to ` (Build: ...)` or
+            # the closing quote.
+            # Verified against Moodle v1.0.4 to v5.3.0 (all 590 tags) plus weekly
+            # builds on main and the MOODLE_*_STABLE branches
+            # (github.com/moodle/moodle).
+            success, version = lib.disk.grep_file(
+                version_file,
+                r'\$release\s*=\s*[\'"](\d+(?:\.\d+)+[^\'"(]*?)\s*'
+                r'(?:\(Build:[^\'"]*)?[\'"]',
+            )
+        except Exception:
+            return (False, 'Unable to get Moodle version information.')
+        if not success:
+            return (success, version)
+        if version:
+            return (True, version)
     return (True, False)
 
 
@@ -190,9 +208,11 @@ def main():
         )
 
     # init some vars
+    # lib.version reads a suffix as version parts (4.5rc1 -> 4.51), use the core
+    installed_core = re.match(r'\d+(?:\.\d+)*', installed_version).group()
     perfdata = lib.base.get_perfdata(
         'moodle-version',
-        lib.version.version2float(installed_version),
+        lib.version.version2float(installed_core),
         uom=None,
         _min=0,
     )
@@ -200,7 +220,7 @@ def main():
     # analyze data
     state, eol = lib.version.check_eol(
         'https://endoflife.date/api/moodle.json',
-        installed_version,
+        installed_core,
         offset_eol=args.OFFSET_EOL,
         check_major=args.CHECK_MAJOR,
         check_minor=args.CHECK_MINOR,

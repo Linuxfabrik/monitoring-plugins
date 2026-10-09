@@ -11,6 +11,8 @@
 """See the check's README for more details."""
 
 import argparse
+import os
+import re
 import sys
 
 import lib.args
@@ -21,7 +23,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026100901'
 
 DESCRIPTION = """Checks the installed MediaWiki version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -152,12 +154,35 @@ def parse_args():
 
 
 def get_installed_version(path):
+    # `includes/Defines.php` carries `define( 'MW_VERSION', '1.39.3' );`. Release
+    # values are `1.43.0`, `1.44.0-rc.0`, `1.47.0-alpha` (master) and
+    # `1.46.0-wmf.21` (WMF deployment branches). Verified against MediaWiki 1.4.0 to
+    # 1.46.2, REL1_* and master (`git show <tag>:includes/Defines.php`).
     success, result = lib.disk.grep_file(
-        path, r",\W?'(.*)'"
-    )  # define( 'MW_VERSION', '1.39.3' );
-    if not success:
-        return ''
-    return result
+        path,
+        r"define\(\s*'MW_VERSION',\s*'(\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z.]+)?)'\s*\)",
+    )
+    if success and result:
+        return result
+
+    # Up to 1.31.6, 1.32.x, 1.33.0 to 1.33.2 and 1.34.0 have no MW_VERSION, only
+    # `$wgVersion = '1.31.0';` in `includes/DefaultSettings.php` next to
+    # `Defines.php`. Older releases align it with tabs, use double quotes
+    # (`$wgVersion\t\t\t= "1.3.0beta1";`) and glue a pre-release to the number
+    # (`1.4beta1`, `1.17.0rc1`, `1.20alpha`, `1.3.8+`), which stays part of the
+    # captured version. From 1.31.7 the file says `$wgVersion = MW_VERSION;`, which
+    # does not match, and from 1.39 on it has no `$wgVersion` at all. Verified
+    # against MediaWiki 1.1.0 to 1.46.2, REL1_* and master
+    # (`git show <tag>:includes/DefaultSettings.php`).
+    success, result = lib.disk.grep_file(
+        os.path.join(os.path.dirname(path), 'DefaultSettings.php'),
+        r'(?m)^\s*\$wgVersion\s*=\s*[\'"]'
+        r'(\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z.]+)?(?:alpha|beta|rc)?\d*\+?)'
+        r'[\'"]\s*;',
+    )
+    if success and result:
+        return result
+    return ''
 
 
 def main():
@@ -178,9 +203,11 @@ def main():
         )
 
     # init some vars
+    # lib.version reads a suffix as version parts (4.5rc1 -> 4.51), use the core
+    installed_core = re.match(r'\d+(?:\.\d+)*', installed_version).group()
     perfdata = lib.base.get_perfdata(
         'mediawiki-version',
-        lib.version.version2float(installed_version),
+        lib.version.version2float(installed_core),
         uom=None,
         _min=0,
     )
@@ -188,7 +215,7 @@ def main():
     # analyze data
     state, eol = lib.version.check_eol(
         'https://endoflife.date/api/mediawiki.json',
-        installed_version,
+        installed_core,
         offset_eol=args.OFFSET_EOL,
         check_major=args.CHECK_MAJOR,
         check_minor=args.CHECK_MINOR,

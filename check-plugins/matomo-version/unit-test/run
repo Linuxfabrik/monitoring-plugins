@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the matomo-version check plugin.
+
+The plugin reads `const VERSION` from `core/Version.php` in the installation
+directory. It has no `--test` hook, so every testcase points `--path` at a fixture
+directory under `matomo/`; the `--test` argument `lib.lftest.run()` always appends is
+dropped by the plugin's `parse_known_args()`. Each fixture holds the relevant lines
+of the real upstream file (`git show <tag>:core/Version.php`), with `MAJOR_VERSION`
+as a decoy where the tag has it. `piwik-tab-0-2-10` is the whole Piwik 0.2.10 file
+(tab-indented, CRLF), `unknown-no-version` is 5.1.0 without the `VERSION` line.
+
+The message shows the version token as upstream writes it, the perfdata value only
+its leading numeric part.
+
+The end-of-life half is not tested here: `lib.version.check_eol()` is the same code
+in every `*-version` plugin, and a verdict it derives from live endoflife.date data
+and today's date cannot be pinned without breaking as soon as upstream re-dates a
+cycle or a date passes. It is covered without the network in the lib repo
+(`tests/version/unit-test/run`) and in `check-plugins/mysql-version/unit-test/run`.
+The testcases therefore only assert the parsed version and its perfdata value.
+"""
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_UNKNOWN
+
+TESTS = [
+    {
+        'id': 'parses-public-const-5-1-0',
+        'test': 'none',
+        'params': '--path=matomo/public-const-5-1-0',
+        'assert-in': ['Matomo v5.1.0 ', "'matomo-version'=5.1;"],
+    },
+    {
+        'id': 'parses-piwik-tab-0-2-10',
+        'test': 'none',
+        'params': '--path=matomo/piwik-tab-0-2-10',
+        'assert-in': ['Matomo v0.2.10 ', "'matomo-version'=0.21;"],
+    },
+    {
+        'id': 'parses-alpha-2-0-a1',
+        # `2.0-a1` must not become 2.0.1
+        'test': 'none',
+        'params': '--path=matomo/alpha-2-0-a1',
+        'assert-in': ['Matomo v2.0-a1 ', "'matomo-version'=2.0;"],
+    },
+    {
+        'id': 'parses-beta-timestamp-5-1-0-b3',
+        # the timestamp must not end up in the perfdata value
+        'test': 'none',
+        'params': '--path=matomo/beta-timestamp-5-1-0-b3',
+        'assert-in': [
+            'Matomo v5.1.0-b3.20240515080303 ',
+            "'matomo-version'=5.1;",
+        ],
+    },
+    {
+        'id': 'unknown-no-version',
+        # only `MAJOR_VERSION = 5;`, which is not a version string
+        'test': 'none',
+        'params': '--path=matomo/unknown-no-version',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Matomo not found', '--path'],
+    },
+    {
+        'id': 'unknown-missing-dir',
+        'test': 'none',
+        'params': '--path=matomo/nonexistent',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Matomo not found', '--path'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../matomo-version'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

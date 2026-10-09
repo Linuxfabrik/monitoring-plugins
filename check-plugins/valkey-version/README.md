@@ -120,6 +120,15 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 | valkey-version | Number | Installed Valkey version as float. "8.0.3" becomes "8.03". |
 
 
+## Troubleshooting
+
+### Binary is Redis
+
+`` `valkey-server` is Redis v7.2.13, use the redis-version check. ``
+
+The binary that the check ran is Redis, not Valkey, for example because `--path` points at `redis-server`. Checking a Redis version against the Valkey life cycle gives a wrong verdict, so use the redis-version check for this host instead. If Valkey is installed as well, point `--path` at its `valkey-server` binary.
+
+
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)

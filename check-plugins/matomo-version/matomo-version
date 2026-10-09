@@ -12,6 +12,7 @@
 
 import argparse
 import os
+import re
 import sys
 
 import lib.args
@@ -21,7 +22,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026100901'
 
 DESCRIPTION = """Checks the installed Matomo version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -161,15 +162,22 @@ def parse_args():
 
 
 def get_installed_version(args):
-    # matomo/Version.php: const version='3.13.4';
+    # core/Version.php: `const VERSION = '4.16.0';` (Piwik 0.2.10 to Matomo 5.0) or
+    # `public const VERSION = '5.1.0';` (Matomo 5.1+). Pre-releases append a suffix
+    # (`2.0-a1`, `1.12-b9`, `5.1.0-rc1`, `5.1.0-b3.20240515080303`,
+    # `5.12.0-alpha.20260607014952`), which is part of the captured token. Anchoring
+    # on `const VERSION` keeps other string constants ending in "N = '" from
+    # matching.
+    # Verified against Piwik/Matomo 0.2.10 to 6.0.0-b5, all 1060 tags that ship
+    # core/Version.php (github.com/matomo-org/matomo).
     success, matomo_version = lib.disk.grep_file(
         os.path.join(args.PATH, 'core/Version.php'),
-        r"N = '(.*?)'",
+        r"\bconst VERSION\s*=\s*'(\d+(?:\.\d+)+[^']*)'",
     )
     if not success:
         return ''
     if matomo_version:
-        return matomo_version  # 3.13.4
+        return matomo_version  # 3.13.4, 5.1.0-rc1
     return ''
 
 
@@ -191,9 +199,11 @@ def main():
         )
 
     # init some vars
+    # lib.version reads a suffix as version parts (4.5rc1 -> 4.51), use the core
+    installed_core = re.match(r'\d+(?:\.\d+)*', installed_version).group()
     perfdata = lib.base.get_perfdata(
         'matomo-version',
-        lib.version.version2float(installed_version),
+        lib.version.version2float(installed_core),
         uom=None,
         _min=0,
     )
@@ -201,7 +211,7 @@ def main():
     # analyze data
     state, eol = lib.version.check_eol(
         'https://endoflife.date/api/matomo.json',
-        installed_version,
+        installed_core,
         offset_eol=args.OFFSET_EOL,
         check_major=args.CHECK_MAJOR,
         check_minor=args.CHECK_MINOR,

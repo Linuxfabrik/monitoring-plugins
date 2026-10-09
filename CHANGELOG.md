@@ -77,6 +77,7 @@ Monitoring Plugins:
 * a missing httpx is named instead of an unreachable endoflife.date, on all *-version checks
 * arguments with umlauts and other non-ASCII characters are no longer garbled by the Icinga 2 agent, on all Windows plugins
 * HTTPS on Windows no longer fails for sites whose root certificate Windows has not cached yet, on all plugins
+* pre-release and build suffixes no longer distort the perfdata or the end of life lookup and are shown in the message, on some *-version checks
 * apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: no journal warning on hosts without systemd ([#1544](https://github.com/Linuxfabrik/monitoring-plugins/issues/1544))
 * apache-httpd-logfile: no false warning when the server and all sites log to syslog, for FreeIPA INFO lines, HTTP/2 cleanup reports and PHP-FPM log buffer notices
 * borgbackup: a running backup is reported as running instead of UNKNOWN
@@ -88,6 +89,7 @@ Monitoring Plugins:
 * dns: names each address once, stops waiting after `--timeout`, and says why a name did not resolve, also on Windows
 * docker-image, podman-image: no false CRITICAL for images from reproducible builds (e.g. Jib) that report 1970 as their build date
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
+* grafana-version: also reads the version from the `grafana` binary, and no longer takes an unrelated line containing "Version" for it
 * icinga-topflap-services: ignores state changes made during a downtime instead of those of services currently in one ([#1564](https://github.com/Linuxfabrik/monitoring-plugins/issues/1564)), accepts Nagios ranges and says whether the credentials file is missing or incomplete
 * journald-\*, ntp-systemd-timesyncd, pip-updates: name missing journal rights, a missing timesyncd or a missing pip instead of a raw error
 * journald-query, journald-usage: UNKNOWN instead of a false OK when the account may read only its own part of the journal; journald-query no longer crashes on kernel and syslog entries
@@ -95,11 +97,14 @@ Monitoring Plugins:
 * fs-ro: `--extend-ignore` keeps the defaults ([#1566](https://github.com/Linuxfabrik/monitoring-plugins/issues/1566)), no false warning for Docker containers on SUSE, no missed read-only mount when a mount option contains "rw" (for example `subvol=/rwdata`)
 * logfile: reads logfiles on Windows again
 * lynis: names an unreadable lynis installation on SUSE instead of a page of errors, leaves no temporary directories
-* mastodon-version: also finds the version of a rootless Podman installation
+* mastodon-version: also finds the version of a rootless Podman installation and of `tootsuite/mastodon` images, and no longer reads a comment, quotes or a digest after the image tag as part of the version
+* mediawiki-version: reads the version of MediaWiki before 1.31.7 instead of ending in a Python error
 * metabase-stats: no longer aborts every run with a Python error
+* moodle-version: finds Moodle 5.1 and newer, and reads release candidates and Moodle 1.x correctly
 * network-connections: the message for no matching connections shows `all` instead of `a,l,l`
 * ntp-chronyd: names why `chronyc` failed
 * ntp-w32tm: evaluates German output, warns on a stopped Windows Time service, names a refused query, no longer hangs
+* openjdk-redhat-version: no longer reports a wrong version when `JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS` or `JDK_JAVA_OPTIONS` contain a quoted value
 * openvpn-client-list: shows the external IP of clients on OpenVPN 2.7 and IPv6, and reads status files written with `status-version` 1 or 3
 * php-fpm-logfile: a request timeout no longer counts a second time as a warning, and workers killed with SIGKILL are no longer reported as crashes
 * pip-updates: names what pip reports, which Python it checked and a `--virtualenv` that is no activate script
@@ -112,6 +117,7 @@ Monitoring Plugins:
 * qts-version: reports updates again, no false alert on QTS 5.2.10 ([#1547](https://github.com/Linuxfabrik/monitoring-plugins/issues/1547))
 * redfish-logservices: reads the SEL of HPE servers, and reports a controller without the requested log instead of calling it ok
 * redfish-sensors: no false iLO 6 inlet warning, no sensors listed twice for a backplane, fans on iLO 6, distinct perfdata for alike named sensors
+* redis-version, valkey-version: no longer take Valkey for Redis or the other way round, as with `valkey-compat-redis` on Fedora, and name the check to use instead
 * restic-check, restic-stats: work with restic v0.18 and newer, no crash in the `raw-data` and `blobs-per-file` modes
 * service: names a refused service list instead of ending in a Python error
 * snmp: works with the default `--device`, and on Debian and Ubuntu

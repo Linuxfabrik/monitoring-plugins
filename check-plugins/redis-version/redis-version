@@ -22,7 +22,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026100901'
 
 DESCRIPTION = """Checks the installed Redis version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -162,21 +162,44 @@ def parse_args():
 
 
 def get_installed_version(path, test_arg=None):
+    """Return the product ('Redis' or 'Valkey') and the version that the binary at
+    `path` reports, or ('', '') if its output is neither.
+    """
     if test_arg is None:
         success, result = lib.shell.shell_exec([path, '--version'])
         if not success:
-            return ''
+            return '', ''
         stdout = result[0].strip()
     else:
         stdout, _, _ = lib.lftest.test(test_arg)
         stdout = stdout.strip()
     # where to find the version number in output?
-    version_regex = r' v=(.*?) '
-    try:
-        stdout = re.search(version_regex, stdout)
-        return stdout.group(1).strip()
-    except Exception:
-        return ''
+    # `redis-server --version` prints the `REDIS_VERSION` define, `valkey-server
+    # --version` the `VALKEY_VERSION` define, both always three numeric fields
+    # (release candidates are encoded as e.g. "7.9.240", unstable as "255.255.255"):
+    # * Redis >= 2.6: "Redis server v=7.2.4 sha=00000000:0 malloc=jemalloc-5.3.0
+    #   bits=64 build=..." (src/server.c getVersion(), formerly src/redis.c version())
+    # * Redis 2.2 - 2.4: "Redis server version 2.4.18 (00000000:0)"
+    # * Redis 2.0: "Redis server version 2.0.0"
+    # * Valkey >= 8.0: "Valkey server v=8.0.1 sha=00000000:0 malloc=jemalloc-5.3.0
+    #   bits=64 build=..." (src/server.c getVersion())
+    # * Valkey 7.2: "Server v=7.2.5 sha=00000000:0 malloc=jemalloc-5.3.0 bits=64
+    #   build=..."
+    # Both products are told apart because Valkey installs `redis-server` as a symlink
+    # to `valkey-server` (its own `make install` with USE_REDIS_SYMLINKS, Fedora's
+    # valkey-compat-redis package).
+    # Verified against redis 2.6.17, 2.8.23, 3.0.7, 5.0 - 8.6
+    # (docker.io/library/redis), valkey 7.2.12, 8.0.7, 8.1.6, 9.0.3
+    # (docker.io/valkey/valkey) and valkey-compat-redis 9.0.6 on Fedora 44.
+    version_regexes = [
+        ('Redis', r'^Redis server v(?:=|ersion )(\d+\.\d+\.\d+)(?: |$)'),
+        ('Valkey', r'^(?:Valkey server|Server) v=(\d+\.\d+\.\d+) '),
+    ]
+    for product, version_regex in version_regexes:
+        match = re.search(version_regex, stdout, re.MULTILINE)
+        if match:
+            return product, match.group(1)
+    return '', ''
 
 
 def main():
@@ -189,16 +212,23 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = get_installed_version(args.PATH, args.TEST)
+    product, installed_version = get_installed_version(args.PATH, args.TEST)
+    if product == 'Valkey':
+        lib.base.cu(
+            f'`{args.PATH}` is Valkey v{installed_version}, use the '
+            'valkey-version check.'
+        )
     if not installed_version:
         lib.base.cu(
             f'Redis not found at `{args.PATH}`. Use --path to point at the binary.'
         )
 
     # init some vars
+    # lib.version reads a suffix as version parts (4.5rc1 -> 4.51), use the core
+    installed_core = re.match(r'\d+(?:\.\d+)*', installed_version).group()
     perfdata = lib.base.get_perfdata(
         'redis-version',
-        lib.version.version2float(installed_version),
+        lib.version.version2float(installed_core),
         uom=None,
         _min=0,
     )
@@ -206,7 +236,7 @@ def main():
     # analyze data
     state, eol = lib.version.check_eol(
         'https://endoflife.date/api/redis.json',
-        installed_version,
+        installed_core,
         offset_eol=args.OFFSET_EOL,
         check_major=args.CHECK_MAJOR,
         check_minor=args.CHECK_MINOR,

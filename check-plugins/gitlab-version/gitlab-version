@@ -27,7 +27,7 @@ import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083101'
+__version__ = '2026100901'
 
 DESCRIPTION = """Checks the installed GitLab version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -169,7 +169,21 @@ def parse_args():
 
 
 def get_installed_version(args):
-    success, result = lib.disk.grep_file(args.PATH, 'gitlab.* (.*)')
+    # The first line of `version-manifest.txt` is "<project name> <build version>",
+    # written by omnibus-gitlab's config/software/version-manifest.rb. The project
+    # name is `gitlab-ce`, `gitlab-ee`, `gitlab-fips` or `gitlab-jh` (`gitlab` before
+    # 2015). Release builds carry a plain `17.3.1` (also for RC tags like
+    # `17.3.0+rc42.ee.0`); nightly, internal and older builds append suffixes like
+    # `+rnightly.<pipeline>.<sha>`, `.<pipeline>`, `+internal1` or `-ee.omnibus`,
+    # which stay part of the captured version up to the end of the line. `\A` pins
+    # the match to the first line, so the component table below it (`gitlab-rails`,
+    # `gitlab-shell`, ...) is never read. Verified against the
+    # published version-manifest.json of gitlab-ce/-ee 15.10.0, 17.3.1 and 19.4.1
+    # and omnibus-gitlab 12a6ea3c3 (gitlab-org/omnibus 9.0.19.7).
+    success, result = lib.disk.grep_file(
+        args.PATH,
+        r'\Agitlab(?:-(?:ce|ee|fips|jh))? (\d+\.\d+\S*)',
+    )
     if not success:
         return ''
     return result
@@ -244,9 +258,11 @@ def main():
         )
 
     # init some vars
+    # lib.version reads a suffix as version parts (4.5rc1 -> 4.51), use the core
+    installed_core = re.match(r'\d+(?:\.\d+)*', installed_version).group()
     perfdata = lib.base.get_perfdata(
         'gitlab-version',
-        lib.version.version2float(installed_version),
+        lib.version.version2float(installed_core),
         uom=None,
         _min=0,
     )
@@ -254,7 +270,7 @@ def main():
     # analyze data
     state, eol = lib.version.check_eol(
         'https://endoflife.date/api/gitlab.json',
-        installed_version,
+        installed_core,
         offset_eol=args.OFFSET_EOL,
         check_major=args.CHECK_MAJOR,
         check_minor=args.CHECK_MINOR,
@@ -270,7 +286,7 @@ def main():
     state_suffix = ''
     if args.CHECK_SECURITY:
         sec_state, sec_msg = check_security(
-            installed_version,
+            installed_core,
             insecure=args.INSECURE,
             no_proxy=args.NO_PROXY,
             proxy=args.PROXY,

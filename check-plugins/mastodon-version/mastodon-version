@@ -25,7 +25,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026100901'
 
 DESCRIPTION = """Checks the installed Mastodon version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -44,11 +44,29 @@ DEFAULT_TIMEOUT = 8
 DEFAULT_UNREACHABLE_SEVERITY = 'ok'
 DEFAULT_USER = 'mastodon'
 
-# The web and sidekiq containers run this image; the streaming server has an image of its
-# own without the Rails code.
-MASTODON_IMAGE_REGEX = re.compile(r'/mastodon/mastodon:')
+# The `image:` line of the web and sidekiq services in `live/docker-compose.yml`. Upstream
+# pins it as `tootsuite/mastodon:vX.Y.Z` (v3.3.1 to v3.5.5) and as
+# `ghcr.io/mastodon/mastodon:vX.Y.Z` (since v3.5.7), pre-releases as `vX.Y.Z-beta.N` /
+# `vX.Y.Z-rc.N`; some releases ship the image untagged, which is left to the container
+# lookup. Anchored on the start of the line so a commented-out image is skipped, and the
+# version ends at the tag, so a trailing quote, comment, CR or digest is not part of it.
+# The streaming service runs `mastodon/mastodon-streaming:` and does not match. Verified
+# against Mastodon v1.2 to v4.7.3 (docker-compose.yml).
+COMPOSE_IMAGE_REGEX = re.compile(
+    r'^[ \t]*image:[ \t]*[\'"]?(?:\S*/)?(?:mastodon|tootsuite)/mastodon:v'
+    r'(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)(?![\w.+-])',
+    re.MULTILINE,
+)
+# The web and sidekiq containers run this image, published as `tootsuite/mastodon` and
+# `ghcr.io/mastodon/mastodon` like in COMPOSE_IMAGE_REGEX; the streaming server has an
+# image of its own (`mastodon/mastodon-streaming`) without the Rails code. The image is
+# matched after the space that separates it from the container ID in `podman ps`, or
+# after the registry host.
+MASTODON_IMAGE_REGEX = re.compile(r'[ /](?:mastodon|tootsuite)/mastodon:')
 # The image carries no version label, and its tag is often `latest`. The version lives in
-# the Rails code only, one method per part. Verified against the mastodon repository
+# the Rails code only, one method per part, each returning a bare integer literal. A
+# pre-release lives in `flags` (until v4.2) or `default_prerelease` (since v4.3), both
+# overridable by environment, and is not read. Verified against Mastodon v1.3 to v4.7.3
 # (lib/mastodon/version.rb) and ghcr.io/mastodon/mastodon:latest.
 VERSION_FILE = '/opt/mastodon/lib/mastodon/version.rb'
 VERSION_PART_REGEX = re.compile(r'def (major|minor|patch)\s+(\d+)\s+end')
@@ -208,8 +226,8 @@ def get_compose_version(path):
     )
     if not success:
         return (True, False)
-    version = re.search(r'mastodon/mastodon:v(.*)', content)
-    if version and version.group(1):
+    version = COMPOSE_IMAGE_REGEX.search(content)
+    if version:
         return (True, version.group(1))
     return (True, False)
 
@@ -298,9 +316,11 @@ def main():
         )
 
     # init some vars
+    # lib.version reads a suffix as version parts (4.5rc1 -> 4.51), use the core
+    installed_core = re.match(r'\d+(?:\.\d+)*', installed_version).group()
     perfdata = lib.base.get_perfdata(
         'mastodon-version',
-        lib.version.version2float(installed_version),
+        lib.version.version2float(installed_core),
         uom=None,
         _min=0,
     )
@@ -308,7 +328,7 @@ def main():
     # analyze data
     state, eol = lib.version.check_eol(
         'https://endoflife.date/api/mastodon.json',
-        installed_version,
+        installed_core,
         offset_eol=args.OFFSET_EOL,
         check_major=args.CHECK_MAJOR,
         check_minor=args.CHECK_MINOR,

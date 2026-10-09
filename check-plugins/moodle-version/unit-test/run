@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the moodle-version check plugin.
+
+The plugin reads `$release` from `version.php` in the installation directory, or
+from `public/version.php` where Moodle 5.1+ keeps it. It has no `--test` hook, so
+every testcase points `--path` at a fixture directory under `moodle/`; the `--test`
+argument `lib.lftest.run()` always appends is dropped by the plugin's
+`parse_known_args()`. Each fixture holds the relevant lines of the real upstream file
+(`git show <tag>:version.php`, `.../public/version.php` from v5.1.0 on), with the
+`$version` line and its comments as decoys. `weekly-3-11-15-plus` comes from the
+MOODLE_311_STABLE commit aed88796f88 ("weekly release 3.11.15+"), `no-build-1-4-1`
+is the whole v1.4.1 file, `unknown-no-release-1-0-3` is v1.0.3, which has no
+`$release` at all.
+
+The message shows the release token as upstream writes it, the perfdata value only
+its leading numeric part.
+
+The end-of-life half is not tested here: `lib.version.check_eol()` is the same code
+in every `*-version` plugin, and a verdict it derives from live endoflife.date data
+and today's date cannot be pinned without breaking as soon as upstream re-dates a
+cycle or a date passes. It is covered without the network in the lib repo
+(`tests/version/unit-test/run`) and in `check-plugins/mysql-version/unit-test/run`.
+The testcases therefore only assert the parsed version and its perfdata value.
+"""
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_UNKNOWN
+
+TESTS = [
+    {
+        'id': 'parses-release-4-4-1',
+        'test': 'none',
+        'params': '--path=moodle/release-4-4-1',
+        'assert-in': ['Moodle v4.4.1 ', "'moodle-version'=4.41;"],
+    },
+    {
+        'id': 'parses-rc-4-5rc1',
+        # `4.5rc1` must not become 4.51
+        'test': 'none',
+        'params': '--path=moodle/rc-4-5rc1',
+        'assert-in': ['Moodle v4.5rc1 ', "'moodle-version'=4.5;"],
+    },
+    {
+        'id': 'parses-rc-spaced-2-0-rc1',
+        'test': 'none',
+        'params': '--path=moodle/rc-spaced-2-0-rc1',
+        'assert-in': ['Moodle v2.0 RC1 ', "'moodle-version'=2.0;"],
+    },
+    {
+        'id': 'parses-weekly-3-11-15-plus',
+        'test': 'none',
+        'params': '--path=moodle/weekly-3-11-15-plus',
+        'assert-in': ['Moodle v3.11.15+ ', "'moodle-version'=3.1115;"],
+        'assert-not-in': ['Build'],
+    },
+    {
+        'id': 'parses-no-build-1-4-1',
+        # double quotes, no `(Build: ...)` part
+        'test': 'none',
+        'params': '--path=moodle/no-build-1-4-1',
+        'assert-in': ['Moodle v1.4.1 ', "'moodle-version'=1.41;"],
+    },
+    {
+        'id': 'parses-public-only-5-1',
+        # Moodle 5.1+: only `public/version.php`
+        'test': 'none',
+        'params': '--path=moodle/public-only-5-1',
+        'assert-in': ['Moodle v5.1 ', "'moodle-version'=5.1;"],
+    },
+    {
+        'id': 'unknown-no-release-1-0-3',
+        'test': 'none',
+        'params': '--path=moodle/unknown-no-release-1-0-3',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Moodle not found', '--path'],
+    },
+    {
+        'id': 'unknown-missing-dir',
+        'test': 'none',
+        'params': '--path=moodle/nonexistent',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Moodle not found', '--path'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../moodle-version'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

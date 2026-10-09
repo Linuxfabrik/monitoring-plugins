@@ -11,7 +11,7 @@ Checks the installed Moodle version against the endoflife.date API and alerts if
 
 **Data Collection:**
 
-* Reads the installed Moodle version from `version.php` in the installation directory (default: `/var/www/html/moodle`, configurable via `--path`)
+* Reads the installed Moodle version from `version.php` in the installation directory (default: `/var/www/html/moodle`, configurable via `--path`). Moodle 5.1+ keeps this file in the `public/` subdirectory, which is read if the installation directory itself has no `version.php` or none with a release in it
 * Compares against the [endoflife.date API](https://endoflife.date/api/moodle.json) to determine EOL status and available updates
 * Caches endoflife.date responses locally for 24 hours to reduce external requests
 

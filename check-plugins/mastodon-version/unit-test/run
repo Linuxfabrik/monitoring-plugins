@@ -14,7 +14,9 @@
 `/opt/mastodon/lib/mastodon/version.rb` in the running Mastodon container.
 `stdout/version-rb-4-7-2` was read out of `ghcr.io/mastodon/mastodon:latest` on
 2026-10-01; `stdout/version-rb-without-patch` is the same file with the `patch`
-method removed.
+method removed. The other `stdout/version-rb-*` files are lib/mastodon/version.rb at
+the Mastodon tags v3.3.1 (`flags` and `suffix`), v4.2.0-beta1 (`flags` from the
+environment) and v4.3.0-beta.1 (`default_prerelease`); the pre-release is not read.
 
 The verdict comes from the endoflife.date feed, which the fixtures do not stand in
 for, so the testcases pin the parsed version and leave the state alone.
@@ -30,6 +32,21 @@ import lib.lftest
 from lib.globals import STATE_UNKNOWN
 
 TESTS = [
+    {
+        'id': 'parses-version-rb-3-3-1-flags-suffix',
+        'test': 'stdout/version-rb-3-3-1-flags-suffix,,0',
+        'assert-in': ['Mastodon v3.3.1 ('],
+    },
+    {
+        'id': 'parses-version-rb-4-2-0-beta1-flags',
+        'test': 'stdout/version-rb-4-2-0-beta1-flags,,0',
+        'assert-in': ['Mastodon v4.2.0 ('],
+    },
+    {
+        'id': 'parses-version-rb-4-3-0-beta-1-prerelease',
+        'test': 'stdout/version-rb-4-3-0-beta-1-prerelease,,0',
+        'assert-in': ['Mastodon v4.3.0 (', "'mastodon-version'=4.3;"],
+    },
     {
         'id': 'parses-version-rb-4-7-2',
         'test': 'stdout/version-rb-4-7-2,,0',

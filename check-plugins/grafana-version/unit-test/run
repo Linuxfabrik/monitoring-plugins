@@ -10,13 +10,15 @@
 
 """Unit tests for the grafana-version check plugin.
 
-The fixtures in `stdout/` are the raw `grafana-server -v` outputs
-captured from the official `docker.io/grafana/grafana-oss:<tag>`
-images on Docker Hub. There is no Red Hat family Grafana
-container, so the upstream image is the right source. The plugin
-runs its `r'Version (.*?) '` regex against each one (the
-deprecation banner that newer Grafana releases print does not
-contain "Version", so the regex picks the second line).
+The fixtures in `stdout/` are the raw `grafana-server -v` and `grafana -v`
+outputs captured from the official `docker.io/grafana/grafana-oss:<tag>` and
+`docker.io/grafana/grafana:<tag>` images on Docker Hub. There is no Red Hat
+family Grafana container, so the upstream image is the right source. The
+Enterprise and beta fixtures follow the format string in the Grafana source
+(`pkg/cmd/grafana-server/commands/cli.go`, `pkg/server/bootstrap/servers.go`),
+since there is no free image for them. The deprecation banner that newer
+`grafana-server` releases print does not start with "Version", so the plugin
+picks the version line.
 
 The testcases assert the parsed version and nothing else. The end-of-life half is
 not tested here: `lib.version.check_eol()` is the same code in every `*-version`
@@ -60,8 +62,49 @@ TESTS = [
         'assert-in': ['Grafana v12.4.0'],
     },
     {
+        'id': 'parses-grafana-5-4',
+        'test': 'stdout/grafana-server-v5.4,,0',
+        'assert-in': ['Grafana v5.4.5'],
+    },
+    {
+        'id': 'parses-grafana-8-5',
+        'test': 'stdout/grafana-server-v8.5,,0',
+        'assert-in': ['Grafana v8.5.27'],
+    },
+    {
+        'id': 'parses-grafana-12-0-beta',
+        'test': 'stdout/grafana-server-v12.0-beta,,0',
+        'assert-in': ['Grafana v12.0.0-beta1 ', "'grafana-version'=12.0;"],
+    },
+    {
+        'id': 'parses-grafana-12-4-security',
+        'test': 'stdout/grafana-server-v12.4-security,,0',
+        'assert-in': ['Grafana v12.4.3+security-02 ', "'grafana-version'=12.43;"],
+    },
+    {
+        'id': 'parses-grafana-13-2',
+        'test': 'stdout/grafana-server-v13.2,,0',
+        'assert-in': ['Grafana v13.2.3'],
+    },
+    {
+        'id': 'parses-grafana-binary-13-2',
+        'test': 'stdout/grafana-v13.2,,0',
+        'assert-in': ['Grafana v13.2.3'],
+    },
+    {
+        'id': 'parses-grafana-enterprise-10-4',
+        'test': 'stdout/grafana-server-enterprise-v10.4,,0',
+        'assert-in': ['Grafana v10.4.0'],
+    },
+    {
         'id': 'unknown-garbage-output',
         'test': 'stdout/garbage-output,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Grafana not found', '--path'],
+    },
+    {
+        'id': 'unknown-misleading-version-line',
+        'test': 'stdout/misleading-version-line,,0',
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Grafana not found', '--path'],
     },

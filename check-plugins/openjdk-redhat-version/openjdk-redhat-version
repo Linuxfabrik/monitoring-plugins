@@ -22,7 +22,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026100901'
 
 DESCRIPTION = """Checks the installed Red Hat OpenJDK version against the endoflife.date API and alerts if
 the version is end-of-life or if newer major, minor, or patch releases are available.
@@ -169,12 +169,23 @@ def get_installed_version(path, test_arg=None):
         _, stderr, _ = lib.lftest.test(test_arg)
         stdout = stderr.strip()  # the version info lives on STDERR
     # where to find the version number in output?
-    # openjdk version "20.0.2" 2023-07-18
-    # OpenJDK Runtime Environment (Red_Hat-20.0.2.0.9-1.rolling.el8) (build 20.0.2+9)
-    # OpenJDK 64-Bit Server VM (Red_Hat-20.0.2.0.9-1.rolling.el8) (build 20.0.2+9, mixed mode, sharing)
-    version_regex = r'\"(.*)\"'
+    # The first line of the banner is `<launcher_name> version "<java_version>"`,
+    # followed by the version date and "LTS" on 10+ (jdk8u:
+    # jdk/src/share/classes/sun/misc/Version.java.template, jdk9+:
+    # src/java.base/share/classes/java/lang/VersionProps.java.template):
+    #   openjdk version "1.8.0_504"
+    #   openjdk version "21.0.12.1" 2026-08-18 LTS
+    #   openjdk version "27-ea" 2026-09-15
+    # Red Hat adds its build tag only to the two lines below it. The JVM and the
+    # launcher print "Picked up JAVA_TOOL_OPTIONS: ...", "Picked up _JAVA_OPTIONS: ..."
+    # and "NOTE: Picked up JDK_JAVA_OPTIONS: ..." to STDERR before the banner, and
+    # those values may contain quoted strings with digits, so the regex is anchored
+    # on the banner line and expects the quoted value to start with a digit.
+    # Verified against OpenJDK 1.8.0_504, 11.0.25, 17.0.20.1, 21.0.12.1 (ubi9) and
+    # 25.0.4.1, 27-ea (Fedora 43), jdk8u512-b07 and jdk-28+19 source.
+    version_regex = r'^\S+ version "(\d[^"\s]*)"'
     try:
-        stdout = re.search(version_regex, stdout)
+        stdout = re.search(version_regex, stdout, re.MULTILINE)
         return stdout.group(1).strip()
     except Exception:
         return ''
@@ -190,16 +201,22 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = get_installed_version(args.PATH, args.TEST).replace('_', '.')
+    installed_version = get_installed_version(args.PATH, args.TEST)
     if not installed_version:
         lib.base.cu(
             f'Java not found at `{args.PATH}`. Use --path to point at the binary.'
         )
 
     # init some vars
+    # lib.version reads a suffix as version parts (4.5rc1 -> 4.51), use the core
+    # Java 8 writes its update number as `1.8.0_504`, which counts as a fourth
+    # version part, so `8u504` and `8u472` stay apart in the perfdata
+    installed_core = re.match(
+        r'\d+(?:\.\d+)*', installed_version.replace('_', '.')
+    ).group()
     perfdata = lib.base.get_perfdata(
         'openjdk-redhat-version',
-        lib.version.version2float(installed_version),
+        lib.version.version2float(installed_core),
         uom=None,
         _min=0,
     )
@@ -207,7 +224,7 @@ def main():
     # analyze data
     state, eol = lib.version.check_eol(
         'https://endoflife.date/api/redhat-build-of-openjdk.json',
-        installed_version,
+        installed_core,
         offset_eol=args.OFFSET_EOL,
         check_major=args.CHECK_MAJOR,
         check_minor=args.CHECK_MINOR,

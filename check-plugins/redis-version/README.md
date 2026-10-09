@@ -119,6 +119,15 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 | redis-version | Number | Installed Redis version as float. "3.3.22" becomes "3.322". |
 
 
+## Troubleshooting
+
+### Binary is Valkey
+
+`` `redis-server` is Valkey v9.0.6, use the valkey-version check. ``
+
+The binary that the check ran is Valkey, not Redis. Valkey installs `redis-server` as a symlink to `valkey-server`, either through its own `make install` or through a compatibility package such as `valkey-compat-redis` on Fedora, which `dnf install redis` pulls in. Checking a Valkey version against the Redis life cycle gives a wrong verdict, so use the valkey-version check for this host instead. If a real Redis is installed as well, point `--path` at its `redis-server` binary.
+
+
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
