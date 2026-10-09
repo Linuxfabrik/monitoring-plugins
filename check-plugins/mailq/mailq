@@ -16,7 +16,6 @@ import re
 import shutil
 import sys
 from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
 
 import lib.args
 import lib.base
@@ -28,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026100901'
 
 DESCRIPTION = """Checks how long the oldest mail in the local mail queue has been waiting and
 alerts when it exceeds the configured duration thresholds. On hosts with Postfix, reads
@@ -251,7 +250,7 @@ def parse_sendmail_mailq(stdout, now):
     """Parse `mailq` output from Sendmail / esmtp / compat. Each
     queued message has a line containing a tab-separated
     `Date: <rfc2822>` field which we parse via
-    `email.utils.parsedate_to_datetime()`. Returns
+    `lib.time.timestr2datetime(pattern='rfc2822')`. Returns
     `(count, max_age_seconds)`. An empty queue returns `(0, 0)`.
     """
     count = 0
@@ -261,14 +260,13 @@ def parse_sendmail_mailq(stdout, now):
         if not match:
             continue
         try:
-            arrival_dt = parsedate_to_datetime(match.group(1).strip())
-        except (TypeError, ValueError):
-            continue
-        if arrival_dt is None:
+            # a date without a zone (`-0000`) is taken as UTC
+            arrival_dt = lib.time.timestr2datetime(
+                match.group(1), pattern='rfc2822', tzinfo=timezone.utc
+            )
+        except ValueError:
             continue
         count += 1
-        if arrival_dt.tzinfo is None:
-            arrival_dt = arrival_dt.replace(tzinfo=timezone.utc)
         max_age = max(max_age, int(now - arrival_dt.timestamp()))
     return count, max_age
 

@@ -90,12 +90,13 @@ Monitoring Plugins:
 * dns: names each address once, stops waiting after `--timeout`, and says why a name did not resolve, also on Windows
 * docker-image, podman-image: no false CRITICAL for images from reproducible builds (e.g. Jib) that report 1970 as their build date
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
+* feed: no longer ends in a Python error on an unusual or empty date, and takes the time zone of a date into account for the age of an entry
+* file-ownership: no false warning for the DNSSEC trust anchor of unbound on Fedora 44
+* fs-ro: `--extend-ignore` keeps the defaults ([#1566](https://github.com/Linuxfabrik/monitoring-plugins/issues/1566)), no false warning for Docker containers on SUSE, no missed read-only mount when a mount option contains "rw" (for example `subvol=/rwdata`)
 * grafana-version: also reads the version from the `grafana` binary, and no longer takes an unrelated line containing "Version" for it
 * icinga-topflap-services: ignores state changes made during a downtime instead of those of services currently in one ([#1564](https://github.com/Linuxfabrik/monitoring-plugins/issues/1564)), accepts Nagios ranges and says whether the credentials file is missing or incomplete
 * journald-\*, ntp-systemd-timesyncd, pip-updates: name missing journal rights, a missing timesyncd or a missing pip instead of a raw error
 * journald-query, journald-usage: UNKNOWN instead of a false OK when the account may read only its own part of the journal; journald-query no longer crashes on kernel and syslog entries
-* file-ownership: no false warning for the DNSSEC trust anchor of unbound on Fedora 44
-* fs-ro: `--extend-ignore` keeps the defaults ([#1566](https://github.com/Linuxfabrik/monitoring-plugins/issues/1566)), no false warning for Docker containers on SUSE, no missed read-only mount when a mount option contains "rw" (for example `subvol=/rwdata`)
 * logfile: reads logfiles on Windows again
 * lynis: names an unreadable lynis installation on SUSE instead of a page of errors, leaves no temporary directories
 * mastodon-version: also finds the version of a rootless Podman installation and of `tootsuite/mastodon` images, and no longer reads a comment, quotes or a digest after the image tag as part of the version
@@ -122,6 +123,7 @@ Monitoring Plugins:
 * restic-check, restic-stats: work with restic v0.18 and newer, no crash in the `raw-data` and `blobs-per-file` modes
 * service: names a refused service list instead of ending in a Python error
 * snmp: works with the default `--device`, and on Debian and Ubuntu
+* statusiq: no longer ends in a Python error on a date without seconds or weekday, with a zone name, or on an item without a date
 * swap-usage: names missing access to the performance counters instead of calling them corrupt
 * systemd-units-failed: no longer names an ignored unit as the last failed one
 * tuned-profile: names a stopped tuned or a missing profile, accepts a post-loaded profile and the `kernel_settings` profile of the Linux System Roles

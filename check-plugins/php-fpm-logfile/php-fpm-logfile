@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100503'
+__version__ = '2026100901'
 
 DESCRIPTION = """Scans the PHP-FPM error log for the events an administrator has to act
 on: rejected configurations, worker crashes, workers killed with SIGKILL, requests that
@@ -893,7 +893,11 @@ def parse_timestamp(log_line):
         written_at = written_at.replace(tzinfo=offset)
     else:
         written_at = written_at.replace(tzinfo=lib.time.get_timezone(zone))
-    return written_at.astimezone().replace(tzinfo=None)
+    try:
+        return lib.time.datetime2local(written_at)
+    except ValueError:
+        # a moment local time cannot hold, written by whoever can write the log
+        return None
 
 
 def get_level_states(critical_level, warning_level):

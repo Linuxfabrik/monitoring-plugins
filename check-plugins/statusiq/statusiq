@@ -21,7 +21,7 @@ import lib.time
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026100901'
 
 DESCRIPTION = """Monitors a StatusIQ (by Site24x7) status page via its RSS feed. Alerts when a component is
 under maintenance, degraded or partially out, and raises a critical state for a service
@@ -178,7 +178,14 @@ def main():
             continue
         title = title.text.strip().replace(' - Operational', '')
         pubdate = item.find('pubDate')
-        pubdate = pubdate.text.strip()
+        pubdate = pubdate.text.strip() if pubdate is not None and pubdate.text else ''
+        try:
+            # RFC 822 allows a one-digit day and leaves the weekday and the seconds
+            # out, which a fixed strptime() layout does not
+            pubdate = lib.time.timestr2datetime(pubdate, pattern='rfc2822')
+        except ValueError:
+            # shown as it came, or empty, rather than ending the check
+            pass
 
         item_state = statusiqstate2state(title)
         if item_state == STATE_WARN:
@@ -189,9 +196,7 @@ def main():
         table_data.append(
             {
                 'title': title,
-                'pubdate': lib.time.timestr2datetime(
-                    pubdate, pattern='%a, %d %b %Y %H:%M:%S %z'
-                ),  # Thu, 06 Mar 2025 14:44:59 +0100  pylint: disable=C0301
+                'pubdate': pubdate,  # Thu, 06 Mar 2025 14:44:59 +0100
                 'state_hr': lib.base.state2str(item_state, empty_ok=False),
             }
         )
