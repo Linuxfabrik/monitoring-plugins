@@ -34,6 +34,7 @@ Assets:
 Monitoring Plugins:
 
 * the end of life comes from the distribution for software that RHEL, Debian and Ubuntu ship themselves, on most *-version checks
+* the monitoring user needs its privileges on `*.*` (`mysql.*` for mysql-tls and mysql-user-security), grants on other databases or `SUPER` instead end in UNKNOWN, on all mysql-* checks
 * the version perfdata sorts like the version (1.10 above 1.9) and takes a new scale, so the graphs show one step after the update, on all *-version checks
 * about-me: proposes the tags of the AIDE, database dump, Fangfrisch, Lynis and security lane sets, and recognises ClamAV on Debian and Ubuntu and WordPress below `/var/www`; proposes mod_qos only where its status page answers on localhost
 * apache-httpd-logfile: says what failed requests were, recognises a reverse proxy in front, names backend and cause of proxy failures, counts each request once, clears fixed configuration problems after a reload

@@ -160,10 +160,7 @@ minimum.
 | All other `mysql-*` plugins | `GRANT USAGE ON *.*` (login-only, no further privileges) |
 | `mysql-query` | depends entirely on the SQL passed via `--query` |
 
-Every MySQL plugin that opens a database connection verifies the grants
-up front via `SHOW GRANTS FOR CURRENT_USER()` and exits `UNKNOWN` with a
-message that names the missing privilege if a grant is absent. `ALL
-PRIVILEGES` and `SUPER` short-circuit the check.
+Every MySQL plugin that opens a database connection verifies the grants up front via `SHOW GRANTS` and exits `UNKNOWN` with a message that names the missing privilege if a grant is absent. Only grants on the scope from the table count (`*.*`, or `mysql.*` where listed), including those of the user's active roles. `ALL PRIVILEGES` on that scope covers every privilege, `SUPER` does not stand in for any other.
 
 `mysql-system` and `mysql-version` open no database connection and therefore
 need no grants; they read uptime and package-version facts from the operating
