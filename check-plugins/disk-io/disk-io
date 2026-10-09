@@ -34,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092802'
+__version__ = '2026100901'
 
 DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes.
 The check records per-disk read/write counters and then derives current (R1/W1) and period
@@ -509,7 +509,7 @@ def main():
             data['write_merged_count'] = getattr(values, 'write_merged_count', 0)
             data['write_time'] = getattr(values, 'write_time', 0)
             data['timestamp'] = now
-            disks.append({'bd': disk, 'dmd': '', 'mp': ''})
+            disks.append({'bd': disk, 'dmd': '', 'mount_points': []})
 
             # store it to database
             lib.base.coe(lib.db_sqlite.insert(conn, data))
@@ -525,7 +525,10 @@ def main():
                 (
                     lib.base.coe(lib.txt.match_regex(compiled_regex, disk['bd'])),
                     lib.base.coe(lib.txt.match_regex(compiled_regex, disk['dmd'])),
-                    lib.base.coe(lib.txt.match_regex(compiled_regex, disk['mp'])),
+                    *(
+                        lib.base.coe(lib.txt.match_regex(compiled_regex, mount_point))
+                        for mount_point in disk['mount_points']
+                    ),
                 )
             ):
                 continue
@@ -537,7 +540,7 @@ def main():
             data = {}
             data['bd'] = disk['bd']
             data['dmd'] = disk['dmd']
-            data['mp'] = disk['mp']
+            data['mp'] = ', '.join(disk['mount_points'])
             data['busy_time'] = getattr(disk_io_counters[psutil_name], 'busy_time', 0)
             data['read_bytes'] = getattr(disk_io_counters[psutil_name], 'read_bytes', 0)
             data['read_count'] = getattr(disk_io_counters[psutil_name], 'read_count', 0)
@@ -796,7 +799,7 @@ def main():
         row = {
             'bd': bd,
             'dmd': disk['dmd'].replace('/dev/mapper/', ''),
-            'mp': disk['mp'],
+            'mp': ', '.join(disk['mount_points']),
             'max': lib.human.bytes2human(bandwidth_max),
             'r1': lib.human.bytes2human(read_bytes_per_second1),
             'w1': lib.human.bytes2human(write_bytes_per_second1),

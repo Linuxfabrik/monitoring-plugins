@@ -86,13 +86,14 @@ Monitoring Plugins:
 * by-winrm: patterns see the output as PowerShell shows it again, JEA endpoints accept the command, a failed login returns UNKNOWN, and the first line says what raised the state
 * cert: `--source=file` works with the Python 3.6 of RHEL 8, the other sources say which Python they need instead of crashing
 * dhcp-scope-usage: works again, also locally on Windows
-* disk-io: learns a disk's maximum bandwidth for a week before it warns, no more false warnings on busy hosts after the update
+* disk-io: learns a disk's maximum bandwidth for a week before it warns, no more false warnings on busy hosts after the update, covers every logical volume on hosts without udevadm, and `--match` finds a disk by any of its mount points
 * dmesg: no false alarm for systemd-ssh-generator on Debian 13 VMs or for kexec handover on Ubuntu 26.04 VMs
 * dns: names each address once, stops waiting after `--timeout`, and says why a name did not resolve, also on Windows
 * docker-image, podman-image: no false CRITICAL for images from reproducible builds (e.g. Jib) that report 1970 as their build date
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
 * feed: no longer ends in a Python error on an unusual or empty date, and takes the time zone of a date into account for the age of an entry
 * file-ownership: no false warning for the DNSSEC trust anchor of unbound on Fedora 44
+* fs-inodes: checks every logical volume on hosts without udevadm, and mount points with spaces in their path
 * fs-ro: `--extend-ignore` keeps the defaults ([#1566](https://github.com/Linuxfabrik/monitoring-plugins/issues/1566)), no false warning for Docker containers on SUSE, no missed read-only mount when a mount option contains "rw" (for example `subvol=/rwdata`)
 * grafana-version: also reads the version from the `grafana` binary, and no longer takes an unrelated line containing "Version" for it
 * icinga-topflap-services: ignores state changes made during a downtime instead of those of services currently in one ([#1564](https://github.com/Linuxfabrik/monitoring-plugins/issues/1564)), accepts Nagios ranges and says whether the credentials file is missing or incomplete
