@@ -134,6 +134,8 @@ Monitoring Plugins:
 * systemd-units-failed: no longer names an ignored unit as the last failed one
 * tuned-profile: names a stopped tuned or a missing profile, accepts a post-loaded profile and the `kernel_settings` profile of the Linux System Roles
 * updates: warns on a disabled Windows Update service, names a missing permission, no longer hangs ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
+* wordpress-checksums: reads an empty plugin header field as empty instead of taking the next line
+* wordpress-security-scan: reads an empty plugin header field as empty, and no longer scans the enclosing site when the installation's own `wp-config.php` cannot be read
 * xca-cert: works without `--prefix`
 
 Icinga Director:
