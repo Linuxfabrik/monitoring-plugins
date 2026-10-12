@@ -106,6 +106,7 @@ Monitoring Plugins:
 * fs-ro: `--extend-ignore` keeps the defaults ([#1566](https://github.com/Linuxfabrik/monitoring-plugins/issues/1566)), no false warning for Docker containers on SUSE, no missed read-only mount when a mount option contains "rw" (for example `subvol=/rwdata`)
 * grafana-version: also reads the version from the `grafana` binary, and no longer takes an unrelated line containing "Version" for it
 * icinga-topflap-services: ignores state changes made during a downtime instead of those of services currently in one ([#1564](https://github.com/Linuxfabrik/monitoring-plugins/issues/1564)), accepts Nagios ranges and says whether the credentials file is missing or incomplete
+* infomaniak-swiss-backup-devices: works behind a mandatory proxy, and `--insecure` and `--timeout` apply to every request
 * journald-\*, ntp-systemd-timesyncd, pip-updates: name missing journal rights, a missing timesyncd or a missing pip instead of a raw error
 * journald-query, journald-usage: UNKNOWN instead of a false OK when the account may read only its own part of the journal; journald-query no longer crashes on kernel and syslog entries
 * logfile: reads logfiles on Windows again
