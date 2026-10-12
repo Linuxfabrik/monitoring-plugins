@@ -143,6 +143,19 @@ Executed occ commands:
 Permission for `/var/www/html/nextcloud/occ` must be `0755`.
 
 
+### Refusing an installation another account can change
+
+`Refusing "/var/www/nextcloud": something below it can be changed by an account other than root and the trusted owners, or cannot be examined.`
+
+`occ` runs as the owner of `config/config.php` and loads code from the whole installation, `console.php`, `lib/`, `3rdparty/`, `config/*.config.php` and every app directory `apps_paths` names, including those outside the installation. Every file and directory there therefore has to belong to root or that account, and no other user or group may write to it. The message does not name the offending object, because the account running the check may not be allowed to see it. As root, list the candidates with (the data directory is skipped, adjust `apache` to the owner of `config.php`):
+
+```bash
+find /var/www/nextcloud -path /var/www/nextcloud/data -prune -o \( \( ! -user root ! -user apache \) -o -perm -o+w -o \( -perm -g+w ! -group root ! -group apache \) \) -print
+getfacl --recursive --skip-base --absolute-names /var/www/nextcloud 2>/dev/null | grep '^# file'
+```
+
+Repeat both for every app directory outside the installation, such as `/var/lib/nextcloud/apps` on Fedora, together with its parent directories. A `config.php` that belongs to root, as `config_is_read_only` allows, makes `occ` run as root; then all of this has to belong to root.
+
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)

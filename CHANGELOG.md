@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Highlights:** A massive bug-fix release: every plugin was run against real Linux and Windows hosts, and whatever broke there is fixed. New are `aide-logfile` for the AIDE file integrity check, `lynis-logfile` for the daily lynis audit and `windows-version` for the end of life of Windows. On RHEL, Debian and Ubuntu, the version checks follow the distribution's life cycle for the software it ships.
 
+### Breaking Changes
+
+Monitoring Plugins:
+
+* nextcloud-\*: `--path` is refused while an account other than root and the owner of `config.php` can change a file `occ` loads, see the README to find and fix it
+
 ### Added
 
 Monitoring Plugins:
@@ -170,7 +176,7 @@ Monitoring Plugins:
 * logfile, \*-logfile, openvpn-client-list: a swapped directory can no longer escape `/var/log`, nor a caller probe which files exist
 * mastodon-version: `--path` no longer follows a symlink out of the installation
 * mysql-logfile: a non-regular `--defaults-file` no longer hangs the check
-* nextcloud-\*: `--path` no longer runs code as root or probes for files
+* nextcloud-\*: `--path` no longer runs code as root, or code another account can change, nor probes for files
 * php-status: reads only FPM pool configs that root owns, and `--config` checks the exact value
 * podman-\*: `--user` needs an account with a subordinate UID range
 * restic-\*: `--repo` can no longer run a program as root, and password and repository files have to be root-owned
