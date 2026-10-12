@@ -96,6 +96,7 @@ Monitoring Plugins:
 * cert: `--source=file` works with the Python 3.6 of RHEL 8, the other sources say which Python they need instead of crashing
 * dhcp-scope-usage: works again, also locally on Windows
 * disk-io: learns a disk's maximum bandwidth for a week before it warns, no more false warnings on busy hosts after the update, covers every logical volume on hosts without udevadm, and `--match` finds a disk by any of its mount points
+* disk-usage, nfs-exports, nfs-mounts, path-rw-test: return on time even when a hung NFS mount keeps a probe from ending
 * dmesg: no false alarm for systemd-ssh-generator on Debian 13 VMs or for kexec handover on Ubuntu 26.04 VMs
 * dns: names each address once, stops waiting after `--timeout`, and says why a name did not resolve, also on Windows
 * docker-image, podman-image: no false CRITICAL for images from reproducible builds (e.g. Jib) that report 1970 as their build date
