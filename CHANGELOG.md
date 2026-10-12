@@ -46,6 +46,7 @@ Monitoring Plugins:
 * about-me: proposes the tags of the AIDE, database dump, Fangfrisch, Lynis and security lane sets, and recognises ClamAV on Debian and Ubuntu and WordPress below `/var/www`; proposes mod_qos only where its status page answers on localhost
 * apache-httpd-logfile: says what failed requests were, recognises a reverse proxy in front, names backend and cause of proxy failures, counts each request once, clears fixed configuration problems after a reload
 * crypto-policy: compares only the base policy and lists the subpolicies, unless `--policy` names subpolicies itself
+* disk-usage: a threshold such as `-5`, `10X` or `5.5.5G` ends in UNKNOWN instead of being read as 0% or with the default unit, and `10 G` is read
 * librenms-validate: reports the validations as a compact list instead of a wide table
 * lynis: lists every finding and suggestion with the host it was found on, and refuses to run as root
 * php-fpm-logfile: also reports PHP fatal errors of the pools, hung workers and idle FastCGI connections; a pool that filled up once is WARNING
@@ -91,6 +92,7 @@ Monitoring Plugins:
 * a `null` value from the controller no longer ends in a traceback, on all redfish-* checks
 * apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: no journal warning on hosts without systemd ([#1544](https://github.com/Linuxfabrik/monitoring-plugins/issues/1544))
 * apache-httpd-logfile: no false warning when the server and all sites log to syslog, for FreeIPA INFO lines, HTTP/2 cleanup reports and PHP-FPM log buffer notices
+* apache-httpd-security, nginx-security: read an indented `UID_MIN` from `/etc/login.defs`
 * borgbackup: a running backup is reported as running instead of UNKNOWN
 * by-winrm: patterns see the output as PowerShell shows it again, JEA endpoints accept the command, a failed login returns UNKNOWN, and the first line says what raised the state
 * cert: `--source=file` works with the Python 3.6 of RHEL 8, the other sources say which Python they need instead of crashing
@@ -110,6 +112,7 @@ Monitoring Plugins:
 * infomaniak-swiss-backup-devices: works behind a mandatory proxy, and `--insecure` and `--timeout` apply to every request
 * journald-\*, ntp-systemd-timesyncd, pip-updates: name missing journal rights, a missing timesyncd or a missing pip instead of a raw error
 * journald-query, journald-usage: UNKNOWN instead of a false OK when the account may read only its own part of the journal; journald-query no longer crashes on kernel and syslog entries
+* logfile, \*-logfile: a compressed log given by name no longer reports its findings again on every run
 * logfile: reads logfiles on Windows again
 * lynis: names an unreadable lynis installation on SUSE instead of a page of errors, leaves no temporary directories
 * mastodon-version: also finds the version of a rootless Podman installation and of `tootsuite/mastodon` images, and no longer reads a comment, quotes or a digest after the image tag as part of the version
