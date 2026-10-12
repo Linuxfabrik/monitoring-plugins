@@ -90,6 +90,7 @@ Monitoring Plugins:
 * HTTPS on Windows no longer fails for sites whose root certificate Windows has not cached yet, on all plugins
 * pre-release and build suffixes no longer distort the perfdata or the end of life lookup and are shown in the message, on some *-version checks
 * a `null` value from the controller no longer ends in a traceback, on all redfish-* checks
+* the acknowledgement on the monitoring server is read from exactly the service `--icinga-service-name` names, quotes, backslashes and `*` included, on all plugins with `--icinga-callback`
 * apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: no journal warning on hosts without systemd ([#1544](https://github.com/Linuxfabrik/monitoring-plugins/issues/1544))
 * apache-httpd-logfile: no false warning when the server and all sites log to syslog, for FreeIPA INFO lines, HTTP/2 cleanup reports and PHP-FPM log buffer notices
 * apache-httpd-security, nginx-security: read an indented `UID_MIN` from `/etc/login.defs`
@@ -103,7 +104,7 @@ Monitoring Plugins:
 * dns: names each address once, stops waiting after `--timeout`, and says why a name did not resolve, also on Windows
 * docker-image, podman-image: no false CRITICAL for images from reproducible builds (e.g. Jib) that report 1970 as their build date
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
-* feed: no longer ends in a Python error on an unusual or empty date, and takes the time zone of a date into account for the age of an entry
+* feed: no longer ends in a Python error on an unusual or empty date or when `--icinga-service-name` names no service, and takes the time zone of a date into account for the age of an entry
 * file-ownership: no false warning for the DNSSEC trust anchor of unbound on Fedora 44
 * fs-inodes: checks every logical volume on hosts without udevadm, and mount points with spaces in their path
 * fs-ro: `--extend-ignore` keeps the defaults ([#1566](https://github.com/Linuxfabrik/monitoring-plugins/issues/1566)), no false warning for Docker containers on SUSE, no missed read-only mount when a mount option contains "rw" (for example `subvol=/rwdata`)
@@ -148,6 +149,10 @@ Monitoring Plugins:
 * wordpress-checksums: reads an empty plugin header field as empty instead of taking the next line
 * wordpress-security-scan: reads an empty plugin header field as empty, and no longer scans the enclosing site when the installation's own `wp-config.php` cannot be read
 * xca-cert: works without `--prefix`
+
+Notification Plugins:
+
+* notify-host-mail, notify-service-mail: a line break in the subject or an incomplete inline image ends in an error message instead of a Python error
 
 Icinga Director:
 

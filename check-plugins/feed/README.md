@@ -168,6 +168,10 @@ sudo -u icinga python3 -m pip install --user lxml
 
 When using `--icinga-callback`, all four Icinga connection parameters must be specified.
 
+### The item stays at WARN although the service is acknowledged
+
+The check asks the monitoring server for the service named by `--icinga-service-name`, in the form `<host>!<service>`, and compares it with the service name exactly: no wildcards, upper and lower case count. If no service by that name exists, nothing says the alert was acknowledged, so the item stays at WARN until it is older than `--warning`. Copy the name from the service's `__name` attribute in the Icinga API or from Icinga Web 2.
+
 
 ## Credits, License
 
