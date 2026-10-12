@@ -18,7 +18,7 @@ Checks the state of all processors (CPUs) in a Redfish-compatible server via the
 * For each member, follows the `Processors` link and queries every processor for its model, core and thread count, speed, identification and health status
 * Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
-* Only evaluates systems and processors in "Enabled" or "Quiesced" state, so absent or disabled sockets are skipped
+* Skips systems and processors in "Absent" or "Disabled" state, so empty sockets do not show up. Every other state is evaluated, including standby and offline ones and a missing state
 
 
 ## Fact Sheet

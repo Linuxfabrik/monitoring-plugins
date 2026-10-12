@@ -23,7 +23,7 @@ Checks hardware sensor readings (temperature, voltage, fan speed, power) from th
 * Also queries the Thermal endpoint for fan redundancy information
 * Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
-* Only evaluates sensors and chassis in "Enabled" or "Quiesced" state
+* Skips sensors and chassis in "Absent" or "Disabled" state. The health of every other one is evaluated, a failed spare power supply included. The thresholds only count for a sensor that is operating ("Enabled", "Quiesced", "Degraded", "Qualified" or no state), since a component in standby, under test, starting or updating reports a reading that says nothing about the running system
 
 
 ## Fact Sheet

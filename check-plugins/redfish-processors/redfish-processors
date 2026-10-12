@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091001'
+__version__ = '2026101201'
 
 DESCRIPTION = """Checks the state of all processors (CPUs) in a Redfish-compatible server via the
 Redfish API. Alerts when any processor reports a degraded or failed state. System-level health
@@ -320,7 +320,7 @@ def main():
     )
     for systems in system_members:
         systems = lib.redfish.get_systems(systems)
-        if systems['Status_State'] not in ['Enabled', 'Quiesced']:
+        if systems['Status_State'] in lib.redfish.UNMONITORED_STATES:
             continue
         member_count += 1
 
@@ -378,7 +378,7 @@ def main():
         table_data = []
         for cpu_data in cpu_members:
             cpu_data = lib.redfish.get_systems_processors(cpu_data)
-            if cpu_data['Status_State'] not in ['Enabled', 'Quiesced']:
+            if cpu_data['Status_State'] in lib.redfish.UNMONITORED_STATES:
                 continue
             # collect for --inventory before any display filter (--match/--ignore/--brief)
             if args.INVENTORY:

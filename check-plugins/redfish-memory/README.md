@@ -18,7 +18,7 @@ Checks the state of all memory modules (DIMMs) in a Redfish-compatible server vi
 * For each member, follows the `Memory` link and queries every memory module for its capacity, type, speed, identification and health status
 * Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
-* Only evaluates systems and memory modules in "Enabled" or "Quiesced" state, so absent or disabled slots are skipped
+* Skips systems and memory modules in "Absent" or "Disabled" state, so empty slots do not show up. Every other state is evaluated, including spare modules and a missing state
 
 
 ## Fact Sheet

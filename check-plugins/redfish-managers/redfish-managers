@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091001'
+__version__ = '2026101201'
 
 DESCRIPTION = """Checks the health of all managers (BMCs such as iLO, iDRAC, or a generic BMC) of a
 Redfish-compatible server via the Redfish API. Reports every enabled manager with its
@@ -309,7 +309,7 @@ def main():
     )
     for manager in manager_members:
         manager = lib.redfish.get_manager(manager)
-        if manager['Status_State'] not in ['Enabled', 'Quiesced']:
+        if manager['Status_State'] in lib.redfish.UNMONITORED_STATES:
             continue
         # collect for --inventory before any display filter (--match/--ignore/--brief)
         if args.INVENTORY:

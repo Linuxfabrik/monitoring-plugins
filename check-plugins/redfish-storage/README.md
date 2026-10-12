@@ -18,7 +18,7 @@ Checks the state of all physical drives, volumes and their storage controllers i
 * For each member, follows the `Storage` link and queries every storage controller, its physical drives and, where present, its volumes (logical drives) for health status
 * Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
-* Only evaluates systems, drives, volumes and storage controllers in "Enabled" or "Quiesced" state
+* Skips systems, drives, volumes and storage controllers in "Absent" or "Disabled" state. Every other state is evaluated, including spare, standby and offline ones and a missing state
 
 
 ## Fact Sheet

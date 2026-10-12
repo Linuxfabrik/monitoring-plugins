@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026101201'
 
 DESCRIPTION = """Checks the event log entries exposed under the LogServices of a Redfish-compatible
 server via the Redfish API and alerts based on the severity of the log entries. By default it reads
@@ -424,14 +424,20 @@ def main():
             expand=expand,
             **fetch_args,
         )
-        if not success or not isinstance(entries, dict):
+        if success and isinstance(entries, dict):
+            # a controller that ignores $expand lists the entries as references only,
+            # whose severity would otherwise go unread
+            success, entries = lib.redfish.fetch_members(
+                entries.get('Members') or [], args.URL, **fetch_args
+            )
+        if not success or not isinstance(entries, list):
             # an advertised log that cannot be read is not an empty one
             msg += f'{service_path} ({label.upper()})\nNot readable: {entries}\n\n'
             state = lib.base.get_worst(state, STATE_UNKNOWN)
             continue
         member_msg, member_state, member_aged = (
             lib.redfish.get_manager_logservices_sel_entries(
-                entries,
+                {'Members': entries},
                 match=match_patterns,
                 ignore=ignore_patterns,
                 cutoff_epoch=cutoff_epoch,

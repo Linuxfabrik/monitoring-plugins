@@ -18,7 +18,7 @@ Checks the state of all Ethernet interfaces in a Redfish-compatible server via t
 * For each member, follows the `EthernetInterfaces` link and queries every interface for its MAC address, link status, speed and health status
 * Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
-* Only evaluates systems and interfaces in "Enabled" or "Quiesced" state
+* Skips systems and interfaces in "Absent" or "Disabled" state. Every other state is evaluated, including spare, standby and offline ones and a missing state
 
 
 ## Fact Sheet

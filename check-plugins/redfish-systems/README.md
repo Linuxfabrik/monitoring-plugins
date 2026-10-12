@@ -19,7 +19,7 @@ Checks the overall system health reported by a Redfish-compatible server via the
 * For each member, reads the identification, compute summary and rolled-up health status
 * Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
-* Only evaluates systems in "Enabled" or "Quiesced" state
+* Skips systems in "Absent" or "Disabled" state. Every other state is evaluated, including standby and offline ones and a missing state
 
 
 ## Fact Sheet

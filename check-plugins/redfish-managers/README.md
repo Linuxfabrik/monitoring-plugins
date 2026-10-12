@@ -18,7 +18,7 @@ Checks the health of all managers (BMCs such as iLO, iDRAC, or a generic BMC) of
 * For each member, reads the manager type, model, firmware version, power state, UUID and rolled-up health status
 * Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
-* Only evaluates managers in "Enabled" or "Quiesced" state
+* Skips managers in "Absent" or "Disabled" state. Every other state is evaluated, including standby and offline ones and a missing state
 
 
 ## Fact Sheet

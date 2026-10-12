@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092802'
+__version__ = '2026101201'
 
 DESCRIPTION = """Checks hardware sensor readings (temperature, voltage, fan speed, power) from the
 Redfish Chassis collection via the Redfish API. Reads the modern Sensors collection where
@@ -329,7 +329,7 @@ def main():
             continue
         seen_chassis.add(chassis_path)
         chassis = lib.redfish.get_chassis(chassis_data)
-        if chassis['Status_State'] not in ['Enabled', 'Quiesced']:
+        if chassis['Status_State'] in lib.redfish.UNMONITORED_STATES:
             continue
         member_count += 1
         chassis_state = lib.redfish.get_state(chassis)
@@ -400,7 +400,7 @@ def main():
                 sensor_data['Name'] for sensor_data in sensor_members
             )
             for sensor_data in sensor_members:
-                if sensor_data['Status_State'] not in ['Enabled', 'Quiesced']:
+                if sensor_data['Status_State'] in lib.redfish.UNMONITORED_STATES:
                     continue
                 if name_count[sensor_data['Name']] > 1 and sensor_data['Id']:
                     sensor_data['Name'] = sensor_data['Id']
@@ -526,7 +526,7 @@ def main():
                 for v in power.get('Voltages', [])
             ]
         for item, reading_key, units in legacy:
-            if item['Status_State'] not in ['Enabled', 'Quiesced']:
+            if item['Status_State'] in lib.redfish.UNMONITORED_STATES:
                 continue
             # collect for --inventory before any display filter
             if args.INVENTORY:
@@ -562,7 +562,7 @@ def main():
             if not isinstance(psu_data, dict):
                 continue
             psu = lib.redfish.get_chassis_power_powersupplies(psu_data)
-            if psu['Status_State'] not in ['Enabled', 'Quiesced']:
+            if psu['Status_State'] in lib.redfish.UNMONITORED_STATES:
                 continue
             # identical units share a model number, so the member id keeps
             # their names, and with them their perfdata labels, apart
@@ -597,7 +597,7 @@ def main():
             table_data.append(psu)
         for pc in power_control:
             pc = lib.redfish.get_chassis_power_powercontrol(pc)
-            if pc['Status_State'] not in ['Enabled', 'Quiesced']:
+            if pc['Status_State'] in lib.redfish.UNMONITORED_STATES:
                 continue
             pc['Name'] = pc.get('Name') or 'Power Control'
             # collect for --inventory before any display filter
@@ -641,7 +641,7 @@ def main():
         table_data = []
         for redundancy in thermal.get('Redundancy', []):
             redundancy = lib.redfish.get_chassis_thermal_redundancy(redundancy)
-            if redundancy['Status_State'] not in ['Enabled', 'Quiesced']:
+            if redundancy['Status_State'] in lib.redfish.UNMONITORED_STATES:
                 continue
             perfdata_items.append((chassis['Id'], redundancy, 'Reading'))
             # is the redundancy state healthy at all?

@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091001'
+__version__ = '2026101201'
 
 DESCRIPTION = """Checks the overall system health reported by a Redfish-compatible server via the
 Redfish API. Reports every enabled system member with its identification (manufacturer, model,
@@ -274,7 +274,7 @@ def main():
     )
     for systems in system_members:
         systems = lib.redfish.get_systems(systems)
-        if systems['Status_State'] not in ['Enabled', 'Quiesced']:
+        if systems['Status_State'] in lib.redfish.UNMONITORED_STATES:
             continue
         member_count += 1
         # collect for --inventory

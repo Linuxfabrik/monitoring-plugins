@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091001'
+__version__ = '2026101201'
 
 DESCRIPTION = """Checks the state of all physical drives, volumes and their storage controllers in a
 Redfish-compatible server via the Redfish API. Alerts when any drive, volume or storage controller
@@ -328,7 +328,7 @@ def main():
     )
     for systems in system_members:
         systems = lib.redfish.get_systems(systems)
-        if systems['Status_State'] not in ['Enabled', 'Quiesced']:
+        if systems['Status_State'] in lib.redfish.UNMONITORED_STATES:
             continue
         member_count += 1
 
@@ -408,7 +408,7 @@ def main():
             )
             for drive_data in drive_members:
                 drive_data = lib.redfish.get_systems_storage_drives(drive_data)
-                if drive_data['Status_State'] not in ['Enabled', 'Quiesced']:
+                if drive_data['Status_State'] in lib.redfish.UNMONITORED_STATES:
                     continue
                 # collect for --inventory before any display filter
                 if args.INVENTORY:
@@ -502,7 +502,7 @@ def main():
                 )
                 for volume_data in volume_members:
                     volume_data = lib.redfish.get_systems_storage_volumes(volume_data)
-                    if volume_data['Status_State'] not in ['Enabled', 'Quiesced']:
+                    if volume_data['Status_State'] in lib.redfish.UNMONITORED_STATES:
                         continue
                     # collect for --inventory before any display filter
                     if args.INVENTORY:
@@ -531,7 +531,7 @@ def main():
                     table_data_volume.append(volume_data)
 
             storage_data = lib.redfish.get_systems_storage(storage_data)
-            if storage_data['Status_State'] not in ['Enabled', 'Quiesced']:
+            if storage_data['Status_State'] in lib.redfish.UNMONITORED_STATES:
                 continue
             # collect for --inventory before any display filter
             if args.INVENTORY:

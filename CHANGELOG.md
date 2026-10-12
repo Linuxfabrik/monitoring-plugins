@@ -33,6 +33,7 @@ Assets:
 
 Monitoring Plugins:
 
+* spare, standby and offline components and those without a state are evaluated, so a failed spare power supply alerts, on all redfish-* checks
 * the end of life comes from the distribution for software that RHEL, Debian and Ubuntu ship themselves, on most *-version checks
 * the monitoring user needs its privileges on `*.*` (`mysql.*` for mysql-tls and mysql-user-security), grants on other databases or `SUPER` instead end in UNKNOWN, on all mysql-* checks
 * the version perfdata sorts like the version (1.10 above 1.9) and takes a new scale, so the graphs show one step after the update, on all *-version checks
@@ -44,6 +45,7 @@ Monitoring Plugins:
 * php-fpm-logfile: also reports PHP fatal errors of the pools, hung workers and idle FastCGI connections; a pool that filled up once is WARNING
 * php-fpm-ping: a ping page that cannot be fetched raises `--severity` instead of UNKNOWN
 * php-fpm-status: the pool table shows the state of each pool in its last column
+* redfish-memory: a problem with an HPE memory module other than a configuration error is WARN instead of CRIT
 * redfish-sensors: CRIT only above the fatal threshold, as HPE iLO rates it, and alerts on degraded power supplies
 * scanrootkit: detects 23 more rootkits and implants, no false SunOS Rootkit alarm on Fedora 44
 * scheduled-task: alerts on a failed last run, works on non-English Windows, `--status` replaces the default list
@@ -80,6 +82,7 @@ Monitoring Plugins:
 * arguments with umlauts and other non-ASCII characters are no longer garbled by the Icinga 2 agent, on all Windows plugins
 * HTTPS on Windows no longer fails for sites whose root certificate Windows has not cached yet, on all plugins
 * pre-release and build suffixes no longer distort the perfdata or the end of life lookup and are shown in the message, on some *-version checks
+* a `null` value from the controller no longer ends in a traceback, on all redfish-* checks
 * apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: no journal warning on hosts without systemd ([#1544](https://github.com/Linuxfabrik/monitoring-plugins/issues/1544))
 * apache-httpd-logfile: no false warning when the server and all sites log to syslog, for FreeIPA INFO lines, HTTP/2 cleanup reports and PHP-FPM log buffer notices
 * borgbackup: a running backup is reported as running instead of UNKNOWN
@@ -119,7 +122,8 @@ Monitoring Plugins:
 * qts-disk-smart: works with a single disk and on QTS 4.2
 * qts-temperatures: works on models without CPU temperature
 * qts-version: reports updates again, no false alert on QTS 5.2.10 ([#1547](https://github.com/Linuxfabrik/monitoring-plugins/issues/1547))
-* redfish-logservices: reads the SEL of HPE servers, and reports a controller without the requested log instead of calling it ok
+* redfish-logservices: reads the SEL of HPE servers and of controllers that list the entries as references only, and reports a controller without the requested log instead of calling it ok
+* redfish-memory: no false CRIT on spare and unused HPE modules, and detects a defective module on Fujitsu iRMC
 * redfish-sensors: no false iLO 6 inlet warning, no sensors listed twice for a backplane, fans on iLO 6, distinct perfdata for alike named sensors
 * redis-version, valkey-version: no longer take Valkey for Redis or the other way round, as with `valkey-compat-redis` on Fedora, and name the check to use instead
 * restic-check, restic-stats: work with restic v0.18 and newer, no crash in the `raw-data` and `blobs-per-file` modes
