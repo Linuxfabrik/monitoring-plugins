@@ -95,6 +95,7 @@ Monitoring Plugins:
 * apache-httpd-logfile: no false warning when the server and all sites log to syslog, for FreeIPA INFO lines, HTTP/2 cleanup reports and PHP-FPM log buffer notices
 * apache-httpd-security, nginx-security: read an indented `UID_MIN` from `/etc/login.defs`
 * borgbackup: a running backup is reported as running instead of UNKNOWN
+* by-winrm, dhcp-scope-usage: work with the default transport where only pywinrm is installed
 * by-winrm: patterns see the output as PowerShell shows it again, JEA endpoints accept the command, a failed login returns UNKNOWN, and the first line says what raised the state
 * cert: `--source=file` works with the Python 3.6 of RHEL 8, the other sources say which Python they need instead of crashing
 * dhcp-scope-usage: works again, also locally on Windows
@@ -105,10 +106,12 @@ Monitoring Plugins:
 * docker-image, podman-image: no false CRITICAL for images from reproducible builds (e.g. Jib) that report 1970 as their build date
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
 * feed: no longer ends in a Python error on an unusual or empty date or when `--icinga-service-name` names no service, and takes the time zone of a date into account for the age of an entry
+* file-age, file-count, file-growth: a missing directory on an SMB share is reported instead of counted as empty, and a pattern without matches no longer fails
 * file-ownership: no false warning for the DNSSEC trust anchor of unbound on Fedora 44
 * fs-inodes: checks every logical volume on hosts without udevadm, and mount points with spaces in their path
 * fs-ro: `--extend-ignore` keeps the defaults ([#1566](https://github.com/Linuxfabrik/monitoring-plugins/issues/1566)), no false warning for Docker containers on SUSE, no missed read-only mount when a mount option contains "rw" (for example `subvol=/rwdata`)
 * grafana-version: also reads the version from the `grafana` binary, and no longer takes an unrelated line containing "Version" for it
+* haproxy-status, starface-\*, ups-nut: a non-ASCII character that the answer splits between two reads no longer garbles the text around it
 * icinga-topflap-services: ignores state changes made during a downtime instead of those of services currently in one ([#1564](https://github.com/Linuxfabrik/monitoring-plugins/issues/1564)), accepts Nagios ranges and says whether the credentials file is missing or incomplete
 * infomaniak-swiss-backup-devices: works behind a mandatory proxy, and `--insecure` and `--timeout` apply to every request
 * journald-\*, ntp-systemd-timesyncd, pip-updates: name missing journal rights, a missing timesyncd or a missing pip instead of a raw error
