@@ -57,7 +57,10 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #                 pages in swap and hardly reads any of them back, which is the state
 #                 the "worth watching" hint describes
 #   thrash-*      a host paging in and out at the same time, the state this check exists
-#                 for
+#                 for. Each tree also holds a few processes below /proc: mongod and node
+#                 that fault and swap, an sshd that stands still, a kernel thread without
+#                 a VmSwap line, a process whose name carries a pipe and brackets, and in
+#                 the second and third tree a mongodump that was not there before
 #   zram-*        swap on zram, where paging costs CPU rather than disk I/O. Both
 #                 samples carry the same counters
 #
@@ -206,7 +209,7 @@ SCENARIOS = [
                 'assert-regex': r'swap in [0-9.]+[KMG]iB/s \[CRITICAL\]',
                 'assert-in': [
                     'its working set no longer fits into memory',
-                    'VmSwap',
+                    '`swap-usage` lists who holds the most swap',
                 ],
             },
         ],
@@ -280,7 +283,7 @@ SCENARIOS = [
             {
                 'test': '',
                 'params': '--config-root=config/swap-out-2 --warning=100M '
-                '--critical=200M',
+                '--critical=200M --warning-swap-out=100M --critical-swap-out=200M',
                 'sleep': 1.1,
                 'assert-retc': STATE_CRIT,
                 'assert-regex': r'swap out [0-9.]+[KMG]iB/s \[CRITICAL\]',
@@ -312,6 +315,155 @@ SCENARIOS = [
                     'it is the page cache that is too small for what the host reads',
                 ],
                 'assert-not-in': ['[CRITICAL]'],
+            },
+        ],
+    },
+    {
+        # Swap written out without any read back is the kernel parking memory, which is
+        # what swap is for. Without a threshold of its own it is reported and graphed,
+        # but nobody is woken, however far above the read-in thresholds it sits.
+        'id': 'ok-swap-out-alone-does-not-alert-by-default',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/swap-out-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/swap-out-2 --warning=100M '
+                '--critical=200M',
+                'sleep': 1.1,
+                'assert-retc': STATE_OK,
+                'assert-regex': r'swap out [0-9.]+[KMG]iB/s,',
+                'assert-in': ["'swap_out_bytes_per_second'="],
+                'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+            },
+        ],
+    },
+    {
+        # The processes behind the numbers. The first call stores them, the second
+        # one compares: mongod caused most of the faults and gained swap, mongodump did
+        # not exist before and so counts with everything it did, node barely moved.
+        'id': 'crit-the-tables-name-the-processes-behind-the-numbers',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-2',
+                'sleep': 1.1,
+                'assert-retc': STATE_CRIT,
+                'assert-regex': r'(?s)Waited for the disk most.*mongod .*mongodump '
+                r'.*node .*Gained the most swap.*mongod ',
+                'assert-in': ['Faults/s', 'Swap Gained/s'],
+                # sshd stood still, and a kernel thread holds no swap at all
+                'assert-not-in': ['sshd', 'kthreadd'],
+            },
+        ],
+    },
+    {
+        # A name is chosen by whoever starts the process, so it may hold brackets and
+        # the pipe that separates the performance data. Neither may break the output.
+        'id': 'crit-a-process-name-cannot-break-the-output',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-2 --top=50',
+                'sleep': 1.1,
+                'assert-retc': STATE_CRIT,
+                'assert-in': ['mongodump'],
+                'assert-regex': r"^[^|]*\|'major_faults_per_second'=",
+            },
+        ],
+    },
+    {
+        'id': 'crit-top-limits-the-rows-of-each-table',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-2 --top=1',
+                'sleep': 1.1,
+                'assert-retc': STATE_CRIT,
+                'assert-in': ['mongod '],
+                'assert-not-in': ['mongodump', 'node'],
+            },
+        ],
+    },
+    {
+        'id': 'crit-top-zero-switches-the-tables-off',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-2 --top=0',
+                'sleep': 1.1,
+                'assert-retc': STATE_CRIT,
+                'assert-not-in': ['Waited for the disk most', 'mongod'],
+            },
+        ],
+    },
+    {
+        # One run above the threshold is a job that started. With `--count=2` it takes a
+        # second run to call it a finding, and until then the output says so.
+        'id': 'ok-a-single-run-above-the-threshold-waits-for-count',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-2 --count=2',
+                'sleep': 1.1,
+                'assert-retc': STATE_OK,
+                'assert-in': [
+                    'The rate read back in is above its threshold, but not for 2 runs '
+                    'in a row yet.'
+                ],
+                'assert-not-in': ['[CRITICAL]', '[WARNING]'],
+            },
+        ],
+    },
+    {
+        'id': 'crit-count-runs-in-a-row-above-the-threshold',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-2 --count=2',
+                'sleep': 1.1,
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-3 --count=2',
+                'sleep': 1.1,
+                'assert-retc': STATE_CRIT,
+                'assert-regex': r'swap in [0-9.]+[KMG]iB/s \[CRITICAL\]',
+                'assert-not-in': ['in a row yet'],
             },
         ],
     },

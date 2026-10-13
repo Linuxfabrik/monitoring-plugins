@@ -12,6 +12,7 @@
 
 import argparse
 import os
+import re
 import sys
 
 import lib.args
@@ -19,10 +20,12 @@ import lib.base
 import lib.db_sqlite
 import lib.disk
 import lib.human
-from lib.globals import STATE_OK, STATE_UNKNOWN
+import lib.time
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026101302'
 
 DESCRIPTION = """Reports how much a host pages, as per-second rates measured between two runs: the
 traffic it moves to and from swap, and how often a process had to wait for the disk
@@ -35,9 +38,12 @@ Swap read back in is the number that matters: pages come back because something 
 for them again, which means the working set no longer fits into memory. Pages written
 out alone can be the kernel parking what nobody has touched in hours, which is what swap
 is there for.
+Tables name the processes behind the numbers: those that waited for the disk most and
+those whose memory has just been pushed out to swap.
 Supports extended reporting via --lengthy.
-Alerts when the rate read back in or the rate written out leaves the warning or critical
-range, each judged on its own."""
+Alerts when the rate read back in leaves the warning or critical range for `--count`
+runs in a row. The rate written out and the major fault rate alert only where a threshold
+is set for them."""
 
 # One "name value" line per kernel counter. The file is world-readable, and the counters
 # below are cumulative since boot, which is why this check reports them as rates.
@@ -92,10 +98,21 @@ COUNTER_DESCRIPTION = {
     'pswpout': 'pages written out to swap',
 }
 
+DEFAULT_COUNT = 1
 DEFAULT_CRIT = '10M'
 DEFAULT_CRIT_MAJOR_FAULTS = None
+DEFAULT_CRIT_SWAP_OUT = None
+DEFAULT_TOP = 5
 DEFAULT_WARN = '1M'
 DEFAULT_WARN_MAJOR_FAULTS = None
+DEFAULT_WARN_SWAP_OUT = None
+
+# Where the per-process figures come from. The stat file of a process is readable for
+# every user, and so is its status file, which is why this check still needs no root.
+# Both are cut off after this many bytes, because a file below /proc that grows without
+# end must not exhaust the memory of the check.
+PROC_DIR = '/proc'
+PROC_MAX_BYTES = 8192
 
 
 def parse_args():
@@ -131,14 +148,21 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--count',
+        help=lib.args.help('--count') + ' Applies to all thresholds. '
+        'Default: %(default)s',
+        dest='COUNT',
+        type=int,
+        default=DEFAULT_COUNT,
+    )
+
+    parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for the swap traffic, as a rate per second in '
-        'human-readable format (base is always 1024; valid qualifiers are B, KiB, '
-        'MiB, GiB etc., see UNITS.md; a value without a qualifier is a number of '
-        'bytes). '
-        'The rate read back in and the rate written out are compared against it '
-        'each on its own. '
+        help='CRIT threshold for the swap traffic read back in, as a rate per '
+        'second in human-readable format (base is always 1024; valid qualifiers are '
+        'B, KiB, MiB, GiB etc., see UNITS.md; a value without a qualifier is a '
+        'number of bytes). '
         'Supports Nagios ranges. '
         'Example: `10M` alerts above 10 MiB/s. '
         'Default: %(default)s',
@@ -154,6 +178,16 @@ def parse_args():
         'Default: unset, the rate is reported but does not alert',
         dest='CRIT_MAJOR_FAULTS',
         default=DEFAULT_CRIT_MAJOR_FAULTS,
+    )
+
+    parser.add_argument(
+        '--critical-swap-out',
+        help='CRIT threshold for the swap traffic written out, as a rate per '
+        'second in human-readable format (see `--critical`). '
+        'Supports Nagios ranges. '
+        'Default: unset, the rate is reported but does not alert',
+        dest='CRIT_SWAP_OUT',
+        default=DEFAULT_CRIT_SWAP_OUT,
     )
 
     parser.add_argument(
@@ -173,14 +207,23 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--top',
+        help='Number of processes listed in each of the tables that name who waited '
+        'for the disk and whose memory was pushed out to swap. '
+        '0 switches the tables off. '
+        'Default: %(default)s',
+        dest='TOP',
+        type=int,
+        default=DEFAULT_TOP,
+    )
+
+    parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for the swap traffic, as a rate per second in '
-        'human-readable format (base is always 1024; valid qualifiers are B, KiB, '
-        'MiB, GiB etc., see UNITS.md; a value without a qualifier is a number of '
-        'bytes). '
-        'The rate read back in and the rate written out are compared against it '
-        'each on its own. '
+        help='WARN threshold for the swap traffic read back in, as a rate per '
+        'second in human-readable format (base is always 1024; valid qualifiers are '
+        'B, KiB, MiB, GiB etc., see UNITS.md; a value without a qualifier is a '
+        'number of bytes). '
         'Supports Nagios ranges. '
         'Example: `10M` alerts above 10 MiB/s. '
         'Default: %(default)s',
@@ -196,6 +239,16 @@ def parse_args():
         'Default: unset, the rate is reported but does not alert',
         dest='WARN_MAJOR_FAULTS',
         default=DEFAULT_WARN_MAJOR_FAULTS,
+    )
+
+    parser.add_argument(
+        '--warning-swap-out',
+        help='WARN threshold for the swap traffic written out, as a rate per '
+        'second in human-readable format (see `--warning`). '
+        'Supports Nagios ranges. '
+        'Default: unset, the rate is reported but does not alert',
+        dest='WARN_SWAP_OUT',
+        default=DEFAULT_WARN_SWAP_OUT,
     )
 
     args, _ = parser.parse_known_args()
@@ -249,6 +302,118 @@ def read_swaps(root):
     return devices
 
 
+def read_processes(root):
+    """Return the processes below /proc as `{(pid, starttime): details}`.
+
+    `details` holds the name of the process (`comm`), the number of major faults it
+    caused so far and the swap it holds in bytes. The start time is part of the key, so
+    a PID the kernel handed to another process in the meantime is not mistaken for the
+    one before it.
+
+    Both files are readable for every user. A process that ends while it is being read,
+    or whose files show something unexpected, is left out: one missing process does not
+    change the picture. Both files are decoded the way unreliable external bytes are,
+    because a process name is chosen by whoever started the process.
+    """
+    base = lib.disk.under_root(root, PROC_DIR)
+    try:
+        names = os.listdir(base)
+    except OSError:
+        return {}
+    processes = {}
+    for name in names:
+        if not name.isdigit():
+            continue
+        success, raw_stat = lib.disk.read_file(
+            os.path.join(base, name, 'stat'), binary=True, max_bytes=PROC_MAX_BYTES
+        )
+        if not success:
+            continue
+        stat = lib.txt.to_text(raw_stat, errors='strict_or_latin1')
+        # "pid (comm) state ppid ..." - the name may hold spaces and brackets, so it is
+        # cut at the first opening and the last closing one. After it come the fields
+        # from number 3 on: major faults are field 12 and the start time field 22 (proc(5)).
+        start = stat.find('(')
+        end = stat.rfind(')')
+        if start == -1 or end < start:
+            continue
+        fields = stat[end + 1 :].split()
+        try:
+            major_faults = int(fields[9])
+            starttime = int(fields[19])
+        except (IndexError, ValueError):
+            continue
+        swap = 0
+        success, raw_status = lib.disk.read_file(
+            os.path.join(base, name, 'status'), binary=True, max_bytes=PROC_MAX_BYTES
+        )
+        if success:
+            # a kernel thread has no VmSwap line, and holds no swap
+            match = re.search(
+                r'^VmSwap:\s+(\d+)\s*kB', lib.txt.to_text(raw_status), re.MULTILINE
+            )
+            if match:
+                swap = int(match.group(1)) * 1024
+        # The name ends up in a table in front of an administrator, so nothing in it may
+        # break the table or the performance data.
+        comm = re.sub(r'[\x00-\x1f\x7f|]', '?', stat[start + 1 : end])
+        processes[(int(name), starttime)] = {
+            'comm': comm,
+            'major_faults': major_faults,
+            'swap': swap,
+        }
+    return processes
+
+
+def group_processes(previous, current, seconds):
+    """Return the processes grouped by name, with what each group did since `previous`.
+
+    A process that was not there before counts with everything it has so far, because
+    all of it happened within the interval. A process that ended in between is gone with
+    its numbers. Several workers of the same name (a pool of PHP processes) are one row.
+
+    Returns a list of dicts with the keys `comm`, `processes`, `faults` (major faults per
+    second) and `growth` (swap the group gained per second, never negative, so memory
+    read back in does not hide memory pushed out).
+    """
+    groups = {}
+    seconds = max(seconds, 1)
+    for key, process in current.items():
+        before = previous.get(key, {})
+        group = groups.setdefault(
+            process['comm'],
+            {'comm': process['comm'], 'processes': 0, 'faults': 0, 'growth': 0},
+        )
+        group['processes'] += 1
+        group['faults'] += max(
+            process['major_faults'] - before.get('major_faults', 0), 0
+        )
+        group['growth'] += max(process['swap'] - before.get('swap', 0), 0)
+    for group in groups.values():
+        group['faults'] /= seconds
+        group['growth'] /= seconds
+    return list(groups.values())
+
+
+def agreed_state(samples, warn, crit, count):
+    """Return the state the last `count` samples agree on.
+
+    One minute of paging is a job that started, `count` minutes in a row is a host that
+    does not have the memory for what runs on it. So the state is the mildest one of the
+    last `count` samples, and OK while there are fewer samples than that.
+    """
+    if len(samples) < count:
+        return STATE_OK
+    states = [
+        lib.base.get_state(sample, warn, crit, _operator='range') for sample in samples
+    ]
+    if all(item == STATE_CRIT for item in states):
+        return STATE_CRIT
+    if all(item in (STATE_CRIT, STATE_WARN) for item in states):
+        return STATE_WARN
+    return STATE_OK
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -284,26 +449,89 @@ def main():
     perfdata = ''
     table_data = []
     hints = []
+    count = max(args.COUNT, 1)
+    top = max(args.TOP, 0)
     # A page is the unit the kernel counts swap traffic in, so the size of a page is
     # what turns those counters into the bytes per second an administrator budgets in.
     page_size = os.sysconf('SC_PAGE_SIZE')
     # The swap thresholds are written the way an administrator says them (`10M`) and
     # compared in bytes per second, so they are converted once here.
-    warn = lib.human.humanrange2bytes(args.WARN) if args.WARN else None
-    crit = lib.human.humanrange2bytes(args.CRIT) if args.CRIT else None
+    warn_in = lib.human.humanrange2bytes(args.WARN) if args.WARN else None
+    crit_in = lib.human.humanrange2bytes(args.CRIT) if args.CRIT else None
+    warn_out = (
+        lib.human.humanrange2bytes(args.WARN_SWAP_OUT) if args.WARN_SWAP_OUT else None
+    )
+    crit_out = (
+        lib.human.humanrange2bytes(args.CRIT_SWAP_OUT) if args.CRIT_SWAP_OUT else None
+    )
 
     # Turn the cumulative kernel counters into per-second rates, using the previous run
-    # as the baseline.
+    # as the baseline. This has to come before the check opens a connection of its own to
+    # the same file: the helper opens one itself, and an uncommitted write of ours would
+    # lock it out, which looks exactly like a missing baseline.
     rates = lib.db_sqlite.per_second_deltas(
         'linuxfabrik-monitoring-plugins-memory-paging.db',
         'memory-paging',
         {counter: counters[counter] for counter in COUNTERS},
     )
 
+    # Keep what the next run needs: the last `count` rates, to tell a burst from a trend,
+    # and the processes as they are now, to see what each of them did in between.
+    now = lib.time.now()
+    processes = read_processes(root) if top else {}
+    previous_processes = {}
+    previous_time = now
+    conn = lib.base.coe(
+        lib.db_sqlite.connect(
+            filename='linuxfabrik-monitoring-plugins-memory-paging.db',
+        )
+    )
+    lib.base.coe(
+        lib.db_sqlite.create_table(
+            conn,
+            'timestamp INT NOT NULL, swap_in INT NOT NULL, swap_out INT NOT NULL, '
+            'major_faults REAL NOT NULL',
+            table='history',
+        )
+    )
+    lib.base.coe(
+        lib.db_sqlite.create_table(
+            conn,
+            'timestamp INT NOT NULL, pid INT NOT NULL, starttime INT NOT NULL, '
+            'comm TEXT NOT NULL, major_faults INT NOT NULL, swap INT NOT NULL',
+            table='processes',
+        )
+    )
+    for row in lib.base.coe(lib.db_sqlite.select(conn, 'SELECT * FROM processes')):
+        previous_time = row['timestamp']
+        previous_processes[(row['pid'], row['starttime'])] = {
+            'comm': row['comm'],
+            'major_faults': row['major_faults'],
+            'swap': row['swap'],
+        }
+    lib.base.coe(lib.db_sqlite.delete(conn, 'DELETE FROM processes'))
+    for (pid, starttime), process in processes.items():
+        lib.base.coe(
+            lib.db_sqlite.insert(
+                conn,
+                {
+                    'timestamp': now,
+                    'pid': pid,
+                    'starttime': starttime,
+                    'comm': process['comm'],
+                    'major_faults': process['major_faults'],
+                    'swap': process['swap'],
+                },
+                table='processes',
+            )
+        )
+
     # analyze data
     if rates is None:
         # first run after a reboot or after the cache was wiped, so the counters have
         # nothing to be compared against yet
+        lib.base.coe(lib.db_sqlite.commit(conn))
+        lib.db_sqlite.close(conn)
         lib.base.oao(
             'Waiting for more data on the paging counters.',
             STATE_OK,
@@ -312,14 +540,53 @@ def main():
     swap_in = rates['pswpin'] * page_size
     swap_out = rates['pswpout'] * page_size
     major_faults = rates['pgmajfault']
-    swap_in_state = lib.base.get_state(swap_in, warn, crit, _operator='range')
-    swap_out_state = lib.base.get_state(swap_out, warn, crit, _operator='range')
-    major_faults_state = lib.base.get_state(
-        major_faults,
-        args.WARN_MAJOR_FAULTS,
-        args.CRIT_MAJOR_FAULTS,
-        _operator='range',
+    lib.base.coe(
+        lib.db_sqlite.insert(
+            conn,
+            {
+                'timestamp': now,
+                'swap_in': round(swap_in),
+                'swap_out': round(swap_out),
+                'major_faults': major_faults,
+            },
+            table='history',
+        )
     )
+    lib.base.coe(lib.db_sqlite.cut(conn, table='history', _max=count))
+    history = lib.base.coe(
+        lib.db_sqlite.select(
+            conn, 'SELECT swap_in, swap_out, major_faults FROM history'
+        )
+    )
+    lib.base.coe(lib.db_sqlite.commit(conn))
+    lib.db_sqlite.close(conn)
+
+    # Each rate is judged on the last `count` samples, so a burst of one run is not a
+    # finding while the same rate `count` runs in a row is.
+    metrics = {
+        'swap_in': (swap_in, warn_in, crit_in, 'The rate read back in'),
+        'swap_out': (swap_out, warn_out, crit_out, 'The rate written out'),
+        'major_faults': (
+            major_faults,
+            args.WARN_MAJOR_FAULTS,
+            args.CRIT_MAJOR_FAULTS,
+            'The major fault rate',
+        ),
+    }
+    states = {}
+    for name, (value, warn, crit, label) in metrics.items():
+        states[name] = agreed_state([row[name] for row in history], warn, crit, count)
+        if (
+            lib.base.get_state(value, warn, crit, _operator='range') != STATE_OK
+            and states[name] == STATE_OK
+        ):
+            hints.append(
+                f'{label} is above its threshold, but not for {count} runs in a row '
+                'yet.'
+            )
+    swap_in_state = states['swap_in']
+    swap_out_state = states['swap_out']
+    major_faults_state = states['major_faults']
     state = lib.base.get_worst(
         lib.base.get_worst(swap_in_state, swap_out_state),
         major_faults_state,
@@ -360,16 +627,16 @@ def main():
         'swap_in_bytes_per_second',
         round(swap_in),
         uom='B',
-        warn=warn,
-        crit=crit,
+        warn=warn_in,
+        crit=crit_in,
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
         'swap_out_bytes_per_second',
         round(swap_out),
         uom='B',
-        warn=warn,
-        crit=crit,
+        warn=warn_out,
+        crit=crit_out,
         _min=0,
     )
 
@@ -389,8 +656,9 @@ def main():
         hints.append(
             'The host is reading pages back from swap, so its working set no longer '
             'fits into memory. Add memory, move a workload off the host, or find the '
-            'process that grew: every process reports its own swap usage as VmSwap in '
-            'the status file the kernel keeps for it below /proc.'
+            'process that grew: the tables below name the processes that waited for '
+            'the disk and the ones whose swap grew, and `swap-usage` lists who holds '
+            'the most swap.'
         )
     elif swap_out_state != STATE_OK:
         hints.append(
@@ -410,10 +678,53 @@ def main():
     for hint in hints:
         msg += f'\n{hint}'
 
+    # Who is behind the numbers. The kernel keeps no swap counters per process, so these
+    # are what the processes leave behind: the major faults they caused (a swap read-in
+    # is one, and so is every page of a mapped file read off the disk) and the swap they
+    # hold. A process that ended since the last run is not in them.
+    if top:
+        groups = group_processes(previous_processes, processes, now - previous_time)
+        for title, key, header, unit in (
+            (
+                'Waited for the disk most, major faults per second. A swap read-in is '
+                'one of them, a page of a mapped file is another:',
+                'faults',
+                'Faults/s',
+                lambda value: f'{lib.human.number2human(value)}',
+            ),
+            (
+                'Gained the most swap since the last run, which is memory pushed out:',
+                'growth',
+                'Swap Gained/s',
+                lambda value: f'{lib.human.bytes2human(value)}/s',
+            ),
+        ):
+            rows = sorted(
+                (group for group in groups if group[key] > 0),
+                key=lambda group: (-group[key], group['comm']),
+            )[:top]
+            if not rows:
+                continue
+            msg += (
+                f'\n\n{title}\n'
+                + lib.base.get_table(
+                    [
+                        {
+                            'comm': group['comm'],
+                            'processes': group['processes'],
+                            'value': unit(group[key]),
+                        }
+                        for group in rows
+                    ],
+                    ['comm', 'processes', 'value'],
+                    header=['Process', 'Count', header],
+                ).rstrip()
+            )
+
     # build table output
     if args.LENGTHY:
         if swap_devices:
-            msg += '\nSwap: ' + ', '.join(
+            msg += '\n\nSwap: ' + ', '.join(
                 f'{device} ({kind}, priority {priority})'
                 for device, kind, priority in swap_devices
             )
