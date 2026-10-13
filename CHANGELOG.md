@@ -68,6 +68,7 @@ Icinga Director:
 * OS - * Basic Service Sets: a failed `aidecheck.service` is left to the AIDE Service Set
 * OS - Debian * Basic Service Sets: `networking.service` is left to the networking Service Set, so a Debian host can carry both tags
 * OS - Windows Basic Service Set: renamed to "Windows 8/2012 or below", checks network errors and fewer services
+* Postfix MTA Service Sets: `Postfix Version` alerts on end of life instead of always returning OK
 * system-update Service Set: also watches `update-and-reboot.service` and `update-and-reboot.timer`
 * WordPress Service Set: re-import the basket, so the checks find the installation themselves
 
