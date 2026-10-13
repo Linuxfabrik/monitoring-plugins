@@ -19,7 +19,7 @@ import lib.db_mysql
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026101301'
 
 DESCRIPTION = """Single-number health score for a MySQL/MariaDB server. Ports mysqltuner's
 `calculate_health_score()` weighting (Performance 40 / Security 30 / Resilience 30) and a
@@ -28,8 +28,9 @@ legacy `mysql_native_password` users on MySQL 8.0+, TLS/SSL configuration, repli
 redo-log sizing and InnoDB tables without a user-defined `PRIMARY KEY`. mysqltuner's broader
 schema-modelling checks (mixed collations, naming conventions, foreign key hygiene) are not
 ported, so on a heavily-flagged server our score can sit 5 to 15 points above mysqltuner's;
-the four direct mysqltuner checks (security, perf hit rates, replication lag, log sizing)
-do match. Useful as a top-level alert and Grafana KPI panel; the individual
+the direct mysqltuner checks (perf hit rates, replication lag, log sizing) do match, and
+security does too except that a legacy authentication plugin counts on MySQL 8.0+ only,
+where it is deprecated. Useful as a top-level alert and Grafana KPI panel; the individual
 `mysql-*` plugins still own the detailed findings and fix advice."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
@@ -203,38 +204,28 @@ def security_recommendations(conn, has_role_column):
 def check_auth_plugins(conn, has_role_column, flavor, server_version):
     """Port of mysqltuner check_auth_plugins(). Returns the
     number of entries this subroutine pushes to `@secrec`: one per user
-    on the legacy `mysql_native_password` plugin (or `sha256_password`
-    on MySQL 8.0+, which mysqltuner also flags as DEPRECATED).
+    on `mysql_native_password` (or `sha256_password`) on MySQL 8.0+, where
+    Oracle deprecated both.
+
+    Deliberate deviation from mysqltuner: MariaDB and MySQL before 8.0 are not
+    counted. `mysql_native_password` is their default plugin and not deprecated
+    there, so counting it would take 5 points per user and put every server with
+    six accounts at 0/30 Security, whatever its configuration. The detailed
+    `mysql-user-security` check still lists those accounts.
     """
-    mysql_80_plus = flavor == 'mysql' and server_version >= (8, 0, 0)
+    if not (flavor == 'mysql' and server_version >= (8, 0, 0)):
+        return 0
 
     role_filter = "IS_ROLE = 'N' and " if has_role_column else ''
     sql_legacy = f"""
         select count(*) as cnt
         from mysql.user
-        where {role_filter}plugin = 'mysql_native_password'
+        where {role_filter}plugin in ('mysql_native_password', 'sha256_password')
             and user not in ('mariadb.sys', 'mysql.sys')
         ;
     """  # nosec B608
     success, row = lib.db_mysql.select(conn, sql_legacy, fetchone=True)
-    legacy = int(row['cnt']) if success and row is not None else 0
-
-    sha256 = 0
-    if mysql_80_plus:
-        success, row = lib.db_mysql.select(
-            conn,
-            f"""
-                select count(*) as cnt
-                from mysql.user
-                where {role_filter}plugin = 'sha256_password'
-                    and user not in ('mariadb.sys', 'mysql.sys')
-                ;
-            """,  # nosec B608
-            fetchone=True,
-        )
-        sha256 = int(row['cnt']) if success and row is not None else 0
-
-    return legacy + sha256
+    return int(row['cnt']) if success and row is not None else 0
 
 
 def ssl_tls_recommendations(myvar):

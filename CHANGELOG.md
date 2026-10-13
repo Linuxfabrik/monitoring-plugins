@@ -49,6 +49,7 @@ Monitoring Plugins:
 * disk-usage: a threshold such as `-5`, `10X` or `5.5.5G` ends in UNKNOWN instead of being read as 0% or with the default unit, and `10 G` is read
 * librenms-validate: reports the validations as a compact list instead of a wide table
 * lynis: lists every finding and suggestion with the host it was found on, and refuses to run as root
+* mysql-health: accounts on `mysql_native_password` cost Security points on MySQL 8.0+ only, so a MariaDB server no longer drops to 0/30
 * php-fpm-logfile: also reports PHP fatal errors of the pools, hung workers and idle FastCGI connections; a pool that filled up once is WARNING
 * php-fpm-ping: a ping page that cannot be fetched raises `--severity` instead of UNKNOWN
 * php-fpm-status: the pool table shows the state of each pool in its last column

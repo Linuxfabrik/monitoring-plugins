@@ -9,7 +9,7 @@ Produces a single 0-100 health score for a MySQL/MariaDB server, modelled on mys
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * Score breakdown: Performance 40 pts (buffer pool hit rate, temp tables on disk, thread cache hit rate, connection usage), Security 30 pts (anonymous accounts, empty passwords, wildcard hosts, legacy `mysql_native_password` users on MySQL 8.0+, TLS enforcement, SSL certificates), Resilience 30 pts (replication lag, redo-log sizing, InnoDB tables without `PRIMARY KEY`)
-* Partial port of mysqltuner's `calculate_health_score()`. mysqltuner's broader schema-modelling checks (mixed collations, naming conventions, foreign key hygiene, basic password dictionary) are not implemented here, so on heavily-flagged servers our score can sit 5 to 15 points above mysqltuner's. The four direct checks (security, perf hit rates, replication lag, log sizing) do match
+* Partial port of mysqltuner's `calculate_health_score()`. mysqltuner's broader schema-modelling checks (mixed collations, naming conventions, foreign key hygiene, basic password dictionary) are not implemented here, so on heavily-flagged servers our score can sit 5 to 15 points above mysqltuner's. The direct checks (perf hit rates, replication lag, log sizing) do match, and security does too, except that a legacy authentication plugin counts on MySQL 8.0+ only, where it is deprecated: on MariaDB and older MySQL `mysql_native_password` is the default plugin, so counting it would put every server with six accounts at 0/30
 * This plugin does not produce per-issue fix advice; the output lists each component score plus a pointer to the underlying `mysql-*` plugin for fixes
 * Output format mirrors mysqltuner's "Health Score KPI" section
 * Components without data (e.g. `Innodb_buffer_pool_*` on a freshly-booted server with no I/O yet) award half the points (5/10), the same fallback mysqltuner uses
@@ -54,10 +54,11 @@ users on MySQL 8.0+, TLS/SSL configuration, replication lag, redo-log sizing
 and InnoDB tables without a user-defined `PRIMARY KEY`. mysqltuner's broader
 schema-modelling checks (mixed collations, naming conventions, foreign key
 hygiene) are not ported, so on a heavily-flagged server our score can sit 5 to
-15 points above mysqltuner's; the four direct mysqltuner checks (security,
-perf hit rates, replication lag, log sizing) do match. Useful as a top-level
-alert and Grafana KPI panel; the individual `mysql-*` plugins still own the
-detailed findings and fix advice.
+15 points above mysqltuner's; the direct mysqltuner checks (perf hit rates,
+replication lag, log sizing) do match, and security does too except that a
+legacy authentication plugin counts on MySQL 8.0+ only, where it is
+deprecated. Useful as a top-level alert and Grafana KPI panel; the individual
+`mysql-*` plugins still own the detailed findings and fix advice.
 
 options:
   -h, --help            show this help message and exit

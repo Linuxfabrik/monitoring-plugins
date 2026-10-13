@@ -36,6 +36,7 @@ Requirements:
 """
 
 import os
+import re
 import subprocess
 import sys
 import unittest
@@ -56,6 +57,13 @@ CONTAINERFILES = sorted(
 
 class TestCheck(unittest.TestCase):
     pass
+
+
+def _security_issues(output):
+    """Return the number from the `Security issues: N (x/30)` line."""
+    match = re.search(r'Security issues: (\d+)', output)
+    assert match, output
+    return int(match.group(1))
 
 
 def _check_image(test, containerfile):
@@ -110,6 +118,48 @@ def _check_image(test, containerfile):
         # the score entirely would still trip the test.
         test.assertIn(result.returncode, (STATE_OK, STATE_WARN))
         test.assertRegex(combined, r'Health Score: \d+/100')
+        issues_before = _security_issues(combined)
+
+        # Accounts on `mysql_native_password` cost Security points on MySQL 8.0+,
+        # where the plugin is deprecated, and nowhere else: on MariaDB it is the
+        # default plugin, so six accounts must not take the whole Security
+        # component.
+        is_mysql = os.path.basename(path).startswith('mysql')
+        plugin_clause = (
+            'IDENTIFIED WITH mysql_native_password BY \'x\''
+            if is_mysql
+            else 'IDENTIFIED BY \'x\''
+        )
+        for number in range(6):
+            container.exec(
+                [
+                    'sh',
+                    '-c',
+                    'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
+                    'else C=mysql; fi; '
+                    f'SQL="CREATE USER \'native{number}\'@\'localhost\' '
+                    f'{plugin_clause}"; '
+                    '"$C" -uroot -e "$SQL" 2>/dev/null '
+                    '|| "$C" -uroot -ptest -e "$SQL"',
+                ]
+            )
+        result = subprocess.run(
+            cmd,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            capture_output=True,
+            text=True,
+        )
+        combined = result.stdout + result.stderr
+        print(f'Script output with six native accounts:\n{combined.strip()}', flush=True)
+        issues_after = _security_issues(combined)
+        if containerfile == 'mysql-v84':
+            # MySQL 8.4 ships `mysql_native_password` disabled, so CREATE USER
+            # above fails and there is nothing to count.
+            test.assertEqual(issues_after, issues_before)
+        elif is_mysql:
+            test.assertEqual(issues_after, issues_before + 6)
+        else:
+            test.assertEqual(issues_after, issues_before)
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)
