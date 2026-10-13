@@ -16,6 +16,7 @@ The check is meant as a trip-wire only: it surfaces the findings, not the full p
 * System schemas (`mysql`, `information_schema`, `performance_schema`, `sys`) are excluded, matching the WHERE clause used by mysqltuner
 * `--match` and `--ignore` take Python regular expressions and are matched against the fully qualified index identifier `schema.table.index`, so the same parameter scopes the check to a schema (`^shop\.`), to a table (`^shop\.orders\.`) or to an index name across all tables (`\.idx_legacy$`). Both filter the findings before the counters, the thresholds, the hotspot hint and the perfdata are calculated, so a filtered check reports only what it was asked to look at
 * Index housekeeping is never a wake-up-at-night finding, so the plugin only emits WARN (and the implicit OK), never CRIT
+* Unused indexes do not alert by default, because nothing read them since the last server start says little about whether they can go, and an application that manages its own schema (Metabase, for example) leaves the admin nothing to drop. Set `--warning-unused` to alert on their count anyway
 * Output ships a ready-to-paste `ALTER TABLE ... DROP INDEX` statement per finding. `--lengthy` shows the full statement; the default truncates after 80 characters so the table stays readable in Icinga Web 2
 * Redundant indexes are safe to drop because the dominant index already covers every query the redundant one served. Unused indexes need verification first: "unused since last server start" can miss weekly or monthly jobs, recently restarted servers, and indexes that back foreign-key constraints. Wait at least one full business cycle before dropping
 
@@ -68,9 +69,9 @@ uptime crosses `--min-uptime-hours` (default 24h). This avoids the false-clean
 signal right after a restart and the false-positive "unused" signal that would
 fire before weekly or monthly jobs have had a chance to touch their indexes.
 Index housekeeping is never a wake-up-at-night finding, so the plugin only
-emits WARN (and the implicit OK), never CRIT. Alerts when the count of unused
-or redundant indexes crosses its threshold. Supports extended reporting via
---lengthy.
+emits WARN (and the implicit OK), never CRIT. Alerts when redundant indexes
+exist, and when the count of unused indexes crosses `--warning-unused`, which
+is off by default. Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -128,7 +129,8 @@ options:
   --warning-unused WARN_UNUSED
                         WARN threshold for the number of matching items.
                         Applies to unused indexes. Supports Nagios ranges.
-                        Example: `--warning-unused=10`. Default: 0
+                        Example: `--warning-unused=10`. Default: not
+                        evaluated, the unused indexes are only listed.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-index-health/
@@ -192,8 +194,8 @@ Unused indexes (verify before dropping: "unused since last server start" can mis
 
 ## States
 
-* OK if zero unused and zero redundant indexes (counter < threshold).
-* WARN if the unused- or redundant-index count crosses `--warning-unused` / `--warning-redundant` (default: any > 0).
+* OK if there are no redundant indexes (counter < `--warning-redundant`) and the unused-index count does not cross `--warning-unused`. Without `--warning-unused` the unused indexes are listed and counted in the perfdata, but never alert.
+* WARN if the redundant-index count crosses `--warning-redundant` (default: any > 0), or the unused-index count crosses `--warning-unused` (default: not evaluated).
 * No CRIT path: index housekeeping is never a wake-up-at-night finding.
 * UNKNOWN if `performance_schema = OFF` on the server (the views cannot be populated).
 * Indexes dropped by `--match` / `--ignore` never reach the thresholds, so a check filtered down to nothing reports OK.

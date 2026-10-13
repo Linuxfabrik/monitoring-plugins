@@ -41,6 +41,7 @@ Requirements:
 """
 
 import os
+import re
 import subprocess
 import sys
 import unittest
@@ -167,6 +168,21 @@ def _check_image(test, containerfile):
         test.assertIn('redundant index', out)
         test.assertIn('mysql_redundant_indexes', out)
         test.assertIn('mysqltuner --pfstat', out)
+
+        # Unused indexes alert only when `--warning-unused` asks for it. With the
+        # redundant finding out of the way, the default run is OK even where the
+        # unused list is not empty, and `--warning-unused=0` turns it into WARN.
+        result = _run_plugin(defaults_file, '--warning-redundant=1000')
+        out = result.stdout + result.stderr
+        print(f'Phase 3b output (unused not evaluated):\n{out.strip()}', flush=True)
+        test.assertEqual(result.returncode, STATE_OK)
+        if re.search(r'\b[1-9]\d* unused index', out):
+            result = _run_plugin(
+                defaults_file, '--warning-redundant=1000', '--warning-unused=0'
+            )
+            out = result.stdout + result.stderr
+            print(f'Phase 3b output (--warning-unused=0):\n{out.strip()}', flush=True)
+            test.assertEqual(result.returncode, STATE_WARN)
 
         # Phase 4: the same findings, filtered away. `--ignore` on the
         # schema and a `--match` that selects nothing must both bring
