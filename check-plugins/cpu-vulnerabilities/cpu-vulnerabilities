@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082801'
+__version__ = '2026101401'
 
 DESCRIPTION = """Reports which of the CPU vulnerabilities the kernel knows about are left
 without a mitigation on this host. The kernel publishes its own verdict per vulnerability,
@@ -30,14 +30,21 @@ together actually achieve, and not what the CPU model would allow. This works in
 machine as well, where the answer additionally depends on what the hypervisor hands
 through.
 A vulnerability the kernel cannot decide on is reported separately and does not alert by
-default, because a guest regularly cannot see what its host does; raise
---unknown-severity to flag it where the answer is expected.
+default, because a guest regularly cannot see what its host does; so is a missing
+microcode that a guest cannot verify. Raise --unknown-severity to flag it where the
+answer is expected.
 Alerts when a vulnerability the CPU is affected by has no mitigation in effect."""
 
 # The kernel publishes one file per vulnerability here, named after its code name. The
 # directory exists wherever the kernel was built with CONFIG_GENERIC_CPU_VULNERABILITIES,
 # which every distribution kernel on x86, arm64 and powerpc is.
 VULNERABILITIES_DIR = '/sys/devices/system/cpu/vulnerabilities'
+
+# x86 kernels list "hypervisor" among the CPU flags of a guest (X86_FEATURE_HYPERVISOR),
+# which is the same bit the kernel itself asks before it stops probing the hardware.
+CPUINFO = '/proc/cpuinfo'
+CPUINFO_MAX_BYTES = 16384
+GUEST_FLAG = 'hypervisor'
 
 # The verdicts this check sorts the kernel's wording into.
 MITIGATED = 'mitigated'
@@ -93,6 +100,33 @@ VULNERABLE_PREFIXES = ('vulnerable', 'processor vulnerable')
 # word cannot be mistaken for it.
 NO_MITIGATION_PREFIX = 'vulnerable'
 NO_MITIGATION_TEXT = 'none'
+
+# A guest cannot verify a missing microcode. Every "..., no microcode" wording below is
+# derived from a CPUID or MSR bit that the hypervisor hands to the guest, and not from
+# anything the guest could look at (verified against arch/x86/kernel/cpu/bugs.c of
+# mainline 7.1 and Documentation/admin-guide/hw-vuln/; the spec_rstack_overflow line
+# reproduced on a RHEL 9 guest under VMware on an AMD EPYC 9004):
+#
+#   mds, tsx_async_abort, mmio_stale_data   "Vulnerable: Clear CPU buffers attempted, no
+#       microcode": MD_CLEAR, FB_CLEAR or ARCH_CAPABILITIES missing. The documentation
+#       names the case: the host has the microcode, the hypervisor does not expose the
+#       CPUID yet, and the protection takes effect nevertheless
+#   reg_file_data_sampling                  "Vulnerable: No microcode": RFDS_CLEAR in
+#       ARCH_CAPABILITIES missing
+#   tsa                                     "Vulnerable: No microcode": VERW_CLEAR missing
+#   spec_rstack_overflow                    "Vulnerable: No microcode" and "Vulnerable:
+#       Safe RET, no microcode": IBPB_BRTYPE missing. A guest must not probe for it,
+#       because live migration can take it away (commit 02428d0366a2), so only the
+#       hypervisor can set it
+#
+# srbds and gather_data_sampling use the same wording, but the kernel never gets there in
+# a guest and reports "Unknown: Dependent on hypervisor status" itself. The states
+# "Mitigation: AVX disabled, no microcode" (gather_data_sampling, never in a guest) and
+# "Vulnerable: Microcode, no safe RET" (spec_rstack_overflow, microcode seen, a kernel
+# option is missing) are something else and stay as the kernel words them. The wording also carries
+# trailing markers ("...no microcode; SMT Host state unknown"), so only the part up to the
+# first ";" counts.
+NO_MICROCODE_SUFFIX = 'no microcode'
 
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_SEVERITY = 'warn'
@@ -210,12 +244,15 @@ def parse_args():
     return args
 
 
-def classify(report):
+def classify(report, guest=False):
     """
     Sort the kernel's wording for one vulnerability into a verdict.
 
     Returns (verdict, recognized). `recognized` is False for wording this check does
-    not know, which is reported as `UNKNOWN` rather than assumed to be harmless.
+    not know, which is reported as `UNKNOWN` rather than assumed to be harmless. In a
+    `guest`, a vulnerability that is only vulnerable for lack of microcode is `UNKNOWN`
+    (recognized), because the guest cannot tell whether its hypervisor lacks the
+    microcode or merely does not hand it through.
     """
     text = report.strip()
 
@@ -228,6 +265,8 @@ def classify(report):
     if lowered.startswith(NOT_AFFECTED_PREFIX):
         return (NOT_AFFECTED, True)
     if lowered.startswith(VULNERABLE_PREFIXES):
+        if guest and lowered.split(';')[0].strip().endswith(NO_MICROCODE_SUFFIX):
+            return (UNKNOWN, True)
         return (VULNERABLE, True)
     if lowered.startswith(MITIGATION_PREFIX):
         # Where the prefix promises a mitigation and the text behind it names none,
@@ -266,6 +305,26 @@ def get_reports(root):
     return (True, reports)
 
 
+def is_guest(root):
+    """
+    Tell whether this kernel runs under a hypervisor.
+
+    Returns True if the CPU flags of the first processor name `hypervisor`. Anything
+    else, including a kernel that does not list CPU flags this way or a file that cannot
+    be read, is False, so the kernel's own verdict stands.
+    """
+    success, content = lib.disk.read_file(
+        os.path.join(root, CPUINFO.lstrip('/')), max_bytes=CPUINFO_MAX_BYTES
+    )
+    if not success:
+        return False
+    for line in content.splitlines():
+        key, _, value = line.partition(':')
+        if key.strip() == 'flags':
+            return GUEST_FLAG in value.split()
+    return False
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -288,6 +347,7 @@ def main():
             'This check belongs on a Linux host.'
         )
     reports = lib.base.coe(get_reports(args.CONFIG_ROOT))
+    guest = is_guest(args.CONFIG_ROOT)
 
     # init some vars
     msg = ''
@@ -315,7 +375,7 @@ def main():
         if any(item.search(name) for item in compiled_ignore):
             continue
 
-        verdict, recognized = classify(report)
+        verdict, recognized = classify(report, guest)
         counts[verdict] += 1
         if verdict == VULNERABLE:
             item_state = lib.base.str2state(args.SEVERITY)
@@ -378,8 +438,9 @@ def main():
             count = len(undecided)
             msg += (
                 f'\n{count} CPU '
-                f'{lib.txt.pluralize("vulnerabilit", count, "y,ies")} the kernel could '
-                f'not decide on: {", ".join(name for name, _ in undecided)}.'
+                f'{lib.txt.pluralize("vulnerabilit", count, "y,ies")} that cannot be '
+                f'decided from inside this machine: '
+                f'{", ".join(name for name, _ in undecided)}.'
             )
         if unrecognized:
             count = len(unrecognized)

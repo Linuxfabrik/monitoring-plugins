@@ -35,7 +35,31 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #                       `nx_huge_pages=never` and kvm-intel.ko on top. Carries all four
 #                       wordings at once: five vulnerable, two the kernel cannot decide
 #                       on because it is a guest, one of them behind the "KVM: " prefix
-#                       that itlb_multihit puts in front of its verdict
+#                       that itlb_multihit puts in front of its verdict. Two of the five
+#                       are "no microcode" lines, which a guest cannot verify, so this
+#                       check reads them as undecided. `proc/cpuinfo` was written by
+#                       hand for it (the capture kept `sys/` only): the flags line with
+#                       `hypervisor` and without `md_clear`, as the kernel reports it
+#   qemu-epyc-genoa-guest, qemu-epyc-genoa-without-hypervisor-flag,
+#   qemu-gracemont-guest
+#                       Captured from Fedora's 7.2.9 kernel in qemu 10.2 (TCG, busybox
+#                       initramfs, `-cpu EPYC-Genoa`, `-cpu EPYC-Genoa,hypervisor=off`
+#                       and `-cpu Skylake-Client,model=190`). TCG cannot hand the
+#                       IBPB_BRTYPE, SBPB, SRSO_NO and VERW_CLEAR bits through, so the
+#                       guests come up without them, like the customer's. The first one
+#                       carries "no microcode" in spec_rstack_overflow and tsa, the
+#                       third in mds and reg_file_data_sampling. The second is the
+#                       same CPU without the `hypervisor` flag: the kernel then probes
+#                       the hardware itself and finds the bit (spec_rstack_overflow:
+#                       "Mitigation: Safe RET"), while tsa stays "no microcode", because
+#                       the VERW_CLEAR bit is never probed
+#   amd-guest-without-ibpb-bits
+#                       The customer case behind this reading: a RHEL 9 guest (kernel
+#                       5.14) under VMware on an AMD EPYC 9274F (Zen 4). The hypervisor
+#                       hands through the microcode revision but not IBPB_BRTYPE, so the
+#                       kernel writes "Vulnerable: Safe RET, no microcode" into
+#                       spec_rstack_overflow. The files are the kernel's own words as
+#                       the check printed them, `proc/cpuinfo` is the guest's own
 #   its-vmexit-only     `-cpu Icelake-Server,model=106`, booted with
 #                       `indirect_target_selection=vmexit`. The one state whose prefix
 #                       contradicts itself: the kernel writes "Mitigation: Vulnerable,
@@ -44,6 +68,12 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #                       covered, so this has to read as vulnerable. Reachable only on an
 #                       ITS_NATIVE_ONLY model, otherwise the option is silently
 #                       downgraded to aligned thunks
+#
+# Hand-assembled as well, from the kernel's literals: amd-host-microcode-missing (the
+# "no microcode" wording without the `hypervisor` flag, which no qemu can produce for
+# spec_rstack_overflow), guest-no-microcode-wordings (adds tsx_async_abort, which no
+# qemu CPU model with TSX runs under TCG) and guest-microcode-seen ("Vulnerable:
+# Microcode, no safe RET" needs the IBPB_BRTYPE bit, which TCG refuses).
 #
 # The remaining four are assembled by hand, because no kernel that can be booted here
 # produces them. Their content is a literal from the kernel source or from its
@@ -126,8 +156,8 @@ TESTS = [
         'params': '--config-root=config/hypervisor-guest',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '5 of 19 CPU vulnerabilities have no mitigation in effect',
-            "'vulnerable'=5;0;;0",
+            '3 of 19 CPU vulnerabilities have no mitigation in effect',
+            "'vulnerable'=3;0;;0",
         ],
         'assert-regex': r'itlb_multihit\s+!\s+KVM: Vulnerable\s+!\s+vulnerable',
     },
@@ -139,10 +169,10 @@ TESTS = [
         'params': '--config-root=config/hypervisor-guest --severity=ok',
         'assert-retc': STATE_OK,
         'assert-in': [
-            '2 CPU vulnerabilities the kernel could not decide on: '
-            'gather_data_sampling, srbds.',
+            '4 CPU vulnerabilities that cannot be decided from inside this machine: '
+            'gather_data_sampling, mds, mmio_stale_data, srbds.',
             'run this check on the hypervisor as well',
-            "'unknown'=2",
+            "'unknown'=4",
         ],
         'assert-regex': r'srbds\s+!\s+Unknown: Dependent on hypervisor status',
     },
@@ -152,7 +182,116 @@ TESTS = [
         'params': '--config-root=config/hypervisor-guest --severity=ok'
         ' --unknown-severity=warn',
         'assert-retc': STATE_WARN,
-        'assert-in': ['the kernel could not decide on'],
+        'assert-in': ['cannot be decided from inside this machine'],
+    },
+    {
+        # The customer case. The guest sees the microcode revision, but its hypervisor
+        # does not hand through the IBPB bit the kernel derives "no microcode" from, so
+        # the guest cannot tell a missing microcode from a hidden bit. The kernel's
+        # wording stays visible in the table.
+        'id': 'ok-a-guest-cannot-verify-a-missing-microcode',
+        'test': '',
+        'params': '--config-root=config/amd-guest-without-ibpb-bits',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'No CPU vulnerability is left without a mitigation.',
+            '1 CPU vulnerability that cannot be decided from inside this machine: '
+            'spec_rstack_overflow.',
+            'run this check on the hypervisor as well',
+            "'unknown'=1",
+            "'vulnerable'=0;0;;0",
+        ],
+        'assert-not-in': ['[WARNING]', 'Install the current microcode package'],
+        'assert-regex': r'spec_rstack_overflow\s+!\s+Vulnerable: Safe RET, no microcode'
+        r'\s+!\s+unknown',
+    },
+    {
+        'id': 'warn-a-guest-can-alert-on-what-it-cannot-verify',
+        'test': '',
+        'params': '--config-root=config/amd-guest-without-ibpb-bits'
+        ' --unknown-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'spec_rstack_overflow\s+!.*no microcode\s+!\s+unknown'
+        r' \[WARNING\]',
+    },
+    {
+        # Without the hypervisor flag the kernel probes the microcode itself, so the
+        # same wording is a finding about this machine.
+        'id': 'warn-a-host-without-the-microcode-is-vulnerable',
+        'test': '',
+        'params': '--config-root=config/amd-host-microcode-missing',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 of 1 CPU vulnerability has no mitigation in effect: '
+            'spec_rstack_overflow.',
+            'Install the current microcode package',
+        ],
+        'assert-regex': r'spec_rstack_overflow\s+!.*no microcode\s+!\s+vulnerable',
+    },
+    {
+        # Every wording a guest derives from a hypervisor-provided bit: MD_CLEAR and
+        # ARCH_CAPABILITIES (tsx_async_abort), RFDS_CLEAR, VERW_CLEAR, IBPB_BRTYPE.
+        'id': 'ok-every-no-microcode-wording-of-a-guest-is-undecided',
+        'test': '',
+        'params': '--config-root=config/guest-no-microcode-wordings',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '4 CPU vulnerabilities that cannot be decided from inside this machine: '
+            'reg_file_data_sampling, spec_rstack_overflow, tsa, tsx_async_abort.',
+            "'unknown'=4",
+            "'vulnerable'=0;0;;0",
+        ],
+    },
+    {
+        # The guest sees the microcode here, and a kernel option is missing, which the
+        # guest can judge on its own.
+        'id': 'warn-a-guest-that-sees-the-microcode-is-still-vulnerable',
+        'test': '',
+        'params': '--config-root=config/guest-microcode-seen',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'vulnerable'=1;0;;0"],
+        'assert-regex': r'spec_rstack_overflow\s+!\s+Vulnerable: Microcode, no safe RET'
+        r'\s+!\s+vulnerable',
+    },
+    {
+        'id': 'ok-a-captured-guest-cannot-verify-either-no-microcode-line',
+        'test': '',
+        'params': '--config-root=config/qemu-epyc-genoa-guest'
+        ' --match=^(spec_rstack_overflow|tsa)$',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '2 CPU vulnerabilities that cannot be decided from inside this machine: '
+            'spec_rstack_overflow, tsa.',
+            "'unknown'=2",
+            "'vulnerable'=0;0;;0",
+        ],
+    },
+    {
+        # The same CPU without the hypervisor flag: spec_rstack_overflow is found
+        # mitigated by the kernel's own probe, and tsa, whose bit is never probed,
+        # is a finding about this machine.
+        'id': 'warn-the-same-cpu-without-the-hypervisor-flag-keeps-the-kernels-verdict',
+        'test': '',
+        'params': '--config-root=config/qemu-epyc-genoa-without-hypervisor-flag'
+        ' --match=^(spec_rstack_overflow|tsa)$',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 of 2 CPU vulnerabilities has no mitigation in effect: tsa.',
+            "'vulnerable'=1;0;;0",
+        ],
+        'assert-regex': r'spec_rstack_overflow\s+!\s+Mitigation: Safe RET\s+!\s+mitigated',
+    },
+    {
+        'id': 'ok-a-captured-guest-cannot-verify-the-register-file-clearing',
+        'test': '',
+        'params': '--config-root=config/qemu-gracemont-guest'
+        ' --match=^(mds|reg_file_data_sampling)$',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '2 CPU vulnerabilities that cannot be decided from inside this machine: '
+            'mds, reg_file_data_sampling.',
+        ],
+        'assert-regex': r'reg_file_data_sampling\s+!\s+Vulnerable: No microcode\s+!\s+unknown',
     },
     {
         # The kernel calls this state a mitigation and its own documentation calls the

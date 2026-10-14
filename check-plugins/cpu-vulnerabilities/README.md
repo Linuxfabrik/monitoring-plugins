@@ -3,7 +3,7 @@
 
 ## Overview
 
-Reports which of the CPU vulnerabilities the kernel knows about are left without a mitigation on this host. The kernel publishes its own verdict per vulnerability, so the check reports what the running kernel, the microcode and the boot parameters together actually achieve, and not what the CPU model would allow. This works in a virtual machine as well, where the answer additionally depends on what the hypervisor hands through. A vulnerability the kernel cannot decide on is reported separately and does not alert by default, because a guest regularly cannot see what its host does; raise `--unknown-severity` to flag it where the answer is expected. Alerts when a vulnerability the CPU is affected by has no mitigation in effect.
+Reports which of the CPU vulnerabilities the kernel knows about are left without a mitigation on this host. The kernel publishes its own verdict per vulnerability, so the check reports what the running kernel, the microcode and the boot parameters together actually achieve, and not what the CPU model would allow. This works in a virtual machine as well, where the answer additionally depends on what the hypervisor hands through. A vulnerability the kernel cannot decide on is reported separately and does not alert by default, because a guest regularly cannot see what its host does; so is a missing microcode that a guest cannot verify. Raise `--unknown-severity` to flag it where the answer is expected. Alerts when a vulnerability the CPU is affected by has no mitigation in effect.
 
 **What the kernel reports:**
 
@@ -16,6 +16,8 @@ The kernel keeps one file per vulnerability, named after its code name (`meltdow
 | `Vulnerable[: <why>]` | It has it and nothing is holding it off. The text names what is missing, most often the microcode. |
 | `Unknown[: <why>]` | The kernel cannot decide. Practically always a guest whose answer belongs to its hypervisor. |
 
+A guest additionally gets one verdict rewritten: a `Vulnerable` line that ends in `no microcode` is reported as undecided, see "Important Notes".
+
 Two files word their verdict differently, and the check reads both. `itlb_multihit` speaks for the KVM side only and puts the component in front, so it reports `KVM: Vulnerable` or `KVM: Mitigation: VMX unsupported`; on a kernel built without KVM support it reports `Processor vulnerable` instead.
 
 **Important Notes:**
@@ -23,6 +25,7 @@ Two files word their verdict differently, and the check reads both. `itlb_multih
 * **The verdict is the first word of the line, never a word somewhere in it.** Several files append markers that describe a residual risk *inside* an applied mitigation, for example `; SMT vulnerable`, `; BHI: Vulnerable` or `; PBRSB-eIBRS: Vulnerable`. A host reporting `Mitigation: Enhanced / Automatic IBRS; IBPB: conditional; BHI: Vulnerable` is mitigated in the kernel's own judgement, and a check that greps for the word "Vulnerable" calls it the opposite. The full line is in the output, so the residual markers stay visible to anyone reading it.
 * **Two states contradict their own prefix, and both read as vulnerable.** Booted with `indirect_target_selection=vmexit` the kernel writes `Mitigation: Vulnerable, KVM: Not affected` into `indirect_target_selection`; its own documentation calls that state "System is vulnerable to intra-mode BTI, but not affected by eIBRS guest/host isolation", so only the guests are covered and the host is not. And the kernel documentation lists `Mitigation: None` for `spectre_v2` and explains it as "Vulnerable, no mitigation", although no kernel from 4.15 to 7.1 actually writes it. These are the only two places where the check does not follow the leading word.
 * **In a virtual machine the answer is only half the truth.** A guest sees the CPU model and the microcode its hypervisor hands through, and nothing of what the hypervisor itself does. That is why `srbds` and `gather_data_sampling` report `Unknown: Dependent on hypervisor status` on an affected CPU under a hypervisor. Run the check on the hypervisor as well; that host is the one that can answer.
+* **In a virtual machine, `no microcode` is not a finding.** The kernel derives that wording from a CPUID or MSR bit that the hypervisor hands to the guest, never from the microcode itself, and a guest must not probe the hardware for it, because live migration can take the answer away. A hypervisor that runs on a fully patched host but does not pass the bit through produces the same line as a host without the update. That is why `Vulnerable: Safe RET, no microcode` and `Vulnerable: No microcode` in `spec_rstack_overflow`, `Vulnerable: No microcode` in `tsa` and `reg_file_data_sampling`, and `Vulnerable: Clear CPU buffers attempted, no microcode` in `mds`, `mmio_stale_data` and `tsx_async_abort` are reported as undecided when the CPU flags of the machine list `hypervisor`. The kernel's own wording stays in the table. On a host without that flag the same lines still alert. `Vulnerable: Microcode, no safe RET` is not affected: there the guest sees the microcode and judges its own kernel.
 * **`Vulnerable: No microcode` is often not the administrator's fault.** The vendor may never have shipped microcode for that CPU generation. Where nothing can be done about it, silence that one vulnerability with `--ignore` instead of switching the whole check off, so the rest keeps alerting.
 * **The check is about posture, not about traffic.** Its result changes on a reboot, a microcode update, a kernel update or a change to the kernel command line, and at no other time, which is why the Director template runs it once a day.
 * **Every vulnerability is always listed**, with the kernel's own wording, below the summary line. How many there are is a property of the kernel, not of the host: a 7.1 kernel publishes nineteen entries, the 4.18 kernel of RHEL 8 fifteen. The check reads whatever is there, so a flaw that gets a name tomorrow is covered by a kernel update alone.
@@ -64,9 +67,10 @@ the boot parameters together actually achieve, and not what the CPU model
 would allow. This works in a virtual machine as well, where the answer
 additionally depends on what the hypervisor hands through. A vulnerability the
 kernel cannot decide on is reported separately and does not alert by default,
-because a guest regularly cannot see what its host does; raise
---unknown-severity to flag it where the answer is expected. Alerts when a
-vulnerability the CPU is affected by has no mitigation in effect.
+because a guest regularly cannot see what its host does; so is a missing
+microcode that a guest cannot verify. Raise --unknown-severity to flag it
+where the answer is expected. Alerts when a vulnerability the CPU is affected
+by has no mitigation in effect.
 
 options:
   -h, --help            show this help message and exit
@@ -123,8 +127,8 @@ No CPU vulnerability is left without a mitigation. 4 mitigated, 15 not affected.
 Output on a virtual machine on an older Intel host, without a current microcode and with `nx_huge_pages` switched off on the hypervisor:
 
 ```text
-5 of 19 CPU vulnerabilities have no mitigation in effect: itlb_multihit, mds, mmio_stale_data, retbleed, spec_store_bypass.
-2 CPU vulnerabilities the kernel could not decide on: gather_data_sampling, srbds.
+3 of 19 CPU vulnerabilities have no mitigation in effect: itlb_multihit, retbleed, spec_store_bypass.
+4 CPU vulnerabilities that cannot be decided from inside this machine: gather_data_sampling, mds, mmio_stale_data, srbds.
 Install the current microcode package, rebuild the initial ramdisk and reboot, run a current kernel, and check whether the kernel command line switches mitigations off (`mitigations=off`, `nopti`, `nospectre_v2` and the like).
 On a virtual machine the guest sees only the CPU features and the microcode its hypervisor hands through, so run this check on the hypervisor as well.
 ```
@@ -180,7 +184,7 @@ On a hypervisor, where a verdict the kernel cannot reach is worth looking into r
 
 * OK if every vulnerability the CPU is affected by has a mitigation in effect, and everything else is reported as not affected.
 * WARN if at least one vulnerability the CPU is affected by has no mitigation in effect. `--severity` lowers that to `ok` or raises it to `crit` or `unknown`.
-* OK with an explanation if the kernel cannot decide on a vulnerability, or reports it in wording this check does not know. `--unknown-severity` raises that to `warn`, `crit` or `unknown`.
+* OK with an explanation if the kernel cannot decide on a vulnerability, if a guest cannot verify a `no microcode` line, or if the kernel reports it in wording this check does not know. `--unknown-severity` raises that to `warn`, `crit` or `unknown`.
 * OK with an explanation if the kernel publishes no vulnerability information at all, which means it was built without `CONFIG_GENERIC_CPU_VULNERABILITIES`. `--unknown-severity` applies here as well.
 * OK if `--match` and `--ignore` leave nothing to check. `--no-match-severity` raises that.
 * UNKNOWN if `--match` or `--ignore` is not a valid Python regular expression.
@@ -197,7 +201,7 @@ All values are counts of vulnerabilities after `--match` and `--ignore` have bee
 | checked      | Number | Vulnerabilities the kernel publishes and the filters kept. The sum of the four below. |
 | mitigated    | Number | The CPU is affected and something is holding the vulnerability off. |
 | not_affected | Number | The CPU does not have the flaw. |
-| unknown      | Number | The kernel cannot decide, or words its verdict in a way this check does not know. |
+| unknown      | Number | The kernel cannot decide, a guest cannot verify a `no microcode` line, or the kernel words its verdict in a way this check does not know. |
 | vulnerable   | Number | The CPU is affected and nothing is holding the vulnerability off. This is the value the check alerts on. |
 
 
@@ -248,7 +252,7 @@ Work through the four things that decide the answer, in this order.
     reboot
     ```
 
-4. On a virtual machine, repeat all of the above on the hypervisor. The guest gets the CPU features and the microcode the hypervisor hands it, so a guest cannot mitigate what its host does not expose. A CPU model pinned for live migration (`Nehalem`, `Westmere`, `Skylake-Client` and the like) hides the feature bits several mitigations need.
+4. On a virtual machine, repeat all of the above on the hypervisor. A `no microcode` line does not even appear as unmitigated there, see below. The guest gets the CPU features and the microcode the hypervisor hands it, so a guest cannot mitigate what its host does not expose. A CPU model pinned for live migration (`Nehalem`, `Westmere`, `Skylake-Client` and the like) hides the feature bits several mitigations need.
 
 Where the answer is that this hardware will never get a mitigation, keep the rest of the check alive and silence the one entry:
 
@@ -267,6 +271,12 @@ Run the same check on the hypervisor. That host has the microcode, sees the real
 ```
 
 The guest cannot be fixed from inside; a hypervisor that is clean makes the guest safe without changing what the guest reports.
+
+### `Vulnerable: Safe RET, no microcode` in a virtual machine
+
+The check reports this as undecided, and the table keeps the kernel's line. The guest sees only the CPUID bits its hypervisor sets, and `Safe RET, no microcode` means that the bit for the extended IBPB (`IBPB_BRTYPE`) is missing, not that the microcode of the host is old. The guest often shows a current microcode revision in `/proc/cpuinfo` at the same time. The same holds for the other `no microcode` lines in `tsa`, `reg_file_data_sampling`, `mds`, `mmio_stale_data` and `tsx_async_abort`.
+
+Run the check on the hypervisor and update its BIOS and microcode there. Then see whether the hypervisor passes the CPU features through to the guest: a CPU model pinned for live migration hides the bits. Where the host is current and the bits stay hidden, accept the line for those virtual machines with `--ignore='^spec_rstack_overflow$'`, which keeps the rest of the check alerting.
 
 ### `This kernel publishes no CPU vulnerability information`
 
