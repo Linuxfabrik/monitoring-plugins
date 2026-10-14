@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the rate of joins executed without indexes in MySQL/MariaDB (`Select_range_check + Select_full_join`). More than 250 such joins per day (matching MySQLTuner) indicates missing indexes that can severely impact query performance.
+Checks the rate of joins executed without indexes in MySQL/MariaDB (`Select_range_check + Select_full_join`). More than 250 such joins per day (matching MySQLTuner) indicates missing indexes that can severely impact query performance. The rate is an average per day over the uptime, so it is only evaluated once the server has been up for `--min-uptime-hours` (default 24 hours); before that it is reported without raising WARN.
 
 **Important Notes:**
 
@@ -37,13 +37,17 @@ Checks the rate of joins executed without indexes in MySQL/MariaDB (`Select_rang
 
 ```text
 usage: mysql-joins [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
-                   [--defaults-group DEFAULTS_GROUP] [--no-perfdata]
+                   [--defaults-group DEFAULTS_GROUP]
+                   [--min-uptime-hours MIN_UPTIME_HOURS] [--no-perfdata]
                    [--timeout TIMEOUT]
 
 Checks the rate of joins executed without indexes in MySQL/MariaDB
 (`Select_range_check + Select_full_join`). A high rate (more than 250 such
 joins per day, matching MySQLTuner) indicates missing indexes and can severely
-impact query performance. Alerts when the rate exceeds the threshold.
+impact query performance. Alerts when the rate exceeds the threshold. A
+per-day rate extrapolated from a few minutes or hours of uptime says little,
+so on freshly-booted servers (uptime below `--min-uptime-hours`, default 24
+hours) the rate is reported but not evaluated.
 
 options:
   -h, --help            show this help message and exit
@@ -57,6 +61,14 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --min-uptime-hours MIN_UPTIME_HOURS
+                        Minimum server uptime (in hours) before the plugin
+                        starts evaluating the rate of joins without indexes.
+                        The rate is a per-day average over the uptime, so a
+                        freshly booted server extrapolates a handful of joins
+                        to hundreds per day. Below the threshold the rate is
+                        reported but does not raise WARN. Example: `--min-
+                        uptime-hours=48`. Default: 24
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -93,7 +105,7 @@ When the rate is below the threshold, the plugin still emits the count and break
 
 ## States
 
-* WARN if more than 250 joins without indexes per day on a lifetime average (`Select_range_check + Select_full_join` divided by `Uptime / 86400`).
+* WARN if more than 250 joins without indexes per day on a lifetime average (`Select_range_check + Select_full_join` divided by `Uptime / 86400`), once the server has been up for at least `--min-uptime-hours` (default: 24). Before that the rate is shown and appears in the perfdata, but does not raise WARN.
 * WARN if `join_buffer_size > 4 MiB`. The buffer is allocated **per session**, so `max_connections × join_buffer_size` is real reserved memory. The 4 MiB threshold is MySQLTuner's heuristic cutoff (the point above which MySQLTuner stops recommending to raise the buffer); MySQLTuner itself does not alert oversized buffers, but the per-session memory cost is admin-visible.
 * `--always-ok` suppresses all alerts and always returns OK.
 

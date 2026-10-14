@@ -22,15 +22,18 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026101401'
 
 DESCRIPTION = """Checks the rate of joins executed without indexes in MySQL/MariaDB
 (`Select_range_check + Select_full_join`). A high rate (more than 250 such joins per day,
 matching MySQLTuner) indicates missing indexes and can severely impact query performance.
-Alerts when the rate exceeds the threshold."""
+Alerts when the rate exceeds the threshold. A per-day rate extrapolated from a few minutes
+or hours of uptime says little, so on freshly-booted servers (uptime below `--min-uptime-hours`,
+default 24 hours) the rate is reported but not evaluated."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
+DEFAULT_MIN_UPTIME_HOURS = 24
 DEFAULT_TIMEOUT = 3
 
 SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-joins.db'
@@ -80,6 +83,20 @@ def parse_args():
         help=lib.args.help('--defaults-group') + ' Default: %(default)s',
         dest='DEFAULTS_GROUP',
         default=DEFAULT_DEFAULTS_GROUP,
+    )
+
+    parser.add_argument(
+        '--min-uptime-hours',
+        help='Minimum server uptime (in hours) before the plugin starts '
+        'evaluating the rate of joins without indexes. The rate is a '
+        'per-day average over the uptime, so a freshly booted server '
+        'extrapolates a handful of joins to hundreds per day. Below the '
+        'threshold the rate is reported but does not raise WARN. '
+        'Example: `--min-uptime-hours=48`. '
+        'Default: %(default)s',
+        dest='MIN_UPTIME_HOURS',
+        type=int,
+        default=DEFAULT_MIN_UPTIME_HOURS,
     )
 
     parser.add_argument(
@@ -186,7 +203,19 @@ def main():
         f' `Select_full_join` = {lib.human.number2human(select_full_join)})'
     )
 
-    if joins_per_day > 250:
+    # A per-day rate extrapolated from a few minutes or hours of uptime says little
+    # (seen: 10 joins in 55 minutes = "260/day" -> WARN right after a restart),
+    # so the rate is only evaluated once the server has been up long enough to
+    # have seen a full daily cycle. mysqltuner does not skip this case; we do
+    # (Linuxfabrik addition, same parameter as `mysql-index-health`).
+    warming_up = uptime < args.MIN_UPTIME_HOURS * 3600
+    if warming_up:
+        facts += (
+            f'. The rate is not evaluated until the server has been up for'
+            f' {args.MIN_UPTIME_HOURS}h'
+        )
+
+    if joins_per_day > 250 and not warming_up:
         state = lib.base.get_worst(state, STATE_WARN)
         sections.append(f'{facts}{lib.base.state2str(STATE_WARN, prefix=" ")}.')
         recommendations.append('Use JOINs with indexes wherever possible')

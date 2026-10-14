@@ -15,10 +15,13 @@ counters from `SHOW GLOBAL STATUS`, so a static fixture cannot
 drive it - we spin up an actual MariaDB server and let the plugin
 talk to it over TCP.
 
-Per CONTRIBUTING's "Combine container tests with fixtures" rule,
-this file holds only the happy-path integration test. A freshly
-booted, idle MariaDB has near-zero join counters, which is
-STATE_OK with the plugin's defaults.
+A freshly booted, idle MariaDB has near-zero join counters, which
+is STATE_OK with the plugin's defaults. The test then runs a few
+hundred joins without an index. Seconds of uptime extrapolate that
+to millions per day, so the plugin must stay at STATE_OK and say
+that the rate is not evaluated yet (`--min-uptime-hours`, default
+24 hours); with `--min-uptime-hours=0` the very same counters must
+raise STATE_WARN.
 
 The test matrix is defined by the Containerfiles under
 `containerfiles/`. Each file is a Containerfile (typically a
@@ -41,7 +44,7 @@ import unittest
 sys.path.insert(0, '..')
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_OK, STATE_WARN
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
@@ -61,7 +64,7 @@ def _check_image(test, containerfile):
     path = os.path.join(CONTAINERFILES_DIR, containerfile)
     print(f'\n=== Testing {containerfile} ===', flush=True)
     with lib.lftest.run_mysql_compatible_from_containerfile(path) as (
-        _container,
+        container,
         defaults_file,
     ):
         cmd = [
@@ -81,6 +84,53 @@ def _check_image(test, containerfile):
 
         test.assertEqual(result.returncode, STATE_OK)
         test.assertIn("|'mysql_", combined)
+        test.assertIn('not evaluated until the server has been up for 24h', combined)
+
+        # 300 joins without an index: two unindexed tables, joined 300 times
+        # (`Select_full_join` counts each one).
+        join_sql = 'SELECT COUNT(*) FROM test.joins_a JOIN test.joins_b; '
+        sql = (
+            'CREATE TABLE test.joins_a (x INT); CREATE TABLE test.joins_b (x INT); '
+            'INSERT INTO test.joins_a VALUES (1), (2); '
+            'INSERT INTO test.joins_b VALUES (1), (2); '
+            f'{join_sql * 300}'
+        )
+        container.exec(
+            [
+                'sh',
+                '-c',
+                'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
+                'else C=mysql; fi; '
+                f'"$C" -uroot -e "{sql}" >/dev/null 2>&1 '
+                f'|| "$C" -uroot -ptest -e "{sql}" >/dev/null',
+            ]
+        )
+
+        # Seconds of uptime: the rate is reported, but not evaluated.
+        result = subprocess.run(
+            cmd,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            capture_output=True,
+            text=True,
+        )
+        combined = result.stdout + result.stderr
+        print(f'Script output (default):\n{combined.strip()}', flush=True)
+        test.assertEqual(result.returncode, STATE_OK)
+        test.assertIn('not evaluated until the server has been up for 24h', combined)
+        test.assertRegex(combined, r'3\d\d JOINs without indexes')
+
+        # No warm-up: the same counters exceed 250 joins per day.
+        result = subprocess.run(
+            [*cmd, '--min-uptime-hours=0'],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            capture_output=True,
+            text=True,
+        )
+        combined = result.stdout + result.stderr
+        print(f'Script output (--min-uptime-hours=0):\n{combined.strip()}', flush=True)
+        test.assertEqual(result.returncode, STATE_WARN)
+        test.assertNotIn('not evaluated', combined)
+        test.assertRegex(combined, r'JOINs without indexes.*\[WARNING\]')
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)

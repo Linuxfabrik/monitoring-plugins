@@ -11,6 +11,9 @@
                 "--defaults-group": {
                     "value": "$mysql_joins_defaults_group$"
                 },
+                "--min-uptime-hours": {
+                    "value": "$mysql_joins_min_uptime_hours$"
+                },
                 "--no-perfdata": {
                     "set_if": "$mysql_joins_no_perfdata$"
                 },
@@ -43,6 +46,11 @@
                 },
                 {
                     "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -88,7 +96,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the rate of joins executed without indexes in MySQL/MariaDB (`Select_range_check + Select_full_join`). A high rate (more than 250 such joins per day, matching MySQLTuner) indicates missing indexes and can severely impact query performance. Alerts when the rate exceeds the threshold.",
+            "notes": "Checks the rate of joins executed without indexes in MySQL/MariaDB (`Select_range_check + Select_full_join`). A high rate (more than 250 such joins per day, matching MySQLTuner) indicates missing indexes and can severely impact query performance. Alerts when the rate exceeds the threshold. A per-day rate extrapolated from a few minutes or hours of uptime says little, so on freshly-booted servers (uptime below `--min-uptime-hours`, default 24 hours) the rate is reported but not evaluated.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-joins/",
             "object_name": "tpl-service-mysql-joins",
             "object_type": "template",
@@ -102,6 +110,7 @@
                 "mysql_joins_always_ok": false,
                 "mysql_joins_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_joins_defaults_group": "client",
+                "mysql_joins_min_uptime_hours": 24,
                 "mysql_joins_no_perfdata": false,
                 "mysql_joins_timeout": 3
             },
@@ -143,6 +152,17 @@
             "uuid": "c9602b0d-594f-421e-9a8a-a2337dbd2bbb"
         },
         "4": {
+            "varname": "mysql_joins_min_uptime_hours",
+            "caption": "MySQL Joins: Min Uptime Hours",
+            "description": "Minimum server uptime (in hours) before the plugin starts evaluating the rate of joins without indexes. The rate is a per-day average over the uptime, so a freshly booted server extrapolates a handful of joins to hundreds per day. Below the threshold the rate is reported but does not raise WARN. Example: `--min-uptime-hours=48`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "bca0afe0-8e28-492a-9fc1-6e0c965edf2d"
+        },
+        "5": {
             "varname": "mysql_joins_no_perfdata",
             "caption": "MySQL Joins: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -151,7 +171,7 @@
             "settings": {},
             "uuid": "c2370a0f-0461-4a80-821f-64f415b26e95"
         },
-        "5": {
+        "6": {
             "varname": "mysql_joins_timeout",
             "caption": "MySQL Joins: Timeout",
             "description": "Network timeout in seconds.",
