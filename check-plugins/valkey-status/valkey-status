@@ -27,7 +27,7 @@ __author__ = """
 Linuxfabrik GmbH, Zurich/Switzerland;
 enhanced by Claudio Kuenzler
 """
-__version__ = '2026071201'
+__version__ = '2026101401'
 
 DESCRIPTION = """Monitors a Valkey server via the INFO command. Reports memory usage, fragmentation
 ratio, keyspace hit rate, connected clients, replication status, and persistence state.
@@ -247,6 +247,22 @@ def main():
     else:
         # do not call the command, put in test data
         stdout, stderr, _ = lib.lftest.test(args.TEST)
+
+    # Reaching the server is not logging in. `valkey-cli` exits 0 when the server
+    # refuses the login: a missing password leaves `NOAUTH Authentication required.`
+    # on stdout, a wrong one adds `AUTH failed: WRONGPASS ...` on stderr (verified
+    # with `redis-cli` 7.4 and `valkey-cli` 8). A check that cannot log in says
+    # nothing about the server, so it is UNKNOWN instead of a warning about it.
+    if 'AUTH failed' in stderr:
+        lib.base.cu(
+            'Failed to authenticate: Valkey rejected the username or password.'
+            ' Check `--username` and `--password`.'
+        )
+    if stdout.startswith('NOAUTH'):
+        lib.base.cu(
+            'Failed to authenticate: Valkey requires a password. Pass it with'
+            ' `--password` (and `--username` for an ACL user).'
+        )
 
     # connection problems, for example "RR max number of clients reached"
     if not stdout.startswith('# Server'):

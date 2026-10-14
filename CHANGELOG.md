@@ -61,6 +61,7 @@ Monitoring Plugins:
 * php-fpm-status: the pool table shows the state of each pool in its last column
 * redfish-memory: a problem with an HPE memory module other than a configuration error is WARN instead of CRIT
 * redfish-sensors: CRIT only above the fatal threshold, as HPE iLO rates it, and alerts on degraded power supplies
+* redis-status, valkey-status: a refused login is UNKNOWN with a hint on `--password` instead of a WARNING
 * scanrootkit: detects 23 more rootkits and implants, no false SunOS Rootkit alarm on Fedora 44
 * scheduled-task: alerts on a failed last run, works on non-English Windows, `--status` replaces the default list
 * systemd-timedate-status: warns when the system clock is not synchronized to a time source

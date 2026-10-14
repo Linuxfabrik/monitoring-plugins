@@ -127,6 +127,7 @@ is not set to "madvise" or "never"
 * WARN on OS misconfigurations: `vm.overcommit_memory`, `transparent_hugepage`, `somaxconn` (each suppressible via the corresponding `--ignore-*` flag).
 * WARN on partial sync errors (unless `--ignore-sync-partial-err`).
 * WARN on memory doctor findings (peak-memory-only and jemalloc-related high-RSS are auto-suppressed).
+* UNKNOWN if the login fails, because `--password` is missing or Valkey rejects the username or password.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -184,6 +185,10 @@ Latest info can be found [here](https://valkey.io/commands/info/).
 
 
 ## Troubleshooting
+
+### `Failed to authenticate`
+
+`valkey-cli` reports a refused login with exit code 0, so the plugin reads the answer. Valkey requires a password (`requirepass` or an ACL user) and none was given: pass it with `--password`, and the account with `--username` if it is an ACL user. Valkey rejected the credentials: check `--username` and `--password` against the `requirepass` or `user` line of the Valkey configuration. The state is UNKNOWN, because the check cannot say anything about the server without logging in.
 
 ### `vm.overcommit_memory is not set to 1`
 

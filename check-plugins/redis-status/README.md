@@ -137,6 +137,7 @@ I'm here to keep you safe, Sam. I want to help you.
 * WARN on memory issues reported by Redis Memory Doctor (except harmless peak-only or jemalloc cases).
 * WARN on partial sync errors, unless suppressed via `--ignore-sync-partial-err`.
 * WARN on OS-level misconfigurations (`vm.overcommit_memory`, transparent huge pages, `somaxconn`), each individually suppressible.
+* UNKNOWN if the login fails, because `--password` is missing or Redis rejects the username or password.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -194,6 +195,10 @@ Latest info can be found [here](https://redis.io/commands/INFO).
 
 
 ## Troubleshooting
+
+### `Failed to authenticate`
+
+`redis-cli` reports a refused login with exit code 0, so the plugin reads the answer. Redis requires a password (`requirepass` or an ACL user) and none was given: pass it with `--password`, and the account with `--username` if it is an ACL user. Redis rejected the credentials: check `--username` and `--password` against the `requirepass` or `user` line of the Redis configuration. The state is UNKNOWN, because the check cannot say anything about the server without logging in.
 
 ### `vm.overcommit_memory is not set to 1`
 

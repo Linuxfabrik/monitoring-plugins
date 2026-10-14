@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
@@ -79,6 +79,25 @@ TESTS = [
             'hit rate 100.0% (4.5M hits, 0 misses)',
             '2.0 denied partial resync requests',
         ],
+    },
+    {
+        'id': 'unknown-redis-7.4-noauth',
+        'test': 'stdout/redis-7.4-noauth,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Failed to authenticate: Redis requires a password.',
+            '`--password`',
+        ],
+    },
+    {
+        'id': 'unknown-redis-7.4-wrongpass',
+        'test': 'stdout/redis-7.4-noauth,stderr/redis-7.4-wrongpass,0',
+        'params': '--password=linuxfabrik',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Failed to authenticate: Redis rejected the username or password.',
+        ],
+        'assert-not-in': ['linuxfabrik'],
     },
 ]
 
