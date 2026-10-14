@@ -16,10 +16,14 @@ The plugin opens a real `pymysql` connection and reads
 spin up an actual MariaDB server and let the plugin talk to it
 over TCP.
 
-Per CONTRIBUTING's "Combine container tests with fixtures" rule,
-this file holds only the happy-path integration test. A freshly
-booted, idle MariaDB has near-zero temp-table counters, which is
-STATE_OK with the plugin's defaults.
+A freshly booted, idle MariaDB has near-zero temp-table counters, which
+is STATE_OK with the plugin's defaults. The test then forces temporary
+tables onto disk (`SELECT DISTINCT` over a `TEXT` column; on MariaDB this
+is 90% and more on disk, MySQL 8 keeps them in memory). That is far above
+the 25% threshold, but the server has been up for seconds: the plugin must
+stay at STATE_OK and say that the percentage is not evaluated yet. The
+evaluated path starts after one hour of uptime, which a container cannot
+reach.
 
 The test matrix is defined by the Containerfiles under
 `containerfiles/`. Each file is a Containerfile (typically a
@@ -62,7 +66,7 @@ def _check_image(test, containerfile):
     path = os.path.join(CONTAINERFILES_DIR, containerfile)
     print(f'\n=== Testing {containerfile} ===', flush=True)
     with lib.lftest.run_mysql_compatible_from_containerfile(path) as (
-        _container,
+        container,
         defaults_file,
     ):
         cmd = [
@@ -82,6 +86,39 @@ def _check_image(test, containerfile):
 
         test.assertEqual(result.returncode, STATE_OK)
         test.assertIn("|'mysql_", combined)
+
+        # 40 temporary tables with a `TEXT` column
+        select_sql = 'SELECT DISTINCT txt FROM test.temp_tables; '
+        sql = (
+            'CREATE TABLE test.temp_tables (id INT, txt TEXT); '
+            "INSERT INTO test.temp_tables VALUES (1, 'a'), (2, 'b'), (3, 'c'); "
+            f'{select_sql * 40}'
+        )
+        container.exec(
+            [
+                'sh',
+                '-c',
+                'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
+                'else C=mysql; fi; '
+                f'"$C" -uroot -e "{sql}" >/dev/null 2>&1 '
+                f'|| "$C" -uroot -ptest -e "{sql}" >/dev/null',
+            ]
+        )
+        result = subprocess.run(
+            cmd,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            capture_output=True,
+            text=True,
+        )
+        combined = result.stdout + result.stderr
+        print(f'Script output (after the queries):\n{combined.strip()}', flush=True)
+        test.assertEqual(result.returncode, STATE_OK)
+        test.assertIn('percentage alert suppressed', combined)
+        test.assertNotIn('[WARNING]', combined)
+        test.assertNotIn('[CRITICAL]', combined)
+        if not os.path.basename(path).startswith('mysql'):
+            # MariaDB spills them to disk, so the suppressed percentage is high.
+            test.assertRegex(combined, r'(?:[3-9]\d|100)(?:\.\d)?% \(\d+ on disk')
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)

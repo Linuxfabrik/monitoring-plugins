@@ -17,6 +17,7 @@ Checks the percentage of MySQL/MariaDB temporary tables that had to spill to dis
 * Queries `SHOW GLOBAL VARIABLES` for `max_heap_table_size` and `tmp_table_size`
 * Queries `SHOW GLOBAL STATUS` for `Created_tmp_disk_tables` and `Created_tmp_tables`
 * Calculates the disk temporary table percentage as `Created_tmp_disk_tables / Created_tmp_tables * 100`
+* The percentage is a lifetime average, so during the first hour of uptime it is reported but not evaluated
 * Cumulative counters are persisted in a local SQLite cache between runs so the dashboard can plot per-second rates instead of unbounded counters
 
 
@@ -48,7 +49,9 @@ disk (`Created_tmp_disk_tables` divided by `Created_tmp_tables`). A high
 percentage means queries are materialising temporary tables larger than the
 smaller of `tmp_table_size` and `max_heap_table_size`, and the server falls
 back to a disk-based temporary table. Alerts when the percentage crosses
-`--warning` / `--critical`.
+`--warning` / `--critical`. On freshly-booted servers (uptime < 1 hour) the
+percentage is reported but not evaluated, because it is a lifetime average
+over only a handful of queries then.
 
 options:
   -h, --help            show this help message and exit
@@ -103,8 +106,8 @@ Recommendations:
 
 ## States
 
-* WARN if the percentage of temporary tables created on disk is outside `--warning` (default: `25`, alerts above 25%).
-* CRIT if the percentage is outside `--critical` (default: `50`, alerts above 50%).
+* WARN if the percentage of temporary tables created on disk is outside `--warning` (default: `25`, alerts above 25%), after at least one hour of uptime.
+* CRIT if the percentage is outside `--critical` (default: `50`, alerts above 50%), after at least one hour of uptime.
 * Both `--warning` and `--critical` accept Nagios range expressions, see [THRESHOLDS.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/THRESHOLDS.md).
 * `--always-ok` suppresses all alerts and always returns OK.
 

@@ -55,6 +55,7 @@ Monitoring Plugins:
 * mysql-index-health: unused indexes are listed but alert only with `--warning-unused`
 * mysql-joins: no alert on the per-day rate during the first 24 hours of uptime
 * mysql-table-cache: no alert in the first hour after a restart, while the cache is still filling
+* mysql-temp-tables: no alert on the share of on-disk temporary tables in the first hour after a restart
 * php-fpm-logfile: also reports PHP fatal errors of the pools, hung workers and idle FastCGI connections; a pool that filled up once is WARNING
 * php-fpm-ping: a ping page that cannot be fetched raises `--severity` instead of UNKNOWN
 * php-fpm-status: the pool table shows the state of each pool in its last column
