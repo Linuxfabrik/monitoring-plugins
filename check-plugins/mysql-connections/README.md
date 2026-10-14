@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the connection usage rate, the rate of aborted connections, and whether name resolution is active for new connections on MySQL/MariaDB. Provides recommendations when thresholds are exceeded.
+Checks the connection usage rate, the rate of aborted connections, and whether name resolution is active for new connections on MySQL/MariaDB. Provides recommendations when thresholds are exceeded. The percentage of aborted connections is a lifetime average, so it is only evaluated once the server has accepted at least `--min-connections` connections (default 100); before that it is reported without raising WARN.
 
 **Important Notes:**
 
@@ -39,13 +39,16 @@ Checks the connection usage rate, the rate of aborted connections, and whether n
 usage: mysql-connections [-h] [-V] [--always-ok]
                          [--defaults-file DEFAULTS_FILE]
                          [--defaults-group DEFAULTS_GROUP]
-                         [--ignore-name-resolution] [--no-perfdata]
+                         [--ignore-name-resolution]
+                         [--min-connections MIN_CONNECTIONS] [--no-perfdata]
                          [--timeout TIMEOUT]
 
 Checks the connection usage rate and the rate of aborted connections in
 MySQL/MariaDB. Also verifies whether name resolution is enabled for new
 connections, which can impact performance. Alerts when connection usage or
-abort rates exceed acceptable levels.
+abort rates exceed acceptable levels. The abort rate is only evaluated once
+the server has accepted at least `--min-connections` connections (default
+100), because a handful of aborted connections out of a few dozen is no rate.
 
 options:
   -h, --help            show this help message and exit
@@ -61,6 +64,15 @@ options:
                         client
   --ignore-name-resolution
                         Suppress the warning about active name resolution.
+  --min-connections MIN_CONNECTIONS
+                        Minimum number of connections the server has accepted
+                        since its start before the percentage of aborted
+                        connections is evaluated. The percentage is a lifetime
+                        average, so right after a restart a single aborted
+                        connection out of a few dozen would exceed the
+                        threshold. Below the minimum the percentage is
+                        reported but does not raise WARN. Example: `--min-
+                        connections=1000`. Default: 100
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -92,7 +104,7 @@ Recommendations:
 ## States
 
 * WARN if the **current** number of connections (`Threads_connected`) exceeds 85% of `max_connections`. The lifetime **peak** (`Max_used_connections / max_connections`) is reported and graphed but does not trigger an alert.
-* WARN if the lifetime aborted-connections ratio (`Aborted_connects / Connections`) exceeds 3%.
+* WARN if the lifetime aborted-connections ratio (`Aborted_connects / Connections`) exceeds 3%, once the server has accepted at least `--min-connections` connections (default: 100). Below that the ratio is shown, but does not raise WARN.
 * WARN if name resolution is active (unless `--ignore-name-resolution` is used). Suppressed when `skip_networking=ON` or when the MySQL/MariaDB version does not expose `skip_name_resolve`.
 * `--always-ok` suppresses all alerts and always returns OK.
 

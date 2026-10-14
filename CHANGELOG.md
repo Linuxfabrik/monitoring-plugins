@@ -50,6 +50,7 @@ Monitoring Plugins:
 * librenms-validate: reports the validations as a compact list instead of a wide table
 * lynis: lists every finding and suggestion with the host it was found on, and refuses to run as root
 * memory-paging: swap written out no longer alerts by default, and the output names the processes behind the swap traffic
+* mysql-connections: the share of aborted connections is not evaluated before 100 connections, so a restart no longer alerts
 * mysql-health: accounts on `mysql_native_password` cost Security points on MySQL 8.0+ only, so a MariaDB server no longer drops to 0/30
 * mysql-index-health: unused indexes are listed but alert only with `--warning-unused`
 * mysql-joins: no alert on the per-day rate during the first 24 hours of uptime

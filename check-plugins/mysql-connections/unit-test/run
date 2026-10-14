@@ -18,10 +18,13 @@ server and let the plugin talk to it over TCP.
 Container source: `quay.io/sclorg/mariadb-1011-c10s` - the Red Hat /
 CentOS Stream 10 sclorg packaging of MariaDB 10.11 LTS.
 
-Per CONTRIBUTING's "Combine container tests with fixtures" rule,
-this file holds only the happy-path integration test. A freshly
-booted, lightly-loaded MariaDB always reports a few percent of
-used connections, which is STATE_OK with the plugin's defaults.
+A freshly booted, lightly-loaded MariaDB always reports a few percent
+of used connections, which is STATE_OK with the plugin's defaults. The
+test then fails a few logins on purpose. A handful of aborted connections
+out of a few dozen is a high percentage but no rate, so the plugin must
+stay at STATE_OK and say that the percentage is not evaluated yet
+(`--min-connections`, default 100); with `--min-connections=0` the very
+same counters must raise STATE_WARN.
 
 Requirements:
 - podman (or docker) with a reachable socket
@@ -38,7 +41,7 @@ import unittest
 sys.path.insert(0, '..')
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_OK, STATE_WARN
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
@@ -58,7 +61,7 @@ def _check_image(test, containerfile):
     path = os.path.join(CONTAINERFILES_DIR, containerfile)
     print(f'\n=== Testing {containerfile} ===', flush=True)
     with lib.lftest.run_mysql_compatible_from_containerfile(path) as (
-        _container,
+        container,
         defaults_file,
     ):
         cmd = [
@@ -80,6 +83,45 @@ def _check_image(test, containerfile):
         test.assertRegex(combined, r'\d+(\.\d+)?% aborted connections')
         test.assertRegex(combined, r'current \d+(\.\d+)?% used')
         test.assertRegex(combined, r'peak \d+(\.\d+)?% used')
+
+        # Five failed logins: each one counts as an aborted connect.
+        for _ in range(5):
+            container.exec(
+                [
+                    'sh',
+                    '-c',
+                    'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
+                    'else C=mysql; fi; '
+                    '"$C" -uroot -pwrong-password -e "SELECT 1" >/dev/null 2>&1 '
+                    '|| true',
+                ]
+            )
+
+        # Few connections: the percentage is reported, but not evaluated.
+        result = subprocess.run(
+            cmd,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            capture_output=True,
+            text=True,
+        )
+        combined = result.stdout + result.stderr
+        print(f'Script output (default):\n{combined.strip()}', flush=True)
+        test.assertEqual(result.returncode, STATE_OK)
+        test.assertRegex(combined, r'[1-9]\d*(\.\d+)?% aborted connections')
+        test.assertIn('not evaluated below 100 connections', combined)
+
+        # No minimum: the same counters exceed 3%.
+        result = subprocess.run(
+            [*cmd, '--min-connections=0'],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            capture_output=True,
+            text=True,
+        )
+        combined = result.stdout + result.stderr
+        print(f'Script output (--min-connections=0):\n{combined.strip()}', flush=True)
+        test.assertEqual(result.returncode, STATE_WARN)
+        test.assertNotIn('not evaluated', combined)
+        test.assertRegex(combined, r'% aborted connections.*\[WARNING\]')
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)

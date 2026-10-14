@@ -22,18 +22,21 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026101401'
 
 SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-connections.db'
 
 DESCRIPTION = """Checks the connection usage rate and the rate of aborted connections in MySQL/MariaDB.
 Also verifies whether name resolution is enabled for new connections, which can impact
 performance.
-Alerts when connection usage or abort rates exceed acceptable levels."""
+Alerts when connection usage or abort rates exceed acceptable levels. The abort rate is only
+evaluated once the server has accepted at least `--min-connections` connections (default 100),
+because a handful of aborted connections out of a few dozen is no rate."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_IGNORE_NAME_RESOLUTION = False
+DEFAULT_MIN_CONNECTIONS = 100
 DEFAULT_TIMEOUT = 3
 
 
@@ -82,6 +85,21 @@ def parse_args():
         dest='IGNORE_NAME_RESOLUTION',
         action='store_true',
         default=DEFAULT_IGNORE_NAME_RESOLUTION,
+    )
+
+    parser.add_argument(
+        '--min-connections',
+        help='Minimum number of connections the server has accepted since '
+        'its start before the percentage of aborted connections is '
+        'evaluated. The percentage is a lifetime average, so right after a '
+        'restart a single aborted connection out of a few dozen would '
+        'exceed the threshold. Below the minimum the percentage is reported '
+        'but does not raise WARN. '
+        'Example: `--min-connections=1000`. '
+        'Default: %(default)s',
+        dest='MIN_CONNECTIONS',
+        type=int,
+        default=DEFAULT_MIN_CONNECTIONS,
     )
 
     parser.add_argument(
@@ -190,7 +208,11 @@ def main():
     mycalc['pct_connections_aborted'] = round(
         int(mystat['Aborted_connects']) / int(mystat['Connections']) * 100, 1
     )
-    if mycalc['pct_connections_aborted'] > 3:
+    # A lifetime percentage over a few dozen connections is noise: right after a
+    # restart 3 aborted connections out of 29 read as "10.3%" and raised a WARN.
+    # mysqltuner does not skip this case; we do (Linuxfabrik addition).
+    too_few_connections = int(mystat['Connections']) < args.MIN_CONNECTIONS
+    if mycalc['pct_connections_aborted'] > 3 and not too_few_connections:
         aborted_connections_state = STATE_WARN
         state = lib.base.get_worst(state, aborted_connections_state)
         recommendations.append(
@@ -203,6 +225,11 @@ def main():
         f'{mycalc["pct_connections_aborted"]}% aborted connections'
         f' ({aborted}/{total_conn}){aborted_str}'
     )
+    if too_few_connections:
+        facts[-1] += (
+            f' (not evaluated below {lib.human.number2human(args.MIN_CONNECTIONS)}'
+            f' connections)'
+        )
 
     # currently used Connections
     cur_connections_state = STATE_OK
