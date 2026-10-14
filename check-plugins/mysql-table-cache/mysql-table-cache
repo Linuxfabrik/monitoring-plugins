@@ -21,13 +21,14 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026101401'
 
 DESCRIPTION = """Checks the hit rate of the MySQL/MariaDB open table cache (`Table_open_cache_hits`
 divided by (`Table_open_cache_hits` + `Table_open_cache_misses`); on servers without
 `Table_open_cache_hits` it falls back to `Open_tables` / `Opened_tables`). A low hit rate means
 `table_open_cache` is too small for the workload and threads have to keep reopening tables.
-Alerts when the rate drops below `--warning` / `--critical`."""
+Alerts when the rate drops below `--warning` / `--critical`. On freshly-booted servers (uptime
+< 1 hour) the hit-rate alert is suppressed because the cache has not had time to warm up."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -38,6 +39,10 @@ DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_WARN = '20:'
 DEFAULT_CRIT = '10:'
 DEFAULT_TIMEOUT = 3
+
+# Cache warm-up window: below this uptime we skip the hit-rate alert because
+# the cache has not had time to fill up (same window as `mysql-thread-cache`).
+WARMUP_UPTIME_SECONDS = 3600
 
 SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-table-cache.db'
 
@@ -139,6 +144,7 @@ def get_status(conn):
             or variable_name like 'Opened_tables'
             or variable_name like 'Table_open_cache_hits'
             or variable_name like 'Table_open_cache_misses'
+            or variable_name like 'Uptime'
             ;
           """
     return lib.base.coe(lib.db_mysql.select(conn, sql))
@@ -193,6 +199,8 @@ def main():
     has_modern_counters = cache_hits_raw is not None
     cache_hits = int(cache_hits_raw) if has_modern_counters else 0
     cache_misses = int(mystat.get('Table_open_cache_misses') or 0)
+    uptime = int(mystat.get('Uptime') or 0)
+    warming_up = uptime < WARMUP_UPTIME_SECONDS
 
     # analyze data
     # On a freshly booted server with no traffic, `Opened_tables = 0` is the
@@ -217,7 +225,11 @@ def main():
     # The `Open_tables > 0` guard mirrors mysqltuner: on a server that has
     # not yet opened a single table the hit rate is meaningless. On modern
     # MySQL/MariaDB this is essentially always true outside of CI fixtures.
-    if open_tables > 0:
+    # mysqltuner does not skip a cold cache; we do (Linuxfabrik addition):
+    # right after a restart every table is opened for the first time, so the
+    # hit rate sits near 0% for the first minutes (seen: 1 hit / 18 requests
+    # right after a restart, 78.8% in steady state).
+    if open_tables > 0 and not warming_up:
         state = lib.base.get_state(
             hit_rate,
             args.WARNING,
@@ -243,6 +255,11 @@ def main():
             f' / {lib.human.number2human(requests_for_msg)} requests)'
             f'{lib.base.state2str(state, prefix=" ")}'
         )
+        if warming_up:
+            facts.append(
+                f'cache is warming up (uptime {lib.human.seconds2human(uptime)}'
+                f' < 1 h); hit-rate alert suppressed'
+            )
     else:
         facts.append('no table opens yet (`Open_tables` = 0); hit-rate check skipped')
     facts.append(

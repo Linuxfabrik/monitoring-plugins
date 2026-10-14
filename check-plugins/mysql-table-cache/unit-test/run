@@ -16,18 +16,13 @@ from `SHOW GLOBAL STATUS` and `SHOW VARIABLES`, so a static
 fixture cannot drive it - we spin up an actual MariaDB server
 and let the plugin talk to it over TCP.
 
-Unlike most other integration tests this one targets the CRIT
-branch, not STATE_OK: a freshly booted MariaDB opens ~17 system
-tables during startup (all cache misses) and only a handful of
-hits happen after, so the table cache hit rate sits around ~5.6%,
-well below the plugin's `--critical` 10% floor. That is the
-correct, expected signal in production - a cold restart should
-fire the check - and the test pins that behavior so a future
-refactor that accidentally masks the cold-cache alert does not
-pass silently. We pass `--always-ok` and check the message text
-plus the embedded state marker rather than the exit code, so the
-plugin can keep returning OK to Icinga during the boot phase
-while still surfacing the warning to the admin.
+A freshly booted MariaDB opens ~17 system tables during startup
+(all cache misses) and only a handful of hits happen after, so the
+table cache hit rate sits around ~5.6%, far below the plugin's
+`--critical` 10% floor. The server's uptime is then seconds, inside
+the one hour warm-up window, so the plugin reports the rate but does
+not evaluate it: STATE_OK and a "warming up" fact. The test pins
+that behavior so a cold restart does not raise an alert.
 
 The test matrix is defined by the Containerfiles under
 `containerfiles/`. Each file is a Containerfile (typically a
@@ -50,7 +45,7 @@ import unittest
 sys.path.insert(0, '..')
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_OK
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
@@ -88,15 +83,13 @@ def _check_image(test, containerfile):
         combined = result.stdout + result.stderr
         print(f'Script output:\n{combined.strip()}', flush=True)
 
-        # MariaDB defaults give a cold-start hit rate that lands below
-        # the 10:%/20:% threshold and trips STATE_WARN or STATE_CRIT,
-        # depending on how many statements ran before the probe. MySQL
-        # ships a larger `table_open_cache` (4000 vs MariaDB's 421/2000)
-        # and cleanly stays above 95% on first probe -> STATE_OK. Accept
-        # all three, but assert the fact line that proves the check
-        # actually ran.
-        test.assertIn(result.returncode, (STATE_OK, STATE_WARN, STATE_CRIT))
+        # The container has just booted, so its uptime is inside the warm-up
+        # window and the hit rate (MariaDB ~5.6%, MySQL > 95%) is not
+        # evaluated. Assert the fact line that proves the check ran and the
+        # warm-up fact that proves the alert was suppressed.
+        test.assertEqual(result.returncode, STATE_OK)
         test.assertRegex(combined, r'[Tt]able cache hit rate')
+        test.assertIn('warming up', combined)
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)
