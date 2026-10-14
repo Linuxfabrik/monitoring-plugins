@@ -276,6 +276,8 @@ The guest cannot be fixed from inside; a hypervisor that is clean makes the gues
 
 The check reports this as undecided, and the table keeps the kernel's line. The guest sees only the CPUID bits its hypervisor sets, and `Safe RET, no microcode` means that the bit for the extended IBPB (`IBPB_BRTYPE`) is missing, not that the microcode of the host is old. The guest often shows a current microcode revision in `/proc/cpuinfo` at the same time. The same holds for the other `no microcode` lines in `tsa`, `reg_file_data_sampling`, `mds`, `mmio_stale_data` and `tsx_async_abort`.
 
+On AMD Zen 1 and Zen 2 without SMT, `spec_rstack_overflow` is not exploitable at all, and most kernels say so with `Mitigation: SMT disabled`. The RHEL 8 kernel makes that decision only when it sees the microcode, so the same virtual CPU shows `Safe RET, no microcode` there while a RHEL 9 or RHEL 10 guest on the same hypervisor shows `Mitigation: SMT disabled`.
+
 Run the check on the hypervisor and update its BIOS and microcode there. Then see whether the hypervisor passes the CPU features through to the guest: a CPU model pinned for live migration hides the bits. Where the host is current and the bits stay hidden, accept the line for those virtual machines with `--ignore='^spec_rstack_overflow$'`, which keeps the rest of the check alerting.
 
 ### `This kernel publishes no CPU vulnerability information`

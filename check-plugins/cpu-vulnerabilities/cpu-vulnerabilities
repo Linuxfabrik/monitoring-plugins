@@ -117,7 +117,11 @@ NO_MITIGATION_TEXT = 'none'
 #   spec_rstack_overflow                    "Vulnerable: No microcode" and "Vulnerable:
 #       Safe RET, no microcode": IBPB_BRTYPE missing. A guest must not probe for it,
 #       because live migration can take it away (commit 02428d0366a2), so only the
-#       hypervisor can set it
+#       hypervisor can set it. On Zen 1 and 2 without SMT, mainline answers "Mitigation:
+#       SMT disabled" before it looks at IBPB_BRTYPE, as do the RHEL 9 and 10 kernels
+#       (measured in guests on EPYC Rome). The RHEL 8 kernel (verified against the
+#       4.18.0-553.172.1 source) makes that test only inside "if (has_microcode)", so
+#       the same virtual CPU shows "Safe RET, no microcode" there
 #
 # srbds and gather_data_sampling use the same wording, but the kernel never gets there in
 # a guest and reports "Unknown: Dependent on hypervisor status" itself. The states
