@@ -725,6 +725,69 @@ class TestArrivalRate(unittest.TestCase):
         self.assertIn('Last 2h: 20 client denials from 198.51.100.7', combined)
 
 
+# A line mod_wsgi relayed from the standard error of an application, as Apache
+# 2.4.62 on Rocky 9 writes it (mod_wsgi 4.9.4, a Django application).
+WSGI_LINE = (
+    '[{timestamp}] [wsgi:error] [pid 538477:tid {tid}] [client 10.1.99.5:39890]'
+    ' {text}, referer: http://mvc.example.com/timesheets/add/'
+)
+
+
+class TestRelayedStandardError(unittest.TestCase):
+    """What an application writes to its standard error is counted per event.
+
+    mod_wsgi relays it line by line, so one failing request with a traceback of
+    seventeen lines must not pass for seventeen failing requests.
+    """
+
+    def setUp(self):
+        self.scratch_dir = tempfile.mkdtemp(prefix='relay-', dir=HERE)
+
+    def tearDown(self):
+        shutil.rmtree(self.scratch_dir, ignore_errors=True)
+
+    def _write(self, bursts, lines_per_burst, text='  File "app.py", line 3, in inner'):
+        """Write `bursts` events, `lines_per_burst` lines each, one thread apiece."""
+        path = os.path.join(self.scratch_dir, 'error_log')
+        first = datetime.datetime.now() - datetime.timedelta(minutes=5)
+        with open(path, 'w', encoding='utf-8') as handle:
+            for burst in range(bursts):
+                started = first + datetime.timedelta(seconds=10 * burst)
+                for index in range(lines_per_burst):
+                    logged_at = started + datetime.timedelta(microseconds=3 * index)
+                    handle.write(
+                        WSGI_LINE.format(
+                            timestamp=logged_at.strftime(APACHE_TIMESTAMP_FORMAT),
+                            tid=538506 + burst,
+                            text=text,
+                        )
+                        + '\n'
+                    )
+        return path
+
+    def test_a_traceback_is_one_request_error(self):
+        path = self._write(bursts=1, lines_per_burst=17)
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_OK, combined)
+        self.assertIn('Last 10m: 1 request error', combined)
+
+    def test_separate_failures_are_counted_separately(self):
+        path = self._write(bursts=8, lines_per_burst=17)
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_WARN, combined)
+        self.assertIn('Last 10m: 8 request errors', combined)
+
+    def test_an_info_line_in_brackets_is_no_error(self):
+        path = self._write(
+            bursts=8,
+            lines_per_burst=1,
+            text='2026-10-14 07:47:35,034 [INFO] app.lib create_timesheet(): ok',
+        )
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_OK, combined)
+        self.assertNotIn('request error', combined)
+
+
 # A request PHP-FPM refused because the script does not exist, as Apache 2.4.37
 # on Rocky 8 writes it, taken from a host behind a reverse proxy.
 PRIMARY_SCRIPT_UNKNOWN_LINE = (

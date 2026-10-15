@@ -104,6 +104,7 @@ Monitoring Plugins:
 * the acknowledgement on the monitoring server is read from exactly the service `--icinga-service-name` names, quotes, backslashes and `*` included, on all plugins with `--icinga-callback`
 * apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: no journal warning on hosts without systemd ([#1544](https://github.com/Linuxfabrik/monitoring-plugins/issues/1544))
 * apache-httpd-logfile: no false warning when the server and all sites log to syslog, for FreeIPA INFO lines, HTTP/2 cleanup reports and PHP-FPM log buffer notices
+* apache-httpd-logfile: a failing mod_wsgi request counts once instead of once per traceback line
 * apache-httpd-security, nginx-security: read an indented `UID_MIN` from `/etc/login.defs`
 * borgbackup: a running backup is reported as running instead of UNKNOWN
 * by-winrm, dhcp-scope-usage: work with the default transport where only pywinrm is installed

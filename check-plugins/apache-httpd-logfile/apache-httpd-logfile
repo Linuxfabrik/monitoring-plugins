@@ -31,7 +31,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100601'
+__version__ = '2026101501'
 
 DESCRIPTION = """Scans the Apache HTTP Server error log for the events an administrator
 has to act on: children that died on a signal or had to be killed at a stop, a server that
@@ -623,10 +623,11 @@ BACKEND_REGEXES = (
 # still waits for while the client connection closes (`h2_stream(...,CLEANUP)`,
 # `m_report_stream_iter()`); that is the symptom of a slow backend, which the
 # proxy counter reports. mod_perl logs a client that went away as `Broken pipe`
-# or `(-102)` without a request scope.
+# or `(-102)` without a request scope. The level of an application's own line is
+# found as `INFO:` (Python's default format) or as `[INFO]`.
 NOISE_REGEX = re.compile(
     r"AH01071: Got error 'the log buffer is full"
-    r'|\[wsgi:\w+\] .*?\b(?:INFO|DEBUG)\b:'
+    r'|\[wsgi:\w+\] .*?(?:\b(?:INFO|DEBUG)\b:|\[(?:INFO|DEBUG)\])'
     r'|h2_stream\([^)]*\): started='
     r'|:Apache2 IO write: \(32\) Broken pipe'
     r'|Apache2::RequestIO::read: \(-102\)'
@@ -689,6 +690,16 @@ START_MARGIN = 300  # seconds
 # not an alert of its own; the few server problems Apache happens to log on a
 # client connection are named above or in NOISE_REGEX.
 SCOPE_REGEX = re.compile(r'\[(?:client|remote) [^\]]*\]')
+
+# mod_wsgi relays what an application writes to its standard error one line at a
+# time: it cuts the text at every newline and hands each piece to
+# `ap_log_rerror()` at `error` (`Log_call()` in `wsgi_logger.c`; verified against
+# mod_wsgi 4.9.4 and 6.1.1). A Python traceback of seventeen lines is therefore
+# seventeen request-scoped lines from one thread within a moment, and counted line
+# by line one failing request would pass for seventeen. The lines of one burst are
+# the one event they are.
+WSGI_RELAY_REGEX = re.compile(r'\[wsgi:\w+\] \[pid (\d+)(?::tid (\d+))?\]')
+RELAY_BURST_SECONDS = 1
 
 # Where the peer of a request-scoped line stands. Apache builds the field as
 # `[%s %s:%d]` in `ap_log_error_core()` of `server/log.c` - the kind, the
@@ -1928,6 +1939,7 @@ def main():
     # When the server last started or reloaded, by systemd's word in the journal.
     systemd_starts = []
     proxy_details = []
+    last_relay = None  # (pid, tid) and moment of the last relayed line counted
     for log_line in result['lines']:
         haystack = log_line.lower()
         if any(item.search(haystack) for item in compiled_ignore):
@@ -1974,6 +1986,21 @@ def main():
         recognized_cnt += 1
         if NOISE_REGEX.search(log_line):
             continue
+        relay = WSGI_RELAY_REGEX.search(log_line)
+        if relay and SCOPE_REGEX.search(log_line):
+            relayed_at = lib.logsource.timestamp(log_line, parse_timestamp)
+            if (
+                last_relay
+                and relayed_at
+                and last_relay[0] == relay.groups()
+                and 0
+                <= (relayed_at - last_relay[1]).total_seconds()
+                <= RELAY_BURST_SECONDS
+            ):
+                # Another line of the burst already counted.
+                last_relay = (relay.groups(), relayed_at)
+                continue
+            last_relay = (relay.groups(), relayed_at) if relayed_at else None
         if PROXY_DETAIL_REGEX.search(log_line):
             proxy_details.append(log_line)
             continue
