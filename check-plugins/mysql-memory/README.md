@@ -50,7 +50,7 @@ Galera GCache if present) and the theoretical worst-case peak (same formula
 but with `max_connections`). Also surfaces the RAM consumed by non-database
 processes on the host so admins can see when MySQL plus the rest of the system
 would exceed physical memory. Alerts when used or peak memory crosses the
-`--warning` / `--critical` thresholds, when peak + other-process memory
+`--warning` / `--critical` thresholds, when reached + other-process memory
 exceeds physical RAM, and when MySQL would allocate more than 2 GiB on a
 32-bit system. Supports extended reporting via --lengthy.
 
@@ -106,7 +106,7 @@ Max used memory: 67.6% (21.1GiB of 31.3GiB physical) [WARNING]. Peak possible: 9
 
 Recommendations:
 * Reduce your overall MySQL memory footprint for system stability
-* Dedicate this server to MySQL/MariaDB: peak MySQL memory plus other-process memory would exceed physical RAM
+* Dedicate this server to MySQL/MariaDB: reached MySQL memory plus other-process memory exceeds physical RAM
 * Top contributors to peak memory (largest first):
   - `max_allowed_packet` (16.0MiB) * `max_connections` (676) = 10.6GiB
   - `innodb_buffer_pool_size` (8.0GiB)
@@ -152,7 +152,7 @@ Memory breakdown (sorted by contribution to peak memory):
 * WARN if reached memory footprint (`pct_max_used_memory`) crosses `--warning` (default 85%); CRIT at `--critical` (default 95%).
 * WARN if theoretical peak (`pct_max_physical_memory`) crosses `--warning`; CRIT at `--critical`.
 * WARN if MySQL would allocate > 2 GiB on a 32-bit binary (address space limit).
-* WARN if peak MySQL memory + other-process memory exceeds physical RAM (dedicate-the-host hint).
+* WARN if reached MySQL memory (`max_used_memory`) + other-process memory exceeds physical RAM (dedicate-the-host hint). The theoretical peak is deliberately not part of this sum: it sits on the boundary on hosts shared with an application and would flip with every RSS fluctuation of the other processes.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -194,9 +194,9 @@ Memory breakdown (sorted by contribution to peak memory):
 
 ### Possible memory usage exceeds available memory
 
-`Overall possible memory usage with other process will exceed memory [WARNING]. Dedicate this server to your database for highest performance.`
+`Other process memory: 1.9GiB [WARNING]`, with the recommendation `Dedicate this server to MySQL/MariaDB: reached MySQL memory + other-process memory (...) exceeds physical RAM`.
 
-Decrease `max_connections`, tune buffer settings, stop other processes, or increase memory.
+The memory MySQL/MariaDB has actually reached (`Max_used_connections` based) plus the RSS of all other processes is larger than the physical RAM, so the OOM killer may strike. Decrease `max_connections`, tune buffer settings, stop other processes, or increase memory.
 
 
 ## Credits, License

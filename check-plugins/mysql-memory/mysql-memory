@@ -30,7 +30,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026101501'
 
 DESCRIPTION = """Estimates MySQL/MariaDB memory consumption and compares it to the host's
 physical RAM. Reports the currently-reached usage (server-wide buffers + per-thread
@@ -39,7 +39,7 @@ present) and the theoretical worst-case peak (same formula but with `max_connect
 Also surfaces the RAM consumed by non-database processes on the host so admins can
 see when MySQL plus the rest of the system would exceed physical memory.
 Alerts when used or peak memory crosses the `--warning` / `--critical` thresholds,
-when peak + other-process memory exceeds physical RAM, and when MySQL would allocate
+when reached + other-process memory exceeds physical RAM, and when MySQL would allocate
 more than 2 GiB on a 32-bit system.
 Supports extended reporting via --lengthy."""
 
@@ -235,8 +235,8 @@ def get_gcache_memory(myvar):
 
 def get_other_process_memory():
     """Total RSS of processes that are *not* MySQL/MariaDB. Used to detect
-    whether MySQL's theoretical peak plus the rest of the host's footprint
-    would exceed physical RAM.
+    whether MySQL's reached usage plus the rest of the host's footprint
+    exceeds physical RAM.
     """
     if not HAVE_PSUTIL:
         return 0
@@ -497,16 +497,25 @@ def main():
         f'{lib.base.state2str(peak_state, prefix=" ")}'
     )
 
-    # overcommit check (peak + other processes > physical)
+    # overcommit check (reached usage + other processes > physical)
+    # Deliberately compares the reached usage (`max_used_memory`), not the
+    # theoretical peak: MySQLTuner flags `peak + other > physical` as well, but
+    # it only evaluates other-process memory with `--tbstat`/`--verbose` and is
+    # run on request. This plugin runs every minute on hosts that share the
+    # machine with an application; there the theoretical sum sits on the
+    # boundary and flips with every RSS fluctuation of the other processes,
+    # while the reached usage is what actually risks the OOM killer. The
+    # theoretical peak stays visible as its own fact, evaluated against
+    # `--warning` / `--critical`. Verified against MySQLTuner 2.9.2.
     overcommit_state = STATE_OK
-    overcommit_total = mycalc['max_peak_memory'] + mycalc['other_process_memory']
+    overcommit_total = mycalc['max_used_memory'] + mycalc['other_process_memory']
     if mycalc['physical_memory'] < overcommit_total:
         overcommit_state = STATE_WARN
         # Show the actual sums so the admin doesn't have to mentally compute
         # whether the numbers from the facts line above add up.
         recommendations.append(
-            f'Dedicate this server to MySQL/MariaDB: peak MySQL memory'
-            f' + other-process memory ({bh(mycalc["max_peak_memory"])}'
+            f'Dedicate this server to MySQL/MariaDB: reached MySQL memory'
+            f' + other-process memory ({bh(mycalc["max_used_memory"])}'
             f' + {bh(mycalc["other_process_memory"])}'
             f' = {bh(overcommit_total)}) exceeds physical RAM'
             f' ({bh(mycalc["physical_memory"])})'

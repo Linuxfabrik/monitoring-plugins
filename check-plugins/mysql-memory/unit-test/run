@@ -16,6 +16,10 @@ total expected memory footprint, and compares it against the
 host's free memory. A static fixture cannot drive it - we spin up
 an actual MariaDB server and let the plugin talk to it over TCP.
 
+The overcommit check (reached usage + other-process memory > physical
+RAM) is driven by running the plugin through a small wrapper that fakes
+the host's RAM and the other processes' RSS.
+
 Per CONTRIBUTING's "Combine container tests with fixtures" rule,
 this file holds only the happy-path integration test. A freshly
 booted, idle MariaDB with default buffer settings requests well
@@ -42,7 +46,7 @@ import unittest
 sys.path.insert(0, '..')
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_OK, STATE_WARN
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
@@ -51,6 +55,29 @@ CONTAINERFILES = sorted(
     for name in os.listdir(CONTAINERFILES_DIR)
     if os.path.isfile(os.path.join(CONTAINERFILES_DIR, name))
 )
+
+
+# Runs the plugin with a fake host: 4 GiB of RAM, and one other process
+# with `argv[1]` bytes of RSS.
+WRAPPER = """
+import os, runpy, sys, types
+import psutil
+
+sys.path.insert(0, '..')
+
+other = int(sys.argv.pop(1))
+_sysconf = os.sysconf
+os.sysconf = lambda name: (
+    1048576 if name == 'SC_PAGE_SIZE' else 4096 if name == 'SC_PHYS_PAGES'
+    else _sysconf(name)
+)
+psutil.process_iter = lambda attrs=None: [
+    types.SimpleNamespace(
+        info={'name': 'app', 'memory_info': types.SimpleNamespace(rss=other)}
+    )
+]
+runpy.run_path('../mysql-memory', run_name='__main__')
+"""
 
 
 class TestCheck(unittest.TestCase):
@@ -89,6 +116,27 @@ def _check_image(test, containerfile):
 
         test.assertEqual(result.returncode, STATE_OK)
         test.assertIn("|'mysql_", combined)
+
+        # Overcommit: reached usage + other processes fit into the fake 4 GiB.
+        def run_wrapped(other_bytes):
+            res = subprocess.run(
+                ['python3', '-c', WRAPPER, str(other_bytes), *cmd[2:]],
+                cwd=os.path.dirname(os.path.abspath(__file__)),
+                capture_output=True,
+                text=True,
+            )
+            out = res.stdout + res.stderr
+            print(f'Script output (other={other_bytes}):\n{out.strip()}', flush=True)
+            return res.returncode, out
+
+        retc, out = run_wrapped(1 * 1024**3)
+        test.assertEqual(retc, STATE_OK)
+        test.assertNotIn('Dedicate this server', out)
+
+        # ... and does not once the other processes fill the RAM.
+        retc, out = run_wrapped(4 * 1024**3)
+        test.assertEqual(retc, STATE_WARN)
+        test.assertIn('Dedicate this server', out)
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)

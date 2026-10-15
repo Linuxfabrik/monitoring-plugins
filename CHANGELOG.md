@@ -55,6 +55,7 @@ Monitoring Plugins:
 * mysql-health: accounts on `mysql_native_password` cost Security points on MySQL 8.0+ only, so a MariaDB server no longer drops to 0/30
 * mysql-index-health: unused indexes are listed but alert only with `--warning-unused`
 * mysql-joins: no alert on the per-day rate during the first 24 hours of uptime
+* mysql-memory: no permanent "dedicate this server" warning on hosts shared with an application
 * mysql-table-cache: no alert in the first hour after a restart, while the cache is still filling
 * mysql-temp-tables: no alert on the share of on-disk temporary tables in the first hour after a restart
 * php-fpm-logfile: also reports PHP fatal errors of the pools, hung workers and idle FastCGI connections; a pool that filled up once is WARNING
