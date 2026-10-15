@@ -41,7 +41,7 @@ import unittest
 sys.path.insert(0, '..')
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_CRIT, STATE_OK
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LIB_DIR = os.path.realpath(os.path.join(HERE, '..', 'lib'))
@@ -61,6 +61,40 @@ CONTAINERFILES = [
     'ubuntu-v2404',
     'ubuntu-v2604',
 ]
+
+
+# Runs the plugin with fake cumulative CPU counters, `argv[1]` seconds of
+# iowait and `argv[2]` seconds of user time more on every call.
+WRAPPER = """
+import os, runpy, sys, types
+import psutil
+
+os.chdir('/tmp')
+
+iowait_step, user_step = float(sys.argv.pop(1)), float(sys.argv.pop(1))
+state_file = '/tmp/fake-cpu-times'
+try:
+    with open(state_file) as fh:
+        calls = int(fh.read())
+except OSError:
+    calls = 0
+calls += 1
+with open(state_file, 'w') as fh:
+    fh.write(str(calls))
+fields = dict.fromkeys(
+    ('user', 'nice', 'system', 'idle', 'iowait', 'irq', 'softirq', 'steal'),
+    0.0,
+)
+fields.update(
+    user=1000 + calls * user_step,
+    iowait=1000 + calls * iowait_step,
+    idle=1000 + calls * (100 - iowait_step - user_step),
+    guest=0.0,
+    guest_nice=0.0,
+)
+psutil.cpu_times = lambda *a, **kw: types.SimpleNamespace(**fields)
+runpy.run_path('./cpu-usage', run_name='__main__')
+"""
 
 
 class TestCheck(unittest.TestCase):
@@ -151,6 +185,30 @@ def _check_containerfile(test, containerfile):
             test.assertEqual(result.exit_code, STATE_OK)
             test.assertRegex(output, r"'cpu0_usage'=\d+\.\d+%")
             test.assertRegex(output, r'hottest core cpu\d+ at \d+\.\d+%')
+
+            # A host that mostly waits for its disks is not a host with a
+            # saturated CPU: iowait never counts towards the thresholds, user
+            # time does. Fresh state, then more runs than --count.
+            def run_fake(iowait_step, user_step):
+                container.exec(
+                    ['sh', '-c', 'rm -f /tmp/fake-cpu-times /tmp/*cpu-usage*.db']
+                )
+                python = '/tmp/venv/bin/python3' if use_venv else 'python3'
+                res = None
+                for _ in range(7):
+                    res = container.exec(
+                        [python, '-c', WRAPPER, str(iowait_step), str(user_step)]
+                    )
+                out = (res.output or b'').decode('utf-8', errors='replace')
+                print(f'Script output (iowait={iowait_step}):\n{out.strip()}', flush=True)
+                return res.exit_code, out
+
+            retc, out = run_fake(90, 5)
+            test.assertEqual(retc, STATE_OK)
+            test.assertIn('iowait: 90.0%', out)
+
+            retc, out = run_fake(0, 95)
+            test.assertEqual(retc, STATE_CRIT)
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_containerfile)

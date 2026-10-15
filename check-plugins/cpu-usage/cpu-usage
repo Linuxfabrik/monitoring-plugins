@@ -30,11 +30,11 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026101501'
 
 DESCRIPTION = """Reports CPU utilization percentages for all available time categories
 (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall
-cpu-usage, which is the total busy share of all CPUs (100 - idle) and therefore includes
+cpu-usage, which is the total busy share of all CPUs (100 - idle - iowait) and therefore includes
 nice.
 
 Thresholds (WARN/CRIT) are checked against user, system, and the busy share without nice.
@@ -361,7 +361,9 @@ def cpu_usage_percpu(conn, window):
         if total <= 0.0:
             # A core that was offline for the whole window has no time to divide by.
             return None
-        usage.append(round(100.0 - (deltas['idle'] / total) * 100.0, 1))
+        # iowait is idle time on Linux, same as in the overall number
+        idle = deltas['idle'] + deltas['iowait']
+        usage.append(round(100.0 - (idle / total) * 100.0, 1))
     return usage
 
 
@@ -583,9 +585,14 @@ def main():
     # except work that was asked to stand back. Niced work yields to anything else the
     # machine has to do, so a box that is busy with nothing but batch jobs is doing
     # exactly what it was told to. The metric reported below is the plain total
-    # (100 - idle) and therefore includes nice, because that is what an administrator
-    # looking at a utilization graph expects to see.
-    stats['cpu_usage'] = round(100.0 - stats['idle'] - stats['nice'], 1)
+    # (100 - idle - iowait) and therefore includes nice, because that is what an
+    # administrator looking at a utilization graph expects to see.
+    # iowait does not count as busy: psutil reports it separately from idle, but on
+    # Linux it is idle time (see the comment above get_from_db()), so a host waiting
+    # for its disks at 90% iowait is not a host with a saturated CPU.
+    stats['cpu_usage'] = max(
+        round(100.0 - stats['idle'] - stats['nice'] - stats['iowait'], 1), 0.0
+    )
 
     # save trend data to local sqlite database, limited to "count" rows max.
     lib.base.coe(lib.db_sqlite.insert(conn, stats))

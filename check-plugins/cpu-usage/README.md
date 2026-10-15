@@ -3,7 +3,7 @@
 
 ## Overview
 
-Reports CPU utilization percentages for all available time categories (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall cpu-usage, which is the total busy share of all CPUs (100 - idle) and therefore includes nice.
+Reports CPU utilization percentages for all available time categories (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall cpu-usage, which is the total busy share of all CPUs (100 - idle - iowait) and therefore includes nice.
 
 Thresholds (WARN/CRIT) are checked against user, system, and the busy share without nice. Work that runs at a lowered priority yields to everything else, so a host busy with nothing but niced batch work stays OK while its cpu-usage graph shows the machine at full load. An alert is raised only if the threshold is exceeded for COUNT consecutive runs, suppressing short spikes and focusing on sustained load. iowait is reported and graphed but never triggers an alert, because Linux iowait is relabelled idle time and unreliable on multi-core systems.
 
@@ -19,7 +19,7 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 
 **Important Notes:**
 
-* The reported `cpu-usage` and the value the thresholds are checked against are not the same number. `cpu-usage` is the plain total of everything the CPUs did except idle, niced work included, because that is what a utilization graph should show. The thresholds leave niced work out, because a process that was asked to stand back is not a reason to alert. A host running nothing but `nice`d batch jobs therefore graphs at 100% and stays OK.
+* The reported `cpu-usage` and the value the thresholds are checked against are not the same number. `cpu-usage` is the plain total of everything the CPUs did except idle, niced work included, because that is what a utilization graph should show. The thresholds leave niced work out, because a process that was asked to stand back is not a reason to alert. A host running nothing but `nice`d batch jobs therefore graphs at 100% and stays OK. `iowait` counts as idle, so a host that mostly waits for its disks does not graph as busy.
 * Steal alerts at 10% by default. On a virtual machine whose hypervisor has always been oversubscribed, this reports a WARN that was not reported before. Set `--warning-steal=""` to switch it off, or raise it to the level the platform is expected to deliver.
 * `--per-cpu` reports no per-core metrics until a second run with `--per-cpu` has a snapshot to measure against. That is the case on the first run, after a reboot, after a core was added to the machine, and after the check ran without `--per-cpu` in between. Only a run given the option records the per-core snapshot, and an older one would cover a different period than the overall percentages printed next to it.
 
@@ -57,29 +57,30 @@ usage: cpu-usage [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT]
 
 Reports CPU utilization percentages for all available time categories (user,
 system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the
-overall cpu-usage, which is the total busy share of all CPUs (100 - idle) and
-therefore includes nice. Thresholds (WARN/CRIT) are checked against user,
-system, and the busy share without nice. Work that runs at a lowered priority
-yields to everything else, so a host busy with nothing but niced batch work
-stays OK while its cpu-usage graph shows the machine at full load. An alert is
-raised only if the threshold is exceeded for COUNT consecutive runs,
-suppressing short spikes and focusing on sustained load. iowait is reported
-and graphed but never triggers an alert, because Linux iowait is relabelled
-idle time and unreliable on multi-core systems. Steal time carries its own
-threshold, because a virtual machine can sit at a harmless overall utilization
-while an oversubscribed hypervisor takes a quarter of its CPU time away.
---per-cpu adds one utilization metric per core and names the busiest one,
-which is what a single-threaded bottleneck looks like on a machine that
-otherwise appears mostly idle. The percentages are averaged over the time
-since the previous run, and the output names that window ("over 60s"). Run
-once a minute, the check reports the last minute. A delayed or skipped run
-covers a longer window, a run started by hand in between leaves the next one a
-shorter window, and a run without a previous snapshot to compare against takes
-a 0.25s sample instead. Perfdata is emitted for every field to enable full
-graphing. Extended stats (context switches, interrupts, etc.) are included if
-supported on this platform. This check is cross-platform and works on Linux,
-Windows, and all psutil-supported systems. The check stores its short trend
-state locally in an SQLite DB to evaluate sustained load across runs.
+overall cpu-usage, which is the total busy share of all CPUs (100 - idle -
+iowait) and therefore includes nice. Thresholds (WARN/CRIT) are checked
+against user, system, and the busy share without nice. Work that runs at a
+lowered priority yields to everything else, so a host busy with nothing but
+niced batch work stays OK while its cpu-usage graph shows the machine at full
+load. An alert is raised only if the threshold is exceeded for COUNT
+consecutive runs, suppressing short spikes and focusing on sustained load.
+iowait is reported and graphed but never triggers an alert, because Linux
+iowait is relabelled idle time and unreliable on multi-core systems. Steal
+time carries its own threshold, because a virtual machine can sit at a
+harmless overall utilization while an oversubscribed hypervisor takes a
+quarter of its CPU time away. --per-cpu adds one utilization metric per core
+and names the busiest one, which is what a single-threaded bottleneck looks
+like on a machine that otherwise appears mostly idle. The percentages are
+averaged over the time since the previous run, and the output names that
+window ("over 60s"). Run once a minute, the check reports the last minute. A
+delayed or skipped run covers a longer window, a run started by hand in
+between leaves the next one a shorter window, and a run without a previous
+snapshot to compare against takes a 0.25s sample instead. Perfdata is emitted
+for every field to enable full graphing. Extended stats (context switches,
+interrupts, etc.) are included if supported on this platform. This check is
+cross-platform and works on Linux, Windows, and all psutil-supported systems.
+The check stores its short trend state locally in an SQLite DB to evaluate
+sustained load across runs.
 
 options:
   -h, --help            show this help message and exit
@@ -176,8 +177,8 @@ ctx_switches: 5.3K/s, interrupts: 8.2K/s, soft_interrupts: 3.8K/s
 
 | Name | Type | Description |
 |----|----|----|
-| cpu-usage | Percentage | The overall CPU usage, the total busy share of all CPUs (100 - `idle`). Includes `nice`, unlike the value the thresholds are checked against. |
-| `cpu<N>`\_usage | Percentage | The busy share of a single core (100 - its own `idle`), one metric per core, numbered as the operating system numbers its CPUs. Only with `--per-cpu`. |
+| cpu-usage | Percentage | The overall CPU usage, the total busy share of all CPUs (100 - `idle` - `iowait`). Includes `nice`, unlike the value the thresholds are checked against, which leaves out `nice`. |
+| `cpu<N>`\_usage | Percentage | The busy share of a single core (100 - its own `idle` - `iowait`), one metric per core, numbered as the operating system numbers its CPUs. Only with `--per-cpu`. |
 | ctx_switches_per_second | Number | Context switches (voluntary + involuntary) per second, calculated in the plugin from two consecutive runs. |
 | guest | Percentage | Time spent running a virtual CPU (Linux 2.6.24+). |
 | guest_nice | Percentage | Time spent running a niced guest (Linux 3.2.0+). |

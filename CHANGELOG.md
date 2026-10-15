@@ -109,6 +109,7 @@ Monitoring Plugins:
 * by-winrm, dhcp-scope-usage: work with the default transport where only pywinrm is installed
 * by-winrm: patterns see the output as PowerShell shows it again, JEA endpoints accept the command, a failed login returns UNKNOWN, and the first line says what raised the state
 * cert: `--source=file` works with the Python 3.6 of RHEL 8, the other sources say which Python they need instead of crashing
+* cpu-usage: no alert while the CPUs are idle and only waiting for I/O
 * dhcp-scope-usage: works again, also locally on Windows
 * disk-io: learns a disk's maximum bandwidth for a week before it warns, no more false warnings on busy hosts after the update, covers every logical volume on hosts without udevadm, and `--match` finds a disk by any of its mount points
 * disk-usage, nfs-exports, nfs-mounts, path-rw-test: return on time even when a hung NFS mount keeps a probe from ending
