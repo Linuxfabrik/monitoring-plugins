@@ -157,6 +157,7 @@ Monitoring Plugins:
 * restic-check, restic-stats: work with restic v0.18 and newer, no crash in the `raw-data` and `blobs-per-file` modes
 * service: names a refused service list instead of ending in a Python error
 * snmp: works with the default `--device`, and on Debian and Ubuntu
+* sshd-logfile: recognizes the MaxStartups rate-limit line under both spellings OpenSSH uses
 * statusiq: no longer ends in a Python error on a date without seconds or weekday, with a zone name, or on an item without a date
 * swap-usage: names missing access to the performance counters instead of calling them corrupt
 * systemd-units-failed: no longer names an ignored unit as the last failed one

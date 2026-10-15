@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026101501'
 
 DESCRIPTION = """Scans the log of the OpenSSH server for the events an administrator has to
 act on: a server that refused to start, a host key it could not load, a key file it refused
@@ -446,6 +446,11 @@ RATE_EVENTS = (
         # whoever happened to connect next, so the address on the line says
         # nothing about the cause. What matters is how many were turned away.
         'per_source': False,
+        # Spelled `Maxstartups` by the OpenSSH releases that have the rate limit
+        # (`drop_connection()` in sshd.c, bbc9c18e8 of 2024-12-07, in 10.0) and
+        # `MaxStartups` since the spelling fix efea9b3cb of 2026-09-16; OpenSSH
+        # 8.4 to 9.7 log `MaxStartups throttling` instead. The version cannot be asked for: the
+        # log may come from another host, so every spelling is matched.
         # Connections sshd refused because too many were waiting to authenticate.
         # Unlike everything else here this hits whoever connects next, an
         # administrator included, which is why the threshold sits at one. What
@@ -455,7 +460,7 @@ RATE_EVENTS = (
         'regex': re.compile(
             r'drop connection #\d+ from (?!.*penalty:)'
             r'|MaxStartups throttling'
-            r'|Maxstartups logging rate-limited'
+            r'|[Mm]ax[Ss]tartups logging rate-limited'
         ),
         'critical': 'THROTTLED_CONNECTIONS_CRITICAL',
         'warning': 'THROTTLED_CONNECTIONS_WARNING',
