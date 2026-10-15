@@ -31,7 +31,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026101501'
+__version__ = '2026101502'
 
 DESCRIPTION = """Scans the Apache HTTP Server error log for the events an administrator
 has to act on: children that died on a signal or had to be killed at a stop, a server that
@@ -268,6 +268,14 @@ LEVELS = (
 )
 LEVEL_CHOICES = [item['level'] for item in LEVELS] + [LEVEL_NONE]
 
+# Apache writes `scoreboard is full, not at MaxRequestWorkers` on every pass of
+# its idle server maintenance, which runs once a second, for as long as the state
+# lasts (`event.c` AH03490, `worker.c` AH00288; unlike AH00484 and its siblings
+# there is no flag that keeps it quiet). A run of such lines is one situation, so
+# lines of this kind that follow each other within a few seconds count once.
+REPEATED_EVENT_REGEX = re.compile(r'\bAH(?:00288|03490)\b')
+REPEATED_EVENT_SECONDS = 5
+
 # The events worth naming on their own, because the level alone does not say what
 # happened - and because Apache logs some of them below `warn`, where nothing but
 # the message itself makes them visible. Everything else Apache writes is covered
@@ -326,16 +334,44 @@ EVENTS = (
         'label': 'worker saturation',
         'perfdata': 'apache_httpd_worker_saturations',
         # `server reached MaxRequestWorkers setting` for the three MPMs of the
-        # Unix family, plus `scoreboard is full, not at MaxRequestWorkers`, which
-        # is the same wall reached through a ServerLimit that is too low. Apache
-        # logs each of them once per generation, so the count says how often the
-        # situation returned after a restart rather than how many requests waited.
+        # Unix family (AH00161 prefork, AH00286 worker, AH00484 event), plus
+        # `scoreboard is full, not at MaxRequestWorkers` (AH00288 worker, AH03490
+        # event), which is the same wall reached through a ServerLimit that has
+        # no room left. Prefork has no such message: its ServerLimit is
+        # MaxRequestWorkers itself. The first kind is logged once and then kept
+        # quiet by `retained->maxclients_reported`, which nothing clears, so the
+        # count says how often the situation returned after the server was
+        # stopped and started again rather than how many requests waited. The
+        # second kind has no such flag and is logged on every pass of the idle
+        # server maintenance, about once a second for as long as the state
+        # lasts; REPEATED_EVENT_REGEX counts such a run as one event. The second
+        # kind is also not "out of workers": it needs fewer idle threads than
+        # MinSpareThreads, fewer active threads than MaxRequestWorkers and no free
+        # scoreboard slot, which is what a child that is still finishing a
+        # long-lived connection leaves behind when ServerLimit equals
+        # MaxRequestWorkers / ThreadsPerChild. Hence its own recommendation.
+        # Verified against the httpd sources: `event.c` perform_idle_server_
+        # maintenance() (AH00484 and AH03490), `worker.c` (AH00286, AH00288)
+        # and `prefork.c` (AH00161).
         'regex': re.compile(r'\bAH(?:00161|00286|00484|00288|03490)\b'),
         'state': STATE_CRIT,
         'recommendation': (
             'The server ran out of workers; raise `MaxRequestWorkers` (and'
             ' `ServerLimit` with it) or shorten the requests, otherwise clients'
             ' wait in the listen queue'
+        ),
+        'specific_recommendations': (
+            (
+                REPEATED_EVENT_REGEX,
+                (
+                    'The scoreboard has no free slot for a new child process,'
+                    ' although `MaxRequestWorkers` was not reached: children that'
+                    ' are still finishing long connections occupy slots. Raise'
+                    ' `ServerLimit` above `MaxRequestWorkers` / `ThreadsPerChild`'
+                    ' to leave room for them, and check the access log for a'
+                    ' client that opened many connections at once'
+                ),
+            ),
         ),
     },
     {
@@ -1940,6 +1976,7 @@ def main():
     systemd_starts = []
     proxy_details = []
     last_relay = None  # (pid, tid) and moment of the last relayed line counted
+    last_repeated = None  # moment of the last repeated-event line counted
     for log_line in result['lines']:
         haystack = log_line.lower()
         if any(item.search(haystack) for item in compiled_ignore):
@@ -2001,6 +2038,19 @@ def main():
                 last_relay = (relay.groups(), relayed_at)
                 continue
             last_relay = (relay.groups(), relayed_at) if relayed_at else None
+        if REPEATED_EVENT_REGEX.search(log_line):
+            repeated_at = lib.logsource.timestamp(log_line, parse_timestamp)
+            if (
+                last_repeated
+                and repeated_at
+                and 0
+                <= (repeated_at - last_repeated).total_seconds()
+                <= REPEATED_EVENT_SECONDS
+            ):
+                # Another line of the same run already counted.
+                last_repeated = repeated_at
+                continue
+            last_repeated = repeated_at
         if PROXY_DETAIL_REGEX.search(log_line):
             proxy_details.append(log_line)
             continue
@@ -2325,7 +2375,16 @@ def main():
             f'{lib.txt.pluralize(event["label"], len(hits), event.get("suffix", "s"))}'
             f'{lib.base.state2str(event["state"], prefix=" ")}'
         )
-        recommendations.append(event['recommendation'])
+        # Some lines of an event call for advice of their own, and the generic
+        # one would send the administrator to the wrong setting.
+        specific = event.get('specific_recommendations', ())
+        if not specific or any(
+            not any(regex.search(line) for regex, _ in specific) for line in hits
+        ):
+            recommendations.append(event['recommendation'])
+        for regex, text in specific:
+            if any(regex.search(line) for line in hits):
+                recommendations.append(text)
     if named:
         # Not "among them": a named event is counted here and nowhere else, so
         # these are lines the per-level counts above do not hold.

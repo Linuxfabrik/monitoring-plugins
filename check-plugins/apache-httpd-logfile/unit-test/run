@@ -129,6 +129,24 @@ CASES = [
         ],
     },
     {
+        # Apache repeats `scoreboard is full` about once a second for as long as
+        # the state lasts (no once-only flag, unlike the MaxRequestWorkers
+        # message), so the eight lines of this journal are one event, and its
+        # advice is about ServerLimit: MaxRequestWorkers was never reached.
+        'id': 'crit-scoreboard-full-is-one-event-and-names-serverlimit',
+        'params': [f'--server-log={fixture("rocky8-scoreboard-full-journal.txt")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '1 worker saturation [CRITICAL]',
+            'Raise `ServerLimit` above `MaxRequestWorkers` / `ThreadsPerChild`',
+            "'apache_httpd_worker_saturations'=1",
+        ],
+        'assert-not-in': [
+            '8 worker saturations',
+            'The server ran out of workers',
+        ],
+    },
+    {
         # Apache has not reworded any of these messages between the oldest
         # release an enterprise distribution still ships and the current one, so
         # the same run captured from httpd 2.4.37 has to yield the same counts.
@@ -786,6 +804,71 @@ class TestRelayedStandardError(unittest.TestCase):
         returncode, combined = _run([f'--server-log={path}'])
         self.assertEqual(returncode, STATE_OK, combined)
         self.assertNotIn('request error', combined)
+
+
+class TestRepeatedScoreboardFull(unittest.TestCase):
+    """`scoreboard is full` is logged once a second while the state lasts.
+
+    A run of such lines is one event; the same state after a quiet stretch is
+    another one.
+    """
+
+    LINE = (
+        '[{timestamp}] [mpm_event:error] [pid 872:tid 139715603177152] AH03490:'
+        ' scoreboard is full, not at MaxRequestWorkers.Increase ServerLimit.'
+    )
+
+    def setUp(self):
+        self.scratch_dir = tempfile.mkdtemp(prefix='scoreboard-', dir=HERE)
+
+    def tearDown(self):
+        shutil.rmtree(self.scratch_dir, ignore_errors=True)
+
+    def _write(self, offsets, extra_lines=()):
+        """One line per offset in seconds, counted from five minutes ago."""
+        path = os.path.join(self.scratch_dir, 'error_log')
+        first = datetime.datetime.now() - datetime.timedelta(minutes=5)
+        with open(path, 'w', encoding='utf-8') as handle:
+            for offset in offsets:
+                logged_at = first + datetime.timedelta(seconds=offset)
+                handle.write(
+                    self.LINE.format(
+                        timestamp=logged_at.strftime(APACHE_TIMESTAMP_FORMAT)
+                    )
+                    + '\n'
+                )
+            for line in extra_lines:
+                handle.write(line + '\n')
+        return path
+
+    def test_consecutive_seconds_are_one_event(self):
+        path = self._write(range(30))
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_CRIT, combined)
+        self.assertIn('1 worker saturation [CRITICAL]', combined)
+
+    def test_a_gap_starts_a_second_event(self):
+        path = self._write([*range(8), *range(60, 68)])
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_CRIT, combined)
+        self.assertIn('2 worker saturations [CRITICAL]', combined)
+
+    def test_the_once_only_message_still_gets_the_generic_advice(self):
+        once = (
+            '[{timestamp}] [mpm_event:error] [pid 872:tid 139715603177152]'
+            ' AH00484: server reached MaxRequestWorkers setting, consider raising'
+            ' the MaxRequestWorkers setting'
+        ).format(
+            timestamp=(
+                datetime.datetime.now() - datetime.timedelta(minutes=4)
+            ).strftime(APACHE_TIMESTAMP_FORMAT)
+        )
+        path = self._write(range(8), extra_lines=[once])
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_CRIT, combined)
+        self.assertIn('2 worker saturations [CRITICAL]', combined)
+        self.assertIn('The server ran out of workers', combined)
+        self.assertIn('Raise `ServerLimit` above `MaxRequestWorkers`', combined)
 
 
 # A request PHP-FPM refused because the script does not exist, as Apache 2.4.37
