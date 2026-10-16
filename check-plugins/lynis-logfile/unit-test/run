@@ -36,6 +36,11 @@ time.tzset()
 #   report-ubuntu2604     Lynis 3.1.6 on Ubuntu 26.04: index 61, one finding
 #   report-audit-running  Lynis 3.1.7 on Rocky 8, copied while the audit was still
 #                         running: no hardening_index, no report_datetime_end
+# and reports of other selections on the same Rocky 8 host:
+#   report-partial-tests      `--tests 'MAIL-8814 MAIL-8818'`: 2 tests, index 1
+#   report-partial-group      `--tests-from-group "ssh kernel"`: 15 tests, index 59
+#   report-category-security  `--tests-from-category security`: 264 tests, index 70,
+#                             the same as a full audit (268 tests)
 # The age of a report is measured against the real clock, so the fixed fixtures
 # switch the age check off with --max-age 0, and the age cases use reports that
 # are written below with an end relative to now.
@@ -141,6 +146,43 @@ TESTS = [
             'audit did not finish.',
             '`sudo journalctl --unit lynis.service`',
         ],
+    },
+    {
+        # `--tests` leaves no trace in the report but the number of tests done
+        'id': 'warn-partial-audit-tests',
+        'test': 'stdout/report-partial-tests,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'The lynis report /var/log/lynis-report.dat comes from a partial audit '
+            '(2 tests), so its hardening index (1) and findings say nothing',
+            '`sudo lynis audit system --cronjob`',
+        ],
+        'assert-not-in': ['Hardening index 1'],
+    },
+    {
+        'id': 'warn-partial-audit-group',
+        'test': 'stdout/report-partial-group,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['(15 tests, groups "ssh kernel"), so its hardening index (59)'],
+    },
+    {
+        'id': 'ok-partial-audit-always-ok',
+        'test': 'stdout/report-partial-tests,,0',
+        'params': '--max-age 0 --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['comes from a partial audit'],
+    },
+    {
+        # the category "security" runs all but a handful of tests and yields the
+        # index of a full audit, so it counts as one
+        'id': 'ok-category-security-counts-as-full-audit',
+        'test': 'stdout/report-category-security,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Hardening index 70, 0 findings, 35 suggestions, audited '],
+        'assert-not-in': ['partial'],
     },
     {
         'id': 'ok-fresh-report',

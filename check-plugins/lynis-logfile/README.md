@@ -3,13 +3,14 @@
 
 ## Overview
 
-Evaluates the report of the lynis security audit that runs on the host once a day, for example through lynis.timer, and reports the hardening index, the findings (the lynis warnings) and the hardening suggestions of lynis. The check itself does not run an audit, so it is fast and needs no more than read access to the report. Alerts when the hardening index is below the threshold, when lynis reports a finding, and when the report is missing, incomplete or older than the maximum age, because then the daily audit has stopped. Security posture is informational drift rather than a time-critical availability event, so by default only WARNING is raised.
+Evaluates the report of the lynis security audit that runs on the host once a day, for example through lynis.timer, and reports the hardening index, the findings (the lynis warnings) and the hardening suggestions of lynis. The check itself does not run an audit, so it is fast and needs no more than read access to the report. Alerts when the hardening index is below the threshold, when lynis reports a finding, when the report is missing, incomplete or older than the maximum age, because then the daily audit has stopped, and when a partial audit has replaced the report of the full one. Security posture is informational drift rather than a time-critical availability event, so by default only WARNING is raised.
 
 **Important Notes:**
 
 * The check reads `/var/log/lynis-report.dat`, which lynis writes when it audits the host as root. Something else has to run that audit once a day, for example `lynis.timer`, which the Debian and Ubuntu packages ship, or a timer of your own on the Red Hat family, where the EPEL package only ships the units as documentation. The command the timer runs is `lynis audit system --cronjob`.
 * lynis creates the report readable by root only (`umask 027`), so run the check via `sudo` (see the sudoers files in `assets/sudoers`). The `Lynis Service Set` in the Icinga Director does exactly that on every host tagged `lynis`, and also checks `lynis.service` and `lynis.timer`.
 * lynis rewrites the report while it audits and writes the hardening index and the end of the audit last. An audit takes 20 seconds to a minute (measured on Debian 12/13, Rocky 8/9/10 and Ubuntu 22.04/24.04/26.04). A check that runs during that time reports UNKNOWN once, and the next run reads the finished report.
+* Every audit that runs as root replaces the report, a partial one as well (`lynis audit system --tests ...`, `--tests-from-group ...`, or the `lynis` check with `--lynis-test`). The hardening index of such a report covers only the tests that ran, and if none of them awarded a hardening point, lynis reports a placeholder of 1. The check recognises a partial audit by the test groups recorded in the report and by fewer than 100 tests done (a full audit performs more than 200), and asks for a full audit instead of evaluating the report. `--tests-from-category security` counts as a full audit, since it runs all but a handful of tests.
 * `lynis show details <test>` on the host prints the details of a finding or suggestion from `/var/log/lynis.log`.
 * A security audit is posture drift, not a time-critical availability event, so by default only WARNING is raised. The default critical threshold is empty on purpose, to avoid paging someone at night for a hardening drop.
 
@@ -46,10 +47,11 @@ day, for example through lynis.timer, and reports the hardening index, the
 findings (the lynis warnings) and the hardening suggestions of lynis. The
 check itself does not run an audit, so it is fast and needs no more than read
 access to the report. Alerts when the hardening index is below the threshold,
-when lynis reports a finding, and when the report is missing, incomplete or
-older than the maximum age, because then the daily audit has stopped. Security
-posture is informational drift rather than a time-critical availability event,
-so by default only WARNING is raised. Requires root or sudo.
+when lynis reports a finding, when the report is missing, incomplete or older
+than the maximum age, because then the daily audit has stopped, and when a
+partial audit has replaced the report of the full one. Security posture is
+informational drift rather than a time-critical availability event, so by
+default only WARNING is raised. Requires root or sudo.
 
 options:
   -h, --help           show this help message and exit
@@ -110,6 +112,7 @@ sudo ./lynis-logfile --warning=70: --critical=50: --max-age=48
 * WARN if the audit finished more than `--max-age` hours ago (default: 26), because the daily audit has then stopped. `--max-age 0` switches this off.
 * WARN if there is no report, because the host is then not being audited.
 * WARN if the report is incomplete and no audit is running, because the last audit did not finish.
+* WARN if the report comes from a partial audit, because its hardening index and findings say nothing about the host.
 * CRIT if the hardening index drops below `--critical` (empty by default, so CRIT is never raised unless a threshold is set).
 * UNKNOWN if an audit is running right now, so the report is not complete yet, and if the report cannot be read, most likely because the check does not run via `sudo`.
 * `--always-ok` suppresses all alerts and always returns OK.
@@ -137,6 +140,10 @@ The check does not run as root. Call it via `sudo`, as the `Lynis Service Set` a
 ### `The lynis report /var/log/lynis-report.dat is incomplete`
 
 The last audit did not finish, so the report lacks the hardening index and the end of the audit. `sudo journalctl --unit lynis.service` shows why the audit stopped. Start a new audit with `sudo systemctl start lynis.service` once the cause is fixed.
+
+### `The lynis report /var/log/lynis-report.dat comes from a partial audit`
+
+Someone ran lynis as root with a selection of tests, for example `sudo lynis audit system --tests MAIL-8818` while looking into a finding, and this replaced the report of the full audit. The hardening index of such a report covers only the selected tests, which is why it looks absurdly low (often 1), and the findings and suggestions of all other tests are gone. Start a full audit with `sudo lynis audit system --cronjob`, or wait for the next daily one. To look into a single test without touching the report, use `lynis show details <test>`, which reads `/var/log/lynis.log` of the last full audit.
 
 ### The report is older than `--max-age`
 
