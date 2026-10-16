@@ -85,8 +85,7 @@ Icinga Director:
 
 Grafana:
 
-* lynis: re-import the dashboard, `warnings` is now `findings`
-* redfish-sensors: re-import the dashboard, it shows the sensors of HPE iLO and Dell iDRAC and a utilization panel
+* re-import all dashboards and re-deploy the `icingaweb2-module-grafana` assets
 
 Assets:
 
@@ -183,10 +182,6 @@ Icinga Director:
 * Nextcloud Service Set: an enabled `nextcloud-app-update.timer` no longer warns
 * PHP-FPM Service Set: no false alert about a missing `php-fpm.service` on Debian and Ubuntu
 * Windows service sets: a stopped service is no longer hidden by one with a similar name
-
-Grafana:
-
-* several minor fixes, re-import the dashboards and re-deploy the `icingaweb2-module-grafana` assets
 
 Build, CI/CD:
 
