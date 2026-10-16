@@ -60,6 +60,12 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #                       kernel writes "Vulnerable: Safe RET, no microcode" into
 #                       spec_rstack_overflow. The files are the kernel's own words as
 #                       the check printed them, `proc/cpuinfo` is the guest's own
+#   qemu-skylake-client-guest
+#                       Captured from the same kernel with `-cpu Skylake-Client`. TCG
+#                       hides the spec-ctrl and ssbd bits, so the Intel guest comes up
+#                       without `ibrs` and `ssbd`: retbleed and spec_store_bypass both
+#                       read a bare "Vulnerable", while vmscape says "Not affected"
+#                       because a guest never sets that bug
 #   its-vmexit-only     `-cpu Icelake-Server,model=106`, booted with
 #                       `indirect_target_selection=vmexit`. The one state whose prefix
 #                       contradicts itself: the kernel writes "Mitigation: Vulnerable,
@@ -69,7 +75,9 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #                       ITS_NATIVE_ONLY model, otherwise the option is silently
 #                       downgraded to aligned thunks
 #
-# Hand-assembled as well, from the kernel's literals: amd-host-microcode-missing (the
+# Hand-assembled as well, from the kernel's literals: amd-guest-retbleed-vulnerable (a
+# bare "Vulnerable" in retbleed on AMD, with `ssbd` and `ibpb` listed, which a qemu
+# CPU model cannot produce under TCG), amd-host-microcode-missing (the
 # "no microcode" wording without the `hypervisor` flag, which no qemu can produce for
 # spec_rstack_overflow), guest-no-microcode-wordings (adds tsx_async_abort, which no
 # qemu CPU model with TSX runs under TCG) and guest-microcode-seen ("Vulnerable:
@@ -280,6 +288,79 @@ TESTS = [
             "'vulnerable'=1;0;;0",
         ],
         'assert-regex': r'spec_rstack_overflow\s+!\s+Mitigation: Safe RET\s+!\s+mitigated',
+    },
+    {
+        # No `ssbd` flag: the kernel cannot mitigate, and whether the hypervisor could
+        # hand the bit through is not for the guest to say.
+        'id': 'ok-a-guest-without-the-ssbd-flag-cannot-decide-spec-store-bypass',
+        'test': '',
+        'params': '--config-root=config/qemu-epyc-genoa-guest'
+        ' --match=^spec_store_bypass$',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '1 CPU vulnerability that cannot be decided from inside this machine: '
+            'spec_store_bypass.',
+            "'unknown'=1",
+            "'vulnerable'=0;0;;0",
+        ],
+        'assert-regex': r'spec_store_bypass\s+!\s+Vulnerable\s+!\s+unknown',
+    },
+    {
+        # The same CPU without the hypervisor flag is a host: the bare line stays a
+        # finding.
+        'id': 'warn-a-host-without-the-ssbd-flag-is-vulnerable',
+        'test': '',
+        'params': '--config-root=config/qemu-epyc-genoa-without-hypervisor-flag'
+        ' --match=^spec_store_bypass$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'vulnerable'=1;0;;0"],
+        'assert-regex': r'spec_store_bypass\s+!\s+Vulnerable\s+!\s+vulnerable',
+    },
+    {
+        # `ssbd` is there, so the bare line comes from the kernel command line or
+        # configuration, which the guest can judge on its own.
+        'id': 'warn-a-guest-with-the-ssbd-flag-is-still-vulnerable',
+        'test': '',
+        'params': '--config-root=config/hypervisor-guest --match=^spec_store_bypass$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'vulnerable'=1;0;;0"],
+        'assert-regex': r'spec_store_bypass\s+!\s+Vulnerable\s+!\s+vulnerable',
+    },
+    {
+        # Intel guest without `ibrs` and `ibrs_enhanced`: spectre_v2 cannot pick the
+        # IBRS that retbleed needs on Intel, and the hypervisor withholds the flags.
+        'id': 'ok-an-intel-guest-without-ibrs-cannot-decide-retbleed',
+        'test': '',
+        'params': '--config-root=config/qemu-skylake-client-guest'
+        ' --match=^(retbleed|spec_store_bypass)$',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '2 CPU vulnerabilities that cannot be decided from inside this machine: '
+            'retbleed, spec_store_bypass.',
+            "'unknown'=2",
+            "'vulnerable'=0;0;;0",
+        ],
+        'assert-regex': r'retbleed\s+!\s+Vulnerable\s+!\s+unknown',
+    },
+    {
+        # The same bare line on AMD is configuration: the untrained return thunk needs
+        # no feature the hypervisor could hide.
+        'id': 'warn-an-amd-guest-reporting-retbleed-vulnerable-is-vulnerable',
+        'test': '',
+        'params': '--config-root=config/amd-guest-retbleed-vulnerable'
+        ' --match=^retbleed$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'vulnerable'=1;0;;0"],
+        'assert-regex': r'retbleed\s+!\s+Vulnerable\s+!\s+vulnerable',
+    },
+    {
+        # The same Intel CPU with `ibrs` listed: the kernel was told not to mitigate.
+        'id': 'warn-an-intel-guest-with-ibrs-is-still-vulnerable',
+        'test': '',
+        'params': '--config-root=config/hypervisor-guest --match=^retbleed$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'vulnerable'=1;0;;0"],
+        'assert-regex': r'retbleed\s+!\s+Vulnerable\s+!\s+vulnerable',
     },
     {
         'id': 'ok-a-captured-guest-cannot-verify-the-register-file-clearing',

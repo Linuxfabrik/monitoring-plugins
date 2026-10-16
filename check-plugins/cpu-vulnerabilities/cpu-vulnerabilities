@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026101401'
+__version__ = '2026101601'
 
 DESCRIPTION = """Reports which of the CPU vulnerabilities the kernel knows about are left
 without a mitigation on this host. The kernel publishes its own verdict per vulnerability,
@@ -45,6 +45,8 @@ VULNERABILITIES_DIR = '/sys/devices/system/cpu/vulnerabilities'
 CPUINFO = '/proc/cpuinfo'
 CPUINFO_MAX_BYTES = 16384
 GUEST_FLAG = 'hypervisor'
+VENDOR_INTEL = 'GenuineIntel'
+VENDOR_KEY = 'vendor_id'
 
 # The verdicts this check sorts the kernel's wording into.
 MITIGATED = 'mitigated'
@@ -131,6 +133,38 @@ NO_MITIGATION_TEXT = 'none'
 # trailing markers ("...no microcode; SMT Host state unknown"), so only the part up to the
 # first ";" counts.
 NO_MICROCODE_SUFFIX = 'no microcode'
+
+# Some vulnerabilities have no "no microcode" wording and still depend on a CPU feature
+# that the hypervisor hands to the guest. The kernel writes a bare "Vulnerable" when it
+# was told not to mitigate (`mitigations=off`, `spec_store_bypass_disable=off`,
+# `retbleed=off`) and also when the feature it needs is missing, so the line alone does
+# not tell the two apart. In a guest the feature comes from the hypervisor: without it
+# the guest cannot mitigate and cannot tell whether its host could. With the feature
+# present, the bare "Vulnerable" is the kernel's own configuration and stays a finding.
+# Verified against arch/x86/kernel/cpu/bugs.c of mainline 7.3 and of the RHEL 8 (AlmaLinux
+# 8), CentOS Stream 9 and CentOS Stream 10 kernels:
+#
+#   spec_store_bypass   ssb_select_mitigation() tests `ssbd` last, whatever the command
+#       line says. The flag is set for the Intel and the AMD CPUID bits alike, including
+#       amd_ssbd and virt_ssbd. Captured from Fedora's 7.2.9 kernel in qemu with
+#       `-cpu EPYC-Genoa` and `-cpu Skylake-Client`: no `ssbd`, "Vulnerable"
+#   retbleed            On Intel the mitigation is IBRS or eIBRS, which spectre_v2 picks
+#       only if the CPU flags list `ibrs` or `ibrs_enhanced`; without either, retbleed
+#       stays "Vulnerable". AMD and Hygon use an untrained return thunk that needs no
+#       CPU feature, so a bare "Vulnerable" there is configuration. Captured from the
+#       same kernel with `-cpu Skylake-Client`
+#
+# The vulnerabilities that look alike are decided elsewhere: vmscape is "Not affected" in
+# a guest (the bug is only set without the hypervisor flag), and srbds, gather_data_
+# sampling and old_microcode say "Unknown" in a guest themselves.
+#
+# Maps the file name to the vendor the rule is limited to ('' for every vendor) and the
+# CPU flags of which at least one must be present.
+BARE_VERDICT = 'vulnerable'
+HYPERVISOR_FEATURES = {
+    'retbleed': (VENDOR_INTEL, ('ibrs', 'ibrs_enhanced')),
+    'spec_store_bypass': ('', ('ssbd',)),
+}
 
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_SEVERITY = 'warn'
@@ -248,7 +282,7 @@ def parse_args():
     return args
 
 
-def classify(report, guest=False):
+def classify(report, guest=False, name='', vendor='', flags=()):
     """
     Sort the kernel's wording for one vulnerability into a verdict.
 
@@ -256,7 +290,9 @@ def classify(report, guest=False):
     not know, which is reported as `UNKNOWN` rather than assumed to be harmless. In a
     `guest`, a vulnerability that is only vulnerable for lack of microcode is `UNKNOWN`
     (recognized), because the guest cannot tell whether its hypervisor lacks the
-    microcode or merely does not hand it through.
+    microcode or merely does not hand it through. The same goes for a bare `Vulnerable`
+    of a vulnerability in `HYPERVISOR_FEATURES` in a `guest` whose CPU `vendor` and
+    `flags` show that the hypervisor withholds the feature it needs.
     """
     text = report.strip()
 
@@ -271,6 +307,10 @@ def classify(report, guest=False):
     if lowered.startswith(VULNERABLE_PREFIXES):
         if guest and lowered.split(';')[0].strip().endswith(NO_MICROCODE_SUFFIX):
             return (UNKNOWN, True)
+        if guest and lowered == BARE_VERDICT and name in HYPERVISOR_FEATURES:
+            only_vendor, features = HYPERVISOR_FEATURES[name]
+            if only_vendor in ('', vendor) and not any(f in flags for f in features):
+                return (UNKNOWN, True)
         return (VULNERABLE, True)
     if lowered.startswith(MITIGATION_PREFIX):
         # Where the prefix promises a mitigation and the text behind it names none,
@@ -309,24 +349,28 @@ def get_reports(root):
     return (True, reports)
 
 
-def is_guest(root):
+def get_cpu(root):
     """
-    Tell whether this kernel runs under a hypervisor.
+    Read the vendor and the flags of the first processor.
 
-    Returns True if the CPU flags of the first processor name `hypervisor`. Anything
-    else, including a kernel that does not list CPU flags this way or a file that cannot
-    be read, is False, so the kernel's own verdict stands.
+    Returns (vendor, flags): the `vendor_id` string and a set of the CPU flags. Anything
+    the file does not provide, including a kernel that does not list them this way or a
+    file that cannot be read, comes back empty, so the kernel's own verdict stands.
     """
     success, content = lib.disk.read_file(
         os.path.join(root, CPUINFO.lstrip('/')), max_bytes=CPUINFO_MAX_BYTES
     )
     if not success:
-        return False
+        return ('', set())
+    vendor = ''
     for line in content.splitlines():
         key, _, value = line.partition(':')
-        if key.strip() == 'flags':
-            return GUEST_FLAG in value.split()
-    return False
+        key = key.strip()
+        if key == VENDOR_KEY and not vendor:
+            vendor = value.strip()
+        elif key == 'flags':
+            return (vendor, set(value.split()))
+    return (vendor, set())
 
 
 def main():
@@ -351,7 +395,8 @@ def main():
             'This check belongs on a Linux host.'
         )
     reports = lib.base.coe(get_reports(args.CONFIG_ROOT))
-    guest = is_guest(args.CONFIG_ROOT)
+    cpu_vendor, cpu_flags = get_cpu(args.CONFIG_ROOT)
+    guest = GUEST_FLAG in cpu_flags
 
     # init some vars
     msg = ''
@@ -379,7 +424,7 @@ def main():
         if any(item.search(name) for item in compiled_ignore):
             continue
 
-        verdict, recognized = classify(report, guest)
+        verdict, recognized = classify(report, guest, name, cpu_vendor, cpu_flags)
         counts[verdict] += 1
         if verdict == VULNERABLE:
             item_state = lib.base.str2state(args.SEVERITY)

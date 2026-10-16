@@ -45,7 +45,7 @@ Monitoring Plugins:
 * the version perfdata sorts like the version (1.10 above 1.9) and takes a new scale, so the graphs show one step after the update, on all *-version checks
 * about-me: proposes the tags of the AIDE, database dump, Fangfrisch, Lynis and security lane sets, and recognises ClamAV on Debian and Ubuntu and WordPress below `/var/www`; proposes mod_qos only where its status page answers on localhost
 * apache-httpd-logfile: says what failed requests were, recognises a reverse proxy in front, names backend and cause of proxy failures, counts each request once, clears fixed configuration problems after a reload
-* cpu-vulnerabilities: in a virtual machine, a `no microcode` line is reported as undecided instead of alerting
+* cpu-vulnerabilities: in a virtual machine, `no microcode`, `retbleed` and `spec_store_bypass` lines are undecided instead of alerting
 * crypto-policy: compares only the base policy and lists the subpolicies, unless `--policy` names subpolicies itself
 * disk-usage: a threshold such as `-5`, `10X` or `5.5.5G` ends in UNKNOWN instead of being read as 0% or with the default unit, and `10 G` is read
 * librenms-validate: reports the validations as a compact list instead of a wide table
