@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026101601'
+__version__ = '2026101602'
 
 DESCRIPTION = """Reports which of the CPU vulnerabilities the kernel knows about are left
 without a mitigation on this host. The kernel publishes its own verdict per vulnerability,
@@ -47,6 +47,23 @@ CPUINFO_MAX_BYTES = 16384
 GUEST_FLAG = 'hypervisor'
 VENDOR_INTEL = 'GenuineIntel'
 VENDOR_KEY = 'vendor_id'
+
+# How the first line names the CPU. Which vulnerabilities a CPU has depends on who made
+# it, so the vendor leads the message. Keys are the `vendor_id` of /proc/cpuinfo with
+# the surrounding blanks removed: the x86 strings are the kernel's c_ident values
+# (arch/x86/kernel/cpu/{amd,centaur,hygon,intel,zhaoxin}.c), where Zhaoxin pads its own
+# as "  Shanghai  " and also answers as "CentaurHauls" on recent models; s390 prints
+# "IBM/S390" (arch/s390/kernel/processor.c). Anything else, including a kernel whose
+# /proc/cpuinfo has no `vendor_id` (arm64, powerpc, riscv), is "Other".
+VENDOR_NAMES = {
+    'AuthenticAMD': 'AMD',
+    'CentaurHauls': 'Centaur',
+    VENDOR_INTEL: 'Intel',
+    'HygonGenuine': 'Hygon',
+    'IBM/S390': 'IBM',
+    'Shanghai': 'Zhaoxin',
+}
+VENDOR_OTHER = 'Other'
 
 # The verdicts this check sorts the kernel's wording into.
 MITIGATED = 'mitigated'
@@ -467,19 +484,20 @@ def main():
         # The table below lists every vulnerability with the kernel's own wording, so
         # the message names the code names and the way out and repeats nothing of it.
         checked = len(table_data)
+        vendor_name = VENDOR_NAMES.get(cpu_vendor, VENDOR_OTHER)
         if vulnerable:
             # The code names go on the first line, because that is the line an
             # administrator gets to see in a list of services and in a notification.
             count = len(vulnerable)
             msg = (
-                f'{count} of {checked} CPU '
+                f'{vendor_name}. {count} of {checked} CPU '
                 f'{lib.txt.pluralize("vulnerabilit", checked, "y,ies")} '
                 f'{lib.txt.pluralize("", count, "has,have")} no mitigation in effect: '
                 f'{", ".join(name for name, _ in vulnerable)}.'
             )
         else:
             msg = (
-                f'No CPU vulnerability is left without a mitigation. '
+                f'{vendor_name}. No CPU vulnerability is left without a mitigation. '
                 f'{counts[MITIGATED]} mitigated, {counts[NOT_AFFECTED]} not affected'
             )
             msg += f', {counts[UNKNOWN]} without a verdict.' if counts[UNKNOWN] else '.'

@@ -75,10 +75,17 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #                       ITS_NATIVE_ONLY model, otherwise the option is silently
 #                       downgraded to aligned thunks
 #
-# Hand-assembled as well, from the kernel's literals: amd-guest-retbleed-vulnerable (a
-# bare "Vulnerable" in retbleed on AMD, with `ssbd` and `ibpb` listed, which a qemu
-# CPU model cannot produce under TCG), amd-host-microcode-missing (the
-# "no microcode" wording without the `hypervisor` flag, which no qemu can produce for
+# Real CPUs that no qemu model can imitate: hygon-host (`proc/cpuinfo` of a Hygon C86
+# 3185) and centaur-host (of a Zhaoxin KaiXian KX-U6780A, which answers as
+# "CentaurHauls"), both the first processor block of public dumps on
+# openbenchmarking.org. Their `sys/` holds one hand-written file, since the dumps carry
+# `/proc/cpuinfo` only.
+#
+# Hand-assembled as well, from the kernel's literals: s390-host and zhaoxin-host (a
+# `vendor_id` that no qemu CPU model carries, and for which no dump was found),
+# amd-guest-retbleed-vulnerable (a bare "Vulnerable" in retbleed on AMD, with `ssbd`
+# and `ibpb` listed, which a qemu CPU model cannot produce under TCG),
+# amd-host-microcode-missing (the "no microcode" wording without the `hypervisor` flag, which no qemu can produce for
 # spec_rstack_overflow), guest-no-microcode-wordings (adds tsx_async_abort, which no
 # qemu CPU model with TSX runs under TCG) and guest-microcode-seen ("Vulnerable:
 # Microcode, no safe RET" needs the IBPB_BRTYPE bit, which TCG refuses).
@@ -325,6 +332,60 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': ["'vulnerable'=1;0;;0"],
         'assert-regex': r'spec_store_bypass\s+!\s+Vulnerable\s+!\s+vulnerable',
+    },
+    {
+        # The first line names the CPU vendor, from `vendor_id` of /proc/cpuinfo.
+        'id': 'ok-the-first-line-names-an-intel-cpu',
+        'test': '',
+        'params': '--config-root=config/qemu-skylake-client-guest',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^Intel\. No CPU vulnerability is left without a mitigation\.',
+    },
+    {
+        'id': 'warn-the-first-line-names-an-amd-cpu',
+        'test': '',
+        'params': '--config-root=config/amd-host-microcode-missing',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'^AMD\. 1 of 1 CPU vulnerability has no mitigation in effect:',
+    },
+    {
+        'id': 'ok-the-first-line-names-a-hygon-cpu',
+        'test': '',
+        'params': '--config-root=config/hygon-host',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^Hygon\. No CPU vulnerability is left without a mitigation\.',
+    },
+    {
+        # Zhaoxin pads its own vendor string with blanks, "  Shanghai  ".
+        'id': 'ok-the-first-line-names-a-zhaoxin-cpu',
+        'test': '',
+        'params': '--config-root=config/zhaoxin-host',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^Zhaoxin\. No CPU vulnerability is left without a mitigation\.',
+    },
+    {
+        'id': 'ok-the-first-line-names-a-centaur-cpu',
+        'test': '',
+        'params': '--config-root=config/centaur-host',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^Centaur\. No CPU vulnerability is left without a mitigation\.',
+    },
+    {
+        # s390 words the key with padding: "vendor_id       : IBM/S390", and lists no
+        # CPU flags at all.
+        'id': 'ok-the-first-line-names-an-ibm-cpu',
+        'test': '',
+        'params': '--config-root=config/s390-host',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^IBM\. No CPU vulnerability is left without a mitigation\.',
+    },
+    {
+        # Neither a vendor_id nor a cpuinfo at all: the workstation's own /sys.
+        'id': 'ok-the-first-line-names-any-other-cpu-as-other',
+        'test': '',
+        'params': '--config-root=config/all-mitigated',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^Other\. No CPU vulnerability is left without a mitigation\.',
     },
     {
         # Intel guest without `ibrs` and `ibrs_enhanced`: spectre_v2 cannot pick the
