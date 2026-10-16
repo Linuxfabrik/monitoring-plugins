@@ -3,7 +3,7 @@
 
 ## Overview
 
-Reports which of the CPU vulnerabilities the kernel knows about are left without a mitigation on this host. The kernel publishes its own verdict per vulnerability, so the check reports what the running kernel, the microcode and the boot parameters together actually achieve, and not what the CPU model would allow. This works in a virtual machine as well, where the answer additionally depends on what the hypervisor hands through. A vulnerability the kernel cannot decide on is reported separately and does not alert by default, because a guest regularly cannot see what its host does; so is a missing microcode that a guest cannot verify. Raise `--unknown-severity` to flag it where the answer is expected. Alerts when a vulnerability the CPU is affected by has no mitigation in effect.
+Reports which of the CPU vulnerabilities the kernel knows about are left without a mitigation on this host. The kernel publishes its own verdict per vulnerability, so the check reports what the running kernel, the microcode and the boot parameters together actually achieve, and not what the CPU model would allow. This works in a virtual machine as well, where the answer additionally depends on what the hypervisor hands through. A vulnerability the kernel cannot decide on is reported separately and does not alert by default, because a guest regularly cannot see what its host does; so is a missing CPU feature or microcode that its hypervisor may merely not hand through. Raise `--unknown-severity` to flag it where the answer is expected. Alerts when a vulnerability the CPU is affected by has no mitigation in effect.
 
 **What the kernel reports:**
 
@@ -25,7 +25,7 @@ Two files word their verdict differently, and the check reads both. `itlb_multih
 * **The first line starts with the CPU vendor**, `AMD`, `Centaur`, `Hygon`, `IBM` (s390), `Intel` or `Zhaoxin`, read from `vendor_id` in `/proc/cpuinfo`, and `Other` for anything else, for example an arm64 machine. Which flaws a CPU has depends on who made it, so the vendor tells at a glance which list to expect.
 * **The verdict is the first word of the line, never a word somewhere in it.** Several files append markers that describe a residual risk *inside* an applied mitigation, for example `; SMT vulnerable`, `; BHI: Vulnerable` or `; PBRSB-eIBRS: Vulnerable`. A host reporting `Mitigation: Enhanced / Automatic IBRS; IBPB: conditional; BHI: Vulnerable` is mitigated in the kernel's own judgement, and a check that greps for the word "Vulnerable" calls it the opposite. The full line is in the output, so the residual markers stay visible to anyone reading it.
 * **Two states contradict their own prefix, and both read as vulnerable.** Booted with `indirect_target_selection=vmexit` the kernel writes `Mitigation: Vulnerable, KVM: Not affected` into `indirect_target_selection`; its own documentation calls that state "System is vulnerable to intra-mode BTI, but not affected by eIBRS guest/host isolation", so only the guests are covered and the host is not. And the kernel documentation lists `Mitigation: None` for `spectre_v2` and explains it as "Vulnerable, no mitigation", although no kernel from 4.15 to 7.1 actually writes it. These are the only two places where the check does not follow the leading word.
-* **In a virtual machine the answer is only half the truth.** A guest sees the CPU model and the microcode its hypervisor hands through, and nothing of what the hypervisor itself does. That is why `srbds` and `gather_data_sampling` report `Unknown: Dependent on hypervisor status` on an affected CPU under a hypervisor. Run the check on the hypervisor as well; that host is the one that can answer.
+* **In a virtual machine the answer is only half the truth.** A guest sees the CPU model and the microcode its hypervisor hands through, and nothing of what the hypervisor itself does. That is why `srbds` and `gather_data_sampling` report `Unknown: Dependent on hypervisor status` on an affected CPU under a hypervisor. Run the check on the hypervisor as well; that host is the one that can answer. On a virtual machine the output says so, names the vulnerabilities that only the hypervisor can answer, and sends you there.
 * **In a virtual machine, `no microcode` is not a finding.** The kernel derives that wording from a CPUID or MSR bit that the hypervisor hands to the guest, never from the microcode itself, and a guest must not probe the hardware for it, because live migration can take the answer away. A hypervisor that runs on a fully patched host but does not pass the bit through produces the same line as a host without the update. That is why `Vulnerable: Safe RET, no microcode` and `Vulnerable: No microcode` in `spec_rstack_overflow`, `Vulnerable: No microcode` in `tsa` and `reg_file_data_sampling`, and `Vulnerable: Clear CPU buffers attempted, no microcode` in `mds`, `mmio_stale_data` and `tsx_async_abort` are reported as undecided when the CPU flags of the machine list `hypervisor`. The kernel's own wording stays in the table. On a host without that flag the same lines still alert. `Vulnerable: Microcode, no safe RET` is not affected: there the guest sees the microcode and judges its own kernel.
 * **In a virtual machine, a bare `Vulnerable` in `retbleed` and `spec_store_bypass` can also be the hypervisor's doing.** The kernel mitigates `spec_store_bypass` only if the CPU flags list `ssbd`, and `retbleed` on Intel only if they list `ibrs` or `ibrs_enhanced`. A guest gets these flags from its hypervisor, and without them it reads `Vulnerable` however its command line looks. The check reports the line as undecided when the machine lists `hypervisor` and none of the flags. With a flag present, on AMD, or on a host, the line comes from the kernel configuration (`mitigations=off`, `retbleed=off`, `spec_store_bypass_disable=off`) and still alerts. RHEL 8, 9 and 10 kernels decide the same way.
 * **`Vulnerable: No microcode` is often not the administrator's fault.** The vendor may never have shipped microcode for that CPU generation. Where nothing can be done about it, silence that one vulnerability with `--ignore` instead of switching the whole check off, so the rest keeps alerting.
@@ -69,10 +69,10 @@ the boot parameters together actually achieve, and not what the CPU model
 would allow. This works in a virtual machine as well, where the answer
 additionally depends on what the hypervisor hands through. A vulnerability the
 kernel cannot decide on is reported separately and does not alert by default,
-because a guest regularly cannot see what its host does; so is a missing
-microcode that a guest cannot verify. Raise --unknown-severity to flag it
-where the answer is expected. Alerts when a vulnerability the CPU is affected
-by has no mitigation in effect.
+because a guest regularly cannot see what its host does; so is a missing CPU
+feature or microcode that its hypervisor may merely not hand through. Raise
+--unknown-severity to flag it where the answer is expected. Alerts when a
+vulnerability the CPU is affected by has no mitigation in effect.
 
 options:
   -h, --help            show this help message and exit
@@ -130,9 +130,8 @@ Output on a virtual machine on an older Intel host, without a current microcode 
 
 ```text
 Intel. 3 of 19 CPU vulnerabilities have no mitigation in effect: itlb_multihit, retbleed, spec_store_bypass.
-4 CPU vulnerabilities that cannot be decided from inside this machine: gather_data_sampling, mds, mmio_stale_data, srbds.
+This is a virtual machine. gather_data_sampling, mds, mmio_stale_data, srbds depend on what the hypervisor hands through and cannot be decided from here; check them on the hypervisor.
 Install the current microcode package, rebuild the initial ramdisk and reboot, run a current kernel, and check whether the kernel command line switches mitigations off (`mitigations=off`, `nopti`, `nospectre_v2` and the like).
-On a virtual machine the guest sees only the CPU features and the microcode its hypervisor hands through, so run this check on the hypervisor as well.
 ```
 
 The table below the summary lists every vulnerability with the kernel's own words, which is where the residual markers inside an applied mitigation become visible:

@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026101602'
+__version__ = '2026101603'
 
 DESCRIPTION = """Reports which of the CPU vulnerabilities the kernel knows about are left
 without a mitigation on this host. The kernel publishes its own verdict per vulnerability,
@@ -31,8 +31,8 @@ machine as well, where the answer additionally depends on what the hypervisor ha
 through.
 A vulnerability the kernel cannot decide on is reported separately and does not alert by
 default, because a guest regularly cannot see what its host does; so is a missing
-microcode that a guest cannot verify. Raise --unknown-severity to flag it where the
-answer is expected.
+CPU feature or microcode that its hypervisor may merely not hand through. Raise
+--unknown-severity to flag it where the answer is expected.
 Alerts when a vulnerability the CPU is affected by has no mitigation in effect."""
 
 # The kernel publishes one file per vulnerability here, named after its code name. The
@@ -501,7 +501,18 @@ def main():
                 f'{counts[MITIGATED]} mitigated, {counts[NOT_AFFECTED]} not affected'
             )
             msg += f', {counts[UNKNOWN]} without a verdict.' if counts[UNKNOWN] else '.'
-        if undecided:
+        if undecided and guest:
+            # Say what this machine is, which entries only its hypervisor can answer
+            # and where to look, in one sentence instead of a count and a generic hint.
+            count = len(undecided)
+            msg += (
+                f'\nThis is a virtual machine. '
+                f'{", ".join(name for name, _ in undecided)} '
+                f'{lib.txt.pluralize("", count, "depends,depend")} on what the '
+                f'hypervisor hands through and cannot be decided from here; check '
+                f'{lib.txt.pluralize("", count, "it,them")} on the hypervisor.'
+            )
+        elif undecided:
             count = len(undecided)
             msg += (
                 f'\n{count} CPU '
@@ -521,7 +532,7 @@ def main():
             msg += f'\n{REMEDIATION}'
         if unrecognized:
             msg += f'\n{UNKNOWN_WORDING}'
-        if vulnerable or undecided:
+        if (vulnerable or undecided) and not (guest and undecided):
             msg += f'\n{HYPERVISOR}'
     perfdata += lib.base.get_perfdata('checked', len(table_data), uom=None, _min=0)
     perfdata += lib.base.get_perfdata('mitigated', counts[MITIGATED], uom=None, _min=0)

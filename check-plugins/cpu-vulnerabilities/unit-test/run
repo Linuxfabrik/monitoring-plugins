@@ -184,9 +184,11 @@ TESTS = [
         'params': '--config-root=config/hypervisor-guest --severity=ok',
         'assert-retc': STATE_OK,
         'assert-in': [
-            '4 CPU vulnerabilities that cannot be decided from inside this machine: '
-            'gather_data_sampling, mds, mmio_stale_data, srbds.',
-            'run this check on the hypervisor as well',
+            'This is a virtual machine. '
+            'gather_data_sampling, mds, mmio_stale_data, srbds '
+            'depend on what the hypervisor '
+            'hands through and cannot be decided from here; check them on the '
+            'hypervisor.',
             "'unknown'=4",
         ],
         'assert-regex': r'srbds\s+!\s+Unknown: Dependent on hypervisor status',
@@ -197,7 +199,7 @@ TESTS = [
         'params': '--config-root=config/hypervisor-guest --severity=ok'
         ' --unknown-severity=warn',
         'assert-retc': STATE_WARN,
-        'assert-in': ['cannot be decided from inside this machine'],
+        'assert-in': ['cannot be decided from here'],
     },
     {
         # The customer case. The guest sees the microcode revision, but its hypervisor
@@ -210,9 +212,10 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': [
             'No CPU vulnerability is left without a mitigation.',
-            '1 CPU vulnerability that cannot be decided from inside this machine: '
-            'spec_rstack_overflow.',
-            'run this check on the hypervisor as well',
+            'This is a virtual machine. '
+            'spec_rstack_overflow depends on what the hypervisor '
+            'hands through and cannot be decided from here; check it on the '
+            'hypervisor.',
             "'unknown'=1",
             "'vulnerable'=0;0;;0",
         ],
@@ -251,8 +254,11 @@ TESTS = [
         'params': '--config-root=config/guest-no-microcode-wordings',
         'assert-retc': STATE_OK,
         'assert-in': [
-            '4 CPU vulnerabilities that cannot be decided from inside this machine: '
-            'reg_file_data_sampling, spec_rstack_overflow, tsa, tsx_async_abort.',
+            'This is a virtual machine. '
+            'reg_file_data_sampling, spec_rstack_overflow, tsa, tsx_async_abort '
+            'depend on what the hypervisor '
+            'hands through and cannot be decided from here; check them on the '
+            'hypervisor.',
             "'unknown'=4",
             "'vulnerable'=0;0;;0",
         ],
@@ -275,8 +281,10 @@ TESTS = [
         ' --match=^(spec_rstack_overflow|tsa)$',
         'assert-retc': STATE_OK,
         'assert-in': [
-            '2 CPU vulnerabilities that cannot be decided from inside this machine: '
-            'spec_rstack_overflow, tsa.',
+            'This is a virtual machine. '
+            'spec_rstack_overflow, tsa depend on what the hypervisor '
+            'hands through and cannot be decided from here; check them on the '
+            'hypervisor.',
             "'unknown'=2",
             "'vulnerable'=0;0;;0",
         ],
@@ -305,8 +313,10 @@ TESTS = [
         ' --match=^spec_store_bypass$',
         'assert-retc': STATE_OK,
         'assert-in': [
-            '1 CPU vulnerability that cannot be decided from inside this machine: '
-            'spec_store_bypass.',
+            'This is a virtual machine. '
+            'spec_store_bypass depends on what the hypervisor '
+            'hands through and cannot be decided from here; check it on the '
+            'hypervisor.',
             "'unknown'=1",
             "'vulnerable'=0;0;;0",
         ],
@@ -396,8 +406,10 @@ TESTS = [
         ' --match=^(retbleed|spec_store_bypass)$',
         'assert-retc': STATE_OK,
         'assert-in': [
-            '2 CPU vulnerabilities that cannot be decided from inside this machine: '
-            'retbleed, spec_store_bypass.',
+            'This is a virtual machine. '
+            'retbleed, spec_store_bypass depend on what the hypervisor '
+            'hands through and cannot be decided from here; check them on the '
+            'hypervisor.',
             "'unknown'=2",
             "'vulnerable'=0;0;;0",
         ],
@@ -430,8 +442,10 @@ TESTS = [
         ' --match=^(mds|reg_file_data_sampling)$',
         'assert-retc': STATE_OK,
         'assert-in': [
-            '2 CPU vulnerabilities that cannot be decided from inside this machine: '
-            'mds, reg_file_data_sampling.',
+            'This is a virtual machine. '
+            'mds, reg_file_data_sampling depend on what the hypervisor '
+            'hands through and cannot be decided from here; check them on the '
+            'hypervisor.',
         ],
         'assert-regex': r'reg_file_data_sampling\s+!\s+Vulnerable: No microcode\s+!\s+unknown',
     },
