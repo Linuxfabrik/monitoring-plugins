@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026101601'
 
 DESCRIPTION = """Monitors an installed Nextcloud Enterprise subscription and the number of accounts
 it has to cover, reporting license level, expiration date, per-feature subscriptions and
@@ -42,7 +42,8 @@ Requires root or sudo."""
 # renews once the stored answer is older than 23 hours. Anything past two days therefore
 # means the job, the internet connection or the subscription itself stopped working, and
 # every figure below is left over from whenever it last succeeded. Verified against the
-# `support` app 6.0.0 on Nextcloud 34.0.3 Enterprise.
+# `support` app 6.0.0 on Nextcloud 34.0.3 Enterprise and in the source of `support` 7.0.0
+# shipped with Nextcloud 35.0.2.
 STALE_AFTER = 48 * 3600
 
 # Row labels of `occ user:report` that carry a summary figure. Everything else in the
@@ -460,14 +461,19 @@ def main():
         stale = False
 
     if stale:
-        findings.append(
-            (
-                'subscription data never refreshed'
-                if stale_age is None
-                else f'subscription data {lib.human.seconds2human(stale_age)} old',
-                STATE_WARN,
+        # The age is that of the last refresh, not of the subscription, and the wording
+        # has to say so: "subscription data 2Y 11M old" reads as a subscription that
+        # has been installed for that long.
+        if stale_age is None:
+            finding = 'subscription data never refreshed'
+        else:
+            finding = (
+                'subscription data last refreshed '
+                f'{lib.human.seconds2human(stale_age)} ago'
             )
-        )
+        if not support_enabled:
+            finding += ', the `support` app is disabled'
+        findings.append((finding, STATE_WARN))
         hint = (
             'Nothing refreshes the subscription data, so every subscription figure '
             'above is a memory rather than a fact, the end date included. '

@@ -59,6 +59,7 @@ Monitoring Plugins:
 * mysql-memory: no permanent "dedicate this server" warning on hosts shared with an application
 * mysql-table-cache: no alert in the first hour after a restart, while the cache is still filling
 * mysql-temp-tables: no alert on the share of on-disk temporary tables in the first hour after a restart
+* nextcloud-enterprise: stale subscription data shows when it was last refreshed and names a disabled `support` app
 * php-fpm-logfile: also reports PHP fatal errors of the pools, hung workers and idle FastCGI connections; a pool that filled up once is WARNING
 * php-fpm-ping: a ping page that cannot be fetched raises `--severity` instead of UNKNOWN
 * php-fpm-status: the pool table shows the state of each pool in its last column

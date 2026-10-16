@@ -122,7 +122,7 @@ sip_bridge ! False           ! 0     ! None    !       !          !
 An instance whose `support` app was disabled years ago. The stored figures are dated instead of being reported as current, and the installed Enterprise build is named without being turned into a verdict:
 
 ```text
-Subscription data 2Y 10M old [WARNING]. Subscription as of 2023-11-11: standard_1y, covers 300 accounts, ends 2023-11-30, Enterprise build of 2026-08-13, key *****9SEZA. 0 disabled, 8 have logged in at least once (Database: 8, user_saml: 0).
+Subscription data last refreshed 2Y 10M ago, the `support` app is disabled [WARNING]. Subscription as of 2023-11-11: standard_1y, covers 300 accounts, ends 2023-11-30, Enterprise build of 2026-08-13, key *****9SEZA. 0 disabled, 8 have logged in at least once (Database: 8, user_saml: 0).
 Nothing refreshes the subscription data, so every subscription figure above is a memory rather than a fact, the end date included. An Enterprise build of 2026-08-13 is installed, so the instance is being kept on the Enterprise track, but whether the subscription behind it still runs cannot be told here while nothing refreshes the record. Enable the `support` app again, and it answers that within a day. Do not remove the subscription key, the update channel is derived from it and removing it settles nothing.
 ```
 
@@ -170,7 +170,7 @@ The check never returns CRIT on its own. Every condition it reports is a licensi
 
 No account backend on the instance supports counting, so Nextcloud cannot say how many accounts it holds and neither can the check. This is what an instance served exclusively by a backend without counting support looks like, an unusual configuration on a production system. Verify with `occ user:report` that the report lists at least one backend with a number next to it.
 
-### Subscription data is old although the instance has a valid subscription
+### Subscription data was last refreshed long ago although the instance has a valid subscription
 
 This is the common case, and it does not mean the subscription lapsed. The `support` app renews the stored answer every 23 hours through a background job, and everything the check reports about the subscription comes from that answer. Once the renewal stops, the answer stays behind at whatever it said last, end date included.
 
@@ -180,7 +180,7 @@ Check the three things that stop the renewal, in this order:
 
 1. `occ app:list | grep support` - the app has to be enabled. Its stored answer survives being disabled, which is why the check keeps reporting a subscription that nobody maintains.
 2. `occ background-job:list` and the system cron for Nextcloud - the renewal only happens when background jobs run.
-3. The instance needs to reach Nextcloud over the internet. Where it cannot, the app records the reason, visible under Administration settings, Support.
+3. The instance needs to reach Nextcloud over the internet. Where it cannot, the app records the reason in `occ config:app:get support last_error`: `1` the request failed and is retried, `2` Nextcloud rejected the key, `3` `has_internet_connection` is set to `false`, `4` the key entered has an invalid format. The same reason shows under Administration settings, Support, unless `support hide-app` is set.
 
 Once the app runs again, it refreshes the answer within 23 hours and the check reports the current subscription.
 
