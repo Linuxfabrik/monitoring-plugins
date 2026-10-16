@@ -91,6 +91,10 @@ Assets:
 
 * sudoers: allow the `aide-logfile` and `lynis-logfile` checks
 
+Tools:
+
+* install-monitoring-plugins: `--source` and `--zip` keep the dependency venv when the lockfiles did not change, so an update takes seconds instead of a minute
+
 ### Fixed
 
 Monitoring Plugins:

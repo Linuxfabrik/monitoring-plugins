@@ -736,27 +736,11 @@ ensure_venv_support() {
     die 'python ensurepip/venv is missing; install the python3-venv package and re-run'
 }
 
-# Install the Python dependencies into a self-contained venv and point every flattened plugin
-# at that interpreter. This keeps the dependencies independent of any user account (no ~/.local,
-# no sudo -u) and isolated from the system Python (no PEP 668 externally-managed conflict),
-# matching the venv the RPM/DEB packages ship.
-#
-# <reqs_dir> holds the monitoring-plugins lockfiles/pyXX/ tree. <lib_reqs_dir> optionally holds
-# the same tree from the shared lib, and is applied on top: the monitoring-plugins lockfile
-# resolves the dependencies of the RELEASED linuxfabrik-lib, while source and zip installs ship
-# a lib that can be ahead of that release and may need a package no release declares yet.
-install_dependencies() {
-    local reqs_dir="$1" lib_reqs_dir="${2:-}" pyver py_tag lockfile lib_lockfile
-    pyver="$("${PYBIN}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
-    py_tag="py${pyver//./}"
-    lockfile="${reqs_dir}/lockfiles/${py_tag}/requirements.txt"
-    lib_lockfile=''
-    [ -n "${lib_reqs_dir}" ] && lib_lockfile="${lib_reqs_dir}/lockfiles/${py_tag}/requirements.txt"
-
-    if [ ! -f "${lockfile}" ] && [ "${DRY_RUN}" != '1' ]; then
-        warn "no lockfile for ${py_tag}; skipping dependencies, plugins may fail to import"
-        return 0
-    fi
+# Create the dependency venv from scratch and install the pinned dependencies into it.
+# <py_tag> is pyXY, <lockfile> the monitoring-plugins lockfile, <lib_lockfile> the optional one of
+# the bundled lib (empty if none).
+build_dependency_venv() {
+    local py_tag="$1" lockfile="$2" lib_lockfile="$3"
     ensure_venv_support
 
     # --clear wipes any pre-existing venv first. Without it, `python -m venv` over an existing venv
@@ -797,6 +781,61 @@ install_dependencies() {
     log 'removing the released library from the venv in favour of the bundled one'
     run "${VENV_DIR}/bin/python3" -m pip uninstall --quiet --yes linuxfabrik-lib \
         || warn 'could not remove the released library from the venv'
+}
+
+# Install the Python dependencies into a self-contained venv and point every flattened plugin
+# at that interpreter. This keeps the dependencies independent of any user account (no ~/.local,
+# no sudo -u) and isolated from the system Python (no PEP 668 externally-managed conflict),
+# matching the venv the RPM/DEB packages ship.
+#
+# <reqs_dir> holds the monitoring-plugins lockfiles/pyXX/ tree. <lib_reqs_dir> optionally holds
+# the same tree from the shared lib, and is applied on top: the monitoring-plugins lockfile
+# resolves the dependencies of the RELEASED linuxfabrik-lib, while source and zip installs ship
+# a lib that can be ahead of that release and may need a package no release declares yet.
+install_dependencies() {
+    local reqs_dir="$1" lib_reqs_dir="${2:-}" pyver py_tag lockfile lib_lockfile
+    pyver="$("${PYBIN}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+    py_tag="py${pyver//./}"
+    lockfile="${reqs_dir}/lockfiles/${py_tag}/requirements.txt"
+    lib_lockfile=''
+    [ -n "${lib_reqs_dir}" ] && lib_lockfile="${lib_reqs_dir}/lockfiles/${py_tag}/requirements.txt"
+
+    if [ ! -f "${lockfile}" ] && [ "${DRY_RUN}" != '1' ]; then
+        warn "no lockfile for ${py_tag}; skipping dependencies, plugins may fail to import"
+        return 0
+    fi
+
+    # The venv is the slow part: `venv --clear` plus a pip run over the network, repeated for every
+    # update on every host, although the plugins and the library change far more often than their
+    # dependencies. Keep the venv if the Python minor version and the lockfiles are the ones of the
+    # last successful build. The fingerprint sits next to the venv, not in it, because `venv
+    # --clear` wipes the venv. A missing fingerprint (first run, or a build that failed halfway) or
+    # an interpreter that no longer runs rebuilds the venv.
+    local fingerprint_file="${STATE_DIR}/dependencies.sha256" fingerprint=''
+    local -a lockfiles=("${lockfile}")
+    [ -n "${lib_lockfile}" ] && [ -f "${lib_lockfile}" ] && lockfiles+=("${lib_lockfile}")
+    if [ "${DRY_RUN}" != '1' ]; then
+        fingerprint="$("${PYBIN}" -c '
+import hashlib, sys
+digest = hashlib.sha256(sys.argv[1].encode())
+for path in sys.argv[2:]:
+    with open(path, "rb") as lockfile:
+        digest.update(lockfile.read())
+print(digest.hexdigest())
+' "${py_tag}" "${lockfiles[@]}")"
+    fi
+    if [ "${DRY_RUN}" != '1' ] \
+        && [ -f "${fingerprint_file}" ] \
+        && [ "$(cat "${fingerprint_file}")" = "${fingerprint}" ] \
+        && "${VENV_DIR}/bin/python3" -c 'import sys' >/dev/null 2>&1; then
+        log "dependencies unchanged since the last install (${py_tag}), keeping the venv at ${VENV_DIR}"
+    else
+        run rm -f "${fingerprint_file}"
+        build_dependency_venv "${py_tag}" "${lockfile}" "${lib_lockfile}"
+        if [ "${DRY_RUN}" != '1' ]; then
+            printf '%s\n' "${fingerprint}" > "${fingerprint_file}"
+        fi
+    fi
 
     # Point the plugins at the venv interpreter so they pick up the dependencies no matter who
     # runs them. Only the files this run recorded are rewritten: the plugin directory is shared

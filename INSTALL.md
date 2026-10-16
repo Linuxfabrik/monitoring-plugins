@@ -31,7 +31,7 @@ curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s
 
 ### One-Liner: Source from GitHub
 
-For hosts that need a fix or plugin that is not yet released, and can reach GitHub. Installs the current `main` (or a branch or tag with `--ref`) into a self-contained venv. Not managed by the package manager, so upgrades mean re-running it.
+For hosts that need a fix or plugin that is not yet released, and can reach GitHub. Installs the current `main` (or a branch or tag with `--ref`) into a self-contained venv. Not managed by the package manager, so upgrades mean re-running it. A re-run replaces plugins and library and rebuilds the venv only if the dependency lockfiles or the Python version changed. To force a rebuild, delete `/usr/lib64/linuxfabrik-monitoring-plugins/dependencies.sha256` first.
 
 ```bash
 curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --source
