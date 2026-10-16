@@ -147,7 +147,20 @@ systemctl show --property=ExecStart metabase.service
 
 ### `No permission to read ...`
 
-Metabase installations often keep the jar readable by its own service account only. Grant the monitoring user read access to the file, or point `--path` at a readable copy.
+The monitoring user cannot open the jar. Often the file itself is readable, but its directory is not: `/opt/metabase` is commonly the home directory of the `metabase` service account and has mode `0700`. Find the blocking path element:
+
+```bash
+namei --long /opt/metabase/metabase.jar
+```
+
+Then let the monitoring user pass through the directory (traverse only, no listing) and, if the jar itself is not world-readable, read the jar:
+
+```bash
+sudo setfacl --modify=u:icinga:x /opt/metabase
+sudo setfacl --modify=u:icinga:r /opt/metabase/metabase.jar
+```
+
+Alternatively, point `--path` at a readable copy of the jar. On SELinux hosts, also check `sudo ausearch --message AVC --start recent`.
 
 ### `... names no release in its version.properties`
 
