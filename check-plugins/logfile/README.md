@@ -115,14 +115,15 @@ options:
   --critical-regex CRIT_REGEX
                         Any line matching this Python regex will count as a
                         critical. Can be specified multiple times.
-  --filename FILENAME   Path to the logfile. Supports time macros that are
-                        expanded on every run: `{today}` / `{yesterday}` first
-                        try the compact form `YYYYMMDD`, then fall back to
-                        `YYYY-MM-DD` if that file does not exist. `{%Y}`,
-                        `{%y}`, `{%m}`, `{%d}`, `{%H}`, `{%M}`, `{%S}` render
-                        the matching strftime component of the current time.
-                        Example: `/var/log/app/{today}.log`. Example:
-                        `/var/log/app/app-{today}.log`. Example:
+  --filename FILENAME   Path to the logfile. Takes a single file; wildcards
+                        such as `*` are not expanded. Supports time macros
+                        that are expanded on every run: `{today}` /
+                        `{yesterday}` first try the compact form `YYYYMMDD`,
+                        then fall back to `YYYY-MM-DD` if that file does not
+                        exist. `{%Y}`, `{%y}`, `{%m}`, `{%d}`, `{%H}`, `{%M}`,
+                        `{%S}` render the matching strftime component of the
+                        current time. Example: `/var/log/app/{today}.log`.
+                        Example: `/var/log/app/app-{today}.log`. Example:
                         `/var/log/app/{%Y}{%m}{%d}.log`.
   --icinga-callback     Ask the monitoring server whether the service running
                         this check is acknowledged. Where it is, what this run

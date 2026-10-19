@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026101901'
 
 DESCRIPTION = """Scans a logfile for matching patterns or regular expressions and alerts based on the
 number of matches found. Only the lines added since the previous run are scanned, and the
@@ -332,6 +332,7 @@ def parse_args():
     parser.add_argument(
         '--filename',
         help='Path to the logfile. '
+        'Takes a single file; wildcards such as `*` are not expanded. '
         'Supports time macros that are expanded on every run: '
         '`{today}` / `{yesterday}` first try the compact form `YYYYMMDD`, '
         'then fall back to `YYYY-MM-DD` if that file does not exist. '
@@ -622,6 +623,20 @@ def main():
     kind, _, _ = lib.base.coe(lib.logsource.parse(scan_path))
     if kind != lib.logsource.KIND_FILE:
         lib.base.cu('`--filename` takes the path to a logfile.')
+
+    # The check reads one file and does not expand wildcards. Without this, a
+    # glob such as `app-*.log` ends up in the name of the state database and
+    # fails there on Windows, where `*` and `?` are not allowed in a filename
+    # ("unable to open database file"), or as a missing file elsewhere. A file
+    # whose name really contains such a character is still read.
+    if any(char in os.path.basename(scan_path) for char in '*?') and not (
+        within_roots(scan_path) and os.path.exists(scan_path)
+    ):
+        lib.base.cu(
+            f'`--filename` takes a single file and does not expand wildcards: '
+            f'"{scan_path}". For a logfile with the date in its name, use a time '
+            f'macro instead, for example `app-{{today}}.log`.'
+        )
 
     # Give each unique combination of patterns and regexes its own state
     # database, so two services watching the same logfile for different things

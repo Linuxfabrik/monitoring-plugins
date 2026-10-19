@@ -979,6 +979,24 @@ class TestPathConfinement(unittest.TestCase):
             },
         )
 
+    def test_wildcard_filename_is_explained(self):
+        # A glob is not expanded. On Windows it used to fail while opening the
+        # state database, whose name it became part of, with a message that did
+        # not point at the parameter.
+        wildcard = os.path.join(self.scratch_dir, 'app-*.log')
+        lib.lftest.run(
+            self,
+            self.check,
+            {
+                'id': 'wildcard-filename-is-explained',
+                'test': f'{wildcard},,0',
+                'params': f'--filename={wildcard} --warning-regex=.',
+                'assert-retc': STATE_UNKNOWN,
+                'assert-in': ['does not expand wildcards', 'app-{today}.log'],
+                'assert-not-in': ['database'],
+            },
+        )
+
     @unittest.skipIf(os.name == 'nt', 'Windows has no sudo, and nothing is confined')
     def test_filename_outside_var_log_is_refused(self):
         lib.lftest.run(

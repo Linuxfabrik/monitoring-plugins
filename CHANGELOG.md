@@ -136,7 +136,7 @@ Monitoring Plugins:
 * journald-\*, ntp-systemd-timesyncd, pip-updates: name missing journal rights, a missing timesyncd or a missing pip instead of a raw error
 * journald-query, journald-usage: UNKNOWN instead of a false OK when the account may read only its own part of the journal; journald-query no longer crashes on kernel and syslog entries
 * logfile, \*-logfile: a compressed log given by name no longer reports its findings again on every run
-* logfile: reads logfiles on Windows again ([#1587](https://github.com/Linuxfabrik/monitoring-plugins/issues/1587))
+* logfile: reads logfiles on Windows again, and names a wildcard in `--filename` as unsupported instead of failing on its state database ([#1587](https://github.com/Linuxfabrik/monitoring-plugins/issues/1587))
 * lynis: names an unreadable lynis installation on SUSE instead of a page of errors, leaves no temporary directories
 * mastodon-version: also finds the version of a rootless Podman installation and of `tootsuite/mastodon` images, and no longer reads a comment, quotes or a digest after the image tag as part of the version
 * mediawiki-version: reads the version of MediaWiki before 1.31.7 instead of ending in a Python error
