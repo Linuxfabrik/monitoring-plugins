@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092901'
+__version__ = '2026102301'
 
 DESCRIPTION = """Monitors CPU utilization on QNAP appliances running QTS via the API. Alerts only if
 the threshold has been exceeded for a configurable number of consecutive check runs
@@ -143,7 +143,7 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='QTS-based appliance URL. Example: `https://192.0.2.10:8080`.',
+        help='QTS-based appliance URL. Example: `--url=https://192.0.2.10:8080`.',
         dest='URL',
         required=True,
     )
@@ -252,7 +252,7 @@ def main():
     lib.db_sqlite.close(conn)
 
     # build the message
-    msg = f'{stats["cpu_usage"]}%'
+    msg = f'{stats["cpu_usage"]}%{lib.base.state2str(state, prefix=" ")}'
     perfdata = lib.base.get_perfdata(
         'cpu-usage',
         stats['cpu_usage'],

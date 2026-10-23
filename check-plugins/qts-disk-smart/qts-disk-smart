@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092901'
+__version__ = '2026102301'
 
 DESCRIPTION = """Checks disk SMART values on QNAP appliances running QTS via the API. Reports drive
 health and temperature against the thresholds configured in QTS. A disk that reports no
@@ -120,7 +120,7 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='QTS-based appliance URL. Example: `--url=https://192.168.1.1:8080`.',
+        help='QTS-based appliance URL. Example: `--url=https://192.0.2.10:8080`.',
         dest='URL',
         required=True,
     )
@@ -232,8 +232,9 @@ def main():
                 crit=crit,
                 _min=0,
             )
+        # a failing health status must not hide a temperature above the error threshold
         if disk['Health'] != 'OK':
-            disk_state = STATE_WARN
+            disk_state = lib.base.get_worst(disk_state, STATE_WARN)
 
         state = lib.base.get_worst(disk_state, state)
         msg_body += (

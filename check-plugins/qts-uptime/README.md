@@ -3,7 +3,7 @@
 
 ## Overview
 
-Reports how long a QNAP appliance running QTS has been running since the last boot.
+Reports how long a QNAP appliance running QTS has been running since the last boot. The uptime is reported for trending and never alerts on its own.
 
 **Important Notes:**
 
@@ -61,7 +61,7 @@ options:
                        `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT    Network timeout in seconds. Default: 6 (seconds)
   --url URL            QTS-based appliance URL. Example:
-                       `--url=https://192.168.1.1:8080`.
+                       `--url=https://192.0.2.10:8080`.
   --username USERNAME  QTS API username. Default: admin
 
 Documentation:

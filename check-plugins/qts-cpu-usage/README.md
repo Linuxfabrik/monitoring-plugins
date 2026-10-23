@@ -3,7 +3,7 @@
 
 ## Overview
 
-Monitors CPU utilization on QNAP appliances running QTS via the HTTP API. Alerts only if the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes.
+Monitors CPU utilization on QNAP appliances running QTS via the API. Alerts only if the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes.
 
 **Important Notes:**
 
@@ -71,7 +71,7 @@ options:
                        `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT    Network timeout in seconds. Default: 6 (seconds)
   --url URL            QTS-based appliance URL. Example:
-                       `https://192.0.2.10:8080`.
+                       `--url=https://192.0.2.10:8080`.
   --username USERNAME  QTS API username. Default: admin
   -w, --warning WARN   WARN threshold in percent. Supports Nagios ranges.
                        Alerts only after `--count` consecutive runs above the

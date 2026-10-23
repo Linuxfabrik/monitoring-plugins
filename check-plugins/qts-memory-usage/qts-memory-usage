@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092901'
+__version__ = '2026102301'
 
 DESCRIPTION = """Monitors system memory utilization on QNAP appliances running QTS via the API. Alerts
 when memory usage exceeds the configured thresholds."""
@@ -130,7 +130,7 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='QTS-based appliance URL. Example: `--url=https://192.168.1.1:8080`.',
+        help='QTS-based appliance URL. Example: `--url=https://192.0.2.10:8080`.',
         dest='URL',
         required=True,
     )
@@ -201,7 +201,7 @@ def main():
 
     # build the message
     msg = (
-        f'{memory_usage}% - total:'
+        f'{memory_usage}%{lib.base.state2str(state, prefix=" ")} - total:'
         f' {lib.human.bytes2human(total)}, used:'
         f' {lib.human.bytes2human(used)}, free:'
         f' {lib.human.bytes2human(free)}'

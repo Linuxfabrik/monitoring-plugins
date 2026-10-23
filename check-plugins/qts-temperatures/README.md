@@ -63,7 +63,7 @@ options:
                        `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT    Network timeout in seconds. Default: 6 (seconds)
   --url URL            QTS-based appliance URL. Example:
-                       `--url=https://192.168.1.1:8080`.
+                       `--url=https://192.0.2.10:8080`.
   --username USERNAME  QTS API username. Default: admin
 
 Documentation:
@@ -87,8 +87,8 @@ Sys: 59°C (Thresholds: 60/70°C), CPU: 82°C (Thresholds: 80/85°C) [WARNING]
 ## States
 
 * OK if both system and CPU temperatures are below the QTS-configured thresholds.
-* WARN if the system or CPU temperature exceeds the warning threshold configured in QTS.
-* CRIT if the system or CPU temperature exceeds the error threshold configured in QTS.
+* WARN if the system or CPU temperature reaches the warning threshold configured in QTS.
+* CRIT if the system or CPU temperature reaches the error threshold configured in QTS.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

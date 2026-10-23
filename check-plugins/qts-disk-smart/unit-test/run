@@ -30,7 +30,8 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 #   only provides the temperature thresholds.
 # * `ts-451-disk-61-*` and `ts-451-disk-warning-*` are the TS-451 answer with the
 #   temperature of the first disk raised, or the health of the second disk set to
-#   "Warning".
+#   "Warning". `ts-451-disk-61-warning-*` raises the temperature of the first disk
+#   and sets its health to "Warning".
 TESTS = [
     {
         'id': 'ok-qutscloud-c4-5-7-1864-no-temperature',
@@ -154,6 +155,18 @@ TESTS = [
         'assert-in': [
             'There are warnings.',
             ') [WARNING]',
+        ],
+    },
+    {
+        # a non-normal health status does not lower a temperature above the error
+        # threshold to a warning
+        'id': 'crit-disk-above-crit-and-health-warning',
+        'test': 'stdout/ts-451-disk-61-warning',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are critical errors.',
+            'Temp 61°C (Thresholds: 55/60°C)) [CRITICAL]',
         ],
     },
     {

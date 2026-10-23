@@ -65,7 +65,7 @@ options:
                        `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT    Network timeout in seconds. Default: 6 (seconds)
   --url URL            QTS-based appliance URL. Example:
-                       `--url=https://192.168.1.1:8080`.
+                       `--url=https://192.0.2.10:8080`.
   --username USERNAME  QTS API username. Default: admin
 
 Documentation:
@@ -93,8 +93,8 @@ Checked 4 disks. All are healthy.
 ## States
 
 * OK if all disks are healthy and temperatures are below the thresholds.
-* WARN if any disk reports a non-normal SMART health status or temperature exceeds the warning threshold.
-* CRIT if any disk temperature exceeds the critical threshold.
+* WARN if any disk reports a non-normal SMART health status or its temperature reaches the warning threshold configured in QTS.
+* CRIT if any disk temperature reaches the error threshold configured in QTS, regardless of its health status.
 * UNKNOWN if no disks are found.
 * `--always-ok` suppresses all alerts and always returns OK.
 

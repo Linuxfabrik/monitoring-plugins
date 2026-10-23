@@ -3,7 +3,7 @@
 
 ## Overview
 
-Monitors system memory utilization on QNAP appliances running QTS via the HTTP API. Reports total, used, and free memory along with the usage percentage.
+Monitors system memory utilization on QNAP appliances running QTS via the API. Alerts when memory usage exceeds the configured thresholds. Reports total, used, and free memory along with the usage percentage.
 
 **Important Notes:**
 
@@ -64,7 +64,7 @@ options:
                        `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT    Network timeout in seconds. Default: 6 (seconds)
   --url URL            QTS-based appliance URL. Example:
-                       `--url=https://192.168.1.1:8080`.
+                       `--url=https://192.0.2.10:8080`.
   --username USERNAME  QTS API username. Default: admin
   -w, --warning WARN   WARN threshold for memory usage in percent. Supports
                        Nagios ranges. Default: 80
