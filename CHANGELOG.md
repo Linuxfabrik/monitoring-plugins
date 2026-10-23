@@ -49,6 +49,7 @@ Monitoring Plugins:
 * cpu-vulnerabilities: the first line names the CPU vendor, and a virtual machine names the entries only its hypervisor can answer
 * crypto-policy: compares only the base policy and lists the subpolicies, unless `--policy` names subpolicies itself
 * disk-usage: a threshold such as `-5`, `10X` or `5.5.5G` ends in UNKNOWN instead of being read as 0% or with the default unit, and `10 G` is read
+* gitlab-version: a pending security update is CRIT instead of WARN, a release without security fixes no longer alerts
 * librenms-validate: reports the validations as a compact list instead of a wide table
 * lynis: lists every finding and suggestion with the host it was found on, and refuses to run as root
 * memory-paging: swap written out no longer alerts by default, and the output names the processes behind the swap traffic

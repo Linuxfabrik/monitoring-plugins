@@ -24,10 +24,10 @@ import lib.shell
 import lib.time
 import lib.url
 import lib.version
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100901'
+__version__ = '2026102301'
 
 DESCRIPTION = """Checks the installed GitLab version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -231,13 +231,22 @@ def check_security(
             filename='linuxfabrik-lib-version.db',
         )
 
+    # `severity` is one of `success` ("Up to date"), `warning` ("Update available") or
+    # `danger` ("Update ASAP"), see GitLab's
+    # app/assets/javascripts/gitlab_version_check/components/
+    # gitlab_version_check_badge.vue. Only `danger` means a security release.
+    # `warning` is also returned for the latest patch of an older but still
+    # maintained minor (19.4.3 while 19.5.1 is out), so it is no alert here; newer
+    # releases are what --check-minor and --check-patch are for.
+    # Verified against version.gitlab.com on 2026-10-23: 19.5.1 `success`, 19.4.3
+    # `warning`, 18.10.3 `danger`, 19.5.0 `danger` with `critical_vulnerability`.
     severity = data.get('severity', 'success')
     critical = bool(data.get('critical_vulnerability', False))
-    if severity == 'success' and not critical:
-        return STATE_OK, ''
     if critical:
-        return STATE_WARN, 'critical security update available'
-    return STATE_WARN, 'security update available'
+        return STATE_CRIT, 'critical security update available'
+    if severity == 'danger':
+        return STATE_CRIT, 'security update available'
+    return STATE_OK, ''
 
 
 def main():

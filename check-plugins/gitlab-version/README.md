@@ -14,7 +14,7 @@ Checks the installed GitLab version against the endoflife.date API and alerts if
 
 * Reads the installed GitLab version from `/opt/gitlab/version-manifest.txt` (configurable via `--path`)
 * Compares against the [endoflife.date API](https://endoflife.date/api/gitlab.json) to determine EOL status and available updates
-* With `--check-security`, additionally queries `https://version.gitlab.com/check.json` for the installed version and treats `severity != success` or `critical_vulnerability == true` as a warning
+* With `--check-security`, additionally asks `https://version.gitlab.com/check.json` whether the installed version is missing a security release, the same verdict the GitLab admin area shows as "Update ASAP". A plain "Update available" means only that a newer release exists and does not alert; `--check-major`, `--check-minor` and `--check-patch` cover that
 * Caches endoflife.date responses locally for 24 hours and security responses for 4 hours to reduce external requests
 
 
@@ -121,13 +121,13 @@ GitLab v16.0.3 (EOL 2023-08-22 -30d [WARNING], minor 16.4.1 available, patch 16.
 Output:
 
 ```text
-GitLab v18.10.3, security update available (full support ended on 2026-04-16; EOL 2026-06-18 -30d, minor 18.11.0 available) [WARNING]
+GitLab v18.10.3, security update available (full support ended on 2026-04-16; EOL 2026-06-18 -30d, minor 18.11.0 available) [CRITICAL]
 ```
 
 
 ## States
 
-* WARN if `--check-security` is set and GitLab reports a non-`success` severity or a critical vulnerability for the installed version.
+* CRIT if `--check-security` is set and GitLab reports a missing security release or a critical vulnerability for the installed version. This is deliberately CRIT and not WARN: once a security release is public, the fix shows attackers where the hole is, and automated tooling turns it into a working exploit within hours to days, so an exposed GitLab instance has to be patched right away.
 * `--unreachable-severity` (default: `ok`) if `--check-security` is set and the GitLab Version Check service cannot be reached. The output names it either way, so an operator who accepts a failing lookup can still see that it failed.
 * UNKNOWN if GitLab is not found or the version file cannot be read.
 

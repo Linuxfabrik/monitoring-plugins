@@ -30,17 +30,28 @@ in every `*-version` plugin, and a verdict it derives from live endoflife.date d
 and today's date cannot be pinned without breaking as soon as upstream re-dates a
 cycle or a date passes. It is covered without the network in the lib repo
 (`tests/version/unit-test/run`) and in `check-plugins/mysql-version/unit-test/run`.
-The testcases therefore only assert the parsed version and its perfdata value.
+The parser testcases therefore only assert the parsed version and its perfdata value.
+
+The `--check-security` half is tested by seeding the cache the plugin reads before it
+asks version.gitlab.com, see `TestSecurity` below.
 """
 
+import json
+import os
+import shutil
 import sys
+import tempfile
 
 sys.path.insert(0, '..')
 
 import unittest
 
+import lib.base
+import lib.cache
+import lib.db_sqlite
 import lib.lftest
-from lib.globals import STATE_UNKNOWN
+import lib.time
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 TESTS = [
     {
@@ -123,6 +134,126 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+# The `--check-security` half. The plugin asks version.gitlab.com over the network,
+# so the cases below seed the cache entry it reads first and drive the plugin against
+# the fixtures in `versiongitlabcom/`. These are real answers of
+# `https://version.gitlab.com/check.json`, captured on 2026-10-23 for 19.5.1
+# (`up-to-date`), 19.4.3 (`update-available`, the latest patch of an older but still
+# maintained minor), 18.10.3 (`security-update`) and 19.5.0
+# (`critical-security-update`). The end-of-life lookup is seeded as well, with a
+# cycle that ends in 2100, so it never adds its own WARN to an OK case.
+SECURITY_TESTS = [
+    {
+        'id': 'ok-security-up-to-date',
+        'answer': 'up-to-date',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['security update', '[CRITICAL]'],
+    },
+    {
+        # `warning` only says that a newer release exists, which is no security fix
+        'id': 'ok-security-update-available',
+        'answer': 'update-available',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['security update', '[CRITICAL]'],
+    },
+    {
+        'id': 'crit-security-update',
+        'answer': 'security-update',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['GitLab v17.3.1, security update available', '[CRITICAL]'],
+        'assert-not-in': ['critical security update'],
+    },
+    {
+        'id': 'crit-critical-security-update',
+        'answer': 'critical-security-update',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'GitLab v17.3.1, critical security update available',
+            '[CRITICAL]',
+        ],
+    },
+]
+
+# One parsed version for every security case, so each fixture varies exactly one thing.
+SECURITY_MANIFEST = 'gitlab/ee-17-3-1/version-manifest.txt'
+SECURITY_VERSION = '17.3.1'
+
+
+class TestSecurity(unittest.TestCase):
+    check = '../gitlab-version'
+
+    def setUp(self):
+        # The cache resolves its directory through `disk.get_tmpdir()`, which honours
+        # TMPDIR. Pointing that at a throwaway directory keeps the seeded answers out
+        # of the shared per-user cache every plugin on this machine reads, and the
+        # environment variable carries into the plugin subprocess.
+        self.tmpdir = tempfile.mkdtemp(prefix='lftest-gitlab-')
+        self.saved_env = os.environ.get('TMPDIR')
+        self.saved_tempdir = tempfile.tempdir
+        os.environ['TMPDIR'] = self.tmpdir
+        tempfile.tempdir = self.tmpdir
+
+    def tearDown(self):
+        tempfile.tempdir = self.saved_tempdir
+        if self.saved_env is None:
+            os.environ.pop('TMPDIR', None)
+        else:
+            os.environ['TMPDIR'] = self.saved_env
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def seed(self, key, fixture):
+        with open(fixture, encoding='utf-8') as fd:
+            payload = json.load(fd)
+        ok = lib.cache.set(
+            key,
+            json.dumps(payload),
+            expire=lib.time.now() + 3600,
+            filename='linuxfabrik-lib-version.db',
+        )
+        self.assertTrue(ok, f'seeding the cache with {fixture} failed')
+
+    def test_seeded_cache_is_isolated(self):
+        # Guards the mechanism itself: if TMPDIR ever stops steering the cache, the
+        # seeded file lands in the shared directory and every case below silently
+        # starts grading against live version.gitlab.com answers.
+        self.seed(
+            f'gitlab-security:{SECURITY_VERSION}', 'versiongitlabcom/up-to-date.json'
+        )
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(
+                    # the per-user subdirectory on POSIX, `self.tmpdir` itself on Windows
+                    lib.base.coe(lib.db_sqlite.get_db_dir(self.tmpdir)),
+                    'linuxfabrik-lib-version.db',
+                )
+            )
+        )
+
+
+def _check_security(test, testcase):
+    """Seed the cache for this case, then drive the plugin the usual way.
+
+    The per-item setup is why these use `attach_each()` rather than
+    `attach_tests()`: every case needs its own answer in the cache before the
+    plugin subprocess starts.
+    """
+    test.seed(
+        'https://endoflife.date/api/gitlab.json', 'endoflifedate/cycle-supported.json'
+    )
+    test.seed(
+        f'gitlab-security:{SECURITY_VERSION}',
+        f'versiongitlabcom/{testcase["answer"]}.json',
+    )
+    testcase.setdefault('test', 'none')
+    testcase.setdefault('params', f'--check-security --path={SECURITY_MANIFEST}')
+    lib.lftest.run(test, test.check, testcase)
+
+
+lib.lftest.attach_each(
+    TestSecurity, SECURITY_TESTS, _check_security, id_func=lambda item: item['id']
+)
 
 
 if __name__ == '__main__':
