@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026102301'
 
 DESCRIPTION = """Checks file sizes against configurable thresholds using human-readable units (e.g.
 25M, 1G). Supports glob patterns, SMB shares, and optional aggregation (mean or
@@ -227,10 +227,15 @@ def main():
                 # filesystems, and never is the size of the contents
                 if item.is_dir():
                     continue
+                try:
+                    size = item.stat().st_size
+                except OSError:
+                    # it is normal that files disappear while reading
+                    continue
                 table_data.append(
                     {
                         'filename': item,
-                        'size': item.stat().st_size,
+                        'size': size,
                     }
                 )
         else:

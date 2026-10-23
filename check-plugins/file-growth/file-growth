@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026102301'
 
 DESCRIPTION = """Checks how fast files grow or shrink, by comparing their size against
 the previous check runs and reporting the change as a rate per second. Supports glob
@@ -282,10 +282,15 @@ def main():
                 # filesystems, and never is the size of the contents
                 if item.is_dir():
                     continue
+                try:
+                    size = item.stat().st_size
+                except OSError:
+                    # it is normal that files disappear while reading
+                    continue
                 current.append(
                     {
                         'filename': item,
-                        'size': item.stat().st_size,
+                        'size': size,
                     }
                 )
         else:
