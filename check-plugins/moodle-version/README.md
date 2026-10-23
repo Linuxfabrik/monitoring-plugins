@@ -116,7 +116,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| moodle-version | Number | Installed Moodle version as float. "4.1.11" becomes "4.111". |
+| moodle-version | Number | Installed Moodle version as float. For example, "4.1.11" becomes "4.001011". |
 
 
 ## Credits, License

@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks whether a newer version of mydumper/myloader is available by comparing the locally installed version against the latest release from the GitHub API.
+Checks if a newer version of mydumper is available by comparing the installed version against the latest release on the GitHub releases API. Alerts when the installed version is outdated.
 
 **Important Notes:**
 
@@ -26,7 +26,7 @@ Checks whether a newer version of mydumper/myloader is available by comparing th
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
-| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-mydumper-version.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
 
 
 ## Help
@@ -35,16 +35,17 @@ Checks whether a newer version of mydumper/myloader is available by comparing th
 usage: mydumper-version [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                         [--no-perfdata] [--path PATH]
 
-Checks if a newer version of mydumper is available by querying the GitHub
-releases API. Alerts when the installed version is outdated.
+Checks if a newer version of mydumper is available by comparing the installed
+version against the latest release on the GitHub releases API. Alerts when the
+installed version is outdated.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
-                        The amount of time after which the credential/data
-                        cache expires, in minutes. Default: 24
+                        The amount of time after which the cached latest
+                        release expires, in hours. Default: 24
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -81,7 +82,7 @@ mydumper/myloader v0.10.5 is up to date
 
 | Name | Type | Description |
 |----|----|----|
-| mydumper-version | Number | Installed mydumper version as float. |
+| mydumper-version | Number | Installed mydumper version as float. For example, "0.10.5" becomes "0.010005". |
 
 
 ## Credits, License

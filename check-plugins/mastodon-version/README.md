@@ -130,7 +130,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| mastodon-version | Float | Installed Mastodon version as a floating-point number. For example, "4.2.10" becomes "4.21". |
+| mastodon-version | Number | Installed Mastodon version as float. For example, "4.2.13" becomes "4.002013". |
 
 
 ## Credits, License

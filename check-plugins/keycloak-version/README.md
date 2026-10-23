@@ -132,7 +132,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| keycloak-version | Number | Installed Keycloak version as float (e.g. "18.0.3" becomes "18.03"). |
+| keycloak-version | Number | Installed Keycloak version as float. For example, "18.0.3" becomes "18.000003". |
 
 
 ## Troubleshooting

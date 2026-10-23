@@ -116,7 +116,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| postfix-version | Number | Installed Postfix version as float. "3.3.22" becomes "3.322". |
+| postfix-version | Number | Installed Postfix version as float. For example, "3.3.22" becomes "3.003022". |
 
 
 ## Credits, License

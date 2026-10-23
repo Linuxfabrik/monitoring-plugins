@@ -25,10 +25,11 @@ import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092901'
+__version__ = '2026102301'
 
-DESCRIPTION = """Checks if a newer version of mydumper is available by querying the GitHub releases API.
-Alerts when the installed version is outdated."""
+DESCRIPTION = """Checks if a newer version of mydumper is available by comparing the installed
+version against the latest release on the GitHub releases API. Alerts when the installed
+version is outdated."""
 
 DEFAULT_CACHE_EXPIRE = 24  # hours
 DEFAULT_PATH = 'mydumper'
@@ -59,7 +60,10 @@ def parse_args():
 
     parser.add_argument(
         '--cache-expire',
-        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        # in hours, unlike lib.args.help('--cache-expire'), which says minutes
+        help='The amount of time after which the cached latest release expires, '
+        'in hours. '
+        'Default: %(default)s',
         dest='CACHE_EXPIRE',
         type=int,
         default=DEFAULT_CACHE_EXPIRE,
@@ -170,6 +174,7 @@ def main():
     perfdata = lib.base.get_perfdata(
         'mydumper-version',
         lib.version.version2float(installed_version),
+        uom=None,
         _min=0,
     )
     if up_to_date:

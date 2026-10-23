@@ -119,6 +119,7 @@ Windows 10 Pro 22H2, build 19045.6128 (full support ended on 2025-10-14; EOL 202
 The end-of-life verdict, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/). In addition:
 
 * WARN on every Windows release before Windows 10.
+* WARN if reading the registry takes longer than `--timeout`.
 * UNKNOWN if endoflife.date has no cycle for the installed feature release and edition, for example a feature release published only days ago.
 * UNKNOWN if the build number cannot be read from the registry.
 

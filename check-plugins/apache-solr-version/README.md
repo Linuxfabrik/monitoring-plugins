@@ -119,7 +119,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| apache-solr-version | Number | Installed Apache Solr version as float, e.g. "7.7.0" becomes "7.70". |
+| apache-solr-version | Number | Installed Apache Solr version as float. For example, "7.7.0" becomes "7.007". |
 
 
 ## Credits, License

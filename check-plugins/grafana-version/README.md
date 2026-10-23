@@ -118,7 +118,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| grafana-version | Number | Installed Grafana version as float. For example, "9.3.6" becomes "9.36". |
+| grafana-version | Number | Installed Grafana version as float. For example, "9.3.6" becomes "9.003006". |
 
 
 ## Credits, License

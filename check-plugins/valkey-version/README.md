@@ -117,7 +117,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| valkey-version | Number | Installed Valkey version as float. "8.0.3" becomes "8.03". |
+| valkey-version | Number | Installed Valkey version as float. For example, "8.0.3" becomes "8.000003". |
 
 
 ## Troubleshooting

@@ -116,7 +116,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| python-version | Number | Installed Python version as float. "3.11.4" becomes "3.114". |
+| python-version | Number | Installed Python version as float. For example, "3.11.4" becomes "3.011004". |
 
 
 ## Credits, License

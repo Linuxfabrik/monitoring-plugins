@@ -116,7 +116,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| openvpn-version | Number | Installed OpenVPN version as a float. `2.5.11` becomes `2.511`. |
+| openvpn-version | Number | Installed OpenVPN version as float. For example, "2.5.11" becomes "2.005011". |
 
 
 ## Credits, License

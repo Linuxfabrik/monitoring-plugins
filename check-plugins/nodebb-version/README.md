@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks if a NodeBB update is available by comparing the installed version against the latest release. Alerts when an update is available.
+Checks if a newer version of NodeBB is available by comparing the installed version against the latest release, both as reported by the NodeBB API. Alerts when the installed version is outdated.
 
 **Important Notes:**
 
@@ -37,8 +37,9 @@ usage: nodebb-version [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
                       [--no-proxy] [--proxy PROXY] [--timeout TIMEOUT]
                       [-p TOKEN] [--url URL]
 
-Checks if a NodeBB update is available by comparing the installed version
-against the latest release. Alerts when an update is available.
+Checks if a newer version of NodeBB is available by comparing the installed
+version against the latest release, both as reported by the NodeBB API. Alerts
+when the installed version is outdated.
 
 options:
   -h, --help         show this help message and exit
@@ -92,7 +93,7 @@ NodeBB v1.17.1 installed, NodeBB v1.18.1 available, Last restart: 2021-08-09 16:
 
 | Name | Type | Description |
 |----|----|----|
-| nodebb-version | Number | Currently installed version as a float. Example: `1.171` for v1.17.1. |
+| nodebb-version | Number | Installed NodeBB version as float. For example, "1.17.1" becomes "1.017001". |
 
 
 ## Credits, License

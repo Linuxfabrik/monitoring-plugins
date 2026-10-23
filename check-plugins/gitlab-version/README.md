@@ -138,7 +138,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| gitlab-version | Number | Installed GitLab version as float. For example, "16.0.3" becomes "16.03". |
+| gitlab-version | Number | Installed GitLab version as float. For example, "16.0.3" becomes "16.000003". |
 
 
 ## Credits, License

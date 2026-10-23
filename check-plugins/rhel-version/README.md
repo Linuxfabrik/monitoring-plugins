@@ -119,7 +119,7 @@ UNKNOWN on a distribution outside the Red Hat family, and on Fedora, whose relea
 
 | Name | Type | Description |
 |----|----|----|
-| rhel-version | Number | Installed RHEL version as float. "8.7" becomes "87". |
+| rhel-version | Number | Installed RHEL version as float. For example, "8.7" becomes "8.007". |
 
 
 ## Credits, License

@@ -24,7 +24,7 @@ import lib.wildfly
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092901'
+__version__ = '2026102301'
 
 DESCRIPTION = """Checks if a newer version of WildFly is available by comparing the installed
 version, queried from the HTTP management API, against the latest release on the GitHub
@@ -63,7 +63,10 @@ def parse_args():
 
     parser.add_argument(
         '--cache-expire',
-        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        # in hours, unlike lib.args.help('--cache-expire'), which says minutes
+        help='The amount of time after which the cached latest release expires, '
+        'in hours. '
+        'Default: %(default)s',
         dest='CACHE_EXPIRE',
         type=int,
         default=DEFAULT_CACHE_EXPIRE,

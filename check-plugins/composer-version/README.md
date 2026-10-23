@@ -118,7 +118,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| composer-version | Number | Installed Composer version as float. For example, "2.7.1" becomes "2.71". |
+| composer-version | Number | Installed Composer version as float. For example, "2.7.1" becomes "2.007001". |
 
 
 ## Credits, License

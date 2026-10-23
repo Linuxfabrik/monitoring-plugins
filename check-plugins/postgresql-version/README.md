@@ -120,7 +120,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| postgresql-version | Number | Installed PostgreSQL version as float. "10.23" becomes 10.23. |
+| postgresql-version | Number | Installed PostgreSQL version as float. For example, "10.23" becomes "10.023". |
 
 
 ## Troubleshooting

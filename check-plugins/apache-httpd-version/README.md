@@ -121,7 +121,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| apache-httpd-version | Number | Installed Apache httpd version as float, e.g. "2.4.57" becomes "2.457". |
+| apache-httpd-version | Number | Installed Apache httpd version as float. For example, "2.4.57" becomes "2.004057". |
 
 
 ## Credits, License

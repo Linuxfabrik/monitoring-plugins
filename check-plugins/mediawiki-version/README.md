@@ -118,7 +118,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| mediawiki-version | Float | Installed MediaWiki version as a floating-point number. For example, "1.39.3" becomes "1.393". |
+| mediawiki-version | Number | Installed MediaWiki version as float. For example, "1.39.3" becomes "1.039003". |
 
 
 ## Credits, License

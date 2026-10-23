@@ -116,7 +116,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| redis-version | Number | Installed Redis version as float. "3.3.22" becomes "3.322". |
+| redis-version | Number | Installed Redis version as float. For example, "7.2.4" becomes "7.002004". |
 
 
 ## Troubleshooting

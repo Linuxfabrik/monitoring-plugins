@@ -115,7 +115,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| graylog-version | Number | Installed Graylog version as float. For example, "5.0.13" becomes "5.013". |
+| graylog-version | Number | Installed Graylog version as float. For example, "5.0.13" becomes "5.000013". |
 
 
 ## Credits, License

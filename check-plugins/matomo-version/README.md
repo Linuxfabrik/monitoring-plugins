@@ -119,7 +119,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| matomo-version | Float | Installed Matomo version as a floating-point number. For example, "5.3.2" becomes "5.32". |
+| matomo-version | Number | Installed Matomo version as float. For example, "5.3.2" becomes "5.003002". |
 
 
 ## Credits, License

@@ -12,7 +12,7 @@ Checks the installed WordPress version against the endoflife.date API and alerts
 **Data Collection:**
 
 * Reads the installed WordPress version from `wp-includes/version.php` in the installation directory given by `--path`
-* Without `--path`, the check takes the first WordPress installation it finds in `/var/www/html/wordpress`, `/srv/www/htdocs/wordpress`, `/usr/share/wordpress`, or one or two levels below `/var/www`, such as `/var/www/html/www.example.com`.
+* Without `--path`, the check takes the first WordPress installation it finds in `/var/www/html/wordpress`, `/srv/www/htdocs/wordpress`, `/usr/share/wordpress`, or one or two levels below `/var/www`, such as `/var/www/html/www.example.com`
 * Compares against the [endoflife.date API](https://endoflife.date/api/wordpress.json) to determine EOL status and available updates
 * Caches endoflife.date responses locally for 24 hours to reduce external requests
 
@@ -120,7 +120,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| wordpress-version | Number | Installed WordPress version as float. "4.0.38" becomes "4.038". |
+| wordpress-version | Number | Installed WordPress version as float. For example, "4.0.38" becomes "4.000038". |
 
 
 ## Credits, License

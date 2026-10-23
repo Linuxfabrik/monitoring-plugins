@@ -116,7 +116,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| openjdk-redhat-version | Number | Installed Java version as a float. `20.0.2` becomes `20.02`. |
+| openjdk-redhat-version | Number | Installed Java version as float. For example, "20.0.2" becomes "20.000002". |
 
 
 ## Credits, License

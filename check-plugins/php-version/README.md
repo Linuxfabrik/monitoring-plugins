@@ -115,7 +115,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| php-version | Number | Installed PHP version as float. "7.4.33" becomes "7.433". |
+| php-version | Number | Installed PHP version as float. For example, "7.4.33" becomes "7.004033". |
 
 
 ## Credits, License

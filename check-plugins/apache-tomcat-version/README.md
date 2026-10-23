@@ -127,7 +127,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| apache-tomcat-version | Number | Installed Apache Tomcat version as float, e.g. "10.1.49" becomes "10.149". |
+| apache-tomcat-version | Number | Installed Apache Tomcat version as float. For example, "10.1.49" becomes "10.001049". |
 
 
 ## Credits, License

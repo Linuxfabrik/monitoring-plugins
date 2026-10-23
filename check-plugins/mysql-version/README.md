@@ -113,7 +113,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| mysql-version | Number | Installed MySQL/MariaDB version as float. "10.6.12" becomes "10.612". |
+| mysql-version | Number | Installed MySQL/MariaDB version as float. For example, "10.6.12" becomes "10.006012". |
 
 
 ## Credits, License

@@ -118,7 +118,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| nextcloud-version | Number | Installed Nextcloud version as float. "23.0.12" becomes "23.012". |
+| nextcloud-version | Number | Installed Nextcloud version as float. For example, "23.0.12" becomes "23.000012". |
 
 
 ## Troubleshooting

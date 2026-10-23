@@ -118,7 +118,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| icinga-version | Number | Installed Icinga version as float. For example, "2.14.6" becomes "2.146". |
+| icinga-version | Number | Installed Icinga version as float. For example, "2.14.6" becomes "2.014006". |
 
 
 ## Credits, License

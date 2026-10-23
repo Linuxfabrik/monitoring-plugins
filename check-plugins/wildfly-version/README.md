@@ -50,8 +50,8 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
-                        The amount of time after which the credential/data
-                        cache expires, in minutes. Default: 24
+                        The amount of time after which the cached latest
+                        release expires, in hours. Default: 24
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --instance INSTANCE   WildFly instance (server-config) to check when running
@@ -116,7 +116,7 @@ WildFly v26.1.3.Final installed, WildFly v40.0.0.Final available [WARNING]
 
 | Name | Type | Description |
 |----|----|----|
-| wildfly-version | Number | Installed WildFly version as float. |
+| wildfly-version | Number | Installed WildFly version as float. For example, "26.1.3.Final" becomes "26.001003". |
 
 
 ## Credits, License

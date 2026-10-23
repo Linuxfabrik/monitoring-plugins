@@ -132,7 +132,7 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| metabase-version | Number | Installed Metabase version as float. "0.58.24" becomes "0.5824". The license digit is part of it, so the same release reads as "1.5824" on an Enterprise Edition host. |
+| metabase-version | Number | Installed Metabase version as float. For example, "0.58.24" becomes "0.058024". The license digit is part of it, so the same release reads as "1.058024" on an Enterprise Edition host. |
 
 
 ## Troubleshooting
