@@ -8,7 +8,7 @@ Checks the state of all processors (CPUs) in a Redfish-compatible server via the
 **Important Notes:**
 
 * Tested on DELL iDRAC and DMTF Simulator
-* A check usually completes within a few seconds, but a slow or retried request can take longer. The bundled Director basket allows a 60 second runtime timeout.
+* A check usually completes within a few seconds, but a slow or retried request can exceed the short check timeout monitoring systems use by default (often 10 seconds). Give the check up to 60 seconds.
 * This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
 
@@ -153,9 +153,9 @@ CPU 1  ! CPU  ! Multi-Core Intel(R) Xeon(R) processor 7xxx Series ! Intel(R) Cor
 
 ## States
 
-* OK if all enabled processors report a healthy state.
-* WARN if an enabled processor health or health rollup state is "Warning".
-* CRIT if an enabled processor health or health rollup state is "Critical".
+* OK if all processors report a healthy state.
+* WARN if a processor health or health rollup state is "Warning".
+* CRIT if a processor health or health rollup state is "Critical".
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -163,7 +163,7 @@ CPU 1  ! CPU  ! Multi-Core Intel(R) Xeon(R) processor 7xxx Series ! Intel(R) Cor
 
 | Name | Type | Description |
 |----|----|----|
-| processors | Number | Number of enabled processors checked. |
+| processors | Number | Number of processors checked. |
 | processors_not_ok | Number | Number of processors whose health is not OK. |
 
 

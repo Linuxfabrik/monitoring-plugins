@@ -3,12 +3,12 @@
 
 ## Overview
 
-Checks the overall system health reported by a Redfish-compatible server via the Redfish API. Reports every enabled system member with its identification (manufacturer, model, hostname, SKU, serial number), compute summary (processors, BIOS version, power state, indicator LED) and rolled-up health status, and alerts whenever any system's status leaves `OK`. Use `redfish-storage` for drive- and storage-controller-specific monitoring.
+Checks the overall system health reported by a Redfish-compatible server via the Redfish API. Reports every system member with its identification (manufacturer, model, hostname, SKU, serial number), compute summary (processors, BIOS version, power state, indicator LED) and rolled-up health status, and alerts whenever any system's status leaves `OK`. Use `redfish-storage` for drive- and storage-controller-specific monitoring.
 
 **Important Notes:**
 
 * Tested on DELL iDRAC and DMTF Simulator
-* A check usually completes within a few seconds, but a slow or retried request can take longer. The bundled Director basket allows a 60 second runtime timeout.
+* A check usually completes within a few seconds, but a slow or retried request can exceed the short check timeout monitoring systems use by default (often 10 seconds). Give the check up to 60 seconds.
 * This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
 * This check reports system-level (rolled-up) health only. For dedicated component monitoring use `redfish-storage`, `redfish-memory`, `redfish-processors`, `redfish-ethernetinterfaces`, `redfish-sensors`, `redfish-managers` or `redfish-firmwareinventory`.
@@ -45,7 +45,7 @@ usage: redfish-systems [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                        --url URL [--username USERNAME] [--verbose]
 
 Checks the overall system health reported by a Redfish-compatible server via
-the Redfish API. Reports every enabled system member with its identification
+the Redfish API. Reports every system member with its identification
 (manufacturer, model, hostname, SKU, serial number), compute summary
 (processors, BIOS version, power state, indicator LED) and rolled-up health
 status, and alerts whenever any system's status leaves `OK`. Use
@@ -133,7 +133,7 @@ Member: Contoso 3500, HostName: web483, Processors: 2x Multi-Core Intel(R) Xeon(
 
 ## States
 
-* OK if every enabled system reports a healthy rolled-up state.
+* OK if every system reports a healthy rolled-up state.
 * WARN if a system health or health rollup state is "Warning".
 * CRIT if a system health or health rollup state is "Critical".
 * `--always-ok` suppresses all alerts and always returns OK.

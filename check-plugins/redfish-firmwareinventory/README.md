@@ -8,7 +8,7 @@ Reports the firmware inventory of a Redfish-compatible server via the Redfish AP
 **Important Notes:**
 
 * Tested on DELL iDRAC and DMTF Simulator
-* A check usually completes within a few seconds, but a slow or retried request can take longer. The bundled Director basket allows a 60 second runtime timeout.
+* A check usually completes within a few seconds, but a slow or retried request can exceed the short check timeout monitoring systems use by default (often 10 seconds). Give the check up to 60 seconds.
 * This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
 

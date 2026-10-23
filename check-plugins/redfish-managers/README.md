@@ -3,12 +3,12 @@
 
 ## Overview
 
-Checks the health of all managers (BMCs such as iLO, iDRAC, or a generic BMC) of a Redfish-compatible server via the Redfish API. Reports every enabled manager with its identification (type, model, firmware version, power state, UUID) and rolled-up health status, and alerts whenever any manager's status leaves `OK`. Use `redfish-logservices` to inspect a manager's event log.
+Checks the health of all managers (BMCs such as iLO, iDRAC, or a generic BMC) of a Redfish-compatible server via the Redfish API. Reports every manager with its identification (type, model, firmware version, power state, UUID) and rolled-up health status, and alerts whenever any manager's status leaves `OK`. Use `redfish-logservices` to inspect a manager's event log.
 
 **Important Notes:**
 
 * Tested on DELL iDRAC and DMTF Simulator
-* A check usually completes within a few seconds, but a slow or retried request can take longer. The bundled Director basket allows a 60 second runtime timeout.
+* A check usually completes within a few seconds, but a slow or retried request can exceed the short check timeout monitoring systems use by default (often 10 seconds). Give the check up to 60 seconds.
 * This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
 
@@ -45,10 +45,10 @@ usage: redfish-managers [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                         [--username USERNAME] [--verbose]
 
 Checks the health of all managers (BMCs such as iLO, iDRAC, or a generic BMC)
-of a Redfish-compatible server via the Redfish API. Reports every enabled
-manager with its identification (type, model, firmware version, power state,
-UUID) and rolled-up health status, and alerts whenever any manager's status
-leaves `OK`. Use `redfish-logservices` to inspect a manager's event log.
+of a Redfish-compatible server via the Redfish API. Reports every manager with
+its identification (type, model, firmware version, power state, UUID) and
+rolled-up health status, and alerts whenever any manager's status leaves `OK`.
+Use `redfish-logservices` to inspect a manager's event log.
 
 options:
   -h, --help            show this help message and exit
@@ -144,7 +144,7 @@ Manager: BMC Joo Janta 200, Firmware: 1.45.455b66-rev4, Power: On, UUID: 5889388
 
 ## States
 
-* OK if all enabled managers report a healthy rolled-up state.
+* OK if all managers report a healthy rolled-up state.
 * WARN if a manager health or health rollup state is "Warning".
 * CRIT if a manager health or health rollup state is "Critical".
 * `--always-ok` suppresses all alerts and always returns OK.
@@ -154,7 +154,7 @@ Manager: BMC Joo Janta 200, Firmware: 1.45.455b66-rev4, Power: On, UUID: 5889388
 
 | Name | Type | Description |
 |----|----|----|
-| managers | Number | Number of enabled managers checked. |
+| managers | Number | Number of managers checked. |
 | managers_not_ok | Number | Number of managers whose health is not OK. |
 
 

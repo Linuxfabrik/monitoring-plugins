@@ -3,12 +3,12 @@
 
 ## Overview
 
-Checks the event log entries exposed under the LogServices of a Redfish-compatible server (the System Event Log, SEL) via the Redfish API. Alerts based on the severity of the log entries.
+Checks the event log entries exposed under the LogServices of a Redfish-compatible server (the System Event Log, SEL) via the Redfish API. Alerts when a log entry has the severity "Warning" or "Critical".
 
 **Important Notes:**
 
 * Tested on DELL iDRAC and DMTF Simulator
-* A check usually completes within a few seconds, but a slow or retried request can take longer. The bundled Director basket allows a 60 second runtime timeout.
+* A check usually completes within a few seconds, but a slow or retried request can exceed the short check timeout monitoring systems use by default (often 10 seconds). Give the check up to 60 seconds.
 * This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
 
@@ -48,12 +48,12 @@ usage: redfish-logservices [-h] [-V] [--always-ok]
                            [--verbose]
 
 Checks the event log entries exposed under the LogServices of a
-Redfish-compatible server via the Redfish API and alerts based on the severity
-of the log entries. By default it reads the System Event Log (SEL);
-`--log-type` selects the management controller log (MEL) or both. Entries can
-be filtered by regular expression (--match, --ignore), and entries older than
---max-age days can be aged out so a long-since resolved event does not keep
-the check in a non-OK state forever.
+Redfish-compatible server via the Redfish API. Alerts when a log entry has the
+severity "Warning" or "Critical". By default it reads the System Event Log
+(SEL); `--log-type` selects the management controller log (MEL) or both.
+Entries can be filtered by regular expression (--match, --ignore), and entries
+older than --max-age days can be aged out so a long-since resolved event does
+not keep the check in a non-OK state forever.
 
 options:
   -h, --help            show this help message and exit

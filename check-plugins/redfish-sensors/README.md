@@ -8,7 +8,7 @@ Checks hardware sensor readings (temperature, voltage, fan speed, power) from th
 **Important Notes:**
 
 * Tested on DELL iDRAC, HPE iLO 6 and DMTF Simulator
-* A check usually completes within a few seconds, but a slow or retried request can take longer. The bundled Director basket allows a 60 second runtime timeout.
+* A check usually completes within a few seconds, but a slow or retried request can exceed the short check timeout monitoring systems use by default (often 10 seconds). Give the check up to 60 seconds.
 * This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
 
@@ -166,10 +166,10 @@ BaseBoard System Fans ! N+m  ! [OK]
 ## States
 
 * OK if all sensors are healthy and within their thresholds.
-* WARN if an enabled sensor health or health rollup state is "Warning".
+* WARN if a sensor health or health rollup state is "Warning".
 * WARN if a sensor value exceeds the Redfish caution or critical threshold (`UpperCaution`, `LowerCaution`, `UpperCritical`, `LowerCritical`; the legacy `UpperThresholdNonCritical`, `LowerThresholdNonCritical`, `UpperThresholdCritical`, `LowerThresholdCritical`). Redfish defines a critical reading as above the normal range but not yet fatal, which is why HPE iLO labels this threshold "Caution".
 * WARN if a sensor value exceeds a user-defined threshold (`UpperCautionUser`, `LowerCautionUser`, `UpperCriticalUser`, `LowerCriticalUser`). A user-defined threshold of `0` counts as not set, since HPE iLO 6 reports `0` for a threshold nobody configured.
-* CRIT if an enabled sensor health or health rollup state is "Critical".
+* CRIT if a sensor health or health rollup state is "Critical".
 * CRIT if a sensor value exceeds the Redfish fatal threshold (`UpperFatal`, `LowerFatal`; the legacy `UpperThresholdFatal`, `LowerThresholdFatal`), which HPE iLO labels "Critical".
 * `--always-ok` suppresses all alerts and always returns OK.
 

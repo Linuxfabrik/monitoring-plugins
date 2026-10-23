@@ -8,7 +8,7 @@ Checks the state of all physical drives, volumes and their storage controllers i
 **Important Notes:**
 
 * Tested on DELL iDRAC and DMTF Simulator
-* A check usually completes within a few seconds, but a slow or retried request can take longer. The bundled Director basket allows a 60 second runtime timeout.
+* A check usually completes within a few seconds, but a slow or retried request can exceed the short check timeout monitoring systems use by default (often 10 seconds). Give the check up to 60 seconds.
 * This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
 
@@ -162,7 +162,7 @@ RAID.SL.1 ! PERC H740P Mini ! PERC H740P Mini ! 2      ! [OK]
 
 ## States
 
-* OK if all enabled drives, volumes and storage controllers report a healthy state.
+* OK if all drives, volumes and storage controllers report a healthy state.
 * WARN if any of them reports a health or health rollup state of "Warning".
 * CRIT if any of them reports a health or health rollup state of "Critical".
 * System-level health is not considered. Use `redfish-systems` for that.
@@ -178,11 +178,11 @@ The per-drive metrics depend on your hardware: a drive is only reported when it 
 | \<drive\>_media_life_left | Percentage | Predicted remaining life of a drive's media (0-100%). Example: `SSD_0_media_life_left` |
 | \<drive\>_power_on_hours | Number | Hours a drive has been powered on. Example: `SSD_0_power_on_hours` |
 | \<drive\>_temperature | Temperature | Drive temperature in degrees Celsius. Example: `SSD_0_temperature` |
-| drives | Number | Number of enabled drives checked. |
+| drives | Number | Number of drives checked. |
 | drives_not_ok | Number | Number of drives whose health is not OK. |
-| storage_controllers | Number | Number of enabled storage controllers checked. |
+| storage_controllers | Number | Number of storage controllers checked. |
 | storage_controllers_not_ok | Number | Number of storage controllers whose health is not OK. |
-| volumes | Number | Number of enabled volumes (logical drives) checked. |
+| volumes | Number | Number of volumes (logical drives) checked. |
 | volumes_not_ok | Number | Number of volumes whose health is not OK. |
 
 

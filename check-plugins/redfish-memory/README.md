@@ -8,7 +8,7 @@ Checks the state of all memory modules (DIMMs) in a Redfish-compatible server vi
 **Important Notes:**
 
 * Tested on DELL iDRAC and DMTF Simulator
-* A check usually completes within a few seconds, but a slow or retried request can take longer. The bundled Director basket allows a 60 second runtime timeout.
+* A check usually completes within a few seconds, but a slow or retried request can exceed the short check timeout monitoring systems use by default (often 10 seconds). Give the check up to 60 seconds.
 * This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
 
@@ -155,9 +155,9 @@ DIMM Slot 3 ! DIMM 3 ! DDR4 ! 32.0GiB !           !              !              
 
 ## States
 
-* OK if all enabled memory modules report a healthy state.
-* WARN if an enabled memory module health or health rollup state is "Warning".
-* CRIT if an enabled memory module health or health rollup state is "Critical".
+* OK if all memory modules report a healthy state.
+* WARN if a memory module health or health rollup state is "Warning".
+* CRIT if a memory module health or health rollup state is "Critical".
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -165,7 +165,7 @@ DIMM Slot 3 ! DIMM 3 ! DDR4 ! 32.0GiB !           !              !              
 
 | Name | Type | Description |
 |----|----|----|
-| memory_modules | Number | Number of enabled memory modules checked. |
+| memory_modules | Number | Number of memory modules checked. |
 | memory_modules_not_ok | Number | Number of memory modules whose health is not OK. |
 
 

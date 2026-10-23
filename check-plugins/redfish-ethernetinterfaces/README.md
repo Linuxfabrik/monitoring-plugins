@@ -3,12 +3,12 @@
 
 ## Overview
 
-Checks the state of all Ethernet interfaces in a Redfish-compatible server via the Redfish API. Alerts when any enabled Ethernet interface reports a degraded or failed health state. The link status (up/down) is reported for information but does not by itself trigger an alert, because an unused interface being down is a normal condition. System-level health is deliberately ignored by this check; use `redfish-systems` for that.
+Checks the state of all Ethernet interfaces in a Redfish-compatible server via the Redfish API. Alerts when any Ethernet interface reports a degraded or failed health state. The link status (up/down) is reported for information but does not by itself trigger an alert, because an unused interface being down is a normal condition. System-level health is deliberately ignored by this check; use `redfish-systems` for that.
 
 **Important Notes:**
 
 * Tested on DELL iDRAC and DMTF Simulator
-* A check usually completes within a few seconds, but a slow or retried request can take longer. The bundled Director basket allows a 60 second runtime timeout.
+* A check usually completes within a few seconds, but a slow or retried request can exceed the short check timeout monitoring systems use by default (often 10 seconds). Give the check up to 60 seconds.
 * This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
 
@@ -47,11 +47,11 @@ usage: redfish-ethernetinterfaces [-h] [-V] [--always-ok] [--brief]
                                   --url URL [--username USERNAME] [--verbose]
 
 Checks the state of all Ethernet interfaces in a Redfish-compatible server via
-the Redfish API. Alerts when any enabled Ethernet interface reports a degraded
-or failed health state. The link status (up/down) is reported for information
-but does not by itself trigger an alert, because an unused interface being
-down is a normal condition. System-level health is deliberately ignored by
-this check; use `redfish-systems` for that.
+the Redfish API. Alerts when any Ethernet interface reports a degraded or
+failed health state. The link status (up/down) is reported for information but
+does not by itself trigger an alert, because an unused interface being down is
+a normal condition. System-level health is deliberately ignored by this check;
+use `redfish-systems` for that.
 
 options:
   -h, --help            show this help message and exit
@@ -157,9 +157,9 @@ ToManager    ! AA:BB:CC:DD:EE:FE ! 100        ! True        !        ! [OK]
 
 ## States
 
-* OK if all enabled Ethernet interfaces report a healthy state.
-* WARN if an enabled interface health or health rollup state is "Warning".
-* CRIT if an enabled interface health or health rollup state is "Critical".
+* OK if all Ethernet interfaces report a healthy state.
+* WARN if an interface health or health rollup state is "Warning".
+* CRIT if an interface health or health rollup state is "Critical".
 * The link status is informational only and does not change the result.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -168,7 +168,7 @@ ToManager    ! AA:BB:CC:DD:EE:FE ! 100        ! True        !        ! [OK]
 
 | Name | Type | Description |
 |----|----|----|
-| ethernet_interfaces | Number | Number of enabled Ethernet interfaces checked. |
+| ethernet_interfaces | Number | Number of Ethernet interfaces checked. |
 | ethernet_interfaces_not_ok | Number | Number of Ethernet interfaces whose health is not OK. |
 
 

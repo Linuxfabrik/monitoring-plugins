@@ -185,6 +185,39 @@ TESTS = [
         ],
         'assert-not-in': ['SEL and MEL'],
     },
+    {
+        # An advertised log whose entries cannot be read is UNKNOWN, and the summary
+        # must not claim that everything is ok.
+        'id': 'unknown-sel-not-readable',
+        'test': 'stdout/sel-not-readable,,0',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Checked SEL on 1 member. There are logs that cannot be read.',
+            'Not readable: HTTP error "404 Not Found"',
+        ],
+        'assert-not-in': ['Everything is ok.'],
+    },
+    {
+        # GHSA-96fx-pqc3-28xv: a link carrying another authority is never followed.
+        # Here the Entries link of the SEL, which makes that log unreadable.
+        'id': 'unknown-hostile-entries-link-refused',
+        'test': 'stdout/hostile-entries-link,,0',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            "Not readable: Refusing non-relative Redfish @odata.id link: '@evil.example/x'",
+        ],
+    },
+    {
+        # GHSA-96fx-pqc3-28xv: a protocol-relative LogServices link of the manager is
+        # skipped, so the controller offers no log the check could read.
+        'id': 'unknown-hostile-logservices-link-skipped',
+        'test': 'stdout/hostile-logservices-link,,0',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['The controller advertises no SEL. Logs it offers: none.'],
+    },
     # The dmtf-dsp2043-* fixtures are taken from DMTF DSP2043 2026.2 (Redfish Resource
     # and Schema Guide mockups, Copyright 2015-2026 DMTF), trimmed to the responses the
     # check requests.

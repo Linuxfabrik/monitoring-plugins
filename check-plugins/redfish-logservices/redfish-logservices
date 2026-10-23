@@ -22,11 +22,12 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026101201'
+__version__ = '2026102301'
 
 DESCRIPTION = """Checks the event log entries exposed under the LogServices of a Redfish-compatible
-server via the Redfish API and alerts based on the severity of the log entries. By default it reads
-the System Event Log (SEL); `--log-type` selects the management controller log (MEL) or both.
+server via the Redfish API. Alerts when a log entry has the severity "Warning" or "Critical".
+By default it reads the System Event Log (SEL); `--log-type` selects the management controller
+log (MEL) or both.
 Entries can be filtered by regular expression (--match, --ignore), and entries older than --max-age
 days can be aged out so a long-since resolved event does not keep the check in a non-OK state
 forever."""
@@ -342,11 +343,11 @@ def main():
             link = member.get('LogServices') if isinstance(member, dict) else None
             if not isinstance(link, dict) or not link.get('@odata.id'):
                 continue
-            url = lib.redfish.build_url(args.URL, link['@odata.id'])
-            if not url[0]:
+            success, services_url = lib.redfish.build_url(args.URL, link['@odata.id'])
+            if not success:
                 continue
             success, services = lib.redfish.fetch_collection(
-                url[1], expand=expand, **fetch_args
+                services_url, expand=expand, **fetch_args
             )
             if not success or not isinstance(services, dict):
                 continue
@@ -419,11 +420,12 @@ def main():
         # fetch_collection asks the controller to inline the log entries via the
         # Redfish $expand query, so a long log is read in one request even on
         # controllers that list entries as references.
-        success, entries = lib.redfish.fetch_collection(
-            lib.base.coe(lib.redfish.build_url(args.URL, entries_link['@odata.id'])),
-            expand=expand,
-            **fetch_args,
-        )
+        # a link refused by build_url() makes this log unreadable, not the whole check
+        success, entries = lib.redfish.build_url(args.URL, entries_link['@odata.id'])
+        if success:
+            success, entries = lib.redfish.fetch_collection(
+                entries, expand=expand, **fetch_args
+            )
         if success and isinstance(entries, dict):
             # a controller that ignores $expand lists the entries as references only,
             # whose severity would otherwise go unread
@@ -445,10 +447,11 @@ def main():
         )
         aged_out_total += member_aged
         if member_msg:
-            # build the message
             msg += f'{service_path} ({label.upper()})\n{member_msg}\n\n'
             state = lib.base.get_worst(state, member_state)
     member_count = len(members_read)
+
+    # build the message
     if missing:
         # --log-type=both on a controller that offers only one of the two logs
         msg = f'The controller advertises no {" and ".join(missing)}.\n\n' + msg
@@ -466,6 +469,11 @@ def main():
     elif state == STATE_WARN:
         msg = (
             f'Checked {log_label} on {member_count} {members}. There are warnings.{aged}\n\n'
+        ) + msg
+    elif state == STATE_UNKNOWN:
+        msg = (
+            f'Checked {log_label} on {member_count} {members}.'
+            f' There are logs that cannot be read.{aged}\n\n'
         ) + msg
     else:
         msg = (
