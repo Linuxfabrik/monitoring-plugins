@@ -89,7 +89,7 @@ Fatal: repository contains errors
 ## States
 
 * OK if the repository has no errors.
-* WARN if the repository has errors. With restic v0.18 and newer this is read from the `num_errors` field of restic's JSON summary; on older restic, which prints plain text for `check`, it is read from the exit code and the absence of "no errors" in the output.
+* WARN if `restic check` reports errors in the repository, or fails.
 * UNKNOWN if `--repo` names an `rclone:` repository, or if `--repository-file` or `--password-file` can be changed by anybody but root.
 
 

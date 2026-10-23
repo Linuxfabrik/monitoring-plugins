@@ -22,7 +22,7 @@ import lib.time
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026102301'
 
 DESCRIPTION = """Checks the status of the last borgbackup run by parsing the borg logfile. Alerts on
 non-zero return codes from the create or prune steps, and warns if the last successful
@@ -158,7 +158,8 @@ def main():
             args.CRIT * 60 * 60 if args.CRIT is not None else None,
         )
         lib.base.oao(
-            f'Backup running since {starttime} ({lib.human.seconds2human(delta)}).',
+            f'Backup running since {starttime} ({lib.human.seconds2human(delta)})'
+            f'{lib.base.state2str(running_state, prefix=" ")}.',
             running_state,
             always_ok=args.ALWAYS_OK,
         )
@@ -216,8 +217,8 @@ def main():
             msg = 'Last backup is too long ago. ' + msg
         else:
             msg = 'One or more errors. ' + msg
-    msg += f'* Create retc: {create_retc}, State: {lib.base.state2str(create_retc_state)}\n'
-    msg += f'* Prune retc: {prune_retc}, State: {lib.base.state2str(prune_retc_state)}'
+    msg += f'* Create retc: {create_retc}, State: {lib.base.state2str(create_retc_state, empty_ok=False)}\n'
+    msg += f'* Prune retc: {prune_retc}, State: {lib.base.state2str(prune_retc_state, empty_ok=False)}'
 
     # over and out
     lib.base.oao(

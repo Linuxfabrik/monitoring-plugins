@@ -3,7 +3,7 @@
 
 ## Overview
 
-Monitors IPv4 DHCP scope usage on a Windows DHCP server. Runs locally on the DHCP server or connects via WinRM, and queries scope statistics using PowerShell. Alerts when the address pool usage of any scope exceeds the configured thresholds (default: WARN at 80%, CRIT at 90%).
+Monitors IPv4 DHCP scope usage on a Windows DHCP server. Runs locally on the DHCP server or connects via WinRM, and queries scope statistics using PowerShell. On servers with thousands of scopes, `--brief` hides rows within the thresholds so the output only lists scopes in WARN/CRIT state. Alerts when the address pool usage of any scope exceeds the configured thresholds (default: WARN at 80%, CRIT at 90%).
 
 **Important Notes:**
 
@@ -49,18 +49,16 @@ DHCP server or connects via WinRM, and queries scope statistics using
 PowerShell. On servers with thousands of scopes, --brief hides rows within the
 thresholds so the output only lists scopes in WARN/CRIT state. Alerts when the
 address pool usage of any scope exceeds the configured thresholds (default:
-WARN at 80%, CRIT at 90%). Supports extended reporting via --lengthy.
+WARN at 80%, CRIT at 90%).
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --brief               Hide scopes within the thresholds and show only those
-                        in WARN/CRIT state. Inverse of `--lengthy` (which adds
-                        columns); `--brief` filters rows. The two are
-                        orthogonal and can be combined. Perfdata and alerting
-                        are unaffected: all scopes still emit perfdata and
-                        still drive the overall check state.
+                        in WARN/CRIT state. Perfdata and alerting are
+                        unaffected: all scopes still emit perfdata and still
+                        drive the overall check state.
   -c, --critical CRIT   CRIT threshold in percent. Default: >= 90
   -H, --hostname HOSTNAME
                         DNS name, IPv4, or IPv6 address of the DHCP server.

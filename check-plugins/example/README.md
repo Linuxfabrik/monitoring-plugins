@@ -57,7 +57,7 @@ options:
   --extend-module EXTEND_MODULE
                         "modulename" to check (startswith), appended to the
                         default or the `--module` list. Can be specified
-                        multiple times. Example: `--extend-module json`.
+                        multiple times. Example: `--extend-module=json`.
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
@@ -75,9 +75,9 @@ options:
                         "example" (negative lookahead).
   --module MODULE       "modulename" to check (startswith). Replaces the
                         default list, use `--extend-module` to append to it.
-                        Can be specified multiple times. Example: `--module
-                        json --module mbstring`. Default: calendar, Core,
-                        ctype, date.
+                        Can be specified multiple times. Example:
+                        `--module=json --module=mbstring`. Default: calendar,
+                        Core, ctype, date.
   --name NAME           Only check items with this name. Can be specified
                         multiple times. If not specified, all items are
                         checked.

@@ -22,14 +22,14 @@ import lib.powershell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092802'
+__version__ = '2026102301'
 
 DESCRIPTION = """Monitors IPv4 DHCP scope usage on a Windows DHCP server. Runs locally on the
 DHCP server or connects via WinRM, and queries scope statistics using PowerShell. On
 servers with thousands of scopes, --brief hides rows within the thresholds so the
 output only lists scopes in WARN/CRIT state.
 Alerts when the address pool usage of any scope exceeds the configured thresholds
-(default: WARN at 80%, CRIT at 90%). Supports extended reporting via --lengthy."""
+(default: WARN at 80%, CRIT at 90%)."""
 
 DEFAULT_CRIT = 90
 DEFAULT_HOSTNAME = 'localhost'
@@ -65,9 +65,8 @@ def parse_args():
     parser.add_argument(
         '--brief',
         help='Hide scopes within the thresholds and show only those in WARN/CRIT state. '
-        'Inverse of `--lengthy` (which adds columns); `--brief` filters rows. The two '
-        'are orthogonal and can be combined. Perfdata and alerting are unaffected: all '
-        'scopes still emit perfdata and still drive the overall check state.',
+        'Perfdata and alerting are unaffected: all scopes still emit perfdata and '
+        'still drive the overall check state.',
         dest='BRIEF',
         action='store_true',
         default=False,
@@ -235,6 +234,7 @@ def main():
     perfdata = ''
     rows = []
 
+    # analyze data
     # [{"ScopeId":"192.0.2.0","Free":1,"InUse":4,"PercentageInUse":80,...}, ...]
     # or the error of the cmdlet: {"Error":"...","Type":"CimException"}
     try:
@@ -292,11 +292,9 @@ def main():
         )
         rows.append((scope_id, scope_used, scope_state))
 
-    # Filter rows for --brief display. --brief is the inverse of
-    # --lengthy: --lengthy adds columns, --brief filters rows. They
-    # are orthogonal and both can be set at the same time. Perfdata
-    # and alerting stay untouched above this point; --brief only
-    # reshapes the human-readable output.
+    # Filter rows for --brief display. Perfdata and alerting stay
+    # untouched above this point; --brief only reshapes the
+    # human-readable output.
     display_rows = [row for row in rows if row[2] != STATE_OK] if args.BRIEF else rows
 
     # build the message
