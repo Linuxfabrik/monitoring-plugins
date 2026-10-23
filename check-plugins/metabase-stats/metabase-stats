@@ -23,7 +23,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026102301'
 
 DESCRIPTION = """Retrieves recent activity and usage statistics from a Metabase instance via its API.
 Reports active users, executed queries, dashboards, and other operational metrics.
@@ -167,9 +167,13 @@ def get_token(args, metabase_url, user, password, expire):
     $     -d '{"username": "person@metabase.com", "password": "linuxfabrik"}' \\
     $     http://localhost:3000/api/session
     """
-    # we cache credentials to reuse them until they expire, because logins are rate-limited for security
+    # we cache credentials to reuse them until they expire, because logins are
+    # rate-limited for security. The key names the instance and the account, so a
+    # token is only ever sent back to the server that issued it, and only on behalf
+    # of the user it was issued to.
+    cache_key = f'metabase-token-{metabase_url}-{user}'
     token = lib.cache.get(
-        'metabase-token', filename='linuxfabrik-monitoring-plugins-metabase-stats.db'
+        cache_key, filename='linuxfabrik-monitoring-plugins-metabase-stats.db'
     )
     if token:
         return (True, token)
@@ -200,7 +204,7 @@ def get_token(args, metabase_url, user, password, expire):
         return (False, 'Something went wrong, maybe wrong username/password.')
     token = result['id']
     lib.cache.set(
-        'metabase-token',
+        cache_key,
         token,
         lib.time.now() + expire,
         filename='linuxfabrik-monitoring-plugins-metabase-stats.db',
@@ -208,7 +212,7 @@ def get_token(args, metabase_url, user, password, expire):
     return (True, token)
 
 
-def get_data(args, metabase_url, token, data={}):
+def get_data(args, metabase_url, token, data=None):
     header = {
         'Content-Type': 'application/json',
         'X-Metabase-Session': token,
@@ -225,7 +229,7 @@ def get_data(args, metabase_url, token, data={}):
     )
 
 
-def get_json(args, metabase_url, token, data={}):
+def get_json(args, metabase_url, token, data=None):
     header = {
         'Content-Type': 'application/json',
         'X-Metabase-Session': token,
@@ -251,24 +255,23 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # init some vars
-    msg = ''
-    state = STATE_OK
-    perfdata = ''
-
+    # fetch data
     token = lib.base.coe(
         get_token(
             args, args.URL, args.USERNAME, args.PASSWORD, args.CACHE_EXPIRE * 60 * 60
         )
     )
-
-    # fetch data
     activity = lib.base.coe(get_json(args, args.URL + '/api/activity', token))[0]
 
     settings = lib.base.coe(
         get_data(args, args.URL + '/api/setting/site-name', token)
     )  # /api/setting/:key returns plain text, not json
     stats = lib.base.coe(get_json(args, args.URL + '/api/util/stats', token))
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
 
     # build the message
     msg += f'{settings} on '

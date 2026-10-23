@@ -7,12 +7,12 @@ Retrieves recent activity and usage statistics from a Metabase instance via its 
 
 **Important Notes:**
 
-* This plugin is currently not production-ready and needs a rewrite (undefined variable references, dangerous default values). Use with caution.
+* This plugin is currently not production-ready. Use with caution.
 * Requires a Metabase superuser account. Logins are rate-limited by Metabase for security, which is why credentials are cached. See the [Metabase API documentation](https://www.metabase.com/learn/developing-applications/advanced-metabase/metabase-api.html#authenticate-your-requests-with-a-session-token) for details
 
 **Data Collection:**
 
-* Authenticates against the Metabase API using username/password and caches the session token in SQLite (default expiry: ~14 days, matching Metabase's default session lifetime)
+* Authenticates against the Metabase API using username/password and caches the session token in SQLite, per URL and username (default expiry: ~14 days, matching Metabase's default session lifetime)
 * Queries `/api/activity` for the most recent activity entry and `/api/util/stats` for aggregated usage statistics
 * Reports site name, Metabase version, user count, analyzed databases, GUI questions, alerts, pulses, collections, CPUs, and RAM
 
