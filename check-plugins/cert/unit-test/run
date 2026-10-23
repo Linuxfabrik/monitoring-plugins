@@ -1010,6 +1010,27 @@ class TestScanSource(unittest.TestCase):
         self.assertIn('2 certificates', result.stdout)
         self.assertIn('warn.example.com', result.stdout)
 
+    def test_scan_extend_ports_appends_to_ports(self):
+        first_pem, first_key = make_cert('first.example.com', days_valid=60)
+        second_pem, second_key = make_cert('second.example.com', days_valid=60)
+        p_first = self._serve(first_pem, first_key)
+        p_second = self._serve(second_pem, second_key)
+        result = run_plugin(
+            '--source',
+            'scan',
+            '--host',
+            '127.0.0.1',
+            '--ports',
+            str(p_first),
+            '--extend-ports',
+            str(p_second),
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        # --extend-ports adds to the --ports list instead of replacing it
+        self.assertIn('2 certificates', result.stdout)
+        self.assertIn('first.example.com', result.stdout)
+        self.assertIn('second.example.com', result.stdout)
+
     def test_scan_port_range(self):
         cert_pem, key_pem = make_cert('range.example.com', days_valid=60)
         port = self._serve(cert_pem, key_pem)

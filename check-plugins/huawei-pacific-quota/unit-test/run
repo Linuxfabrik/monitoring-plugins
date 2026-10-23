@@ -222,6 +222,15 @@ TESTS = [
         'assert-in': ['Checked 3 quotas (warn=', 'alice', 'grp-radiology'],
     },
     {
+        # --extend-quota-type adds to the default "directory" instead of replacing it
+        'id': 'crit-extend-quota-type-appends-to-default',
+        'test': 'stdout/directory-and-user-quotas,,0',
+        'params': f'{COMMON} --warning 80 --critical 90 --extend-quota-type=user',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Checked 2 quotas (warn=', 'alice', '42%'],
+        'assert-not-in': ['grp-radiology'],
+    },
+    {
         'id': 'unknown-invalid-ignore-regex',
         'test': 'stdout/shares-42-and-95-percent,,0',
         'params': f'{COMMON} --ignore=*broken',

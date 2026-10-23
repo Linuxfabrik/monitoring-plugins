@@ -109,6 +109,28 @@ TESTS = [
             'GP111-111 ! Player                  ! Grassfish Player 111 ! Activated ! True            ! Complete          ! 2020-03-09 14:07:53',
         ],
     },
+    {
+        # --extend-box-state adds to the default "activated" instead of replacing it
+        'id': 'warn-extend-box-state-appends-to-default',
+        'test': 'stdout/six-players-mixed-issues,,0',
+        'params': '--hostname=HOSTNAME --token=TOKEN --extend-box-state=new',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '7 players checked.',
+            "Filter: --box-state=['activated', 'new']",
+        ],
+    },
+    {
+        # --box-state replaces the default list
+        'id': 'warn-box-state-replaces-default',
+        'test': 'stdout/six-players-mixed-issues,,0',
+        'params': '--hostname=HOSTNAME --token=TOKEN --box-state=new',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 player checked.',
+            "Filter: --box-state=['new']",
+        ],
+    },
 ]
 
 

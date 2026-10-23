@@ -191,6 +191,14 @@ TESTS = [
         'assert-regex': r'fs_nfs_01 \(alice\) .*95%.*\[CRITICAL\]',
     },
     {
+        # --extend-quota-type adds to the default "directory" instead of replacing it
+        'id': 'crit-extend-quota-type-appends-to-default',
+        'test': 'stdout/directory-and-user-quotas,,0',
+        'params': f'{COMMON} --extend-quota-type=user',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Checked 2 quotas (warn=', 'fs_nfs_01 (alice)', 'share_b'],
+    },
+    {
         'id': 'unknown-quota-query-fails',
         'test': 'stdout/quota-query-fails,,0',
         'params': COMMON,

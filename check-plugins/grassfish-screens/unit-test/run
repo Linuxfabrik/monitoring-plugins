@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_WARN
+from lib.globals import STATE_OK, STATE_WARN
 
 # The plugin appends `-screens` to the --test path to load the
 # per-player screen data, so each scenario requires two fixture
@@ -45,6 +45,22 @@ TESTS = [
             '----------+----------------------+-----------------+-------------',
             'GP112-112 ! Grassfish Player 112 ! False [WARNING] ! False [WARNING]',
         ],
+    },
+    {
+        # --box-state replaces the default "activated", so the player is filtered out
+        'id': 'ok-box-state-replaces-default',
+        'test': 'stdout/one-screen-off,,0',
+        'params': '--hostname=HOSTNAME --token=TOKEN --box-state=new',
+        'assert-retc': STATE_OK,
+        'assert-in': ["0 screens checked. Filter: --box-state=['new']"],
+    },
+    {
+        # --extend-box-state adds to the default instead of replacing it
+        'id': 'warn-extend-box-state-appends-to-default',
+        'test': 'stdout/one-screen-off,,0',
+        'params': '--hostname=HOSTNAME --token=TOKEN --extend-box-state=new',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["1 screen checked. Filter: --box-state=['activated', 'new']"],
     },
 ]
 
