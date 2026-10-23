@@ -29,7 +29,7 @@ import lib.user
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026102301'
 
 DESCRIPTION = """Checks the local security posture of an NGINX installation: which dynamic
 modules it loads, which account its worker processes run under, whether that account can be
@@ -280,7 +280,19 @@ def find_binary(command):
                 False,
                 'NGINX does not seem to be installed: "nginx" was not found in PATH.',
             )
-    return lib.disk.resolve_trusted_path(candidate)
+    success, resolved = lib.disk.resolve_trusted_path(candidate)
+    if not success:
+        return (False, resolved)
+    # The first containment check looked at what the path named back then. A symlink
+    # swapped in between would make the resolved path another one, so the path that
+    # actually runs is checked again.
+    if command and not lib.disk.is_within(resolved, ALLOWED_BINARY_ROOTS):
+        return (
+            False,
+            f'Refusing to run "{command}": it resolves outside '
+            f'{", ".join(ALLOWED_BINARY_ROOTS)}.',
+        )
+    return (True, resolved)
 
 
 def run_binary(binary, cli_args, timeout, on_stderr=False):

@@ -333,6 +333,20 @@ class TestTrustedBinary(unittest.TestCase):
             (True, os.path.realpath(self.system_binary)),
         )
 
+    def test_symlink_swapped_out_of_the_roots_after_the_check_is_refused(self):
+        # The symlink pointed into a binary root when the roots were checked and
+        # was swapped to a root-owned file elsewhere before it was resolved.
+        link = os.path.join(self.work, 'binary')
+        os.symlink(self.system_binary, link)
+        with unittest.mock.patch.object(
+            self.plugin.lib.disk,
+            'resolve_trusted_path',
+            return_value=(True, '/etc/cron.daily/somejob'),
+        ):
+            success, result = self.plugin.find_binary(link)
+        self.assertFalse(success)
+        self.assertIn('Refusing', result)
+
     def test_binary_in_a_directory_anybody_can_write_is_refused(self):
         planted = os.path.join(self.work, 'binary')
         shutil.copy(self.system_binary, planted)
