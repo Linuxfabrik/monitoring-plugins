@@ -167,8 +167,8 @@ options:
   --always-ok           Always returns OK.
   --config CONFIG       PHP ini "key=value" pair to check. The whole value is
                         compared, case-insensitive. Can be specified multiple
-                        times. Without it, only an unset `date.timezone` is
-                        reported. Example: `--config "memory_limit=128M"`
+                        times. Example: `--config=memory_limit=128M`. Without
+                        it, only an unset `date.timezone` is reported.
   -c, --critical CRIT   CRIT threshold for OPcache memory and key usage, in
                         percent. Default: >= None
   --dev                 Development mode. Tolerates `display_errors=On` and

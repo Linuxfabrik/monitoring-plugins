@@ -61,8 +61,7 @@ stays in the past, which is what makes it visible here long before the
 certificate runs out. Every finding comes with the acme.sh command that
 resolves it, assembled from the paths and options the store records, and one
 command stands for every certificate it applies to. Certificates can be
-filtered by --match and --ignore. Requires read access to the acme.sh
-configuration directory, which usually means root or sudo.
+filtered by --match and --ignore. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit

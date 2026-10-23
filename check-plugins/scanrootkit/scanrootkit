@@ -30,13 +30,14 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026102301'
 
 DESCRIPTION = """Scans the system for numerous known rootkits by checking for their
 characteristic files, directories, and kernel symbols. Each finding includes the year
 the rootkit was first publicly disclosed when known. New rootkit definitions can be
 added by dropping YAML files into the assets folder.
-Alerts when rootkit indicators are found."""
+Alerts when rootkit indicators are found.
+Requires root or sudo."""
 
 DEFAULT_SERVERITY = 'crit'
 
@@ -134,17 +135,8 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # init some vars
-    msg = ''
-    errors = []  # lists any yaml parsing errors
-    state = STATE_OK
-    perfdata = ''
+    # fetch data
     rkdef_path = os.path.join(os.path.dirname(__file__), 'assets')
-    rkscanned = 0  # number of rootkit signatures loaded (used as perfdata _max)
-    rkfound = []  # detail lines per indicator hit (one line per file/dir/ksym match)
-    rkpossible = []  # detail lines per possible-only indicator hit (cl < 100)
-    rkfound_count = 0  # number of distinct rootkits with at least one confirmed hit
-    rkpossible_count = 0  # number of distinct rootkits with at least one possible hit
 
     # get a list of rootkit definition filenames
     rootkits = lib.disk.walk_directory(
@@ -157,7 +149,18 @@ def main():
     # get the set of exact kernel symbol names
     ksyms = load_kernel_symbols()
 
-    # analyze system
+    # init some vars
+    msg = ''
+    errors = []  # lists any yaml parsing errors
+    state = STATE_OK
+    perfdata = ''
+    rkscanned = 0  # number of rootkit signatures loaded (used as perfdata _max)
+    rkfound = []  # detail lines per indicator hit (one line per file/dir/ksym match)
+    rkpossible = []  # detail lines per possible-only indicator hit (cl < 100)
+    rkfound_count = 0  # number of distinct rootkits with at least one confirmed hit
+    rkpossible_count = 0  # number of distinct rootkits with at least one possible hit
+
+    # analyze data
     for rootkit in rootkits:
         try:
             # load the rootkit definition file

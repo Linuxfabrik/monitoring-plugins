@@ -49,20 +49,22 @@ options:
   --always-ok           Always returns OK.
   --extend-ignore EXTEND_IGNORE
                         Mount point prefix to ignore, appended to the default
-                        or the `--ignore` list. Can be specified multiple
-                        times. Example: `--extend-ignore=/cvmfs`.
+                        or the `--ignore` list. Case-sensitive. Can be
+                        specified multiple times. Example: `--extend-
+                        ignore=/cvmfs`.
   --extend-ignore-fstype EXTEND_IGNORE_FSTYPE
                         Filesystem type to ignore, appended to the default or
                         the `--ignore-fstype` list. Case-sensitive. Can be
                         specified multiple times. Example: `--extend-ignore-
                         fstype=iso9660`.
   --ignore IGNORE       Mount point prefix to ignore. All mount points
-                        starting with this value will be skipped. Replaces the
-                        default list, use `--extend-ignore` to append to it.
-                        Can be specified multiple times. Example:
-                        `--ignore=/sys/fs` ignores `/sys/fs/cgroup` and
-                        similar. Default: /dev/loop, /proc, /run/credentials,
-                        /snap, /sys/fs, /var/lib/docker/containers.
+                        starting with this value will be skipped. Case-
+                        sensitive. Replaces the default list, use `--extend-
+                        ignore` to append to it. Can be specified multiple
+                        times. Example: `--ignore=/sys/fs` ignores
+                        `/sys/fs/cgroup` and similar. Default: /dev/loop,
+                        /proc, /run/credentials, /snap, /sys/fs,
+                        /var/lib/docker/containers.
   --ignore-fstype IGNORE_FSTYPE
                         Filesystem type to ignore, as shown in the third
                         column of `/proc/mounts`. Replaces the default list,

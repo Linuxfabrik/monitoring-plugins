@@ -3,7 +3,7 @@
 
 ## Overview
 
-Scans the system for numerous known rootkits by checking for their characteristic files, directories, and kernel symbols. New rootkit definitions can be added by dropping YAML files into the `assets` folder.
+Scans the system for numerous known rootkits by checking for their characteristic files, directories, and kernel symbols. Each finding includes the year the rootkit was first publicly disclosed when known. New rootkit definitions can be added by dropping YAML files into the `assets` folder. Alerts when rootkit indicators are found. Requires root or sudo.
 
 **Important Notes:**
 
@@ -57,6 +57,7 @@ Scans the system for numerous known rootkits by checking for their characteristi
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
+| Requirements                          | User with higher permissions |
 | 3rd Party Python modules              | `pyyaml` |
 
 
@@ -70,7 +71,7 @@ Scans the system for numerous known rootkits by checking for their
 characteristic files, directories, and kernel symbols. Each finding includes
 the year the rootkit was first publicly disclosed when known. New rootkit
 definitions can be added by dropping YAML files into the assets folder. Alerts
-when rootkit indicators are found.
+when rootkit indicators are found. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
