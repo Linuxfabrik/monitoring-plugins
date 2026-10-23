@@ -25,10 +25,10 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026093001'
+__version__ = '2026102301'
 
 DESCRIPTION = """Checks for failed systemd units. Alerts when any unit is in a failed state. Specific
-units can be excluded from the check via --ignore with regular expressions. When no unit
+units can be excluded from the check via --ignore with glob patterns. When no unit
 is currently failed, reports the most recent system unit-failed event from the current
 boot's journal so operators see at a glance how long the host has been clean since the
 last reboot."""
@@ -64,7 +64,7 @@ def parse_args():
         help='Unit name to exclude from the check. '
         'Can be specified multiple times. '
         'Supports glob patterns according to https://docs.python.org/3/library/fnmatch.html. '
-        'Example: `--ignore "dhcpd.service"`. '
+        'Example: `--ignore=dhcpd.service`. '
         'Default: %(default)s',
         dest='IGNORE',
         default=DEFAULT_IGNORE,
@@ -189,11 +189,13 @@ def main():
     if retc != 0:
         lib.base.cu('systemctl was unable to return any data.')
 
+    # init some vars
     msg = 'Everything is ok.'
     table = ''
     state = STATE_OK
     count = 0
 
+    # analyze data
     failed_units = stdout.splitlines()
     if len(failed_units) > 0:
         table_data = []
@@ -243,6 +245,7 @@ def main():
                 + f' at {ts} ({ago} ago)'
             )
 
+    # build the message
     perfdata = lib.base.get_perfdata(
         'systemd-units-failed',
         count,

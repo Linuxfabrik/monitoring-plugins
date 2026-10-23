@@ -73,7 +73,7 @@ tuned profile is "throughput-performance", but supposed to be "virtual-guest".
 Output (tuned stopped):
 
 ```text
-tuned is not running, so the profile "virtual-guest" is not applied. Start it with `systemctl enable --now tuned`.
+tuned is not running, so the profile "virtual-guest" is not applied. Start it with `sudo systemctl enable --now tuned`.
 ```
 
 

@@ -235,14 +235,16 @@ def main():
     }
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
 
-    # analyze data
+    # init some vars
     state = STATE_OK
+
+    # analyze data
     state, crts, expiring_crts, table_crts = check_crts(conn, args, state)
     state, crls, expiring_crls, table_crls = check_crls(conn, args, state)
 
     lib.db_mysql.close(conn)
 
-    # create the message
+    # build the message
     msg = (
         f'{crts} {lib.txt.pluralize("Certificate", crts)}'
         f' and {crls} {lib.txt.pluralize("CRL", crls)}'
@@ -250,7 +252,6 @@ def main():
     )
 
     if expiring_crts > 0:
-        # build the message
         msg += (
             f'{expiring_crts}'
             f' {lib.txt.pluralize("Certificate", expiring_crts)}'

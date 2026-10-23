@@ -20,7 +20,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026102301'
 
 DESCRIPTION = """Verifies that the current tuned profile matches the expected setting.
 Alerts when the profile in force is not the expected one, when no profile is active,
@@ -117,13 +117,13 @@ def main():
     if 'tuned daemon is not running' in stdout:
         msg = (
             f'tuned is not running, so the profile "{preset}" is not applied. Start'
-            ' it with `systemctl enable --now tuned`.'
+            ' it with `sudo systemctl enable --now tuned`.'
         )
         state = STATE_WARN
     elif active is None:
         msg = (
             f'No tuned profile is active, but supposed to be "{args.TUNED_PROFILE}".'
-            f' Activate it with `tuned-adm profile {args.TUNED_PROFILE}`.'
+            f' Activate it with `sudo tuned-adm profile {args.TUNED_PROFILE}`.'
         )
         state = STATE_WARN
     else:

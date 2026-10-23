@@ -11,7 +11,7 @@ When no unit is currently failed, the plugin reads the current boot's journal fo
 
 * Executes `systemctl --state=failed --no-pager --no-legend`
 * When everything is OK, additionally runs `journalctl --output=short-unix --boot=0 _PID=1 --grep="Failed with result"` and picks the last matching line client-side, to read the most recent system-scope unit-failed event of the current boot. Scoping to `--boot=0` keeps the call fast regardless of total journal size. If `journalctl` is unavailable, returns nothing, or its entry cannot be parsed, the suffix is silently omitted
-* Units can be excluded from the check via `--ignore`, which supports glob patterns according to Python's `fnmatch` module (e.g. `--ignore "sshd@*.service"`)
+* Units can be excluded from the check via `--ignore`, which supports glob patterns according to Python's `fnmatch` module (e.g. `--ignore="sshd@*.service"`)
 
 
 ## Fact Sheet
@@ -33,10 +33,10 @@ usage: systemd-units-failed [-h] [-V] [--always-ok] [--ignore IGNORE]
                             [--no-perfdata]
 
 Checks for failed systemd units. Alerts when any unit is in a failed state.
-Specific units can be excluded from the check via --ignore with regular
-expressions. When no unit is currently failed, reports the most recent system
-unit-failed event from the current boot's journal so operators see at a glance
-how long the host has been clean since the last reboot.
+Specific units can be excluded from the check via --ignore with glob patterns.
+When no unit is currently failed, reports the most recent system unit-failed
+event from the current boot's journal so operators see at a glance how long
+the host has been clean since the last reboot.
 
 options:
   -h, --help       show this help message and exit
@@ -45,7 +45,7 @@ options:
   --ignore IGNORE  Unit name to exclude from the check. Can be specified
                    multiple times. Supports glob patterns according to
                    https://docs.python.org/3/library/fnmatch.html. Example:
-                   `--ignore "dhcpd.service"`. Default: []
+                   `--ignore=dhcpd.service`. Default: []
   --no-perfdata    Suppress the performance data section from the output. The
                    status message and the exit code are unaffected, so
                    alerting keeps working while trending data is dropped.

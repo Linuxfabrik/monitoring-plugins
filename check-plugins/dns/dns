@@ -226,11 +226,14 @@ def main():
     #   53, 0, 0)), ...]
     # [(2, 1, 6, '', ('172.217.168.67', 53)), ...]
 
+    # fetch data
     target = f'{args.HOSTNAME}:{args.PORT}' + (f'/{args.TYPE}' if args.TYPE else '')
     if args.TEST is None:
         runtime, result = lookup(args)
     else:
         runtime, result = replay(args.TEST)
+
+    # analyze data
     if result is None:
         lib.base.oao(
             f'Timeout after {args.TIMEOUT}s while looking up {target}.',
