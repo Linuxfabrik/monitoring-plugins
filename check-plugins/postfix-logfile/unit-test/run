@@ -490,5 +490,41 @@ class TestUnits(unittest.TestCase):
         self.assertEqual(postfix_logfile.get_units(config_root('unit-devuan')), [])
 
 
+class TestPathConfinement(unittest.TestCase):
+    """A `--server-log` that resolves outside /var/log (here a scratch file in
+    the temp directory) is refused, so a plugin running under sudo cannot be
+    turned into an arbitrary file read (GHSA-f54c-p5vg-mr5c)."""
+
+    def setUp(self):
+        self.scratch_dir = tempfile.mkdtemp(prefix='postfix-logfile-confine-')
+        self.scratch_file = os.path.join(self.scratch_dir, 'maillog')
+        with open(self.scratch_file, 'w', encoding='utf-8') as handle:
+            handle.write('Aug 29 10:00:00 host postfix/smtpd[231]: secret\n')
+
+    def tearDown(self):
+        shutil.rmtree(self.scratch_dir, ignore_errors=True)
+
+    def test_server_log_outside_allowed_roots_is_refused(self):
+        returncode, combined = _run([f'--server-log={self.scratch_file}'])
+        self.assertEqual(returncode, STATE_UNKNOWN, combined)
+        self.assertIn('Refusing to read', combined)
+        self.assertNotIn('secret', combined)
+
+    def test_outside_allowed_roots_reveals_nothing(self):
+        # Whether a path outside the roots exists, is empty or is a directory must
+        # not change the answer, or a caller learns about files they cannot read.
+        empty = os.path.join(self.scratch_dir, 'empty')
+        with open(empty, 'w', encoding='utf-8'):
+            pass
+        for path in (
+            empty,
+            os.path.join(self.scratch_dir, 'missing'),
+            self.scratch_dir,
+        ):
+            returncode, combined = _run([f'--server-log={path}'])
+            self.assertEqual(returncode, STATE_UNKNOWN, combined)
+            self.assertIn('Refusing to read', combined)
+
+
 if __name__ == '__main__':
     unittest.main()

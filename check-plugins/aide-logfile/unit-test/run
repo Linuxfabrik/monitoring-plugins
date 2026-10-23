@@ -12,6 +12,7 @@ import atexit
 import datetime
 import os
 import re
+import subprocess
 import sys
 
 sys.path.insert(0, '..')
@@ -22,8 +23,8 @@ import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # In --test mode the fixture stands in for /var/log/aide/aide.log. The fixtures in
-# stdout/ are real reports of AIDE, written with the configuration of the LFOps aide
-# role (report_level added_removed_entries, verbose=7 on aide 0.16):
+# stdout/ are real reports of AIDE, written with a configuration that sets
+# report_level added_removed_entries (verbose=7 on aide 0.16):
 #   *-rocky8       aide 0.16 on Rocky 8
 #   *-ubuntu2204   aide 0.17.4 on Ubuntu 22.04
 #   *-debian12     aide 0.18.3 on Debian 12
@@ -152,6 +153,8 @@ write_fixture(
 )
 # a report written without line breaks cannot fill the memory
 write_fixture('generated-no-line-breaks', 'x' * (1024 * 1024))
+# many blank lines above the summary must not cost quadratic time
+write_fixture('generated-blank-lines', '\n' * 100000 + clean)
 
 
 def with_database_out(text, path):
@@ -592,6 +595,29 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+class TestBlankLines(unittest.TestCase):
+    """A pattern that lets whitespace span line breaks scans every blank line from
+    every line start: 100,000 blank lines above the summary took about a minute."""
+
+    def test_ok_blank_lines_parse_in_linear_time(self):
+        try:
+            result = subprocess.run(
+                [
+                    os.path.join(HERE, '..', 'aide-logfile'),
+                    '--test=stdout/generated-blank-lines,,0',
+                    '--max-age=0',
+                ],
+                capture_output=True,
+                check=False,
+                text=True,
+                timeout=10,
+            )
+        except subprocess.TimeoutExpired:
+            self.fail('parsing 100,000 blank lines took longer than 10 seconds')
+        self.assertEqual(result.returncode, STATE_OK)
+        self.assertIn("'entries'=24355;;;0", result.stdout)
 
 
 if __name__ == '__main__':

@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092803'
+__version__ = '2026102301'
 
 DESCRIPTION = """Scans the Postfix mail log for the events an administrator has to act on,
 on both sides of the server. Outbound: mail that could not be delivered, a relay host that
@@ -1082,6 +1082,16 @@ def main():
             '`--server-log` parameter.'
         )
 
+    # The plugin runs as root via sudo, so restrict an on-disk log to the system
+    # log directory. The path the Postfix configuration reports is deliberately
+    # not trusted beyond that. The plugin's own unit-test/ directory is allowed
+    # so the fixture tests work; it does not exist next to the flat, root-owned
+    # plugin in production. Bind-mount a custom log directory under /var/log to
+    # include it (see the README).
+    allowed_roots = [
+        '/var/log',
+        os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
+    ]
     # A size is known for plain on-disk files only, so the size fact and its
     # perfdata series stay out of the output for a unit or a container. Where
     # several files are read, the series is what they add up to.
@@ -1089,6 +1099,12 @@ def main():
     for server_log in server_logs:
         kind, _, target = lib.base.coe(lib.logsource.parse(server_log))
         if kind != lib.logsource.KIND_FILE:
+            continue
+        # Only inside the allowed roots. For any other path, whether it exists, is
+        # a regular file or is empty would tell a caller of this root check about
+        # a file they cannot read; the read below refuses such a path with the
+        # same answer whether it exists or not.
+        if not lib.disk.is_within(target, allowed_roots):
             continue
         # Report a path that is not a regular file before reading it, so the
         # admin hears about a directory or a device rather than about an I/O
@@ -1113,16 +1129,6 @@ def main():
             STATE_OK,
         )
 
-    # The plugin runs as root via sudo, so restrict an on-disk log to the system
-    # log directory. The path the Postfix configuration reports is deliberately
-    # not trusted beyond that. The plugin's own unit-test/ directory is allowed
-    # so the fixture tests work; it does not exist next to the flat, root-owned
-    # plugin in production. Bind-mount a custom log directory under /var/log to
-    # include it (see the README).
-    allowed_roots = [
-        '/var/log',
-        os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
-    ]
     # No position is kept on purpose: this check reports on a window of the log,
     # counting startups and deliveries next to the problems, so every run has to
     # see the whole window rather than only what is new.

@@ -27,15 +27,15 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092913'
+__version__ = '2026102301'
 
 DESCRIPTION = """Evaluates the report of the last AIDE file integrity check, which a timer such
 as aidecheck.timer runs on the host at regular intervals, and reports the number of added,
 removed and changed files together with the first of them. The check itself does not run
 AIDE, so it is fast, and it keeps no more than the summary and the first entries of the
-report in memory, however large the report gets. Alerts when AIDE found differences between its database and the file system,
-and when the report is missing, empty or older than the maximum age, because then the
-regular check has stopped or failed. AIDE reports a change hours after it happened, and
+report in memory, however large the report gets. Alerts when AIDE found differences
+between its database and the file system, and when the report is missing, empty or older
+than the maximum age, because then the regular check has stopped or failed. AIDE reports a change hours after it happened, and
 most changes are planned ones, so by default only WARNING is raised.
 Requires root or sudo."""
 
@@ -45,16 +45,16 @@ DEFAULT_WARN = '0'
 # the online documentation of this check
 DOCS_URL = f'{lib.args.DOCS_BASE_URL}/check-plugins/aide-logfile/'
 
-# where the configurations that RHEL, Fedora and the LFOps aide role ship, and the one
-# of Debian's aide-common, keep the AIDE database
+# where the configurations that RHEL and Fedora ship, and the one of Debian's
+# aide-common, keep the AIDE database
 DATABASES = ['/var/lib/aide/aide.db.gz', '/var/lib/aide/aide.db']
 # runs AIDE by hand; the lock keeps it from colliding with a check a timer starts at
-# the same moment, which would end with exit code 21 (the LFOps aide role takes the
-# same lock for every AIDE run, flock creates it where nobody does)
+# the same moment, which would end with exit code 21 (a timer that takes the same
+# lock for every AIDE run is safe against that, flock creates it where nobody does)
 AIDE = 'sudo flock /run/aide.lock aide --config=/etc/aide.conf'
 # puts the database that `aide --init` or `aide --update` wrote into place
 MOVE_DATABASE = f'sudo mv {DATABASES[0][:-3]}.new.gz {DATABASES[0]}'
-# the check unit of the CIS benchmarks and the LFOps aide role
+# the check unit the CIS benchmarks name
 UNITS = [
     '/etc/systemd/system/aidecheck.service',
     '/usr/lib/systemd/system/aidecheck.service',
@@ -65,7 +65,7 @@ CACHE_FILE = 'linuxfabrik-monitoring-plugins-aide-logfile.db'
 CACHE_KEY = 'aide-logfile-last-report'
 
 # the location every AIDE package uses in its shipped configuration (RHEL, Debian's
-# aide-common) and the one the LFOps aide role configures
+# aide-common)
 REPORT = '/var/log/aide/aide.log'
 # Debian's aide-common hands the directory to its service account _aide, so the report
 # is confined to it: a symlink planted there must not lead to any other file.
@@ -151,10 +151,13 @@ START_REGEX = re.compile(
     r' \(AIDE ([^)]+)\)',
     re.MULTILINE,
 )
-# "Summary:" block of a run with differences, "Number of entries:" of one without
+# "Summary:" block of a run with differences, "Number of entries:" of one without.
+# AIDE indents with spaces and tabs only. `\s` would also span line breaks, and with
+# MULTILINE every line start would then scan all blank lines after it, which takes
+# quadratic time on a report with many of them (10 s for 40000).
 SUMMARY_REGEX = re.compile(
-    r'^\s*(Total number of entries|Number of entries|Added entries|Removed entries'
-    r'|Changed entries):\s*(\d+)\s*$',
+    r'^[ \t]*(Total number of entries|Number of entries|Added entries|Removed entries'
+    r'|Changed entries):[ \t]*(\d+)[ \t]*$',
     re.MULTILINE,
 )
 
@@ -651,8 +654,8 @@ def main():
             msg += ': ' + printable(' '.join(text.splitlines()[:3])[:200])
         msg += '.'
         # The most common cause on a fresh installation: no database yet. The
-        # locations are the ones of the shipped configurations (RHEL, Fedora, the
-        # LFOps aide role; Debian's aide-common). A test never looks at the host.
+        # locations are the ones of the shipped configurations (RHEL, Fedora;
+        # Debian's aide-common). A test never looks at the host.
         if args.TEST is None and not any(os.path.lexists(db) for db in DATABASES):
             msg += (
                 f' AIDE has no database yet at {DATABASES[0]}. Create it once the host '
@@ -692,10 +695,10 @@ def main():
         if args.MAX_AGE and age > args.MAX_AGE * 3600:
             age_state = STATE_WARN
     # `aide --update` writes the new database next to the old one, and only moving
-    # it over the old one accepts the differences. The LFOps aide role and
-    # system_update do that right after the run and then start a check, which
-    # takes minutes on a large host, so the report of the update run is what the
-    # check sees meanwhile. Debian's aide-common runs its daily check as an update
+    # it over the old one accepts the differences. An automated update typically
+    # does that right after the run and then starts a check, which takes minutes on
+    # a large host, so the report of the update run is what the check sees
+    # meanwhile. Debian's aide-common runs its daily check as an update
     # by default and never moves the new database into place (COMMAND=update,
     # COPYNEWDB=no in /etc/default/aide), so there the differences still stand.
     # Verified with aide 0.16 on Rocky 8 and aide-common 0.19.1 on Debian 13.
@@ -785,19 +788,24 @@ def main():
         first, sep, rest = msg.partition('\n')
         msg = f'{first}, a new AIDE run is in progress (PID {in_progress}){sep}{rest}'
     if compared and report['total'] is not None:
-        perfdata += lib.base.get_perfdata('added', report['added'], _min=0)
-        perfdata += lib.base.get_perfdata('changed', report['changed'], _min=0)
+        perfdata += lib.base.get_perfdata('added', report['added'], uom=None, _min=0)
+        perfdata += lib.base.get_perfdata(
+            'changed', report['changed'], uom=None, _min=0
+        )
         perfdata += lib.base.get_perfdata(
             'differences',
             differences,
+            uom=None,
             warn=args.WARN,
             crit=args.CRIT,
             _min=0,
         )
     if report['total'] is not None:
-        perfdata += lib.base.get_perfdata('entries', report['total'], _min=0)
+        perfdata += lib.base.get_perfdata('entries', report['total'], uom=None, _min=0)
     if compared and report['total'] is not None:
-        perfdata += lib.base.get_perfdata('removed', report['removed'], _min=0)
+        perfdata += lib.base.get_perfdata(
+            'removed', report['removed'], uom=None, _min=0
+        )
 
     # over and out
     lib.base.oao(

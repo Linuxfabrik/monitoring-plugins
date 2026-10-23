@@ -352,13 +352,13 @@ Read 17 lines from 1 source:
 
 Where the numbers come from:
 * 1 child crash:
-  grep -n -e '\bAH00050\b' -e '\bAH00051\b' -e '\bAH00052\b' -e '\bAH00060\b' /var/log/httpd/error_log
+  sudo grep -n -e '\bAH00050\b' -e '\bAH00051\b' -e '\bAH00052\b' -e '\bAH00060\b' /var/log/httpd/error_log
 * 1 worker saturation:
-  grep -n -e '\bAH00161\b' -e '\bAH00286\b' -e '\bAH00484\b' -e '\bAH00288\b' -e '\bAH03490\b' /var/log/httpd/error_log
+  sudo grep -n -e '\bAH00161\b' -e '\bAH00286\b' -e '\bAH00484\b' -e '\bAH00288\b' -e '\bAH03490\b' /var/log/httpd/error_log
 * 1 client denial:
-  grep -n -e '\bAH01630\b' -e '\bAH01797\b' /var/log/httpd/error_log
+  sudo grep -n -e '\bAH01630\b' -e '\bAH01797\b' /var/log/httpd/error_log
 * 1 proxy failure:
-  grep -n -e '\bAH00860\b' -e '\bAH00866\b' -e '\bAH00896\b' -e '\bAH00898\b' -e '\bAH00940\b' -e '\bAH01075\b' -e '\bAH01079\b' -e '\bAH01110\b' -e '\bAH01114\b' -e '\bAH02452\b' -e '\bAH10101\b' /var/log/httpd/error_log
+  sudo grep -n -e '\bAH00860\b' -e '\bAH00866\b' -e '\bAH00896\b' -e '\bAH00898\b' -e '\bAH00940\b' -e '\bAH01075\b' -e '\bAH01079\b' -e '\bAH01110\b' -e '\bAH01114\b' -e '\bAH02452\b' -e '\bAH10101\b' /var/log/httpd/error_log
 
 Recommendations:
 * Children died on a signal Apache did not send them; look for a core dump, a faulty module, or the OOM killer in the kernel log
@@ -375,9 +375,9 @@ Read 12 lines from 1 source:
 
 Where the numbers come from:
 * 4 client denials:
-  grep -n -e '\bAH01630\b' -e '\bAH01797\b' /var/log/httpd/error_log
+  sudo grep -n -e '\bAH01630\b' -e '\bAH01797\b' /var/log/httpd/error_log
 * 2 authentication failures:
-  grep -n -e '\bAH01614\b' -e '\bAH01617\b' -e '\bAH01618\b' -e '\bAH01631\b' -e '\bAH01807\b' -e '\bAH01808\b' /var/log/httpd/error_log
+  sudo grep -n -e '\bAH01614\b' -e '\bAH01617\b' -e '\bAH01618\b' -e '\bAH01631\b' -e '\bAH01807\b' -e '\bAH01808\b' /var/log/httpd/error_log
 ```
 
 ## States
@@ -499,7 +499,7 @@ Every request that arrives while all workers are busy waits in the listen queue,
 `AH03490: scoreboard is full, not at MaxRequestWorkers. Increase ServerLimit.` means the server wanted more child processes because fewer than `MinSpareThreads` threads were idle, but every slot of the scoreboard was taken. A child that was told to stop keeps its slot until its last connection is closed, so a long-lived connection (a WebSocket, a large download) behind a `ServerLimit` of exactly `MaxRequestWorkers / ThreadsPerChild` leaves no room for its replacement.
 
 1. Raise `ServerLimit` above `MaxRequestWorkers / ThreadsPerChild`, for example to twice that value. Apache still starts no more threads than `MaxRequestWorkers` allows; the spare slots only hold the children that are finishing. `ServerLimit` takes effect on a restart, not on a reload.
-2. Look at the access log for the seconds around the first line. A client that opens hundreds of connections at once, such as a scanner, drains the idle threads the same way; a rate limit in front of the server (for example fail2ban) is the remedy for that.
+2. Look at the access log for the seconds around the first line. A client that opens hundreds of connections at once, such as a scanner, drains the idle threads the same way; a rate limit in front of the server, such as an intrusion prevention system, is the remedy for that.
 
 
 ## Credits, License

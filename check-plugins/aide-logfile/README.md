@@ -9,7 +9,7 @@ AIDE (Advanced Intrusion Detection Environment) compares the file system with a 
 
 **Important Notes:**
 
-* The check reads `/var/log/aide/aide.log`, which AIDE writes when `report_url=file:/var/log/aide/aide.log` is set in its configuration, as it is in the configuration RHEL ships and in the one the [LFOps aide role](https://linuxfabrik.github.io/lfops/roles/aide/) deploys. Something else has to run the check at regular intervals, for example `aidecheck.timer`, which the CIS benchmarks name and the LFOps aide role deploys, or the daily check of Debian's `aide-common`.
+* The check reads `/var/log/aide/aide.log`, which AIDE writes when `report_url=file:/var/log/aide/aide.log` is set in its configuration, as it is in the configuration RHEL ships. Something else has to run the check at regular intervals, for example `aidecheck.timer`, which the CIS benchmarks name, or the daily check of Debian's `aide-common`.
 * `/var/log/aide` is readable by root only (on Debian and Ubuntu with `aide-common` by the group `adm` as well), so run the check via `sudo` (see the sudoers files in `assets/sudoers`). The `AIDE Service Set` in the Icinga Director does exactly that on every host tagged `aide`, and also checks `aidecheck.service` and `aidecheck.timer`.
 * AIDE empties its report when it starts and writes the new one when it has compared the whole file system, which takes an hour or more on a large file server. Meanwhile, the check reports the result of the previous run, which it keeps in its state file, with the note that a new run is in progress, so the service does not flap. The age of that result still counts against `--max-age`, so an AIDE run that hangs raises a warning after all.
 * The report has to be a plain one (`report_format=plain`, the default), written anew by every run (`report_append=no`, the default), also when AIDE finds nothing (`report_quiet=no`, the default). With `report_level=minimal` it tells that there are differences, but neither how many nor when the run started, so keep at least `report_level=summary` (the default is `changed_attributes`). AIDE 0.16 (RHEL 8) knows `verbose` instead, and writes the start of the run from `verbose=2` on (the default is `5`). The check understands every report level and the grouped and ungrouped lists of AIDE 0.16 to 0.19.
@@ -146,7 +146,7 @@ sudo ./aide-logfile --critical=0 --max-age=48
 
 ### `No AIDE report found at /var/log/aide/aide.log`
 
-AIDE has not run on this host yet, or it writes its report elsewhere. Install AIDE, initialize its database, and have it check the host at regular intervals, for example with the [LFOps aide role](https://linuxfabrik.github.io/lfops/roles/aide/), which does all of that. On a host set up by hand, make sure that `/etc/aide.conf` contains `report_url=file:/var/log/aide/aide.log`.
+AIDE has not run on this host yet, or it writes its report elsewhere. Install AIDE, initialize its database, and have it check the host at regular intervals, for example with `aidecheck.timer`. Make sure that the AIDE configuration contains `report_url=file:/var/log/aide/aide.log`.
 
 ### `Cannot access /var/log/aide/aide.log (Permission denied)`
 
@@ -164,7 +164,7 @@ The check does not run as root. Call it via `sudo`, as the `AIDE Service Set` an
 AIDE empties its report when it starts, and an aborted run leaves it empty. Most often the database is missing, for example on a fresh installation. The check then says so and names the command that creates it: `sudo flock /run/aide.lock aide --config=/etc/aide.conf --init && sudo mv /var/lib/aide/aide.db.new.gz /var/lib/aide/aide.db.gz`. Run it once the host is set up completely, since everything that changes afterwards is reported. For any other cause, `sudo journalctl --unit aidecheck.service` shows why, or, on a host without `aidecheck.service`, running `sudo flock /run/aide.lock aide --config=/etc/aide.conf --check` by hand does. Two configurations leave the report empty without any error:
 
 * `report_quiet=yes` in the AIDE configuration writes no report at all when AIDE finds nothing. Remove it.
-* logrotate with `copytruncate` empties the report when it rotates it, which the logrotate configuration RHEL ships in `/etc/logrotate.d/aide` does once the report is larger than 100 KiB. Use `copy` instead of `copytruncate` there: AIDE writes a new report on every run anyway. The LFOps aide role does exactly that.
+* logrotate with `copytruncate` empties the report when it rotates it, which the logrotate configuration RHEL ships in `/etc/logrotate.d/aide` does once the report is larger than 100 KiB. Use `copy` instead of `copytruncate` there: AIDE writes a new report on every run anyway.
 
 ### `/var/log/aide/aide.log holds the reports of several AIDE runs`
 

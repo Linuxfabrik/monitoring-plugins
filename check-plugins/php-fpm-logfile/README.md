@@ -405,7 +405,7 @@ The worker was not running a request. It waited on a FastCGI connection the web 
 
 PHP-FPM sent the worker a SIGTERM when it ran over `request_terminate_timeout`, and the worker is still there at the next check. A process ignores that signal only while it waits in the kernel in uninterruptible sleep, which is almost always I/O on a hung NFS or storage mount. Such workers hold their database connections, so `Too many connections` and a full pool usually follow.
 
-1. Look for PHP-FPM workers in state `D` with `ps -eo pid,stat,wchan:32,args` and for `nfs: server ... not responding` in the kernel log (`journalctl --dmesg`).
+1. Look for PHP-FPM workers in state `D` with `ps -eo pid,stat,wchan:32,args` and for `nfs: server ... not responding` in the kernel log (`sudo journalctl --dmesg`).
 2. Bring the storage back. The workers end on their own the moment it answers again; nothing in PHP-FPM can end them before that.
 3. Raising `pm.max_children` does not help: the new workers hang on the same mount.
 

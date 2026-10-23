@@ -30,22 +30,22 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100901'
+__version__ = '2026102301'
 
 DESCRIPTION = """Scans the PHP-FPM error log for the events an administrator has to act
 on: rejected configurations, worker crashes, workers killed with SIGKILL, requests that
 ran into `request_terminate_timeout` or `request_slowlog_timeout`, workers that hang after
 the SIGTERM such a timeout sent, workers that waited on a connection the web server never
 sent a request over, pools that hit `pm.max_children`, PHP fatal errors, and the
-emergency reload PHP-FPM performs after repeated worker failures. Startups, reloads and shutdowns are counted alongside them, so a pool that
-keeps restarting is visible.
+emergency reload PHP-FPM performs after repeated worker failures. Startups, reloads and
+shutdowns are counted alongside them, so a pool that keeps restarting is visible.
 Alerts when one of those events shows up, when the lines a slow site provokes cross
 the rates the thresholds set, and when a line arrives at a level `--critical-level`
 or `--warning-level` covers.
 Requests that ran long, a pool spawning workers in bursts and PHP fatal errors are
-counted within
-`--lookback` and judged by how many of them arrived, not by the fact that they did: one
-slow page is nobody's night, dozens within ten minutes say the pool is mis-sized. Those
+counted within `--lookback` and judged by how many of them arrived, not by the fact
+that they did: one slow page is nobody's night, dozens within ten minutes say the pool
+is mis-sized. Those
 lines are counted there and nowhere else, so a site with one heavy report page does not
 leave the check permanently yellow.
 What is left is counted by the level PHP-FPM writes at the head of the line: `ALERT` and
@@ -1038,6 +1038,12 @@ def main():
     for server_log in server_logs:
         kind, _, target = lib.base.coe(lib.logsource.parse(server_log))
         if kind != lib.logsource.KIND_FILE:
+            continue
+        # Only inside the allowed roots. For any other path, whether it exists, is
+        # a regular file or is empty would tell a caller of this root check about
+        # a file they cannot read; the read below refuses such a path with the
+        # same answer whether it exists or not.
+        if not lib.disk.is_within(target, allowed_roots):
             continue
         # Report a path that is not a regular file before reading it, so the
         # admin hears about a directory or a device rather than about an I/O

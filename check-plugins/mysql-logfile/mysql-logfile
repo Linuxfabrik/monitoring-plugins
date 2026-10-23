@@ -32,7 +32,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026102301'
 
 DESCRIPTION = """Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table
@@ -446,28 +446,40 @@ def get_vars(conn):
     return lib.base.coe(lib.db_mysql.select(conn, sql))
 
 
-def get_log_file_real_path(file, hostname, datadir):
-    if file and lib.disk.file_exists(file, allow_empty=True):
+def get_log_file_real_path(file, hostname, datadir, allowed_roots):
+    # The values come from the server, which a caller of this root check can
+    # choose, so whether a path outside `allowed_roots` exists must not decide
+    # which one is taken: that would tell the caller about a file they cannot
+    # read. A configured path outside the roots is taken as it is, and the read
+    # refuses it with the same answer either way; a guessed one is skipped.
+    def exists(path):
+        return lib.disk.is_within(path, allowed_roots) and lib.disk.file_exists(
+            path, allow_empty=True
+        )
+
+    if file and os.path.isabs(file) and not lib.disk.is_within(file, allowed_roots):
         return file
-    if lib.disk.file_exists(f'{hostname}.log', allow_empty=True):
+    if file and exists(file):
+        return file
+    if exists(f'{hostname}.log'):
         return f'{hostname}.log'
-    if lib.disk.file_exists(f'{hostname}.err', allow_empty=True):
+    if exists(f'{hostname}.err'):
         return f'{hostname}.err'
-    if lib.disk.file_exists(os.path.join(datadir, f'{hostname}.err'), allow_empty=True):
+    if exists(os.path.join(datadir, f'{hostname}.err')):
         return os.path.join(datadir, f'{hostname}.err')
-    if lib.disk.file_exists(os.path.join(datadir, f'{hostname}.log'), allow_empty=True):
+    if exists(os.path.join(datadir, f'{hostname}.log')):
         return os.path.join(datadir, f'{hostname}.log')
-    if lib.disk.file_exists(os.path.join(datadir, 'mysql_error.log'), allow_empty=True):
+    if exists(os.path.join(datadir, 'mysql_error.log')):
         return os.path.join(datadir, 'mysql_error.log')
-    if lib.disk.file_exists('/var/log/mysql.log', allow_empty=True):
+    if exists('/var/log/mysql.log'):
         return '/var/log/mysql.log'
-    if lib.disk.file_exists('/var/log/mysqld.log', allow_empty=True):
+    if exists('/var/log/mysqld.log'):
         return '/var/log/mysqld.log'
-    if lib.disk.file_exists(f'/var/log/mysql/{hostname}.err', allow_empty=True):
+    if exists(f'/var/log/mysql/{hostname}.err'):
         return f'/var/log/mysql/{hostname}.err'
-    if lib.disk.file_exists(f'/var/log/mysql/{hostname}.log', allow_empty=True):
+    if exists(f'/var/log/mysql/{hostname}.log'):
         return f'/var/log/mysql/{hostname}.log'
-    if lib.disk.file_exists('/var/log/mysql/mysql_error.log', allow_empty=True):
+    if exists('/var/log/mysql/mysql_error.log'):
         return '/var/log/mysql/mysql_error.log'
     return file
 
@@ -612,6 +624,20 @@ def main():
         )
 
     # fetch data
+    # The plugin runs as root via sudo, so restrict an on-disk log to the
+    # system log directory and the default MySQL data directory. The datadir
+    # reported by the server is deliberately NOT trusted here, because an
+    # attacker controls which server the check connects to
+    # (`--defaults-file`/`--hostname`) and could report `datadir=/etc`. The
+    # plugin's own unit-test/ directory is allowed so the fixture tests
+    # work; it does not exist next to the flat, root-owned plugin in
+    # production. Bind-mount a custom data/log directory under /var/log to
+    # include it (see the README).
+    allowed_roots = [
+        '/var/log',
+        '/var/lib/mysql',
+        os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
+    ]
     # A size is known for plain on-disk files only (so we can emit the 32 MiB
     # cutoff check and a perfdata series), keyed by the source it belongs to.
     # Where several files are read, the series is what they add up to.
@@ -679,6 +705,7 @@ def main():
                     log_error,
                     myvar.get('hostname', ''),
                     myvar.get('datadir', ''),
+                    allowed_roots,
                 )
         if logfile is None:
             # The unit alongside the file, not instead of it: a server that
@@ -722,6 +749,12 @@ def main():
             if not os.path.isabs(target):
                 server_log = os.path.join(myvar.get('datadir', ''), target)
             resolved.append(server_log)
+            # Only inside the allowed roots. For any other path, whether it exists,
+            # is a regular file or is empty would tell a caller of this root check
+            # about a file they cannot read; the read below refuses such a path
+            # with the same answer whether it exists or not.
+            if not lib.disk.is_within(server_log, allowed_roots):
+                continue
             # Report a path that is not a regular file before reading it, so the
             # admin hears about a directory or a device rather than about an I/O
             # error further down. With one source that is the whole answer; with
@@ -748,20 +781,6 @@ def main():
                 f'Log file `{server_logs[0]}` is empty. Assuming log-rotation.',
                 STATE_OK,
             )
-        # The plugin runs as root via sudo, so restrict an on-disk log to the
-        # system log directory and the default MySQL data directory. The datadir
-        # reported by the server is deliberately NOT trusted here, because an
-        # attacker controls which server the check connects to
-        # (`--defaults-file`/`--hostname`) and could report `datadir=/etc`. The
-        # plugin's own unit-test/ directory is allowed so the fixture tests
-        # work; it does not exist next to the flat, root-owned plugin in
-        # production. Bind-mount a custom data/log directory under /var/log to
-        # include it (see the README).
-        allowed_roots = [
-            '/var/log',
-            '/var/lib/mysql',
-            os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
-        ]
         # No position is kept on purpose: this check reports on a window of the
         # log, counting startups and shutdowns next to errors and warnings, so
         # every run has to see the whole window rather than only what is new.

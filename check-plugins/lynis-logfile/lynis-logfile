@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026101601'
+__version__ = '2026102301'
 
 DESCRIPTION = """Evaluates the report of the lynis security audit that runs on the host once a
 day, for example through lynis.timer, and reports the hardening index, the findings (the
@@ -274,13 +274,17 @@ def main():
     perfdata += lib.base.get_perfdata(
         'hardening_index',
         index,
+        uom=None,
         warn=args.WARN,
         crit=args.CRIT,
         _min=0,
         _max=100,
     )
-    perfdata += lib.base.get_perfdata('findings', len(findings), _min=0)
-    perfdata += lib.base.get_perfdata('suggestions', len(suggestions), _min=0)
+    # every finding raises WARNING, so the line alerts from the first one on
+    perfdata += lib.base.get_perfdata(
+        'findings', len(findings), uom=None, warn='0', _min=0
+    )
+    perfdata += lib.base.get_perfdata('suggestions', len(suggestions), uom=None, _min=0)
     msg += lib.lynis.get_findings_msg(findings, suggestions)
 
     # over and out

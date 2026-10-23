@@ -411,6 +411,27 @@ class TestPathConfinement(unittest.TestCase):
         self.assertIn('Refusing to read', combined)
         self.assertNotIn('secret', combined)
 
+    def test_outside_allowed_roots_reveals_nothing(self):
+        # Whether a path outside the roots exists, is empty or is a directory must
+        # not change the answer, or a caller learns about files they cannot read.
+        empty = os.path.join(self.scratch_dir, 'empty')
+        with open(empty, 'w', encoding='utf-8'):
+            pass
+        for path in (
+            empty,
+            os.path.join(self.scratch_dir, 'missing'),
+            self.scratch_dir,
+        ):
+            result = subprocess.run(
+                [PLUGIN, f'--server-log={path}'],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            combined = result.stdout + result.stderr
+            self.assertEqual(result.returncode, STATE_UNKNOWN, combined)
+            self.assertIn('Refusing to read', combined)
+
 
 class TestDefaultsFile(unittest.TestCase):
     """pymysql opens --defaults-file itself, as root, so anything but a regular
@@ -434,6 +455,55 @@ class TestDefaultsFile(unittest.TestCase):
                 self.fail('the check blocked on a FIFO given as --defaults-file')
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
+
+
+class TestLogFileDiscovery(unittest.TestCase):
+    """The log path comes from the server, which a caller of this root check can
+    choose. Whether a file outside the allowed roots exists must not decide which
+    path is taken, or the answer tells the caller about a file they cannot read."""
+
+    def setUp(self):
+        self.outside = tempfile.mkdtemp(prefix='mysql-logfile-outside-')
+        self.inside = tempfile.mkdtemp(prefix='mysql-logfile-inside-')
+        self.fallback = os.path.join(self.inside, 'host.err')
+        with open(self.fallback, 'w', encoding='utf-8'):
+            pass
+
+    def tearDown(self):
+        shutil.rmtree(self.outside, ignore_errors=True)
+        shutil.rmtree(self.inside, ignore_errors=True)
+
+    def test_configured_path_outside_the_roots_is_kept_either_way(self):
+        existing = os.path.join(self.outside, 'existing.err')
+        with open(existing, 'w', encoding='utf-8'):
+            pass
+        missing = os.path.join(self.outside, 'missing.err')
+        for path in (existing, missing):
+            self.assertEqual(
+                mysql_logfile.get_log_file_real_path(
+                    path, 'host', self.inside, [self.inside]
+                ),
+                path,
+            )
+
+    def test_guessed_path_outside_the_roots_is_not_probed(self):
+        guessed = os.path.join(self.outside, 'host.err')
+        with open(guessed, 'w', encoding='utf-8'):
+            pass
+        # the datadir the server reports lies outside the roots
+        self.assertEqual(
+            mysql_logfile.get_log_file_real_path(
+                '', 'host', self.outside, [self.inside]
+            ),
+            '',
+        )
+        # inside the roots, the guess is taken
+        self.assertEqual(
+            mysql_logfile.get_log_file_real_path(
+                '', 'host', self.inside, [self.inside]
+            ),
+            self.fallback,
+        )
 
 
 class TestSourceAddress(unittest.TestCase):

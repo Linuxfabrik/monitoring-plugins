@@ -579,6 +579,27 @@ class TestPathConfinement(unittest.TestCase):
         self.assertIn('Refusing to read', combined)
         self.assertNotIn('secret', combined)
 
+    def test_outside_allowed_roots_reveals_nothing(self):
+        # Whether a path outside the roots exists, is empty or is a directory must
+        # not change the answer, or a caller learns about files they cannot read.
+        empty = os.path.join(self.scratch_dir, 'empty')
+        with open(empty, 'w', encoding='utf-8'):
+            pass
+        for path in (
+            empty,
+            os.path.join(self.scratch_dir, 'missing'),
+            self.scratch_dir,
+        ):
+            result = subprocess.run(
+                [PLUGIN, f'--server-log={path}'],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            combined = result.stdout + result.stderr
+            self.assertEqual(result.returncode, STATE_UNKNOWN, combined)
+            self.assertIn('Refusing to read', combined)
+
 
 if __name__ == '__main__':
     unittest.main()
