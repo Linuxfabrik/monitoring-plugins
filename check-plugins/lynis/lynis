@@ -29,7 +29,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092802'
+__version__ = '2026102301'
 
 DESCRIPTION = """Runs a lynis security audit across the hosts of a subnet or a host list from
 a single management host, and reports each host's hardening index, its findings (the lynis
@@ -1098,11 +1098,16 @@ def main():
         # Nothing was audited, so a green result would only mean that nothing was
         # looked at.
         state = lib.base.get_worst(state, lib.base.str2state(args.NO_MATCH_SEVERITY))
-    perfdata += lib.base.get_perfdata('hosts_total', len(targets), _min=0)
-    perfdata += lib.base.get_perfdata('hosts_reachable', reachable, _min=0)
-    perfdata += lib.base.get_perfdata('hosts_audited', audited, _min=0)
-    perfdata += lib.base.get_perfdata('findings', total_warnings, _min=0)
-    perfdata += lib.base.get_perfdata('suggestions', total_suggestions, _min=0)
+    perfdata += lib.base.get_perfdata('hosts_total', len(targets), uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('hosts_reachable', reachable, uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('hosts_audited', audited, uom=None, _min=0)
+    # every finding raises WARNING, so the line alerts from the first one on
+    perfdata += lib.base.get_perfdata(
+        'findings', total_warnings, uom=None, warn='0', _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'suggestions', total_suggestions, uom=None, _min=0
+    )
 
     # build table output
     # State always sits in the last column: IcingaWeb replaces "[WARNING]" with
