@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026101302'
+__version__ = '2026102301'
 
 DESCRIPTION = """Reports how much a host pages, as per-second rates measured between two runs: the
 traffic it moves to and from swap, and how often a process had to wait for the disk
@@ -681,8 +681,10 @@ def main():
     # Who is behind the numbers. The kernel keeps no swap counters per process, so these
     # are what the processes leave behind: the major faults they caused (a swap read-in
     # is one, and so is every page of a mapped file read off the disk) and the swap they
-    # hold. A process that ended since the last run is not in them.
-    if top:
+    # hold. A process that ended since the last run is not in them. Without the
+    # processes of a previous run there is nothing to compare with: every process
+    # would count with all it did since it started, as if within the last second.
+    if top and previous_processes:
         groups = group_processes(previous_processes, processes, now - previous_time)
         for title, key, header, unit in (
             (

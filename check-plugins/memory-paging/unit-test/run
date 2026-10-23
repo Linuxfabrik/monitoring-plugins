@@ -421,6 +421,27 @@ SCENARIOS = [
         ],
     },
     {
+        # The paging counters have a baseline, the processes do not (the run before
+        # had the tables switched off, as after an update from a version without
+        # them). Without one, every process would count with all it did since it
+        # started, as if within the last second, so the tables wait for the next run.
+        'id': 'crit-no-tables-without-a-baseline-of-the-processes',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-1 --top=0',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-2',
+                'sleep': 1.1,
+                'assert-retc': STATE_CRIT,
+                'assert-not-in': ['Waited for the disk most', 'Gained the most swap'],
+            },
+        ],
+    },
+    {
         # One run above the threshold is a job that started. With `--count=2` it takes a
         # second run to call it a finding, and until then the output says so.
         'id': 'ok-a-single-run-above-the-threshold-waits-for-count',
