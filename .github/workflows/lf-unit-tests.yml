@@ -168,8 +168,14 @@ jobs:
         with:
           python-version: '3.13'
 
+      # PySmbClient is published as a source distribution only. It is built
+      # without isolation by the pinned setuptools and wheel, as in the Windows
+      # build, instead of by whatever an isolated build would fetch.
+      - name: 'Install the build backend (setuptools, wheel)'
+        run: 'python -m pip install --require-hashes --requirement monitoring-plugins/.github/setuptools/requirements.txt'
+
       - name: 'Install the dependencies of the Windows build'
-        run: 'python -m pip install --require-hashes --requirement monitoring-plugins/lockfiles/py313-windows/requirements.txt'
+        run: 'python -m pip install --require-hashes --no-build-isolation --requirement monitoring-plugins/lockfiles/py313-windows/requirements.txt'
 
       # Only the plugins that ship for Windows (those with a `.windows` file) are
       # tested. The first line says which lib they import, so a run against the
@@ -218,8 +224,13 @@ jobs:
         with:
           python-version: '3.12'
 
+      # PySmbClient is published as a source distribution only, see the Windows
+      # job above.
+      - name: 'Install the build backend (setuptools, wheel)'
+        run: 'python -m pip install --require-hashes --requirement monitoring-plugins/.github/setuptools/requirements.txt'
+
       - name: 'Install the dependencies and testcontainers'
-        run: 'python -m pip install --require-hashes --requirement monitoring-plugins/.github/container-tests/requirements.txt'
+        run: 'python -m pip install --require-hashes --no-build-isolation --requirement monitoring-plugins/.github/container-tests/requirements.txt'
 
       # testcontainers talks to the Docker daemon the runner ships. The rootless
       # podman 4.9 of Ubuntu 24.04 failed here where podman 5 on a developer's
