@@ -56,8 +56,9 @@ options:
                         Default: 90
   --extend-module EXTEND_MODULE
                         "modulename" to check (startswith), appended to the
-                        default or the `--module` list. Can be specified
-                        multiple times. Example: `--extend-module=json`.
+                        default or the `--module` list. Case-sensitive. Can be
+                        specified multiple times. Example: `--extend-
+                        module=json`.
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
@@ -75,12 +76,12 @@ options:
                         "example" (negative lookahead).
   --module MODULE       "modulename" to check (startswith). Replaces the
                         default list, use `--extend-module` to append to it.
-                        Can be specified multiple times. Example:
-                        `--module=json --module=mbstring`. Default: calendar,
-                        Core, ctype, date.
-  --name NAME           Only check items with this name. Can be specified
-                        multiple times. If not specified, all items are
-                        checked.
+                        Case-sensitive. Can be specified multiple times.
+                        Example: `--module=json --module=mbstring`. Default:
+                        calendar, Core, ctype, date.
+  --name NAME           Only check items with this name. Case-sensitive. Can
+                        be specified multiple times. If not specified, all
+                        items are checked.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok

@@ -290,12 +290,13 @@ Hints:
 Help texts are consistent across all plugins. Each property goes on its own line (implicit string concatenation), in this order:
 
 1. Purpose (what the parameter does)
-2. Data type or format (if not obvious)
-3. Regex or case-sensitivity note (if applicable)
-4. Repeating note (if applicable)
-5. Nagios range support (if applicable)
-6. Example (if helpful)
-7. Default value (always last, always present if there is one)
+2. List semantics of an `append` parameter with a default list ("Replaces the default list, ..." / "..., appended to ...")
+3. Data type or format (if not obvious)
+4. Regex or case-sensitivity note (if applicable)
+5. Repeating note (if applicable)
+6. Nagios range support (if applicable)
+7. Example (if helpful)
+8. Default value (always last, always present if there is one)
 
 Standard help texts live in `lib.args.HELP_TEXTS`; use `lib.args.help('--parameter-name')` wherever possible, write plugin-specific ones inline in the same format, or prefix the standard one:
 
@@ -315,7 +316,7 @@ parser.add_argument(
 * "Supports Nagios ranges." when the value goes through `lib.base.get_state()`.
 * Always state "Case-insensitive." or "Case-sensitive."
 * "Uses Python regular expressions." when the parameter accepts a regex.
-* End every help text with a period.
+* End every help text with a period; a closing `Default: %(default)s` needs none.
 * Identical parameters across plugins get identical help texts.
 * The developer-only `--test` is mapped to `argparse.SUPPRESS` in `lib.args` (accepted, but hidden from `--help`, READMEs and baskets). Declare it with `help=lib.args.help('--test')`, never inline.
 
@@ -447,7 +448,7 @@ Format, space-separated, UOM = Unit of Measurement: `'label'=value[UOM];[warn];[
 * Trailing unfilled semicolons may be dropped.
 * UOM: none (a number of things), `s` (also `us`, `ms`), `%`, `B` (also `KB`, `MB`, `TB`; bytes preferred, they are exact), `c` (continuous counter, do not use).
 
-**Do not use continuous counters** (`c`). Compute the delta between two runs in the plugin, store the previous measurement with `lib.db_sqlite`, and emit an absolute value with a real unit ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320)). This spares Grafana `non_negative_difference()`, keeps aggregations and legend tables correct, and preserves the unit. The `example` plugin implements the pattern.
+**Do not use continuous counters** (`c`). Compute the delta between two runs in the plugin, store the previous measurement with `lib.db_sqlite`, and emit an absolute value with a real unit ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320)). This spares Grafana `non_negative_difference()`, keeps aggregations and legend tables correct, and preserves the unit. The `example` plugin implements the pattern with `lib.db_sqlite.per_second_deltas()`.
 
 Prefer percentages over absolute values, so systems of different size compare. Never emit already-aggregated values such as Apache's lifetime average "137.5 kB/request" (a flat line); calculate them in the plugin or discard them.
 

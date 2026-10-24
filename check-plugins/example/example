@@ -34,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102301'
+__version__ = '2026102401'
 
 # The skeleton demonstrates the standard patterns and library functions: argparse
 # with append/deprecated/suppress parameters, (success, result) error handling,
@@ -102,6 +102,7 @@ def parse_args():
         '--extend-module',
         help='"modulename" to check (startswith), '
         'appended to the default or the `--module` list. '
+        'Case-sensitive. '
         'Can be specified multiple times. '
         'Example: `--extend-module=json`.',
         dest='EXTEND_MODULE',
@@ -165,6 +166,7 @@ def parse_args():
         '--module',
         help='"modulename" to check (startswith). '
         'Replaces the default list, use `--extend-module` to append to it. '
+        'Case-sensitive. '
         'Can be specified multiple times. '
         'Example: `--module=json --module=mbstring`. '
         f'Default: {", ".join(DEFAULT_MODULE)}.',
@@ -189,6 +191,7 @@ def parse_args():
     parser.add_argument(
         '--name',
         help='Only check items with this name. '
+        'Case-sensitive. '
         'Can be specified multiple times. '
         'If not specified, all items are checked.',
         dest='NAME',
@@ -391,69 +394,23 @@ def main():
             always_ok=args.ALWAYS_OK,
         )
 
-    # calculate delta from the previous run using a local SQLite database.
-    # In test mode (--test), skip persistent state entirely and use a
-    # fixed stand-in so unit tests can exercise the full state machine
-    # without depending on run order or leftover temp files.
+    # calculate the rate from the previous run. lib.db_sqlite.per_second_deltas() keeps
+    # the last two measurements per name in a local SQLite database, so several items
+    # can share one file without evicting each other's baseline, and returns None on
+    # the first run and after a counter reset (a reboot). Gather every rate before the
+    # plugin opens a connection of its own to the same file. In test mode (--test),
+    # skip persistent state entirely and use a fixed stand-in so unit tests can
+    # exercise the full state machine without depending on run order or leftover
+    # temp files.
     if args.TEST is None:
-        conn = lib.base.coe(
-            lib.db_sqlite.connect(
-                filename='linuxfabrik-monitoring-plugins-example.db',
-            ),
+        rates = lib.db_sqlite.per_second_deltas(
+            'linuxfabrik-monitoring-plugins-example.db',
+            title,
+            {'rx_bytes': rx_bytes},
         )
-        definition = """
-            name        TEXT NOT NULL,
-            rx_bytes    INT NOT NULL,
-            timestamp   INT NOT NULL
-        """
-        lib.base.coe(
-            lib.db_sqlite.create_table(conn, definition, drop_table_first=False)
-        )
-        lib.base.coe(lib.db_sqlite.create_index(conn, 'name'))
-
-        now = lib.time.now()
-        lib.base.coe(
-            lib.db_sqlite.insert(
-                conn,
-                {'name': title, 'rx_bytes': rx_bytes, 'timestamp': now},
-            )
-        )
-        lib.base.coe(lib.db_sqlite.cut(conn, _max=2))
-        lib.base.coe(lib.db_sqlite.commit(conn))
-
-        rows = lib.base.coe(
-            lib.db_sqlite.select(
-                conn,
-                """
-            SELECT *
-            FROM perfdata
-            WHERE name = :name
-            ORDER BY timestamp DESC
-            """,
-                {'name': title},
-            )
-        )
-        if len(rows) < 2:
-            lib.db_sqlite.close(conn)
+        if rates is None:
             lib.base.oao('Waiting for more data.', STATE_OK)
-
-        timestamp_diff = rows[0]['timestamp'] - rows[1]['timestamp']
-        if timestamp_diff == 0:
-            timestamp_diff = 1
-        rx_bytes_per_second = int(
-            float(rows[0]['rx_bytes'] - rows[1]['rx_bytes']) / timestamp_diff,
-        )
-        if any(
-            [
-                timestamp_diff < 0,
-                rx_bytes_per_second < 0,
-            ]
-        ):
-            # happens after a reboot
-            lib.db_sqlite.close(conn)
-            lib.base.oao('Waiting for more data.', STATE_OK)
-
-        lib.db_sqlite.close(conn)
+        rx_bytes_per_second = int(rates['rx_bytes'])
     else:
         rx_bytes_per_second = 1234567
 
