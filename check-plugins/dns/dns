@@ -14,7 +14,6 @@ import argparse
 import json
 import socket
 import sys
-import threading
 import time
 
 import lib.args
@@ -24,7 +23,7 @@ import lib.net
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092802'
+__version__ = '2026102301'
 
 DESCRIPTION = """Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queries the
 name servers configured on the local machine (e.g. those listed in /etc/resolv.conf).
@@ -148,29 +147,26 @@ TYPES = {
 def lookup(args):
     """Resolve --hostname like the operating system does, within --timeout.
 
-    getaddrinfo() has no timeout of its own and waits as long as the resolver of the
-    operating system does, so it runs in a thread the check stops waiting for.
-
     Returns `(runtime_ms, result)`; `result` is the list of 5-tuples getaddrinfo()
     returns, the exception it raised, or None on a timeout.
     """
     family, socktype, proto = TYPES.get(args.TYPE, (0, 0, 0))
-    box = {}
-
-    def worker():
-        try:
-            box['result'] = socket.getaddrinfo(
-                args.HOSTNAME, args.PORT, family, socktype, proto
-            )
-        except OSError as e:
-            box['result'] = e
-
     start_time = time.time()
-    thread = threading.Thread(target=worker, daemon=True)
-    thread.start()
-    thread.join(args.TIMEOUT)
+    try:
+        result = lib.net.getaddrinfo(
+            args.HOSTNAME,
+            args.PORT,
+            family,
+            socktype,
+            proto,
+            timeout=args.TIMEOUT,
+        )
+    except socket.timeout:
+        result = None
+    except OSError as e:
+        result = e
     runtime = (time.time() - start_time) * 1000  # we get seconds and want ms
-    return runtime, box.get('result')
+    return runtime, result
 
 
 def replay(test):
@@ -225,6 +221,17 @@ def main():
     # [(10, 1, 6, '', ('2606:2800:220:1:248:1893:25c8:1946',
     #   53, 0, 0)), ...]
     # [(2, 1, 6, '', ('172.217.168.67', 53)), ...]
+
+    # a name that cannot be encoded for DNS, such as one with an empty label, is a wrong
+    # parameter, not a failed lookup
+    try:
+        args.HOSTNAME.encode('idna')
+    except UnicodeError:
+        lib.base.cu(
+            f'Invalid --hostname "{args.HOSTNAME}": not a valid host name, for example'
+            ' because of an empty label ("..") or a label longer than 63 characters.',
+            traceback=False,
+        )
 
     # fetch data
     target = f'{args.HOSTNAME}:{args.PORT}' + (f'/{args.TYPE}' if args.TYPE else '')
