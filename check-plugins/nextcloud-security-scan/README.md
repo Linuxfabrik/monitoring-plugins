@@ -42,7 +42,8 @@ Checks the security of a private Nextcloud server using the Nextcloud security
 scanner. Reports the assigned security rating and alerts on known
 vulnerabilities in the installed version. When --path points at a local
 Nextcloud installation, the plugin reads the installed version and forces a
-fresh scan after an update, so the rating never lags behind.
+fresh scan after an update, so the rating never lags behind. Requires root or
+sudo.
 
 options:
   -h, --help         show this help message and exit

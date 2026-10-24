@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks used or free disk space for each mounted partition. By default, only physical devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems. Supports filtering by mountpoint pattern or filesystem type. Thresholds can be set as percentages or absolute values, and can target either used or free space. Note that on ext2/3/4 filesystems, about 5% of disk space is reserved for root by default and is not reflected in the available space shown to regular users. Alerts when usage exceeds the configured thresholds.
+Checks used or free disk space for each mounted partition. By default, only physical devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems. Supports filtering by mountpoint pattern or filesystem type. Thresholds can be set as percentages or absolute values, and can target either used or free space. Note that on ext2/3/4 filesystems, about 5% of disk space is reserved for root by default and is not reflected in the available space shown to regular users. Alerts when usage exceeds the configured thresholds. Requires root or sudo.
 
 **Important Notes:**
 
@@ -55,7 +55,7 @@ with many filesystems (hundreds of mounts), --brief hides rows that are within
 the thresholds so the table only shows the filesystems in WARN/CRIT state.
 Note that on ext2/3/4 filesystems, about 5% of disk space is reserved for root
 by default and is not reflected in the available space shown to regular users.
-Alerts when usage exceeds the configured thresholds.
+Alerts when usage exceeds the configured thresholds. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit

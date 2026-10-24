@@ -91,13 +91,14 @@ is wrong and only say something in bulk: a login the server turned away, and a
 connection a client dropped without saying goodbye. Counting either by its
 level would leave the check permanently yellow on an ordinary application
 server. Recommendations are grouped under a single block at the end of the
-output. Reading the on-disk log file usually requires root/sudo (typical mysql
+output. Reading the on-disk log file usually needs root rights (typical mysql
 logs are owned by `mysql:mysql` mode `0640`). The
 `performance_schema.error_log` path needs SELECT on that table but no
 filesystem access. Alerts on every error and warning the log carries, when the
 logins a single source had turned away or the connections a single client
 dropped cross their rates within `--lookback`, when a configured log is
-missing or unreadable, and when an on-disk log has grown past 32 MiB.
+missing or unreadable, and when an on-disk log has grown past 32 MiB. Requires
+root or sudo.
 
 options:
   -h, --help            show this help message and exit
