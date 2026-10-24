@@ -65,7 +65,7 @@ TESTS = [
         'id': 'ok-stratum-2-synced-v1',
         'test': 'stdout/stratum-2-synced-v1,,0',
         'assert-retc': STATE_OK,
-        'assert-in': ['Stratum is 2'],
+        'assert-in': ['Stratum is 3'],
     },
     {
         'id': 'warn-no-server-used-v3',
@@ -77,7 +77,7 @@ TESTS = [
         'id': 'ok-stratum-2-synced-v2',
         'test': 'stdout/stratum-2-synced-v2,,0',
         'assert-retc': STATE_OK,
-        'assert-in': ['Stratum is 2'],
+        'assert-in': ['Stratum is 3'],
     },
     # A host disciplined by a PTP hardware clock: stratum 1, a Reference that
     # is a clock name instead of a hex refid, root delay and dispersion in
@@ -86,7 +86,7 @@ TESTS = [
         'id': 'ok-stratum-1-phc-reference',
         'test': 'stdout/stratum-1-phc-reference,,0',
         'assert-retc': STATE_OK,
-        'assert-in': ['Stratum is 1', "'stratum'=1;6;;0;16"],
+        'assert-in': ['Stratum is 2', "'stratum'=2;5;;0;16"],
     },
     # Same fixture, --stratum lowered to 1, so stratum 1 is now at the bar.
     {
@@ -94,7 +94,56 @@ TESTS = [
         'test': 'stdout/stratum-1-phc-reference,,0',
         'params': '--stratum=1',
         'assert-retc': STATE_WARN,
-        'assert-in': ['Stratum is 1 (is >= 1'],
+        'assert-in': ['Stratum is 2 (is >= 1'],
+    },
+    # systemd 249+ prints an empty "ServerAddress=" instead of "(null)". Captured on
+    # Debian 13 (systemd 257) without network.
+    {
+        'id': 'warn-no-server-used-systemd-257',
+        'test': 'stdout/no-server-used-systemd-257,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No NTP server used.'],
+        'assert-not-in': ['Traceback'],
+    },
+    # The server name resolved, but outgoing UDP 123 is blocked, so there is a
+    # server address and no "NTPMessage=" yet. Captured on Debian 13 (systemd 257).
+    {
+        'id': 'warn-no-answer-systemd-257',
+        'test': 'stdout/no-answer-systemd-257,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'No answer from NTP server 2.debian.pool.ntp.org (91.235.212.22).',
+        ],
+        'assert-not-in': ['Traceback'],
+    },
+    # Same with timedatectl from systemd 239 on Rocky 8 (timesyncd 253 from EPEL).
+    {
+        'id': 'warn-no-answer-systemd-239',
+        'test': 'stdout/no-answer-systemd-239,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No answer from NTP server 2.rhel.pool.ntp.org (193.134.29.11).'],
+        'assert-not-in': ['Traceback'],
+    },
+    # stratum-2-synced-v1 with a -now fixture: 5 minutes and 3 hours after the
+    # last answer (DestinationTimestamp). timesyncd keeps the last answer when the
+    # server goes silent, so only its age shows that nothing arrives any more.
+    {
+        'id': 'ok-answer-5m-ago',
+        'test': 'stdout/answer-5m-ago,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['last synchronized 5m ago', "'sync_age'=300s;3600;;0"],
+    },
+    {
+        'id': 'warn-answer-3h-ago',
+        'test': 'stdout/answer-3h-ago,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['last synchronized 3h ago [WARNING]'],
+    },
+    {
+        'id': 'ok-answer-3h-ago-age-disabled',
+        'test': 'stdout/answer-3h-ago,,0',
+        'params': '--warning-age=0D',
+        'assert-retc': STATE_OK,
     },
 ]
 

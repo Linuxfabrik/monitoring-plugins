@@ -5,11 +5,20 @@
                 "--always-ok": {
                     "set_if": "$ntp_systemd_timesyncd_always_ok$"
                 },
+                "--critical-age": {
+                    "value": "$ntp_systemd_timesyncd_critical_age$"
+                },
                 "--no-perfdata": {
                     "set_if": "$ntp_systemd_timesyncd_no_perfdata$"
                 },
                 "--stratum": {
                     "value": "$ntp_systemd_timesyncd_stratum$"
+                },
+                "--timeout": {
+                    "value": "$ntp_systemd_timesyncd_timeout$"
+                },
+                "--warning-age": {
+                    "value": "$ntp_systemd_timesyncd_warning_age$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/ntp-systemd-timesyncd",
@@ -27,6 +36,21 @@
                 },
                 {
                     "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -72,7 +96,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the state of systemd-timesyncd, including synchronization status, server reachability, and stratum level. Alerts if time synchronization is inactive or if the stratum exceeds the configured limit.",
+            "notes": "Checks which NTP server systemd-timesyncd synchronizes with, the stratum of this host and how long ago it last synchronized. Alerts when no NTP server is used or answers, when the stratum is too high, or when the time since the last synchronization exceeds the configured thresholds.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ntp-systemd-timesyncd/",
             "object_name": "tpl-service-ntp-systemd-timesyncd",
             "object_type": "template",
@@ -84,8 +108,11 @@
             "vars": {
                 "criticality": "C",
                 "ntp_systemd_timesyncd_always_ok": false,
+                "ntp_systemd_timesyncd_critical_age": "0D",
                 "ntp_systemd_timesyncd_no_perfdata": false,
-                "ntp_systemd_timesyncd_stratum": 6
+                "ntp_systemd_timesyncd_stratum": 6,
+                "ntp_systemd_timesyncd_timeout": 8,
+                "ntp_systemd_timesyncd_warning_age": "1h"
             },
             "volatile": null,
             "zone": null,
@@ -103,6 +130,17 @@
             "uuid": "077da322-47fe-4af6-a31a-74110cefb41e"
         },
         "2": {
+            "varname": "ntp_systemd_timesyncd_critical_age",
+            "caption": "NTP Systemd Timesyncd: Critical Age",
+            "description": "CRIT threshold for the time since systemd-timesyncd last synchronized the clock. A duration such as `30m`, `2h` or `1D`; `0D` disables it.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "7aac571e-a2d4-49d6-80ea-0de130d57278"
+        },
+        "3": {
             "varname": "ntp_systemd_timesyncd_no_perfdata",
             "caption": "NTP Systemd Timesyncd: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -111,16 +149,38 @@
             "settings": {},
             "uuid": "36a8843b-67ac-4a7a-b672-f337c98f3700"
         },
-        "3": {
+        "4": {
             "varname": "ntp_systemd_timesyncd_stratum",
             "caption": "NTP Systemd Timesyncd: Stratum",
-            "description": "Warns if the determined stratum of the time server is greater than or equal to this value. Stratum 1 indicates a computer with a locally attached reference clock. A computer that is synchronised to a stratum 1 computer is at stratum 2. A computer that is synchronised to a stratum 2 computer is at stratum 3, and so on.",
+            "description": "Warns if the stratum of this host is greater than or equal to this value. Stratum 1 indicates a computer with a locally attached reference clock. A computer that is synchronised to a stratum 1 computer is at stratum 2. A computer that is synchronised to a stratum 2 computer is at stratum 3, and so on.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "60f4ae4a-5675-4490-9b26-206bd442a7ef"
+        },
+        "5": {
+            "varname": "ntp_systemd_timesyncd_timeout",
+            "caption": "NTP Systemd Timesyncd: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "59041362-56c4-42c7-9e35-c72faaa053a7"
+        },
+        "6": {
+            "varname": "ntp_systemd_timesyncd_warning_age",
+            "caption": "NTP Systemd Timesyncd: Warning Age",
+            "description": "WARN threshold for the time since systemd-timesyncd last synchronized the clock. A duration such as `30m`, `2h` or `1D`; `0D` disables it.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6959ec09-5f91-40be-8e49-a01c989659ff"
         }
     }
 }

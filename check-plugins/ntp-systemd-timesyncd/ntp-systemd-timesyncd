@@ -11,23 +11,32 @@
 """See the check's README for more details."""
 
 import argparse
+import calendar
 import sys
+import time
 
 import lib.args
 import lib.base
+import lib.human
 import lib.lftest
 import lib.shell
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026102301'
 
-DESCRIPTION = """Checks the state of systemd-timesyncd, including synchronization status, server
-reachability, and stratum level. Alerts if time synchronization is inactive or if
-the stratum exceeds the configured limit."""
+DESCRIPTION = """Checks which NTP server systemd-timesyncd synchronizes with, the
+stratum of this host and how long ago it last synchronized. Alerts when no NTP server is
+used or answers, when the stratum is too high, or when the time since the last
+synchronization exceeds the configured thresholds."""
 
+DEFAULT_CRIT_AGE = '0D'
 DEFAULT_STRATUM = 6
+DEFAULT_TIMEOUT = 8
+# timesyncd polls every 2048 s at most by default (PollIntervalMaxSec), so an hour
+# means at least one missed answer
+DEFAULT_WARN_AGE = '1h'
 
 
 def parse_args():
@@ -54,6 +63,17 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--critical-age',
+        help='CRIT threshold for the time since systemd-timesyncd last synchronized '
+        'the clock. '
+        'A duration such as `30m`, `2h` or `1D`; `0D` disables it. '
+        'Default: %(default)s',
+        dest='CRIT_AGE',
+        type=lib.args.duration,
+        default=DEFAULT_CRIT_AGE,
+    )
+
+    parser.add_argument(
         '--no-perfdata',
         help=lib.args.help('--no-perfdata'),
         dest='NO_PERFDATA',
@@ -76,8 +96,52 @@ def parse_args():
         type=lib.args.csv,
     )
 
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--warning-age',
+        help='WARN threshold for the time since systemd-timesyncd last synchronized '
+        'the clock. '
+        'A duration such as `30m`, `2h` or `1D`; `0D` disables it. '
+        'Default: %(default)s',
+        dest='WARN_AGE',
+        type=lib.args.duration,
+        default=DEFAULT_WARN_AGE,
+    )
+
     args, _ = parser.parse_known_args()
     return args
+
+
+def timestamp_to_epoch(value):
+    """
+    Convert a timestamp of `timedatectl` in UTC to a Unix timestamp.
+
+    Parameters
+    ----------
+    value : str
+        For example `Fri 2026-10-23 19:05:29 UTC`, as timedatectl prints it with
+        `TZ=UTC`.
+
+    Returns
+    -------
+    int or None
+        Seconds since the epoch, or None for anything else, including a timestamp in
+        another time zone.
+    """
+    try:
+        _, day, clock, zone = value.split()
+        if zone != 'UTC':
+            return None
+        return calendar.timegm(time.strptime(f'{day} {clock}', '%Y-%m-%d %H:%M:%S'))
+    except ValueError:
+        return None
 
 
 def main():
@@ -92,7 +156,19 @@ def main():
     # fetch data
     cmd = ['timedatectl', 'show-timesync', '--all']
     if args.TEST is None:
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        # TZ=UTC: timestamps in UTC, independent of the local time zone
+        success, result = lib.shell.shell_exec(
+            cmd, env={'TZ': 'UTC'}, timeout=args.TIMEOUT
+        )
+        if not success:
+            # a timeout (timedatectl waits up to 25 s for a hanging timesyncd on
+            # D-Bus), or timedatectl is not installed
+            lib.base.oao(
+                f'`{" ".join(cmd)}` failed: {result}',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
+        stdout, stderr, retc = result
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
@@ -117,41 +193,102 @@ def main():
     state = STATE_OK
     perfdata = ''
 
-    peer_used = False
+    server_address = ''
+    server_name = ''
+    stratum = None
+    received = None
+    # "now" for the age of the last answer; under --test from the optional fixture
+    # `<base>-now`, so the age does not depend on when the test runs
+    if args.TEST is None:
+        now = time.time()
+    else:
+        now = lib.lftest.test_text(args.TEST, f'{args.TEST[0]}-now', missing_ok=True)
+        now = float(now) if now else None
 
     # analyze data
     for line in stdout.splitlines():
         line = line.strip()
         if line.startswith('ServerAddress='):
-            peer_used = line.split('=')[-1] != '(null)'
+            server_address = line.split('=', 1)[-1]
+            continue
+        if line.startswith('ServerName='):
+            server_name = line.split('=', 1)[-1]
             continue
         if line.startswith('NTPMessage='):
             for ntpmsg in (
                 line.replace('NTPMessage={ ', '').replace(' }', '').split(', ')
             ):
-                if ntpmsg.startswith('Stratum'):
-                    stratum = int(ntpmsg.split('=')[-1])
-                    break
+                if ntpmsg.startswith('Stratum='):
+                    # the stratum of the server; this host is one further down, and
+                    # that is the stratum the other NTP checks and `--stratum` speak of
+                    stratum = int(ntpmsg.split('=')[-1]) + 1
+                # when this host received the last answer, in its own clock
+                if ntpmsg.startswith('DestinationTimestamp='):
+                    received = timestamp_to_epoch(ntpmsg.split('=', 1)[-1])
 
-    if not peer_used:
+    # Without a server, timedatectl from systemd 249+ prints an empty "ServerAddress=",
+    # older versions "(null)". It is timedatectl's version that counts, not the one
+    # of timesyncd. Verified with systemd 239 on Rocky 8 (timesyncd 253 from EPEL),
+    # systemd 257 on Rocky 10 (timesyncd 257 from EPEL) and on Debian 13.
+    if server_address in ('', '(null)'):
         lib.base.oao('No NTP server used.', STATE_WARN, always_ok=args.ALWAYS_OK)
+    # timesyncd sets the server address as soon as the name resolves, but there is no
+    # "NTPMessage=" until the first answer arrives. Verified with blocked outgoing
+    # UDP 123 on the same three hosts.
+    if stratum is None:
+        lib.base.oao(
+            f'No answer from NTP server {server_name} ({server_address}). Check that'
+            ' outgoing NTP traffic (UDP port 123) is allowed.',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
 
     # build the message
-    msg += f'Stratum is {stratum}'
+    # timesyncd measures no offset of its own that would be worth alerting on (its
+    # last one is stale after every step), so the message names the server instead
+    server = server_name or server_address
+    if server_address and server_address != server:
+        server += f' ({server_address})'
+    msg += f'Synchronized with NTP server {server}, Stratum is {stratum}'
     if stratum >= args.STRATUM:
         stratum_state = STATE_WARN
         state = lib.base.get_worst(state, stratum_state)
         msg += f' (is >= {args.STRATUM} {lib.base.state2str(stratum_state)})'
+    # timesyncd keeps the last answer when the server goes silent, so its age tells
+    sync_age = None
+    if received and now:
+        sync_age = max(0, round(now - received))
+        age_state = lib.base.get_state(
+            sync_age,
+            int(args.WARN_AGE) or None,
+            int(args.CRIT_AGE) or None,
+        )
+        state = lib.base.get_worst(state, age_state)
+        msg += (
+            f', last synchronized {lib.human.seconds2human(sync_age)} ago'
+            f'{lib.base.state2str(age_state, prefix=" ")}'
+        )
 
     perfdata += lib.base.get_perfdata(
         'stratum',
         stratum,
         uom=None,
-        warn=args.STRATUM,
+        # --stratum warns from this stratum on, a perfdata range above its end
+        warn=args.STRATUM - 1,
         crit=None,
         _min=0,
         _max=16,
     )
+    if sync_age is not None:
+        perfdata += lib.base.get_perfdata(
+            'sync_age',
+            sync_age,
+            uom='s',
+            warn=int(args.WARN_AGE) or None,
+            crit=int(args.CRIT_AGE) or None,
+            _min=0,
+            _max=None,
+        )
 
     # over and out
     lib.base.oao(
