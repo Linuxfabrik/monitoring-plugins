@@ -29,7 +29,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102301'
+__version__ = '2026102401'
 
 DESCRIPTION = """Runs a lynis security audit across the hosts of a subnet or a host list from
 a single management host, and reports each host's hardening index, its findings (the lynis
@@ -72,6 +72,25 @@ LYNIS_NAME_REGEX = re.compile(r'[A-Za-z0-9_-]+(?::[A-Za-z0-9_-]+)?')
 # `a-zA-Z0-9` and `/._:=-` (SafeInput() in include/functions), a comma included.
 LYNIS_AUDITOR_REGEX = re.compile(r'[A-Za-z0-9 ._-]+')
 LYNIS_PROFILE_REGEX = re.compile(r'[A-Za-z0-9./_-]+')
+# A raw option travels the same way, so it keeps to the characters lynis accepts
+# itself, without `/`: no shell syntax, and no path. The options that take a path
+# point lynis, running as root on the target, at binaries to run, scripts to source
+# or files to write (include/parameters, lynis 3.1.8), and have no business here.
+LYNIS_OPTION_REGEX = re.compile(r'-[A-Za-z0-9 ._:=-]*')
+LYNIS_OPTIONS_WITH_PATH = (
+    '--bindirs',
+    '--bin-dirs',
+    '--log-file',
+    '--logfile',
+    '--plugin-dir',
+    '--plugindir',
+    '--plugins-dir',
+    '--profile',
+    '--report-file',
+    '--root-dir',
+    '--rootdir',
+    '--upload',
+)
 
 # Per-run remote work directory. lynis is a script that must be executed, so the
 # directory has to live on a partition mounted without "noexec". Hardened hosts
@@ -253,6 +272,8 @@ def parse_args():
         '--lynis-option',
         help='Additional raw option to pass to the remote `lynis audit system` call, '
         'for options that have no dedicated parameter here. '
+        'Options that take a path are not passed on, and an option may only contain '
+        'letters, digits, spaces and `._:=-`. '
         'Can be specified multiple times. '
         'Example: `--lynis-option=--no-plugins`',
         dest='LYNIS_OPTION',
@@ -473,6 +494,20 @@ def validate_lynis_args(args):
             False,
             '--lynis-profile may only contain letters, digits and `./_-`.',
         )
+    for option in args.LYNIS_OPTION:
+        if not LYNIS_OPTION_REGEX.fullmatch(option):
+            return (
+                False,
+                f'--lynis-option "{option}" has to start with "-" and may only contain'
+                ' letters, digits, spaces and `._:=-`.',
+            )
+        name = option.split('=', 1)[0].split(' ', 1)[0]
+        if name in LYNIS_OPTIONS_WITH_PATH:
+            return (
+                False,
+                f'--lynis-option "{name}" takes a path and is not passed on;'
+                ' use the dedicated parameter where there is one.',
+            )
     return (True, None)
 
 

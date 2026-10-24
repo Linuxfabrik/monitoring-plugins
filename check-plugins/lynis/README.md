@@ -129,8 +129,10 @@ options:
   --lynis-option LYNIS_OPTION
                         Additional raw option to pass to the remote `lynis
                         audit system` call, for options that have no dedicated
-                        parameter here. Can be specified multiple times.
-                        Example: `--lynis-option=--no-plugins`
+                        parameter here. Options that take a path are not
+                        passed on, and an option may only contain letters,
+                        digits, spaces and `._:=-`. Can be specified multiple
+                        times. Example: `--lynis-option=--no-plugins`
   --lynis-profile LYNIS_PROFILE
                         Additional profile file for the audit (lynis
                         `--profile`), read on top of lynis' own `default.prf`
