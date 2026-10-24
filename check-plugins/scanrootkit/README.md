@@ -46,6 +46,31 @@ Scans the system for numerous known rootkits by checking for their characteristi
 * Checks for rootkit-specific files, UNIX sockets, named pipes (FIFOs) and directories on the filesystem. Device nodes do not count as file indicators. A symlink at an indicator path is reported as such and never followed, and indicators written as shell patterns (`/tmp/ss0-[0-9]...`) are expanded, as rkhunter does.
 * Scans kernel symbols (`/proc/kallsyms` or `/proc/ksyms`) for rootkit indicators
 
+**Extending the Signatures:**
+
+Sources for new rootkit signatures: because rkhunter is no longer updated, file-path and kernel-symbol signatures for rootkits released after ~2018 have to be collected from current threat research. When extending the signature set, prefer sources that publish concrete on-disk indicators (full file paths, directory names, kernel module names, exported symbol names). Good starting points, in alphabetical order:
+
+* [Aqua Nautilus](https://www.aquasec.com/blog/) - cloud-native and Linux threat research, frequent honeypot-based discoveries with file-path IoCs
+* [CISA cybersecurity advisories](https://www.cisa.gov/news-events/cybersecurity-advisories) - joint IoC reports, often Linux-specific
+* [Elastic Security Labs](https://www.elastic.co/security-labs) - Linux malware analyses with detailed indicator appendices
+* [ESET welivesecurity](https://www.welivesecurity.com/) - Linux malware teardowns (Ebury, FontOnLake, Kobalos) typically include an IoC appendix
+* [Intezer blog](https://intezer.com/blog/) - Linux threat analyses
+* [Kaspersky Securelist](https://securelist.com/) - Symbiote, HiatusRAT and similar
+* [MITRE ATT&CK T1014 Rootkit](https://attack.mitre.org/techniques/T1014/) and linked software entries
+* [Sandfly Security blog](https://sandflysecurity.com/blog) - specializes in Linux forensics, regularly publishes file-path IoCs
+* [Sysdig threat research](https://sysdig.com/blog/topic/threat-research/), [CrowdStrike](https://www.crowdstrike.com/en-us/blog/category/threat-intel-research/), [Mandiant](https://cloud.google.com/security/resources/insights) - mixed IoC quality, worth checking
+* [Volexity blog](https://www.volexity.com/blog/) - APT and Linux implant analyses with concrete on-disk indicators
+
+GitHub repositories complement the blogs: their commit history shows exactly what changed since the last review of the signature set. In alphabetical order:
+
+* [elastic/protections-artifacts](https://github.com/elastic/protections-artifacts) - Elastic's YARA rules, including `yara/rules/Linux_Rootkit_*`; mostly strings rather than paths, but a reliable early indicator of new rootkit names
+* [eset/malware-ioc](https://github.com/eset/malware-ioc) - the IoC appendices of the ESET welivesecurity reports as plain files
+* [fkie-cad/linux-rootkit-iocs](https://github.com/fkie-cad/linux-rootkit-iocs) - Fraunhofer FKIE's file-path, string and network IoCs for 24 Linux rootkits, backed by a research paper
+* [milabs/awesome-linux-rootkits](https://github.com/milabs/awesome-linux-rootkits) - curated list of Linux rootkits and their capabilities; no indicators, but useful to discover rootkit names worth researching
+* [Neo23x0/signature-base](https://github.com/Neo23x0/signature-base) - YARA rules and `iocs/filename-iocs.txt` with file-name IoCs and their source; filter for Linux
+
+Signatures should be strong enough to avoid false positives on a clean system. Prefer uncommon, rootkit-specific file paths (e.g. `/usr/_h4x_/`) over generic ones (`/tmp/.X11-unix`) and exact kernel symbol names over substrings. If a signature is only partially reliable, set `cl` below 100 so the plugin reports it as "possible" instead of "confirmed".
+
 
 ## Fact Sheet
 
@@ -136,32 +161,6 @@ Each finding lists the rootkit name followed by the year it was first publicly d
 ### `Python module "yaml" is not installed.`
 
 Install `pyyaml`: `pip install pyyaml` or `dnf install python3-pyyaml`.
-
-
-## For Maintainers
-
-Sources for new rootkit signatures: because rkhunter is no longer updated, file-path and kernel-symbol signatures for rootkits released after ~2018 have to be collected from current threat research. When extending the signature set, prefer sources that publish concrete on-disk indicators (full file paths, directory names, kernel module names, exported symbol names). Good starting points, in alphabetical order:
-
-* [Aqua Nautilus](https://www.aquasec.com/blog/) - cloud-native and Linux threat research, frequent honeypot-based discoveries with file-path IoCs
-* [CISA cybersecurity advisories](https://www.cisa.gov/news-events/cybersecurity-advisories) - joint IoC reports, often Linux-specific
-* [Elastic Security Labs](https://www.elastic.co/security-labs) - Linux malware analyses with detailed indicator appendices
-* [ESET welivesecurity](https://www.welivesecurity.com/) - Linux malware teardowns (Ebury, FontOnLake, Kobalos) typically include an IoC appendix
-* [Intezer blog](https://intezer.com/blog/) - Linux threat analyses
-* [Kaspersky Securelist](https://securelist.com/) - Symbiote, HiatusRAT and similar
-* [MITRE ATT&CK T1014 Rootkit](https://attack.mitre.org/techniques/T1014/) and linked software entries
-* [Sandfly Security blog](https://sandflysecurity.com/blog) - specializes in Linux forensics, regularly publishes file-path IoCs
-* [Sysdig threat research](https://sysdig.com/blog/topic/threat-research/), [CrowdStrike](https://www.crowdstrike.com/en-us/blog/category/threat-intel-research/), [Mandiant](https://cloud.google.com/security/resources/insights) - mixed IoC quality, worth checking
-* [Volexity blog](https://www.volexity.com/blog/) - APT and Linux implant analyses with concrete on-disk indicators
-
-GitHub repositories complement the blogs: their commit history shows exactly what changed since the last review of the signature set. In alphabetical order:
-
-* [elastic/protections-artifacts](https://github.com/elastic/protections-artifacts) - Elastic's YARA rules, including `yara/rules/Linux_Rootkit_*`; mostly strings rather than paths, but a reliable early indicator of new rootkit names
-* [eset/malware-ioc](https://github.com/eset/malware-ioc) - the IoC appendices of the ESET welivesecurity reports as plain files
-* [fkie-cad/linux-rootkit-iocs](https://github.com/fkie-cad/linux-rootkit-iocs) - Fraunhofer FKIE's file-path, string and network IoCs for 24 Linux rootkits, backed by a research paper
-* [milabs/awesome-linux-rootkits](https://github.com/milabs/awesome-linux-rootkits) - curated list of Linux rootkits and their capabilities; no indicators, but useful to discover rootkit names worth researching
-* [Neo23x0/signature-base](https://github.com/Neo23x0/signature-base) - YARA rules and `iocs/filename-iocs.txt` with file-name IoCs and their source; filter for Linux
-
-Signatures should be strong enough to avoid false positives on a clean system. Prefer uncommon, rootkit-specific file paths (e.g. `/usr/_h4x_/`) over generic ones (`/tmp/.X11-unix`) and exact kernel symbol names over substrings. If a signature is only partially reliable, set `cl` below 100 so the plugin reports it as "possible" instead of "confirmed".
 
 
 ## Credits, License

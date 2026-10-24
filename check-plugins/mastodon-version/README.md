@@ -26,8 +26,9 @@ Checks the installed Mastodon version against the endoflife.date API and alerts 
 | Nagios/Icinga Check Name              | `check_mastodon_version` |
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
-| Runs on                               | Cross-platform |
-| Compiled for Windows                  | No (runs with Python interpreter) |
+| Runs on                               | Linux |
+| Compiled for Windows                  | No |
+| Requirements                          | command-line tool `podman` for a container installation; User with higher permissions |
 | Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 

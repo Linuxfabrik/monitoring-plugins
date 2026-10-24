@@ -185,7 +185,7 @@ On a hypervisor, where a verdict the kernel cannot reach is worth looking into r
 
 * OK if every vulnerability the CPU is affected by has a mitigation in effect, and everything else is reported as not affected.
 * WARN if at least one vulnerability the CPU is affected by has no mitigation in effect. `--severity` lowers that to `ok` or raises it to `crit` or `unknown`.
-* OK with an explanation if the kernel cannot decide on a vulnerability, if a guest cannot verify a `no microcode` line, or if the kernel reports it in wording this check does not know. `--unknown-severity` raises that to `warn`, `crit` or `unknown`.
+* OK with an explanation if the kernel cannot decide on a vulnerability, if a guest cannot verify a `no microcode` line or a bare `Vulnerable` in `retbleed` or `spec_store_bypass` because its hypervisor withholds the CPU flags, or if the kernel reports it in wording this check does not know. `--unknown-severity` raises that to `warn`, `crit` or `unknown`.
 * OK with an explanation if the kernel publishes no vulnerability information at all, which means it was built without `CONFIG_GENERIC_CPU_VULNERABILITIES`. `--unknown-severity` applies here as well.
 * OK if `--match` and `--ignore` leave nothing to check. `--no-match-severity` raises that.
 * UNKNOWN if `--match` or `--ignore` is not a valid Python regular expression.
@@ -202,7 +202,7 @@ All values are counts of vulnerabilities after `--match` and `--ignore` have bee
 | checked      | Number | Vulnerabilities the kernel publishes and the filters kept. The sum of the four below. |
 | mitigated    | Number | The CPU is affected and something is holding the vulnerability off. |
 | not_affected | Number | The CPU does not have the flaw. |
-| unknown      | Number | The kernel cannot decide, a guest cannot verify a `no microcode` line, or the kernel words its verdict in a way this check does not know. |
+| unknown      | Number | The kernel cannot decide, a guest cannot verify a `no microcode` line or a bare `Vulnerable` in `retbleed` or `spec_store_bypass`, or the kernel words its verdict in a way this check does not know. |
 | vulnerable   | Number | The CPU is affected and nothing is holding the vulnerability off. This is the value the check alerts on. |
 
 

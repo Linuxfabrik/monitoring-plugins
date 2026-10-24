@@ -25,6 +25,10 @@ Runs a lynis security audit across the hosts of a subnet or a host list from a s
 * Addresses that do not answer on SSH are not listed one by one but counted by reason (`254 x Connection timed out`). This separates an address with no host behind it from a target the check cannot reach because of a configuration problem.
 * Auto-discovery probes raw IP addresses, which do not match per-host `~/.ssh/config` aliases. For `--network` / `--interface` discovery, provide working credentials with `--username` and `--identity`.
 
+**Lynis Profiles:**
+
+Lynis reads its settings from profile files. `default.prf` is the default profile and ships with lynis; it defines which tests run, their thresholds, and which tests to skip. `custom.prf` is the place for site-specific overrides and survives package upgrades. Lynis discovers both automatically in `/etc/lynis` and merges them, so you do not need to edit `default.prf`. The scan copies each target's own `/etc/lynis/custom.prf` next to the pushed lynis, so the exceptions of a host apply to the scan as well. `--lynis-profile` adds one more profile on top, resolved on the target host.
+
 
 ## Fact Sheet
 
@@ -283,11 +287,6 @@ Audit a single host over SSH (using a `~/.ssh/config` alias), and follow what th
 | hosts_reachable | Number | Number of addresses that answered on SSH. |
 | hosts_total | Number | Number of addresses probed. |
 | suggestions | Number | Number of lynis suggestions, across all audited hosts. |
-
-
-## Lynis Profiles
-
-Lynis reads its settings from profile files. `default.prf` is the default profile and ships with lynis; it defines which tests run, their thresholds, and which tests to skip. `custom.prf` is the place for site-specific overrides and survives package upgrades. Lynis discovers both automatically in `/etc/lynis` and merges them, so you do not need to edit `default.prf`. The scan copies each target's own `/etc/lynis/custom.prf` next to the pushed lynis, so the exceptions of a host apply to the scan as well. `--lynis-profile` adds one more profile on top, resolved on the target host.
 
 
 ## Troubleshooting
