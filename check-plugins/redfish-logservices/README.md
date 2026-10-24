@@ -62,7 +62,7 @@ options:
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 5
-  --ignore IGNORE       Ignore SEL entries whose message matches this Python
+  --ignore IGNORE       Ignore log entries whose message matches this Python
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified
                         multiple times. Example: `--ignore="Log area
@@ -73,14 +73,14 @@ options:
                         Which log to read: `sel` (System Event Log, default),
                         `mel` (management controller event log) or `both`.
                         Default: sel
-  --match MATCH         Only consider SEL entries whose message matches this
+  --match MATCH         Only consider log entries whose message matches this
                         Python regular expression. Case-sensitive by default;
                         use `(?i)` for case-insensitive matching. Can be
                         specified multiple times. If both `--match` and
                         `--ignore` are given, an item must match `--match` AND
                         not match `--ignore` to be reported (include first,
                         exclude second). Example: `--match="(?i)temperature"`.
-  --max-age MAX_AGE     Age out SEL entries older than this many days: they
+  --max-age MAX_AGE     Age out log entries older than this many days: they
                         are no longer alerted on, only counted in the summary.
                         A controller keeps an entry until the log is cleared,
                         so a long-since resolved event would otherwise keep

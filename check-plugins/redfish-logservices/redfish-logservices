@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102301'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks the event log entries exposed under the LogServices of a Redfish-compatible
 server via the Redfish API. Alerts when a log entry has the severity "Warning" or "Critical".
@@ -101,7 +101,7 @@ def parse_args():
 
     parser.add_argument(
         '--ignore',
-        help='Ignore SEL entries whose message matches this Python regular expression. '
+        help='Ignore log entries whose message matches this Python regular expression. '
         'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
         'Can be specified multiple times. '
         'Example: `--ignore="Log area reset/cleared"`.',
@@ -130,7 +130,7 @@ def parse_args():
 
     parser.add_argument(
         '--match',
-        help='Only consider SEL entries whose message matches this Python regular expression. '
+        help='Only consider log entries whose message matches this Python regular expression. '
         'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
         'Can be specified multiple times. '
         + lib.args.MATCH_IGNORE_PRECEDENCE
@@ -142,7 +142,7 @@ def parse_args():
 
     parser.add_argument(
         '--max-age',
-        help='Age out SEL entries older than this many days: they are no longer alerted on, only '
+        help='Age out log entries older than this many days: they are no longer alerted on, only '
         'counted in the summary. A controller keeps an entry until the log is cleared, so a '
         'long-since resolved event would otherwise keep the check in a non-OK state forever. '
         'Default: %(default)s (0 disables aging).',
@@ -414,9 +414,15 @@ def main():
     for label, member_path, service in logs:
         service_path = service.get('@odata.id', member_path)
         entries_link = service.get('Entries')
-        if not isinstance(entries_link, dict) or not entries_link.get('@odata.id'):
-            continue
         members_read.add(member_path)
+        if not isinstance(entries_link, dict) or not entries_link.get('@odata.id'):
+            # an advertised log without its entries is no more an empty one than a
+            # log that cannot be read
+            msg += (
+                f'{service_path} ({label.upper()})\nNot readable: no Entries link.\n\n'
+            )
+            state = lib.base.get_worst(state, STATE_UNKNOWN)
+            continue
         # fetch_collection asks the controller to inline the log entries via the
         # Redfish $expand query, so a long log is read in one request even on
         # controllers that list entries as references.
