@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Highlights:** Mainly a bug-fix release: every plugin was tested again against all available Linux and Windows versions. New are `aide-logfile` for the AIDE file integrity check, `lynis-logfile` for the daily lynis audit and `windows-version` for the end of life of Windows. On RHEL, Debian and Ubuntu, the version checks follow the distribution's life cycle for the software it ships.
+**Highlights:** Mainly a bug-fix release: every plugin was tested again against all available Linux and Windows versions. New are `aide-logfile` for the AIDE file integrity check, `lynis-logfile` for the daily lynis audit, `ntp-offset` for the offset of the system clock and `windows-version` for the end of life of Windows. On RHEL, Debian and Ubuntu, the version checks follow the distribution's life cycle for the software it ships.
 
 ### Added
 
@@ -16,6 +16,7 @@ Monitoring Plugins:
 
 * aide-logfile: reports of the AIDE file integrity check
 * lynis-logfile: the daily lynis audit
+* ntp-offset: offset of the system clock, measured against an NTP server
 * windows-version: end of life of Windows and Windows Server
 
 Icinga Director:
@@ -51,6 +52,9 @@ Monitoring Plugins:
 * mysql-health: MariaDB no longer drops to 0/30 Security points
 * mysql-index-health: unused indexes alert only with `--warning-unused`
 * nextcloud-enterprise: shows how old the subscription data is
+* ntp-chronyd: alerts on the real clock offset and on a silent NTP server
+* ntp-ntpd: alerts on the real clock offset and on a silent NTP server, `--stratum` applies to this host
+* ntp-w32tm: `--warning` and `--critical` check the clock offset, renamed metrics, works on German Windows
 * php-fpm-logfile: reports fatal errors and hung workers, fewer false alarms
 * php-fpm-ping: an unreachable ping page follows `--severity`
 * redfish-memory: fewer false alarms, detects defects on Fujitsu iRMC
@@ -65,6 +69,7 @@ Icinga Director:
 
 * Active Directory Domain Service Set: also checks Netlogon
 * AIDE Service Set: uses `aide-logfile`
+* Basic Service Sets: also check the clock offset with `ntp-offset`
 * FreeIPA Server Service Set: also checks its certificates
 * Lynis Service Set: uses `lynis-logfile`
 * OS - Debian \* Basic Service Sets: combine with the networking Service Set
@@ -109,7 +114,7 @@ Monitoring Plugins:
 * journald-\*: UNKNOWN instead of a false OK without journal rights
 * mediawiki-version: reads MediaWiki before 1.31.7
 * moodle-version: finds Moodle 5.1 and newer
-* ntp-w32tm: works on German Windows, warns on a stopped time service
+* ntp-systemd-timesyncd: warns when the NTP server stops answering, `--stratum` applies to this host
 * openjdk-redhat-version: no wrong version with quoted Java options
 * podman-stats: no false CRIT for rootless containers on cgroups v1
 * postfix-logfile: reads the journal on Debian and Ubuntu
@@ -136,6 +141,7 @@ Icinga Director:
 * ClamAV Service Set: works on Debian and Ubuntu
 * Mastodon and Rocket.Chat Service Sets: check the rootless containers
 * Nextcloud Service Set: no warning for an enabled `nextcloud-app-update.timer`
+* ntp-chronyd, ntp-ntpd, ntp-systemd-timesyncd, ntp-w32tm: re-import the basket
 * PHP-FPM Service Set: no false alert on Debian and Ubuntu
 * Windows service sets: a stopped service is no longer hidden
 
