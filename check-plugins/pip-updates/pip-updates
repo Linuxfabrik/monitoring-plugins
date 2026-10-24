@@ -276,15 +276,17 @@ def main():
             )
         lib.base.cu(stderr)
 
+    # init some vars
+    msg = ''
+
     # analyze data
     try:
         packages = json.loads(stdout)
     except json.decoder.JSONDecodeError:
         lib.base.cu('Failed to parse JSON.')
-
-    # init some vars
-    msg = ''
     state = lib.base.get_state(len(packages), args.WARN, args.CRIT)
+
+    # build the message
     perfdata = lib.base.get_perfdata(
         'pip_outdated_packages',
         len(packages),
@@ -294,8 +296,6 @@ def main():
         _min=0,
         _max=None,
     )
-
-    # build the message
     if state == STATE_OK:
         msg += 'Everything is ok. '
     if packages:
