@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100801'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks if screens attached to Grassfish digital signage players are on or off via
 the Grassfish API. The player list can be filtered by box state, customer ID, or
@@ -355,8 +355,15 @@ def main():
         # get player's screens (using a cache, because this data is not soooo important,
         # and fetching all screens stresses the API a lot)
         if args.TEST is None:
+            # The ID goes into the request path, and it comes from the server's answer:
+            # only a number is taken, so a hostile `Id` cannot steer the request and
+            # its API key to another path on the host.
+            try:
+                player_id = str(int(player['Id']))
+            except (KeyError, TypeError, ValueError):
+                continue
             screens = lib.cache.get(
-                player['Id'],
+                player_id,
                 filename='linuxfabrik-monitoring-plugins-grassfish-screens.db',
             )
             if not screens:
@@ -367,7 +374,7 @@ def main():
                         args.PORT,
                         args.URL,
                         args.API_VERSION,
-                        f'Players/{player["Id"]}/Screens',
+                        f'Players/{player_id}/Screens',
                         insecure=args.INSECURE,
                         no_proxy=args.NO_PROXY,
                         proxy=args.PROXY,
@@ -375,7 +382,7 @@ def main():
                     )
                 )
                 lib.cache.set(
-                    player['Id'],
+                    player_id,
                     json.dumps(screens),
                     lib.time.now() + args.CACHE_EXPIRE * 60 * 60,
                     filename='linuxfabrik-monitoring-plugins-grassfish-screens.db',
@@ -383,11 +390,11 @@ def main():
             else:
                 screens = json.loads(screens)
         else:
-            # do not call the command, put in test data
-            # TODO
-            args.TEST[0] += '-screens'
-            stdout, _stderr, _retc = lib.lftest.test(args.TEST)
-            screens = json.loads(stdout)
+            # do not call the command, put in test data: one fixture next to the one
+            # for the players, read once per player without changing `args.TEST`
+            screens = json.loads(
+                lib.lftest.test_text(args.TEST, f'{args.TEST[0]}-screens')
+            )
 
         for i, screen in enumerate(screens):
             cnt['screens'] += 1
