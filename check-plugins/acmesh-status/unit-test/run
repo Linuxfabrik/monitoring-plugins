@@ -598,7 +598,28 @@ class TestSecurity(unittest.TestCase):
                 text=True,
             )
         self.assertNotIn(sentinel, result.stdout)
-        self.assertIn('outside the allowed roots', result.stdout)
+        # skipped like a store without a configuration, see the test below
+        self.assertIn('No certificate stores', result.stdout)
+
+    def test_existing_and_missing_files_outside_answer_alike(self):
+        # a store symlinked to a directory outside must not tell whether the
+        # `<domain>.conf` there exists
+        answers = []
+        with tempfile.TemporaryDirectory() as base:
+            outside = os.path.join(base, 'outside')
+            os.makedirs(outside)
+            with open(os.path.join(outside, 'ld.so.conf'), 'w') as handle:
+                handle.write('include ld.so.conf.d/*.conf\n')
+            for target in (outside, os.path.join(base, 'missing')):
+                path = os.path.join(base, 'acme')
+                os.makedirs(path, exist_ok=True)
+                open(os.path.join(path, 'account.conf'), 'w').close()
+                link = os.path.join(path, 'ld.so')
+                if os.path.lexists(link):
+                    os.remove(link)
+                os.symlink(target, link)
+                answers.append(self.run_check(path))
+        self.assertEqual(answers[0], answers[1])
 
     def run_check(self, path):
         result = subprocess.run(

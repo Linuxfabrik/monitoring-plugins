@@ -32,7 +32,7 @@ except ImportError:
     sys.exit(STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102301'
+__version__ = '2026102401'
 
 DESCRIPTION = """Reports the state of the certificates acme.sh manages, by reading its
 certificate store instead of its output. For every certificate it reports the time left
@@ -234,14 +234,14 @@ def get_cert_home(path):
     different store depending on where it was started answers about nothing.
     """
     account_conf = os.path.join(path, 'account.conf')
-    if not lib.disk.file_exists(account_conf, allow_empty=True):
+    # This check may run as root against a caller-supplied --path, so the read is
+    # confined to that directory and refuses a symlink: account.conf always sits
+    # directly in the configuration directory, and a symlink there must not redirect
+    # the root read. A missing and a refused file answer alike.
+    result = read_conf(account_conf, path)
+    if result is None:
         return path
-    # This check may run as root against a caller-supplied --path, so confine the read
-    # to that directory and refuse a symlink: account.conf always sits directly in the
-    # configuration directory, and a symlink there must not redirect the root read.
-    success, conf = lib.disk.read_env(account_conf, allowed_roots=[path], nofollow=True)
-    if not success:
-        return path
+    conf, trusted = result
     cert_home = conf.get('CERT_HOME', '').strip()
     if not cert_home:
         return path
@@ -249,8 +249,8 @@ def get_cert_home(path):
         return lib.disk.under_root(path, cert_home)
     # An absolute CERT_HOME leads the root read out of --path, so it is followed only
     # where nobody but root and the account running this check can change
-    # account.conf; see is_trusted_conf().
-    if not is_trusted_conf(account_conf):
+    # account.conf; see read_conf().
+    if not trusted:
         return path
     return cert_home
 
@@ -265,15 +265,25 @@ def is_store_dir(name):
     return '.' in name or ':' in name
 
 
-def is_trusted_conf(conf):
-    """Tell whether nobody but root and the account running this check can change
-    `conf`, or any directory above it.
+def read_conf(conf, root):
+    """Read the `KEY=VALUE` file `conf` below `root`, and tell whether the paths it
+    names may be followed. Returns `(values, trusted)`, or None if it cannot be read.
 
     Such a file names paths outside --path (`CERT_HOME`, `Le_RealCertPath`) that this
     check, running as root, then looks at. A configuration somebody else can write
-    would let them choose those paths and learn which files exist on the host.
+    would let them choose those paths and learn which files exist on the host, so it
+    counts as trusted only where nobody but root and the account running this check
+    can change it or any directory above it. The trust is decided first and the file
+    it was decided for is the one read: checked and read one after the other by name,
+    a link swapped in between would have the caller's content pass as trusted.
     """
-    return lib.disk.resolve_trusted_path(conf, owners=[os.geteuid()])[0]
+    trusted, resolved = lib.disk.resolve_trusted_path(conf, owners=[os.geteuid()])
+    success, values = lib.disk.read_env(
+        resolved if trusted else conf, allowed_roots=[root], nofollow=True
+    )
+    if not success:
+        return None
+    return values, trusted
 
 
 def collect_stores(cert_home):
@@ -296,31 +306,27 @@ def collect_stores(cert_home):
             continue
         domain = name[: -len(ECC_SUFFIX)] if name.endswith(ECC_SUFFIX) else name
         conf = os.path.join(directory, f'{domain}.conf')
-        removed_conf = f'{conf}.removed'
 
-        if lib.disk.file_exists(conf, allow_empty=True):
-            detached = False
-        elif lib.disk.file_exists(removed_conf, allow_empty=True):
-            conf = removed_conf
+        # The read is confined to the certificate store and refuses a symlink: the
+        # store tree can be caller-supplied and this check may run as root, so a
+        # symlinked `<domain>.conf` must not redirect the read to an arbitrary
+        # root-readable file whose `KEY=VALUE` lines would then surface in the
+        # recommendations below. A file that is missing and one that is refused are
+        # skipped alike, so the result says nothing about what exists elsewhere.
+        detached = False
+        result = read_conf(conf, cert_home)
+        if result is None:
             detached = True
-        else:
+            result = read_conf(f'{conf}.removed', cert_home)
+        if result is None:
             # neither renewed nor detached: acme.sh ignores it, and so do we
             continue
-
-        # Confine the read to the certificate store and refuse a symlink: the store
-        # tree can be caller-supplied and this check may run as root, so a symlinked
-        # `<domain>.conf` must not redirect the read to an arbitrary root-readable file
-        # whose `KEY=VALUE` lines would then surface in the recommendations below.
-        success, values = lib.disk.read_env(
-            conf, allowed_roots=[cert_home], nofollow=True
-        )
-        if not success:
-            return (False, values)
+        values, trusted = result
 
         stores.append(
             {
                 'conf': {k: decode_conf_value(v) for k, v in values.items()},
-                'conf_trusted': is_trusted_conf(conf),
+                'conf_trusted': trusted,
                 'detached': detached,
                 'directory': directory,
                 'domain': domain,
