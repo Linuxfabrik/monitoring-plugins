@@ -20,7 +20,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100901'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks MySQL/MariaDB user security: anonymous accounts (empty user name),
 accounts with empty passwords, accounts whose password matches the username (the classic
@@ -358,7 +358,9 @@ def find_weak_password_users(conn, role_filter):
     database and the existing pass-column detection ladder is reused.
     `PASSWORD()` was removed in MySQL 8.0, so on those servers every
     candidate query errors out and the function returns []. Returns a
-    list of `{'user': '...', 'password': '<weak-value>'}` dicts.
+    list of `{'user': '...'}` dicts, one per account. Which password matched
+    is not returned: it works, and the plugin output ends up in
+    notifications and in the history of the monitoring server.
     """
     # Build the candidate set as a SQL UNION once per column attempt so
     # the join below stays a single round-trip per column.
@@ -367,15 +369,14 @@ def find_weak_password_users(conn, role_filter):
     )
     for pass_column in PASS_COLUMN_NAMES:
         sql = f"""
-            select concat(quote(u.user), '@', quote(u.host)) as user,
-                w.password as password
+            select distinct concat(quote(u.user), '@', quote(u.host)) as user
             from mysql.user u
             join ({candidates_union}) w
                 on cast(u.{pass_column} as binary) = password(w.password)
             where {role_filter}u.user != ''
                 and u.user != 'mariadb.sys'
                 and u.user != 'mysql.sys'
-            order by u.user, u.host, w.password
+            order by user
             ;
         """  # nosec B608
         success, rows = lib.db_mysql.select(conn, sql)
@@ -582,7 +583,7 @@ def main():
         )
         for u in weak_password_users:
             recommendations.append(
-                f'{u["user"]}: password is `{u["password"]}` (well-known default); '
+                f'{u["user"]}: password is a well-known default; '
                 f"`SET PASSWORD FOR {u['user']} = PASSWORD('{PASSWORD_PLACEHOLDER}');`"
             )
 

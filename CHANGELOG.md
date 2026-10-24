@@ -164,6 +164,7 @@ Monitoring Plugins:
 * mastodon-version: `--path` no longer follows symlinks out of the installation
 * metabase-stats: no session token for another instance, works again
 * mysql-logfile: a non-regular `--defaults-file` no longer hangs the check
+* mysql-user-security: no longer prints a weak password it found
 * nextcloud-\*: `--path` runs `occ` only from a root-controlled installation
 * openvpn-client-list: confined to `/var/log`, supports OpenVPN 2.7 and IPv6
 * php-status: reads only root-owned pool configs
