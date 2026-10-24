@@ -19,10 +19,10 @@ import lib.base
 import lib.lftest
 import lib.shell
 import lib.version
-from lib.globals import STATE_UNKNOWN
+from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks the installed Apache httpd version against the endoflife.date API and alerts if
 the version is end-of-life or if newer major, minor, or patch releases are available.
@@ -163,12 +163,21 @@ def parse_args():
     return args
 
 
-def get_installed_version(path, test_arg=None):
+def get_installed_version(
+    path, test_arg=None, timeout=DEFAULT_TIMEOUT, always_ok=False
+):
     if test_arg is None:
         for binary in [path] if path else DEFAULT_BINARIES:
-            success, result = lib.shell.shell_exec([binary, '-v'])
+            cmd = [binary, '-v']
+            success, result = lib.shell.shell_exec(cmd, timeout=timeout)
             if success:
                 break
+            if result.startswith('Timeout after'):
+                lib.base.oao(
+                    f'Timeout after {timeout}s while running `{" ".join(cmd)}`.',
+                    STATE_WARN,
+                    always_ok=always_ok,
+                )
         else:
             return ''
         stdout = result[0].strip()
@@ -194,7 +203,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = get_installed_version(args.PATH, args.TEST)
+    installed_version = get_installed_version(
+        args.PATH, args.TEST, timeout=args.TIMEOUT, always_ok=args.ALWAYS_OK
+    )
     tried = (
         f'`{args.PATH}`'
         if args.PATH

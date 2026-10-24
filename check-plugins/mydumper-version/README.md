@@ -33,7 +33,7 @@ Checks if a newer version of mydumper is available by comparing the installed ve
 
 ```text
 usage: mydumper-version [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
-                        [--no-perfdata] [--path PATH]
+                        [--no-perfdata] [--path PATH] [--timeout TIMEOUT]
 
 Checks if a newer version of mydumper is available by comparing the installed
 version against the latest release on the GitHub releases API. Alerts when the
@@ -52,6 +52,7 @@ options:
                         dropped.
   --path PATH           Path to the mydumper binary. Resolved via $PATH when
                         given without a directory. Default: mydumper
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mydumper-version/

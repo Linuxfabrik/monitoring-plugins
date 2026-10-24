@@ -87,6 +87,7 @@ Grafana:
 Monitoring Plugins:
 
 * a clear message instead of a Python or OS error, on many plugins
+* a hanging binary returns WARN after `--timeout`, on all \*-version checks that run one
 * compressed logs are no longer reported again on every run, on logfile and all \*-logfile checks
 * HTTPS works with root certificates Windows has not cached yet, on all plugins
 * no journal warning without systemd, on the \*-logfile checks ([#1544](https://github.com/Linuxfabrik/monitoring-plugins/issues/1544))

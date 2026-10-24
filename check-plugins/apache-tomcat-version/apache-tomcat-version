@@ -21,10 +21,10 @@ import lib.base
 import lib.lftest
 import lib.shell
 import lib.version
-from lib.globals import STATE_UNKNOWN
+from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks the installed Apache Tomcat version against the endoflife.date API and alerts if
 the version is end-of-life or if newer major, minor, or patch releases are available.
@@ -162,7 +162,7 @@ def parse_args():
     return args
 
 
-def get_version_output(catalina_home):
+def get_version_output(catalina_home, timeout=DEFAULT_TIMEOUT, always_ok=False):
     """Return raw text containing the Tomcat version string.
 
     Primary source is `bin/version.sh`, which ships with the upstream
@@ -174,9 +174,17 @@ def get_version_output(catalina_home):
     # primary: bin/version.sh derives CATALINA_HOME from its own location
     # and execs `catalina.sh version`, printing "... Apache Tomcat/X.Y.Z".
     version_sh = os.path.join(catalina_home, 'bin', 'version.sh')
+    cmd = [version_sh]
     success, result = lib.shell.shell_exec(
-        [version_sh], env={'CATALINA_HOME': catalina_home}
+        cmd, env={'CATALINA_HOME': catalina_home}, timeout=timeout
     )
+    if not success:
+        if result.startswith('Timeout after'):
+            lib.base.oao(
+                f'Timeout after {timeout}s while running `{" ".join(cmd)}`.',
+                STATE_WARN,
+                always_ok=always_ok,
+            )
     if success and 'Apache Tomcat/' in result[0]:
         return result[0]
 
@@ -195,7 +203,9 @@ def get_version_output(catalina_home):
 
 def get_installed_version(args):
     if args.TEST is None:
-        stdout = get_version_output(args.CATALINA_HOME)
+        stdout = get_version_output(
+            args.CATALINA_HOME, timeout=args.TIMEOUT, always_ok=args.ALWAYS_OK
+        )
     else:
         stdout, _, _ = lib.lftest.test(args.TEST)
     # where to find the version number in output?

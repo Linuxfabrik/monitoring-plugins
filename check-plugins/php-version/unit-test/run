@@ -22,3 +22,34 @@ where a case belongs: against synthetic cycles in the lib repo
 `check-plugins/mysql-version/unit-test/run`, whose fixtures sit next to it in
 `endoflifedate/`.
 """
+
+import sys
+
+sys.path.insert(0, '..')
+
+import subprocess
+import unittest
+
+from lib.globals import STATE_WARN
+
+
+class TestTimeout(unittest.TestCase):
+    """A binary that never answers ends the check with a warning once `--timeout`
+    has passed, instead of keeping it running until the monitoring server kills it.
+    """
+
+    def test_warn_php_hangs(self):
+        result = subprocess.run(
+            ['../php-version', '--path=fixtures/hang', '--timeout=1'],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, STATE_WARN)
+        self.assertIn(
+            'Timeout after 1s while running `fixtures/hang --version', result.stdout
+        )
+
+
+if __name__ == '__main__':
+    unittest.main()

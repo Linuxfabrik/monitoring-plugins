@@ -18,10 +18,10 @@ import lib.args
 import lib.base
 import lib.shell
 import lib.version
-from lib.globals import STATE_UNKNOWN
+from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks the installed Python version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -151,9 +151,16 @@ def parse_args():
     return args
 
 
-def get_installed_version(path):
-    success, result = lib.shell.shell_exec([path, '--version'])
+def get_installed_version(path, timeout=DEFAULT_TIMEOUT, always_ok=False):
+    cmd = [path, '--version']
+    success, result = lib.shell.shell_exec(cmd, timeout=timeout)
     if not success:
+        if result.startswith('Timeout after'):
+            lib.base.oao(
+                f'Timeout after {timeout}s while running `{" ".join(cmd)}`.',
+                STATE_WARN,
+                always_ok=always_ok,
+            )
         return ''
     stdout = result[0].strip()
     # where to find the version number in output?
@@ -176,7 +183,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = get_installed_version(args.PATH)
+    installed_version = get_installed_version(
+        args.PATH, timeout=args.TIMEOUT, always_ok=args.ALWAYS_OK
+    )
     if not installed_version:
         lib.base.cu(
             f'Python not found at `{args.PATH}`. Use --path to point at the binary.'

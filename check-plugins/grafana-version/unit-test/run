@@ -35,10 +35,11 @@ import sys
 
 sys.path.insert(0, '..')
 
+import subprocess
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_UNKNOWN
+from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
@@ -116,6 +117,22 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+class TestTimeout(unittest.TestCase):
+    """A binary that never answers ends the check with a warning once `--timeout`
+    has passed, instead of keeping it running until the monitoring server kills it.
+    """
+
+    def test_warn_grafana_hangs(self):
+        result = subprocess.run(
+            ['../grafana-version', '--path=fixtures/hang', '--timeout=1'],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, STATE_WARN)
+        self.assertIn('Timeout after 1s while running `fixtures/hang -v', result.stdout)
 
 
 if __name__ == '__main__':

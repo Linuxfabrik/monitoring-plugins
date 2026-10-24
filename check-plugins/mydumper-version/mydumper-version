@@ -25,7 +25,7 @@ import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102301'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks if a newer version of mydumper is available by comparing the installed
 version against the latest release on the GitHub releases API. Alerts when the installed
@@ -33,6 +33,7 @@ version is outdated."""
 
 DEFAULT_CACHE_EXPIRE = 24  # hours
 DEFAULT_PATH = 'mydumper'
+DEFAULT_TIMEOUT = 8
 
 
 def parse_args():
@@ -93,14 +94,31 @@ def parse_args():
         type=lib.args.csv,
     )
 
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
 
-def get_installed_version(path, test_arg=None):
+def get_installed_version(
+    path, test_arg=None, timeout=DEFAULT_TIMEOUT, always_ok=False
+):
     if test_arg is None:
-        success, result = lib.shell.shell_exec([path, '--version'])
+        cmd = [path, '--version']
+        success, result = lib.shell.shell_exec(cmd, timeout=timeout)
         if not success:
+            if result.startswith('Timeout after'):
+                lib.base.oao(
+                    f'Timeout after {timeout}s while running `{" ".join(cmd)}`.',
+                    STATE_WARN,
+                    always_ok=always_ok,
+                )
             return ''
         stdout, _, _ = result
         stdout = stdout.strip()
@@ -116,7 +134,7 @@ def get_installed_version(path, test_arg=None):
         return ''
 
 
-def get_latest_version(expire):
+def get_latest_version(expire, timeout=DEFAULT_TIMEOUT):
     # get version online, but first from cache
     latest_version = lib.cache.get('mydumper-version')
     if latest_version:
@@ -124,7 +142,7 @@ def get_latest_version(expire):
 
     # nothing found in cache, get the latest version from github
     success, latest_version = lib.url.get_latest_version_from_github(
-        'mydumper', 'mydumper'
+        'mydumper', 'mydumper', timeout=timeout
     )
     if not success:
         return (success, latest_version)
@@ -150,7 +168,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = get_installed_version(args.PATH, args.TEST)
+    installed_version = get_installed_version(
+        args.PATH, args.TEST, timeout=args.TIMEOUT, always_ok=args.ALWAYS_OK
+    )
     if not installed_version:
         lib.base.cu(
             f'mydumper not found at `{args.PATH}`. Use --path to point at the binary.'
@@ -163,7 +183,9 @@ def main():
         _, stderr, _ = lib.lftest.test(args.TEST)
         latest_version = stderr.strip()
     else:
-        latest_version = lib.base.coe(get_latest_version(args.CACHE_EXPIRE * 60 * 60))
+        latest_version = lib.base.coe(
+            get_latest_version(args.CACHE_EXPIRE * 60 * 60, timeout=args.TIMEOUT)
+        )
 
     # analyze data
     up_to_date = lib.version.version(installed_version) >= lib.version.version(
