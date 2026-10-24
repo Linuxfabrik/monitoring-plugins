@@ -37,7 +37,8 @@ usage: pip-updates [-h] [-V] [--always-ok] [-c CRIT] [--exclude EXCLUDE]
                    [--extra-index-url EXTRA_INDEX_URL]
                    [--find-links FIND_LINKS] [--index-url INDEX_URL] [--local]
                    [--no-index] [--no-perfdata] [--not-required] [--pre]
-                   [--user] [--virtualenv VIRTUALENV] [-w WARN]
+                   [--timeout TIMEOUT] [--user] [--virtualenv VIRTUALENV]
+                   [-w WARN]
 
 Checks for outdated Python packages installed via pip. Reports the number of
 packages with available updates and lists them. Alerts when the count exceeds
@@ -77,6 +78,7 @@ options:
                         installed packages.
   --pre                 Include pre-release and development versions. By
                         default, pip only finds stable versions.
+  --timeout TIMEOUT     Network timeout in seconds. Default: 50 (seconds)
   --user                Only check packages installed in the user-site
                         directory.
   --virtualenv VIRTUALENV

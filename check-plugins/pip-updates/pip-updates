@@ -21,10 +21,10 @@ import lib.base
 import lib.lftest
 import lib.shell
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092803'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks for outdated Python packages installed via pip. Reports the number of packages
 with available updates and lists them. Alerts when the count exceeds the configured
@@ -32,6 +32,7 @@ threshold."""
 
 DEFAULT_WARN = 10
 DEFAULT_CRIT = 100
+DEFAULT_TIMEOUT = 50  # the command timeout of the basket is 60
 
 
 def parse_args():
@@ -150,6 +151,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '--user',
         help='Only check packages installed in the user-site directory.',
         dest='USER',
@@ -243,7 +252,15 @@ def main():
             # were counted (an activated venv, or the system Python under sudo)
             cmd[0] = shutil.which(cmd[0]) or cmd[0]
 
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        # pip asks the package index for every package
+        success, result = lib.shell.shell_exec(cmd, timeout=args.TIMEOUT)
+        if not success and result.startswith('Timeout after'):
+            lib.base.oao(
+                f'Timeout after {args.TIMEOUT}s while running `{" ".join(cmd)}`.',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
+        stdout, stderr, retc = lib.base.coe((success, result))
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)

@@ -21,12 +21,15 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092704'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks the number of pending Windows updates. Alerts when the update count exceeds the
 configured thresholds."""
 
 DEFAULT_CRIT = 50  # #updates
+DEFAULT_TIMEOUT = (
+    300  # the Windows Update search; the command timeout of the basket is 600
+)
 DEFAULT_WARN = 2  # #updates
 
 
@@ -79,10 +82,10 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help=argparse.SUPPRESS,
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
-        default=300,
+        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(

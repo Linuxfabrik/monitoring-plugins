@@ -231,7 +231,9 @@ def main():
             # Reading the locally installed version lets us spot a scan result that
             # predates a local Nextcloud update. Needs to run on the Nextcloud server
             # with sudo for the UID owning config/config.php.
-            config = lib.base.coe(lib.nextcloud.run_occ(args.PATH, 'config:list'))
+            config = lib.base.coe(
+                lib.nextcloud.run_occ(args.PATH, 'config:list', timeout=args.TIMEOUT)
+            )
             installed_version = config['system']['version']
     else:
         # do not call the API, put in test data. args.TEST[0] is the fixture base

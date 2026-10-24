@@ -21,12 +21,14 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks system clock and RTC settings via timedatectl, including whether network time
 synchronization is active and whether the system clock is synchronized. Alerts when
 the system clock is not synchronized to a time source, or when the RTC is kept in the
 local time zone."""
+
+DEFAULT_TIMEOUT = 8
 
 
 def parse_args():
@@ -59,6 +61,14 @@ def parse_args():
         type=lib.args.csv,
     )
 
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -78,9 +88,17 @@ def main():
         # systemd versions, as this is only available since 2018-05 (and therefore not on RHEL 7).
         # Use `timedatectl status` instead.
         cmd = ['timedatectl', 'status']
-        stdout, stderr, _retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        # timedatectl can wait for D-Bus for 25 seconds of its own
+        success, result = lib.shell.shell_exec(cmd, timeout=args.TIMEOUT)
+        if not success and result.startswith('Timeout after'):
+            lib.base.oao(
+                f'Timeout after {args.TIMEOUT}s while running `{" ".join(cmd)}`.',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
+        stdout, stderr, _retc = lib.base.coe((success, result))
         if stderr:
-            lib.base.oao(f'{stderr}', STATE_WARN)
+            lib.base.oao(f'{stderr}', STATE_WARN, always_ok=args.ALWAYS_OK)
     else:
         # do not call the command, put in test data
         stdout, stderr, _retc = lib.lftest.test(args.TEST)

@@ -20,7 +20,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102301'
+__version__ = '2026102401'
 
 DESCRIPTION = """Verifies that the current tuned profile matches the expected setting.
 Alerts when the profile in force is not the expected one, when no profile is active,
@@ -28,6 +28,7 @@ or when the tuned daemon is not running and the profile is therefore not applied
 Useful for ensuring consistent performance tuning across a fleet of servers."""
 
 CMD = ['tuned-adm', 'active']
+DEFAULT_TIMEOUT = 8
 DEFAULT_TUNED_PROFILE = 'virtual-guest'
 KERNEL_SETTINGS_PROFILE = 'kernel_settings'
 
@@ -71,6 +72,14 @@ def parse_args():
         type=lib.args.csv,
     )
 
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -86,7 +95,13 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        success, result = lib.shell.shell_exec(CMD)
+        success, result = lib.shell.shell_exec(CMD, timeout=args.TIMEOUT)
+        if not success and result.startswith('Timeout after'):
+            lib.base.oao(
+                f'Timeout after {args.TIMEOUT}s while running `{" ".join(CMD)}`.',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
         if not success:
             lib.base.cu('tuned is not applicable to your system.')
         stdout, _stderr, _retc = result

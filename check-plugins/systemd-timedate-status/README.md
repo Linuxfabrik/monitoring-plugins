@@ -20,14 +20,14 @@ Checks system clock and RTC settings via `timedatectl status`, including whether
 | Nagios/Icinga Check Name              | `check_systemd_timedate_status` |
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
-| Runs on                               | Cross-platform |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help
 
 ```text
-usage: systemd-timedate-status [-h] [-V] [--always-ok]
+usage: systemd-timedate-status [-h] [-V] [--always-ok] [--timeout TIMEOUT]
 
 Checks system clock and RTC settings via timedatectl, including whether
 network time synchronization is active and whether the system clock is
@@ -35,9 +35,10 @@ synchronized. Alerts when the system clock is not synchronized to a time
 source, or when the RTC is kept in the local time zone.
 
 options:
-  -h, --help     show this help message and exit
-  -V, --version  show program's version number and exit
-  --always-ok    Always returns OK.
+  -h, --help         show this help message and exit
+  -V, --version      show program's version number and exit
+  --always-ok        Always returns OK.
+  --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-timedate-status/

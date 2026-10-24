@@ -23,10 +23,10 @@ import lib.lftest
 import lib.nextcloud
 import lib.time
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks a Nextcloud installation for available app updates from the configured
 app store and alerts when an app update has been available for longer than the warning
@@ -37,6 +37,9 @@ are ignored. The threshold is configurable. Requires root or sudo."""
 DEFAULT_CRIT = None  # hours
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_PATH = '/var/www/html/nextcloud'
+DEFAULT_TIMEOUT = (
+    25  # per occ call, two of them; the command timeout of the basket is 60
+)
 DEFAULT_VERBOSE = False
 DEFAULT_WARN = '72'  # hours (3 x 24h)
 
@@ -129,6 +132,14 @@ def parse_args():
         help=lib.args.help('--test'),
         dest='TEST',
         type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
@@ -257,15 +268,23 @@ def main():
     occ = os.path.join(args.PATH, 'occ')
     occ_commands = [f'{occ} app:update --showonly', f'{occ} app:list --output=json']
     if args.TEST is None:
+        # `app:update --showonly` asks the app store
         success, stdout = lib.nextcloud.run_occ(
             args.PATH,
             'app:update --showonly',
             _format='text',
+            timeout=args.TIMEOUT,
         )
         if not success:
+            if stdout.startswith('Timeout after'):
+                lib.base.oao(stdout, STATE_WARN, always_ok=args.ALWAYS_OK)
             lib.base.cu(stdout)
-        success, app_list = lib.nextcloud.run_occ(args.PATH, 'app:list --output=json')
+        success, app_list = lib.nextcloud.run_occ(
+            args.PATH, 'app:list --output=json', timeout=args.TIMEOUT
+        )
         if not success:
+            if app_list.startswith('Timeout after'):
+                lib.base.oao(app_list, STATE_WARN, always_ok=args.ALWAYS_OK)
             lib.base.cu(app_list)
     else:
         # do not call occ, put in test data

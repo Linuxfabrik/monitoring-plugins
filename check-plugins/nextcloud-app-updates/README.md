@@ -39,7 +39,8 @@ Checks a Nextcloud installation for available app updates from the configured ap
 usage: nextcloud-app-updates [-h] [-V] [--always-ok] [-c CRIT]
                              [--ignore IGNORE] [--match MATCH]
                              [--no-match-severity {ok,warn,crit,unknown}]
-                             [--no-perfdata] [--path PATH] [-v] [-w WARN]
+                             [--no-perfdata] [--path PATH] [--timeout TIMEOUT]
+                             [-v] [-w WARN]
 
 Checks a Nextcloud installation for available app updates from the configured
 app store and alerts when an app update has been available for longer than the
@@ -76,6 +77,7 @@ options:
   --path PATH           Local path to the Nextcloud installation, typically
                         the web server document root. Default:
                         /var/www/html/nextcloud
+  --timeout TIMEOUT     Network timeout in seconds. Default: 25 (seconds)
   -v, --verbose         Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
                         hood.

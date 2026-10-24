@@ -31,6 +31,7 @@ Verifies that the current `tuned` profile matches the expected setting. Alerts w
 
 ```text
 usage: tuned-profile [-h] [-V] [--always-ok] [--profile TUNED_PROFILE]
+                     [--timeout TIMEOUT]
 
 Verifies that the current tuned profile matches the expected setting. Alerts
 when the profile in force is not the expected one, when no profile is active,
@@ -46,6 +47,7 @@ options:
                         Expected tuned profile name (case-insensitive).
                         Example: `--profile virtual-guest`. Default: virtual-
                         guest
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/tuned-profile/
