@@ -47,8 +47,9 @@ usage: by-ssh [-h] [-V] [--always-ok] --command COMMAND
               [--severity-stdout {ok,warn,crit,unknown}]
               [--severity-timeout {ok,warn,crit,unknown}]
               [--skip-stderr SKIP_STDERR] [--skip-stdout SKIP_STDOUT]
-              [--ssh-option SSH_OPTION] [-u USERNAME] [--verbose] [-w WARN]
-              [--warning-pattern WARN_PATTERN] [--warning-regex WARN_REGEX]
+              [--ssh-option SSH_OPTION] [--timeout TIMEOUT] [-u USERNAME]
+              [--verbose] [-w WARN] [--warning-pattern WARN_PATTERN]
+              [--warning-regex WARN_REGEX]
 
 Executes a command on a remote host via SSH and evaluates the result. Returns
 STDOUT and, in case of failure, STDERR and the command's exit code. Supports
@@ -138,6 +139,7 @@ options:
                         flag. For full details of the options, and their
                         possible values, see ssh_config(5). Can be specified
                         multiple times.
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   -u, --username USERNAME
                         SSH: Username. Default: root
   --verbose             Makes this plugin verbose during the operation. Useful

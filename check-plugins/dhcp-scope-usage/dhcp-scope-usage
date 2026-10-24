@@ -22,7 +22,7 @@ import lib.powershell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102301'
+__version__ = '2026102401'
 
 DESCRIPTION = """Monitors IPv4 DHCP scope usage on a Windows DHCP server. Runs locally on the
 DHCP server or connects via WinRM, and queries scope statistics using PowerShell. On
@@ -33,6 +33,7 @@ Alerts when the address pool usage of any scope exceeds the configured threshold
 
 DEFAULT_CRIT = 90
 DEFAULT_HOSTNAME = 'localhost'
+DEFAULT_TIMEOUT = 8
 DEFAULT_WARN = 80
 DEFAULT_WINRM_DOMAIN = None
 DEFAULT_WINRM_TRANSPORT = 'ntlm'
@@ -102,6 +103,14 @@ def parse_args():
         help=lib.args.help('--test'),
         dest='TEST',
         type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
@@ -215,7 +224,13 @@ def main():
                     ' Use the --winrm parameters.',
                     traceback=False,
                 )
-            result = lib.powershell.run_ps(cmd)
+            result = lib.powershell.run_ps(cmd, timeout=args.TIMEOUT)
+            if result['retc'] and result['stderr'].startswith('Timeout after'):
+                lib.base.oao(
+                    f'Timeout after {args.TIMEOUT}s while reading the DHCP scopes.',
+                    STATE_WARN,
+                    always_ok=args.ALWAYS_OK,
+                )
         stdout, stderr, retc = result['stdout'], result['stderr'], result['retc']
     else:
         # do not call the command, put in test data

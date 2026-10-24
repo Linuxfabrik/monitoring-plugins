@@ -35,6 +35,7 @@ DEFAULT_SEVERITY_CONNTIMEOUT = 'unknown'
 DEFAULT_SEVERITY_RETC = 'warn'
 DEFAULT_SEVERITY_STDERR = 'warn'
 DEFAULT_SEVERITY_STDOUT = 'ok'
+DEFAULT_TIMEOUT = 8
 DEFAULT_USERNAME = 'root'
 DEFAULT_VERBOSE = False
 
@@ -269,6 +270,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '-u',
         '--username',
         help='SSH: Username. Default: %(default)s',
@@ -346,17 +355,24 @@ def main():
     timer_start = lib.time.now('float')
     # the plugin's purpose is to execute admin-provided remote commands over SSH;
     # the command is sent as a single argument and expanded by the remote shell
-    stdout, stderr, retc = lib.base.coe(
-        lib.ssh.run(
-            args.HOSTNAME,
-            args.COMMAND,
-            username=args.USERNAME,
-            port=args.PORT,
-            options=ssh_opts,
-            disable_pseudo_terminal=args.DISABLE_PSEUDO_TERMINAL,
-            password=args.PASSWORD,
-        )
+    success, result = lib.ssh.run(
+        args.HOSTNAME,
+        args.COMMAND,
+        username=args.USERNAME,
+        port=args.PORT,
+        options=ssh_opts,
+        disable_pseudo_terminal=args.DISABLE_PSEUDO_TERMINAL,
+        password=args.PASSWORD,
+        timeout=args.TIMEOUT,
     )
+    if not success and result.startswith('Timeout after'):
+        lib.base.oao(
+            f'Timeout after {args.TIMEOUT}s while running the command on'
+            f' {args.HOSTNAME}.',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
+    stdout, stderr, retc = lib.base.coe((success, result))
     if args.PASSWORD and not stderr and retc in range(1, 8):
         # we got a specific sshpass return code (this also means stderr = ""), and not just
         # something like stderr = "Permission denied" with retc 127 or 255
