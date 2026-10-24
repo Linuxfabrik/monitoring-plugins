@@ -34,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092702'
+__version__ = '2026102401'
 
 DESCRIPTION = """Monitors running processes and alerts on process count, aggregated memory usage, or
 aggregated CPU usage. Processes can be filtered by name, command-line arguments, and
@@ -316,20 +316,8 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # init some vars
-    msg = ''
-    state = STATE_OK
-    perfdata = ''
-
-    # init more vars
-    kthreadd_pid = 0
+    # fetch data
     my_pid = os.getpid()
-    procs_count, procs_mem, procs_mem_percent, procs_age = 0, 0, 0, 0
-    unreadable = 0
-    procs_cpu_percent = 0
-    proc_states = defaultdict(lambda: 0)
-    uninterruptibles, running, zombies = {}, {}, {}
-
     need_age = bool(args.WARN_AGE or args.CRIT_AGE)
     need_argument = bool(args.ARGUMENT)
     need_command = bool(args.COMMAND)
@@ -431,16 +419,27 @@ def main():
     except re.error as e:
         lib.base.cu(f'Invalid regular expression: {e}')
 
-    # per-process-name aggregation for --top table and CPU% calculation
-    top_procs = {}
-
     total_ram = psutil.virtual_memory().total or 0
-
-    # fetch data
     # Using ad_value avoids slow exception paths for
     # AccessDenied / racing processes.
     # https://psutil.readthedocs.io/en/latest/#psutil.process_iter
-    for process in psutil.process_iter(attrs=attrs, ad_value=''):
+    processes = list(psutil.process_iter(attrs=attrs, ad_value=''))
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    kthreadd_pid = 0
+    procs_count, procs_mem, procs_mem_percent, procs_age = 0, 0, 0, 0
+    unreadable = 0
+    procs_cpu_percent = 0
+    proc_states = defaultdict(lambda: 0)
+    uninterruptibles, running, zombies = {}, {}, {}
+    # per-process-name aggregation for --top table and CPU% calculation
+    top_procs = {}
+
+    # analyze data
+    for process in processes:
         info = process.info
 
         # always ignore myself
@@ -568,8 +567,6 @@ def main():
         except Exception:
             # specific psutil version does not have such an attribute from above
             continue
-
-    # analyze data
 
     # compute memory percent once (mathematically equals sum of per-proc percentages)
     # Rounded here rather than where it is printed, so the message, the graph and

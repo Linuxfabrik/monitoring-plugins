@@ -30,7 +30,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026101501'
+__version__ = '2026102401'
 
 DESCRIPTION = """Reports CPU utilization percentages for all available time categories
 (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall
@@ -495,14 +495,6 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # init some vars
-    msg = ''
-    perfdata = ''
-    state = STATE_OK
-    stats = {}
-    extstats = {}
-    percpu_usage = None
-
     # fetch data
     # create the db table
     definition = """
@@ -535,6 +527,7 @@ def main():
 
     # Grab CPU stats using psutil's cpu_times_percent
     # https://github.com/Linuxfabrik/monitoring-plugins/issues/57: changed from 0.25 to 1.25
+    percpu_usage = None
     try:
         # OLD (blocking; previous versions of this plugin):
         # cpu_times_percent = psutil.cpu_times_percent(interval=1.25, percpu=False)
@@ -547,6 +540,7 @@ def main():
         lib.db_sqlite.close(conn)
         lib.base.cu('psutil raised an error')
 
+    stats = {}
     stats['guest'] = getattr(cpu_times_percent, 'guest', 0)
     stats['guest_nice'] = getattr(cpu_times_percent, 'guest_nice', 0)
     stats['idle'] = getattr(cpu_times_percent, 'idle', 0)
@@ -579,6 +573,12 @@ def main():
             STATE_OK,
             always_ok=args.ALWAYS_OK,
         )
+
+    # init some vars
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+    extstats = {}
 
     # analyze data
     # This is what we want to warn about: everything the CPUs did except idling and

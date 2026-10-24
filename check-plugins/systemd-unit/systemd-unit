@@ -21,7 +21,7 @@ import lib.version
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Checks the state of a specific systemd unit (service, socket, device, mount, timer,
 scope, etc.) via systemctl. Verifies the active state, sub-state, load state, and
@@ -245,7 +245,7 @@ def main():
     if args.SUBSTATE is None:
         args.SUBSTATE = DEFAULT_SUBSTATE
 
-    # init some vars
+    # fetch data
     options = []
     # This check typically runs as root via sudo. The `user@container` form of
     # --machine makes systemd act on behalf of the named account, which is not
@@ -291,7 +291,6 @@ def main():
         args.UNIT,
     ]
 
-    # fetch data
     if args.TEST is None:
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(command))
         if stderr or retc != 0:
@@ -303,6 +302,11 @@ def main():
     else:
         # do not call the command, put in test data
         stdout, _stderr, _retc = lib.lftest.test(args.TEST)
+
+    # init some vars
+    state = STATE_OK
+    problem = False
+    problem_msg = ''
 
     # analyze data
     # systemctl prints the properties in its own order, not in the order they
@@ -319,7 +323,6 @@ def main():
     unitfilestate = result[3].replace('UnitFileState=', '')
 
     # build the message
-    state = STATE_OK
     msg = f'{args.UNIT} is {loadstate}, {activestate}, {substate}'
 
     if args.LOADSTATE == 'None':
@@ -335,8 +338,6 @@ def main():
         msg += f', UnitFileState is "{unitfilestate}".'
 
     # now do the checks
-    problem = False
-    problem_msg = ''
     if args.LOADSTATE is not None and loadstate == 'not-found':
         problem = True
         problem_msg += (

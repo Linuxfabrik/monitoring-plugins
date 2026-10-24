@@ -34,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes.
 The check records per-disk read/write counters and then derives current (R1/W1) and period
@@ -425,6 +425,7 @@ def main():
             always_ok=args.ALWAYS_OK,
         )
 
+    # fetch data
     # bd: block device; dmd: device mapper device, mp: mountpoint
 
     # create the perfdata table
@@ -463,6 +464,11 @@ def main():
     lib.base.coe(lib.db_sqlite.create_table(conn, definition, drop_table_first=False))
     lib.base.coe(lib.db_sqlite.create_index(conn, 'bd'))
 
+    try:
+        disk_io_counters = psutil.disk_io_counters(perdisk=True)
+    except ValueError:
+        lib.base.cu('psutil raised an error')
+
     # init some vars
     msg = f'No I/O on `{args.MATCH}`.' if args.MATCH else 'No I/O.'
     perfdata = ''
@@ -481,12 +487,6 @@ def main():
     # Leave it out until that is fixed upstream:
     # https://github.com/giampaolo/psutil/issues/3002
     measure_await = not lib.base.WINDOWS
-
-    # fetch data
-    try:
-        disk_io_counters = psutil.disk_io_counters(perdisk=True)
-    except ValueError:
-        lib.base.cu('psutil raised an error')
 
     # analyze data: enrich it and store it to the database
     if lib.base.WINDOWS:

@@ -22,7 +22,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Verifies the integrity of a restic backup repository by running "restic check". Alerts
 when the repository contains errors or inconsistencies.
@@ -161,39 +161,35 @@ def main():
         )
 
     # init some vars
-    msg = ''
     state = STATE_OK
-    summary = get_check_summary(stdout)
+    details = []
+    hints = []
 
-    # analyze data and build the message
+    # analyze data
+    summary = get_check_summary(stdout)
     if summary is not None:
         # restic >= v0.18: the JSON summary decides the state
-        num_errors = summary.get('num_errors', 0)
-        if retc == 0 and num_errors == 0:
-            msg = 'Everything is ok.'
-        else:
+        if retc != 0 or summary.get('num_errors', 0) != 0:
             state = STATE_WARN
-            msg = 'There are errors.'
-            hints = []
             if summary.get('suggest_repair_index'):
                 hints.append('restic repair index')
             if summary.get('suggest_prune'):
                 hints.append('restic prune')
             details = lib.restic.error_lines(stderr)
-            if details:
-                msg += '\n\n' + '\n'.join(details)
-            if hints:
-                msg += '\n\nSuggested: ' + ', '.join(f'`{hint}`' for hint in hints)
+    # restic < v0.18: `check` ignores --json and prints human-readable text
+    elif retc != 0 or 'no errors' not in stdout:
+        state = STATE_WARN
+        details = lib.restic.error_lines(stderr) or lib.restic.error_lines(stdout)
+
+    # build the message
+    if state == STATE_OK:
+        msg = 'Everything is ok.'
     else:
-        # restic < v0.18: `check` ignores --json and prints human-readable text
-        if retc == 0 and 'no errors' in stdout:
-            msg = 'Everything is ok.'
-        else:
-            state = STATE_WARN
-            msg = 'There are errors.'
-            details = lib.restic.error_lines(stderr) or lib.restic.error_lines(stdout)
-            if details:
-                msg += '\n\n' + '\n'.join(details)
+        msg = 'There are errors.'
+        if details:
+            msg += '\n\n' + '\n'.join(details)
+        if hints:
+            msg += '\n\nSuggested: ' + ', '.join(f'`{hint}`' for hint in hints)
 
     # over and out
     lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)

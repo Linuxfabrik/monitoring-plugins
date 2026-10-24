@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102301'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks file sizes against configurable thresholds using human-readable units (e.g.
 25M, 1G). Supports glob patterns, SMB shares, and optional aggregation (mean or
@@ -179,20 +179,9 @@ def main():
             'The `--filename` and `-u` / `--url` parameters are mutually exclusive. Please use only one.'
         )
 
-    # init some vars
-    state = STATE_OK
-    msg = ''
-    perfdata = ''
+    # fetch data
     table_data = []
-    crit_count = 0
-    warn_count = 0
-
-    # convert human readable nagios ranges to something that the Linuxfabrik libraries
-    # can understand
-    CRIT = lib.human.humanrange2bytes(args.CRIT)
-    WARN = lib.human.humanrange2bytes(args.WARN)
-
-    # fetch data from local
+    # from local
     if args.FILENAME:
         for item in lib.disk.glob(args.FILENAME):
             item_stat = lib.disk.stat(item)
@@ -244,6 +233,18 @@ def main():
     if len(table_data) == 0:
         msg = 'No files found.'
         lib.base.oao(msg, STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+
+    # init some vars
+    state = STATE_OK
+    msg = ''
+    perfdata = ''
+    crit_count = 0
+    warn_count = 0
+
+    # convert human readable nagios ranges to something that the Linuxfabrik libraries
+    # can understand
+    CRIT = lib.human.humanrange2bytes(args.CRIT)
+    WARN = lib.human.humanrange2bytes(args.WARN)
 
     # analyze data
     for i, item in enumerate(table_data):

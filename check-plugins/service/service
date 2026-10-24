@@ -28,7 +28,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Checks the state of one or more Windows services. Accepts the case-insensitive
 service name (not the display name) and supports regular expressions to match multiple
@@ -242,6 +242,24 @@ def main():
     # build a new list, `+=` would modify DEFAULT_STATUS in place
     args.STATUS = args.STATUS + args.EXTEND_STATUS
 
+    # fetch data
+    # regex-match first, start_type-filter second: otherwise a service
+    # that would match the user's regex but happens to have a
+    # non-matching start_type is silently dropped before the regex even
+    # runs, and the user sees a "does not match any service name" error
+    # for a service that very much exists. By splitting the two phases
+    # we can give an actionable error when the regex found candidates
+    # but the start_type filter removed all of them ([#921]).
+    compiled_service_regex = lib.base.coe(
+        lib.txt.compile_regex(args.SERVICE, '--service', flags=re.IGNORECASE)
+    )
+
+    regex_matches = collect_matches(compiled_service_regex, args.TEST)
+
+    # no regex match at all — the name truly does not exist
+    if not regex_matches:
+        lib.base.cu(f'r`{args.SERVICE}` does not match any service name.')
+
     # init some vars
     msg = ''
     state = STATE_OK
@@ -256,24 +274,6 @@ def main():
         'stopped': 0,
     }
     svcstate_cnt = 0  # this is the overall count of matching service states
-
-    # regex-match first, start_type-filter second: otherwise a service
-    # that would match the user's regex but happens to have a
-    # non-matching start_type is silently dropped before the regex even
-    # runs, and the user sees a "does not match any service name" error
-    # for a service that very much exists. By splitting the two phases
-    # we can give an actionable error when the regex found candidates
-    # but the start_type filter removed all of them ([#921]).
-    compiled_service_regex = lib.base.coe(
-        lib.txt.compile_regex(args.SERVICE, '--service', flags=re.IGNORECASE)
-    )
-
-    # fetch data
-    regex_matches = collect_matches(compiled_service_regex, args.TEST)
-
-    # no regex match at all — the name truly does not exist
-    if not regex_matches:
-        lib.base.cu(f'r`{args.SERVICE}` does not match any service name.')
 
     # analyze data
     # regex matched, now apply the start_type filter

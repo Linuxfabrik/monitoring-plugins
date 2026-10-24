@@ -22,7 +22,7 @@ import lib.disk
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026102401'
 
 DESCRIPTION = """Verifies that critical system files have the expected owner and group. Ships with a
 built-in list of important files (GRUB, SSH, sudoers, PAM, cron, etc.) and supports
@@ -209,7 +209,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # init some vars
+    # set default values for append parameters that were not specified
     # the file list: defaults merged with user-supplied entries (last wins by path)
     if args.NO_DEFAULT_FILES:
         file_list = [(entry, False) for entry in args.FILES or []]
@@ -223,15 +223,20 @@ def main():
             files_by_path[path] = (entry, False)
         file_list = list(files_by_path.values())
 
+    # fetch data
+    results = [
+        check_file(file_spec, skip_symlink=is_default)
+        for file_spec, is_default in file_list
+    ]
+
+    # init some vars
     state = STATE_OK
     table_values = []
 
-    # fetch data
-    for file_spec, is_default in file_list:
-        result = check_file(file_spec, skip_symlink=is_default)
+    # analyze data
+    for result in results:
         if result is None:
             continue
-        # analyze data
         state = lib.base.get_worst(result.pop('state'), state)
         table_values.append(result)
 

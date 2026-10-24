@@ -23,7 +23,7 @@ import lib.net
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queries the
 name servers configured on the local machine (e.g. those listed in /etc/resolv.conf).
@@ -253,6 +253,9 @@ def main():
     else:
         runtime, result = replay(args.TEST)
 
+    # init some vars
+    addresses = []
+
     # analyze data
     if result is None:
         lib.base.oao(
@@ -280,11 +283,11 @@ def main():
             STATE_WARN,
             always_ok=args.ALWAYS_OK,
         )
+    state = lib.base.get_state(runtime, args.WARN, args.CRIT, _operator='ge')
 
     # build the message
     # Without --type, Linux returns every address three times (TCP, UDP, raw) and
     # Windows once; name each address once, as Windows does.
-    addresses = []
     for af, _, proto, _, sa in result:
         if not args.TYPE:
             proto = lib.net.PROTO_IP
@@ -292,8 +295,6 @@ def main():
         if address not in addresses:
             addresses.append(address)
     msg = f'Lookup for {args.HOSTNAME} returns {", ".join(addresses)}'
-
-    state = lib.base.get_state(runtime, args.WARN, args.CRIT, _operator='ge')
     perfdata = lib.base.get_perfdata(
         'time',
         round(runtime, 3),

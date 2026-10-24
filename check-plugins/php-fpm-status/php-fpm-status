@@ -27,7 +27,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Monitors PHP-FPM pool performance via the pool status page. Reports pool
 saturation (percentage of busy workers), new slow requests since the previous check, the
@@ -869,19 +869,23 @@ def main():
             f'{len(args.TEST)} test specs for {len(args.URL)} URLs)'
         )
 
-    # init some vars
+    # fetch data
+    # the moment the counters were read, the base of the rates
     now = lib.time.now()
+    pools = []
+    for index, url in enumerate(args.URL):
+        test_spec = args.TEST[index] if args.TEST is not None else None
+        pools.append((url, *fetch_pool_raw(url, args, test_spec)))
+
+    # init some vars
     conn = None
     if args.TEST is None:
         conn = open_cache()
     results = []
     overall_state = STATE_OK
 
-    # fetch data and analyze data, one pool after the other
-    for index, url in enumerate(args.URL):
-        test_spec = args.TEST[index] if args.TEST is not None else None
-
-        ok, raw = fetch_pool_raw(url, args, test_spec)
+    # analyze data
+    for url, ok, raw in pools:
         if not ok:
             results.append(
                 {

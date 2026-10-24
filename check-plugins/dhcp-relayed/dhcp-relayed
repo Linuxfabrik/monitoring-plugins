@@ -24,7 +24,7 @@ import lib.base
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026102401'
 
 DESCRIPTION = """Tests if a DHCP server can offer IPv4 addresses by emulating a DHCP client. Sends a
 DHCPDISCOVER packet and verifies that the server responds with a valid DHCPOFFER. Only
@@ -317,6 +317,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     dhcps = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Internet, UDP
     dhcps.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     try:
@@ -361,7 +362,6 @@ def main():
         mac = normalize_mac(hex(getnode()))
         macb = mac2bytes(mac)
 
-    # fetch data
     xid = get_transaction_id()
     dhcp_discover = create_dhcp_discover_msg(
         macb, xid, args.SUBNET_MASK, args.SUBNET_SELECTION
@@ -388,8 +388,10 @@ def main():
             STATE_WARN,
         )
 
-    # analyze data
+    # init some vars
     state = STATE_OK
+
+    # analyze data
     # String comparison against the DHCP wire-format "not assigned" sentinel,
     # not a bind address.
     if yiaddr == '0.0.0.0':  # nosec B104

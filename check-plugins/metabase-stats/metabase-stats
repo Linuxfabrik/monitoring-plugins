@@ -23,7 +23,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102301'
+__version__ = '2026102401'
 
 DESCRIPTION = """Retrieves recent activity and usage statistics from a Metabase instance via its API.
 Reports active users, executed queries, dashboards, and other operational metrics.
@@ -273,6 +273,17 @@ def main():
     state = STATE_OK
     perfdata = ''
 
+    # analyze data
+    detail_name = (
+        '/' + activity['details']['name'] if 'name' in activity['details'] else ''
+    )
+    time_ago = lib.human.seconds2human(
+        lib.time.timestrdiff(
+            lib.time.now(as_type='iso'),
+            activity['timestamp'].replace('T', ' '),
+        ),
+    )
+
     # build the message
     msg += f'{settings} on '
     msg += f'Metabase {stats["version"]}; '
@@ -284,16 +295,6 @@ def main():
     msg += f'{stats["stats"]["pulse"]["pulses"]} {lib.txt.pluralize("pulse", stats["stats"]["pulse"]["pulses"])}, '
     msg += f'{stats["stats"]["collection"]["collections"]} {lib.txt.pluralize("collection", stats["stats"]["collection"]["collections"])}; '
     msg += f'{stats["stats"]["system"]["processors"]} CPUs, {stats["stats"]["system"]["max_memory"]} MiB RAM'
-
-    detail_name = (
-        '/' + activity['details']['name'] if 'name' in activity['details'] else ''
-    )
-    time_ago = lib.human.seconds2human(
-        lib.time.timestrdiff(
-            lib.time.now(as_type='iso'),
-            activity['timestamp'].replace('T', ' '),
-        ),
-    )
     msg += (
         f'\nLast activity:'
         f' "{activity["topic"]}{detail_name}"'

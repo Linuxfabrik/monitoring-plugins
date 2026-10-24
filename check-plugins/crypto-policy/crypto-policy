@@ -20,7 +20,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Verifies that the system-wide cryptographic policy (as reported by update-crypto-policies)
 matches the expected setting (default: "DEFAULT"). Subpolicies such as NO-SHA1 are listed,
@@ -111,6 +111,9 @@ def main():
         # do not call the command, put in test data
         stdout, _stderr, _retc = lib.lftest.test(args.TEST)
 
+    # init some vars
+    state = STATE_OK
+
     # analyze data
     # `update-crypto-policies --show` prints the base policy followed by the
     # subpolicies, separated by colons and upper-cased, for example
@@ -136,7 +139,6 @@ def main():
         msg += f' with the subpolicies {", ".join(subpolicies)}'
     if matches:
         msg += ' (as expected).'
-        state = STATE_OK
     else:
         msg += f', but supposed to be "{args.CRYPTO_POLICY}".'
         state = STATE_WARN
