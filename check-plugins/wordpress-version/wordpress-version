@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import os
 import sys
 
 import lib.args
@@ -21,7 +22,7 @@ import lib.wordpress
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks the installed WordPress version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -206,6 +207,8 @@ def main():
         proxy=args.PROXY,
         timeout=args.TIMEOUT,
         unreachable_severity=args.UNREACHABLE_SEVERITY,
+        # where the distribution maintains the software, its life cycle counts
+        package_path=os.path.join(args.PATH, 'wp-includes', 'version.php'),
     )
 
     # build the message

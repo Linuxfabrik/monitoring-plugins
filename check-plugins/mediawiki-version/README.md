@@ -13,6 +13,7 @@ Checks the installed MediaWiki version against the endoflife.date API and alerts
 
 * Reads the installed MediaWiki version from `MW_VERSION` in `Defines.php` (default: `/var/www/html/wiki/includes/Defines.php`, configurable via `--path`). Releases that do not define `MW_VERSION` there (up to 1.31.6, 1.32, 1.33.0 to 1.33.2 and 1.34.0) are read from `$wgVersion` in `DefaultSettings.php` in the same directory
 * Compares against the [endoflife.date API](https://endoflife.date/api/mediawiki.json) to determine EOL status and available updates
+* Where the software comes from a package the distribution maintains itself, the end of life is the one the distribution gives it rather than the upstream one: on Red Hat Enterprise Linux and its rebuilds such as AlmaLinux and Rocky Linux the date Red Hat gives the package or its Application Stream, on Debian the end of the release's security support including LTS, on Ubuntu the end of its standard support for `main` and `restricted`. Software from EPEL, Ubuntu's `universe`, backports or a third-party repository keeps the upstream date
 * Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 

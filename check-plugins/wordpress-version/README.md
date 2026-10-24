@@ -14,6 +14,7 @@ Checks the installed WordPress version against the endoflife.date API and alerts
 * Reads the installed WordPress version from `wp-includes/version.php` in the installation directory given by `--path`
 * Without `--path`, the check takes the first WordPress installation it finds in `/var/www/html/wordpress`, `/srv/www/htdocs/wordpress`, `/usr/share/wordpress`, or one or two levels below `/var/www`, such as `/var/www/html/www.example.com`
 * Compares against the [endoflife.date API](https://endoflife.date/api/wordpress.json) to determine EOL status and available updates
+* Where the software comes from a package the distribution maintains itself, the end of life is the one the distribution gives it rather than the upstream one: on Red Hat Enterprise Linux and its rebuilds such as AlmaLinux and Rocky Linux the date Red Hat gives the package or its Application Stream, on Debian the end of the release's security support including LTS, on Ubuntu the end of its standard support for `main` and `restricted`. Software from EPEL, Ubuntu's `universe`, backports or a third-party repository keeps the upstream date
 * Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
