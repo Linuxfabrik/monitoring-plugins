@@ -159,5 +159,29 @@ class TestSecurity(unittest.TestCase):
         self.assertIn('Refusing', result.stdout)
 
 
+class TestTimeout(unittest.TestCase):
+    """fail2ban-client waits for an unresponsive server for a long time of its own,
+    so the check gives up after `--timeout` with a warning."""
+
+    def test_warn_client_hangs(self):
+        env = dict(os.environ)
+        env['PATH'] = (
+            os.path.join(os.getcwd(), 'fixtures', 'hanging-client')
+            + os.pathsep
+            + env.get('PATH', '')
+        )
+        result = subprocess.run(
+            ['../fail2ban', '--timeout=1'],
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+        )
+        self.assertEqual(result.returncode, STATE_WARN, result.stdout)
+        self.assertIn(
+            'Timeout after 1s while running `fail2ban-client ping`', result.stdout
+        )
+
+
 if __name__ == '__main__':
     unittest.main()

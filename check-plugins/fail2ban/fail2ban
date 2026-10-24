@@ -20,10 +20,10 @@ import lib.disk
 import lib.lftest
 import lib.shell
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026102401'
 
 # fail2ban-client deserializes the reply it reads from its Unix socket, so a
 # socket under an attacker-writable path would let a local user execute code in
@@ -40,6 +40,7 @@ exceeds the configured thresholds. Requires root or sudo."""
 
 DEFAULT_CRIT = '10000'
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_TIMEOUT = 8
 DEFAULT_WARN = '2500'
 
 
@@ -123,6 +124,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '-w',
         '--warning',
         help='WARN threshold for the number of banned IPs per jail. '
@@ -134,6 +143,21 @@ def parse_args():
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def run_client(cmd, args):
+    """Run fail2ban-client and return `(stdout, stderr, retc)`. It waits for an
+    unresponsive server for a long time of its own, so a hung server ends the check
+    with a warning once `--timeout` has passed.
+    """
+    success, result = lib.shell.shell_exec(cmd, timeout=args.TIMEOUT)
+    if not success and result.startswith('Timeout after'):
+        lib.base.oao(
+            f'Timeout after {args.TIMEOUT}s while running `{" ".join(cmd)}`.',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
+    return lib.base.coe((success, result))
 
 
 def main():
@@ -177,12 +201,20 @@ def main():
         success, result = lib.disk.resolve_trusted_path(args.SOCKET)
         if not success:
             lib.base.cu(result)
+        # The first containment check looked at the path as it was named. What it
+        # resolves to is what fail2ban-client connects to, so that has to lie in the
+        # runtime directories as well.
+        if not lib.disk.is_within(result, ALLOWED_SOCKET_ROOTS):
+            lib.base.cu(
+                f'Refusing to use socket "{args.SOCKET}": it resolves outside '
+                f'{" and ".join(ALLOWED_SOCKET_ROOTS)}.'
+            )
         client += ['--socket', result]
 
     # fetch data
     # fail2ban-client ping
     if args.TEST is None:
-        stdout, _stderr, retc = lib.base.coe(lib.shell.shell_exec([*client, 'ping']))
+        stdout, _stderr, retc = run_client([*client, 'ping'], args)
     else:
         # do not call the command, put in test data
         stdout, _stderr, retc = lib.lftest.test(
@@ -193,7 +225,7 @@ def main():
 
     # fail2ban-client status
     if args.TEST is None:
-        stdout, _stderr, retc = lib.base.coe(lib.shell.shell_exec([*client, 'status']))
+        stdout, _stderr, retc = run_client([*client, 'status'], args)
     else:
         # do not call the command, put in test data
         stdout, _stderr, retc = lib.lftest.test(
@@ -223,9 +255,7 @@ def main():
             continue
 
         if args.TEST is None:
-            stdout, _stderr, retc = lib.base.coe(
-                lib.shell.shell_exec([*client, 'status', jail])
-            )
+            stdout, _stderr, retc = run_client([*client, 'status', jail], args)
         else:
             # do not call the command, put in test data
             stdout, _stderr, retc = lib.lftest.test(

@@ -29,7 +29,7 @@ Checks the number of currently banned IP addresses across all fail2ban jails. Re
 ```text
 usage: fail2ban [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
                 [--no-match-severity {ok,warn,crit,unknown}] [--no-perfdata]
-                [--socket SOCKET] [-w WARN]
+                [--socket SOCKET] [--timeout TIMEOUT] [-w WARN]
 
 Checks the number of currently banned IP addresses across all fail2ban jails.
 Reports the total ban count and a per-jail breakdown. Jails can be excluded
@@ -57,6 +57,7 @@ options:
                         `fail2ban-client --socket`. Must resolve within /run
                         or /var/run, and nobody but root may be able to
                         replace it. Default: None
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   -w, --warning WARN    WARN threshold for the number of banned IPs per jail.
                         Supports Nagios ranges. Default: 2500
 

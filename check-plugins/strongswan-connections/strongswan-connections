@@ -34,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks IPSec connection states on a strongSwan VPN gateway. Connects to the charon
 daemon via the VICI interface to retrieve IKE SA and CHILD SA states. Alerts on
@@ -474,6 +474,14 @@ def main():
                     'and that its vici plugin is loaded.'
                 )
             lib.base.cu(vici_socket)
+        # The first containment check looked at the path as it was named. What it
+        # resolves to is what the check connects to, so that has to lie in the
+        # runtime directories as well.
+        if not lib.disk.is_within(vici_socket, ALLOWED_SOCKET_ROOTS):
+            lib.base.cu(
+                f'Refusing to use socket "{args.SOCKET}": it resolves outside '
+                f'{" and ".join(ALLOWED_SOCKET_ROOTS)}.'
+            )
         s = socket.socket(socket.AF_UNIX)
         s.settimeout(args.TIMEOUT)
         try:
