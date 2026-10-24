@@ -169,7 +169,7 @@ Install chrony, or monitor the time service this host actually runs, for example
 
 chronyd is not running. Start it and enable it at boot with `sudo systemctl enable --now chronyd` (on Debian and Ubuntu, the service is called `chrony`), then look at `sudo journalctl --unit=chronyd` if it does not stay up.
 
-### `NTP server not reachable. No NTP server is used.`
+### `No NTP server used.`
 
 chronyd is running but does not currently use any NTP server. The output lists the configured sources. Check name resolution and that outgoing NTP traffic (UDP port 123) is allowed.
 

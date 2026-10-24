@@ -124,7 +124,7 @@ System clock is 1.231ms fast compared to the NTP server ntpd synchronizes to (19
 * OK if the offset, the stratum and the time since the last synchronization are within their thresholds.
 * WARN if the offset, fast or slow, exceeds `--warning` (default: 300ms).
 * WARN if stratum is >= `--stratum` (default: 6).
-* WARN if no NTP server is used or found.
+* WARN if no NTP server is used.
 * WARN if ntpd uses its undisciplined local clock (`LOCAL(0)`) instead of an NTP server.
 * WARN if `ntpq --numeric --peers` fails or does not return within `--timeout`, for example because ntpd is not running.
 * WARN if ntpd last synchronized the clock longer than `--warning-age` ago (default: 1h).

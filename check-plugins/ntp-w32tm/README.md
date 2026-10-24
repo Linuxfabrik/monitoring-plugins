@@ -133,7 +133,6 @@ Time since Last Good Sync Time: 7.8834592s
 | Name | Type | Description |
 |----|----|----|
 | clock_rate | Milliseconds | Clock rate. |
-| leap_indicator | Number | Indicates whether an impending leap second is to be inserted or deleted in the last minute of the current day. |
 | offset | Milliseconds | Offset of the system clock from the time source at the last synchronization ("Phase Offset"), as RFC 5905 defines it: positive if the system clock is slow, negative if it is fast. Not reported without a time source. |
 | precision | Number | Precision value. |
 | root_delay | Milliseconds | Total network path delay to the stratum-1 source. |
