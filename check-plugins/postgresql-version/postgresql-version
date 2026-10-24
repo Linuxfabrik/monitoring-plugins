@@ -11,18 +11,20 @@
 """See the check's README for more details."""
 
 import argparse
+import os
 import re
 import sys
 
 import lib.args
 import lib.base
+import lib.disk
 import lib.lftest
 import lib.shell
 import lib.version
-from lib.globals import STATE_UNKNOWN
+from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks the installed PostgreSQL version against the endoflife.date API and alerts if
 the version is end-of-life or if newer major, minor, or patch releases are available.
@@ -157,21 +159,43 @@ def parse_args():
     return args
 
 
-def get_installed_version(args):
+def find_psql(path):
+    """Return the `psql` to run.
+
+    The check is meant to run as the database account through sudo, so `--path` names a
+    program that runs with that account's rights. Only a binary that nobody but root can
+    change is run, and the resolved path is what runs, so a symlink swapped after the
+    check changes nothing.
+    """
+    candidate = path if os.sep in path else lib.shell.which(path)
+    if not candidate or not os.path.isfile(candidate):
+        return (
+            False,
+            f'PostgreSQL not found at `{path}`. Use --path to point at the binary.',
+        )
+    return lib.disk.resolve_trusted_path(candidate)
+
+
+def get_installed_version(args, psql):
     """Ask the running server for its version.
 
-    Returns `(True, version)`, or `(False, message)` if `psql` is missing, cannot reach or
-    log in to the server, or answers without a version.
+    Returns `(True, version)`, or `(False, message)` if `psql` cannot reach or log in to
+    the server, or answers without a version.
     """
     if args.TEST is None:
-        success, result = lib.shell.shell_exec(
-            [
-                args.PATH,
-                f'--username={args.USERNAME}',
-                '--command=SELECT version();',
-            ],
-        )
+        cmd = [
+            psql,
+            f'--username={args.USERNAME}',
+            '--command=SELECT version();',
+        ]
+        success, result = lib.shell.shell_exec(cmd, timeout=args.TIMEOUT)
         if not success:
+            if result.startswith('Timeout after'):
+                lib.base.oao(
+                    f'Timeout after {args.TIMEOUT}s while running `{" ".join(cmd)}`.',
+                    STATE_WARN,
+                    always_ok=args.ALWAYS_OK,
+                )
             return (False, result)
         stdout, stderr, retc = result
     else:
@@ -203,7 +227,8 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = lib.base.coe(get_installed_version(args))
+    psql = lib.base.coe(find_psql(args.PATH)) if args.TEST is None else None
+    installed_version = lib.base.coe(get_installed_version(args, psql))
 
     # init some vars
     perfdata = lib.base.get_perfdata(
@@ -227,7 +252,7 @@ def main():
         timeout=args.TIMEOUT,
         unreachable_severity=args.UNREACHABLE_SEVERITY,
         # where the distribution maintains the software, its life cycle counts
-        package_path=args.PATH if args.TEST is None else None,
+        package_path=psql,
     )
 
     # build the message

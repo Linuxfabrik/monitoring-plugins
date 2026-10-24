@@ -30,6 +30,7 @@ import sys
 
 sys.path.insert(0, '..')
 
+import subprocess
 import unittest
 
 import lib.lftest
@@ -115,6 +116,24 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+class TestPath(unittest.TestCase):
+    """`--path` names a program that runs with the rights of the database account, so
+    only a binary that nobody but root can change is run. The fixture lives in a
+    checkout that belongs to whoever runs the test.
+    """
+
+    def test_unknown_psql_not_root_owned(self):
+        result = subprocess.run(
+            ['../postgresql-version', '--path=fixtures/hang', '--timeout=1'],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, STATE_UNKNOWN)
+        self.assertIn('Refusing', result.stdout)
+        self.assertNotIn('Timeout after', result.stdout)
 
 
 if __name__ == '__main__':
