@@ -594,9 +594,27 @@ class TestCoreChecksumShape(unittest.TestCase):
         flat = {'6.8.1': 'd41d8cd98f00b204e9800998ecf8427e'}
         self.assertEqual(self.check.unwrap_core_checksums(flat, '6.8.2'), flat)
 
-    def test_nothing_published_stays_nothing_published(self):
-        for answer in (False, None, {}, [], 'no'):
-            self.assertIsNone(self.check.unwrap_core_checksums(answer, '6.8.2'))
+
+# answers that publish nothing, each its own test
+NOTHING_PUBLISHED = [
+    ('false', False),
+    ('none', None),
+    ('empty-dict', {}),
+    ('empty-list', []),
+    ('string', 'no'),
+]
+
+
+def _nothing_published_stays_nothing_published(test, item):
+    test.assertIsNone(test.check.unwrap_core_checksums(item[1], '6.8.2'))
+
+
+lib.lftest.attach_each(
+    TestCoreChecksumShape,
+    NOTHING_PUBLISHED,
+    _nothing_published_stays_nothing_published,
+    id_func=lambda it: f'nothing_published_{it[0]}_stays_nothing_published',
+)
 
 
 class TestGetChecksums(unittest.TestCase):
@@ -727,21 +745,6 @@ class TestIsCoreFile(unittest.TestCase):
     def setUpClass(cls):
         cls.check = load_check()
 
-    def test_the_documentation_is_left_alone_in_every_language(self):
-        # The English pair and a sample of the translated names the published lists hold.
-        for name in (
-            'LEGGIMI.txt',
-            'licencia.txt',
-            'license.txt',
-            'licenza.html',
-            'liesmich.html',
-            'olvasdel.html',
-            'readme-ja.html',
-            'readme.html',
-        ):
-            with self.subTest(name=name):
-                self.assertFalse(self.check.is_core_file(name))
-
     def test_an_ordinary_root_file_is_verified(self):
         self.assertTrue(self.check.is_core_file('wp-login.php'))
 
@@ -749,6 +752,31 @@ class TestIsCoreFile(unittest.TestCase):
         # The rule is the installation root's alone. Below wp-admin/ and wp-includes/ a
         # text file is as much a part of the core as any script, and the updater checks it.
         self.assertTrue(self.check.is_core_file('wp-includes/ID3/license.txt'))
+
+
+# The English pair and a sample of the translated names the published lists hold.
+ROOT_DOCUMENTATION = [
+    'LEGGIMI.txt',
+    'licencia.txt',
+    'license.txt',
+    'licenza.html',
+    'liesmich.html',
+    'olvasdel.html',
+    'readme-ja.html',
+    'readme.html',
+]
+
+
+def _the_documentation_is_left_alone(test, name):
+    test.assertFalse(test.check.is_core_file(name))
+
+
+lib.lftest.attach_each(
+    TestIsCoreFile,
+    ROOT_DOCUMENTATION,
+    _the_documentation_is_left_alone,
+    id_func=lambda it: f'the_documentation_is_left_alone_{it}',
+)
 
 
 class TestUnreadableFile(unittest.TestCase):

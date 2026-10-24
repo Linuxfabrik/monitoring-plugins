@@ -1073,15 +1073,6 @@ class TestApiQuota(unittest.TestCase):
                 self.check.get_api_quota(self.args, 'linuxfabrik'), (None, None)
             )
 
-    def test_an_answer_of_the_wrong_shape_answers_nothing(self):
-        for payload in ({}, {'requests_remaining': 'plenty'}, [], 'unauthorized', None):
-            with self._with_response(True, payload):
-                self.assertEqual(
-                    self.check.get_api_quota(self.args, 'linuxfabrik'),
-                    (None, None),
-                    f'payload {payload!r}',
-                )
-
     def test_a_missing_reset_still_yields_the_count(self):
         with self._with_response(True, {'requests_remaining': 0}):
             self.assertEqual(
@@ -1095,6 +1086,31 @@ class TestApiQuota(unittest.TestCase):
             self.check.get_api_quota(self.args, 'linuxfabrik')
         header = fetch.call_args.kwargs['header']
         self.assertEqual(header['Authorization'], 'Token token=linuxfabrik')
+
+
+# answers of the wrong shape, each its own test
+WRONG_SHAPES = [
+    ('empty-dict', {}),
+    ('non-numeric', {'requests_remaining': 'plenty'}),
+    ('list', []),
+    ('string', 'unauthorized'),
+    ('none', None),
+]
+
+
+def _an_answer_of_the_wrong_shape_answers_nothing(test, item):
+    with test._with_response(True, item[1]):
+        test.assertEqual(
+            test.check.get_api_quota(test.args, 'linuxfabrik'), (None, None)
+        )
+
+
+lib.lftest.attach_each(
+    TestApiQuota,
+    WRONG_SHAPES,
+    _an_answer_of_the_wrong_shape_answers_nothing,
+    id_func=lambda it: f'an_answer_of_the_wrong_shape_answers_nothing_{it[0]}',
+)
 
 
 class TestRedirectTarget(unittest.TestCase):
@@ -1326,19 +1342,6 @@ class TestEnterpriseDbToken(unittest.TestCase):
         env = self._refresh_env('', enterprise_token)
         self.assertEqual(env[self.check.ENTERPRISE_TOKEN_ENV], 'linuxfabrik')
 
-    def test_the_raw_option_leaves_the_command_line(self):
-        # Either spelling: an argument is readable by every user on the host while the
-        # scan runs, and only the `=` form is redacted in what --verbose prints.
-        for argv in (
-            ['--wpscan-option=--enterprise-db-token=linuxfabrik'],
-            ['--wpscan-option=--enterprise-db-token', '--wpscan-option=linuxfabrik'],
-        ):
-            with self.subTest(argv=argv):
-                _, _, remaining = self._resolve(
-                    ['--url=https://www.example.com', *argv]
-                )
-                self.assertEqual(remaining, [])
-
     def test_an_unrelated_option_survives_the_strip(self):
         _, _, remaining = self._resolve(
             [
@@ -1394,6 +1397,27 @@ def run_without_test_mode(params, path=None):
         check=False,
     )
     return (result.returncode, result.stdout + result.stderr)
+
+
+# Either spelling: an argument is readable by every user on the host while the scan
+# runs, and only the `=` form is redacted in what --verbose prints.
+RAW_TOKEN_SPELLINGS = [
+    ('equals', ['--wpscan-option=--enterprise-db-token=linuxfabrik']),
+    ('space', ['--wpscan-option=--enterprise-db-token', '--wpscan-option=linuxfabrik']),
+]
+
+
+def _the_raw_option_leaves_the_command_line(test, item):
+    _, _, remaining = test._resolve(['--url=https://www.example.com', *item[1]])
+    test.assertEqual(remaining, [])
+
+
+lib.lftest.attach_each(
+    TestEnterpriseDbToken,
+    RAW_TOKEN_SPELLINGS,
+    _the_raw_option_leaves_the_command_line,
+    id_func=lambda it: f'the_raw_option_leaves_the_command_line_{it[0]}',
+)
 
 
 class TestScannerMissing(unittest.TestCase):
