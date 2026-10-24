@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102301'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks how fast files grow or shrink, by comparing their size against
 the previous check runs and reporting the change as a rate per second. Supports glob
@@ -51,6 +51,9 @@ DEFAULT_PATTERN = '*'
 DEFAULT_PERFDATA_MODE = None
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN = '~:1M'
+
+# history of a file that no run has matched for this long is dropped (seconds)
+STALE_AFTER = 30 * 24 * 60 * 60
 
 
 def parse_args():
@@ -361,11 +364,18 @@ def main():
             ]
         item['measurements'] = measurements
 
-    # `count` rates need `count + 1` measurements. The table is capped for all
-    # matched files at once, so the room every file needs has to be multiplied
-    # by how many of them this run has; capping it at `count + 1` would leave
-    # only the newest file with a history.
-    lib.base.coe(lib.db_sqlite.cut(conn, _max=(args.COUNT + 1) * len(current)))
+    # `count` rates need `count + 1` measurements, kept per file: a cap on the whole
+    # table let the files of one run evict the history of the others as soon as
+    # fewer of them matched, or a second service with another --filename shared
+    # the database. A file that has not matched for a month is let go.
+    lib.base.coe(lib.db_sqlite.cut_per_sensor(conn, 'name', _max=args.COUNT + 1))
+    lib.base.coe(
+        lib.db_sqlite.delete(
+            conn,
+            'DELETE FROM perfdata WHERE timestamp < :oldest',
+            {'oldest': now - STALE_AFTER},
+        )
+    )
     lib.base.coe(lib.db_sqlite.commit(conn))
     lib.db_sqlite.close(conn)
 

@@ -105,7 +105,7 @@ Monitoring Plugins:
 * docker-image, podman-image: no false CRIT for images dated 1970
 * fedora-version, rhel-version: no false end of life on other distributions
 * feed: respects the time zone of an entry
-* file-age, file-count, file-growth, file-size: more robust on SMB shares
+* file-age, file-count, file-growth, file-size: more robust on SMB shares, file-growth also when files come and go
 * file-ownership: no false warning for unbound on Fedora 44
 * fs-inodes: checks every logical volume
 * fs-ro: `--extend-ignore` keeps the defaults ([#1566](https://github.com/Linuxfabrik/monitoring-plugins/issues/1566)), no missed read-only mount
