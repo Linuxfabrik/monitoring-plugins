@@ -8,14 +8,29 @@
                 "--critical": {
                     "value": "$ntp_chronyd_critical$"
                 },
+                "--critical-age": {
+                    "value": "$ntp_chronyd_critical_age$"
+                },
+                "--critical-sources": {
+                    "value": "$ntp_chronyd_critical_sources$"
+                },
                 "--no-perfdata": {
                     "set_if": "$ntp_chronyd_no_perfdata$"
                 },
                 "--stratum": {
                     "value": "$ntp_chronyd_stratum$"
                 },
+                "--timeout": {
+                    "value": "$ntp_chronyd_timeout$"
+                },
                 "--warning": {
                     "value": "$ntp_chronyd_warning$"
+                },
+                "--warning-age": {
+                    "value": "$ntp_chronyd_warning_age$"
+                },
+                "--warning-sources": {
+                    "value": "$ntp_chronyd_warning_sources$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/ntp-chronyd",
@@ -43,6 +58,31 @@
                 },
                 {
                     "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -88,7 +128,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the clock offset of chronyd in milliseconds compared to the configured NTP servers. Alerts when the offset exceeds the configured thresholds.",
+            "notes": "Checks how far the system clock is off from the time chronyd derives from its NTP servers, in milliseconds, and how long ago chronyd last synchronized it. Alerts when the offset or the time since the last synchronization exceeds the configured thresholds, when the stratum is too high, when too few NTP sources are usable, or when chronyd uses no NTP server, including when it only serves its local clock.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ntp-chronyd/",
             "object_name": "tpl-service-ntp-chronyd",
             "object_type": "template",
@@ -100,10 +140,13 @@
             "vars": {
                 "criticality": "C",
                 "ntp_chronyd_always_ok": false,
-                "ntp_chronyd_critical": 86400000,
+                "ntp_chronyd_critical": "60000",
+                "ntp_chronyd_critical_age": "0D",
                 "ntp_chronyd_no_perfdata": false,
                 "ntp_chronyd_stratum": 6,
-                "ntp_chronyd_warning": 800
+                "ntp_chronyd_timeout": 8,
+                "ntp_chronyd_warning": "300",
+                "ntp_chronyd_warning_age": "1h"
             },
             "volatile": null,
             "zone": null,
@@ -123,7 +166,7 @@
         "2": {
             "varname": "ntp_chronyd_critical",
             "caption": "NTP Chronyd: Critical",
-            "description": "CRIT threshold for the NTP time offset, in milliseconds.",
+            "description": "CRIT threshold for the offset of the system clock, fast or slow, in milliseconds. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -132,6 +175,28 @@
             "uuid": "47e8b431-eaae-4136-8a70-350ce0ca1804"
         },
         "3": {
+            "varname": "ntp_chronyd_critical_age",
+            "caption": "NTP Chronyd: Critical Age",
+            "description": "CRIT threshold for the time since chronyd last synchronized the clock. A duration such as `30m`, `2h` or `1D`; `0D` disables it.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "230eaa50-8e3e-4ff7-b3d5-4202cd3bae40"
+        },
+        "4": {
+            "varname": "ntp_chronyd_critical_sources",
+            "caption": "NTP Chronyd: Critical Sources",
+            "description": "CRIT threshold for the number of usable NTP sources. Supports Nagios ranges. Example: `--critical-sources=1:` alerts if no source is usable.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "4c6e3307-3aa9-4376-88f1-28e1a28de64a"
+        },
+        "5": {
             "varname": "ntp_chronyd_no_perfdata",
             "caption": "NTP Chronyd: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -140,10 +205,10 @@
             "settings": {},
             "uuid": "1f2acce9-aec0-4f26-8000-8fe52a926e60"
         },
-        "4": {
+        "6": {
             "varname": "ntp_chronyd_stratum",
             "caption": "NTP Chronyd: Stratum",
-            "description": "Warns if the determined stratum of the time server is greater than or equal to this value. Stratum 1 indicates a computer with a locally attached reference clock. A computer that is synchronised to a stratum 1 computer is at stratum 2. A computer that is synchronised to a stratum 2 computer is at stratum 3, and so on.",
+            "description": "Warns if the stratum of this host is greater than or equal to this value. Stratum 1 indicates a computer with a locally attached reference clock. A computer that is synchronised to a stratum 1 computer is at stratum 2. A computer that is synchronised to a stratum 2 computer is at stratum 3, and so on.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -151,16 +216,49 @@
             },
             "uuid": "61cac0f3-c41b-42f8-a11d-f255d74ece12"
         },
-        "5": {
+        "7": {
+            "varname": "ntp_chronyd_timeout",
+            "caption": "NTP Chronyd: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ec3a4ef3-47af-4629-8d62-10f97bd74f11"
+        },
+        "8": {
             "varname": "ntp_chronyd_warning",
             "caption": "NTP Chronyd: Warning",
-            "description": "WARN threshold for the NTP time offset, in milliseconds.",
+            "description": "WARN threshold for the offset of the system clock, fast or slow, in milliseconds. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "6d22436d-8b86-4ff4-a2ad-a74278f68204"
+        },
+        "9": {
+            "varname": "ntp_chronyd_warning_age",
+            "caption": "NTP Chronyd: Warning Age",
+            "description": "WARN threshold for the time since chronyd last synchronized the clock. A duration such as `30m`, `2h` or `1D`; `0D` disables it.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2969747d-33f2-4404-bb1c-ba948aeb2432"
+        },
+        "10": {
+            "varname": "ntp_chronyd_warning_sources",
+            "caption": "NTP Chronyd: Warning Sources",
+            "description": "WARN threshold for the number of usable NTP sources. Supports Nagios ranges. Example: `--warning-sources=2:` warns if fewer than two sources are usable, so a single remaining one does not go unnoticed.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "bcd2057b-ad4a-4d93-83d0-51022cce322d"
         }
     }
 }

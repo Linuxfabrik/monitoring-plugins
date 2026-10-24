@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 
 TESTS = [
     {
@@ -34,9 +34,14 @@ TESTS = [
         'test': 'stdout/stratum-3-synced,,0',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'NTP offset is -2.589ms, Stratum is 3, Leap status is Normal',
+            'System clock is 2.13ms slow compared to the time chronyd derives from its NTP'
+            ' servers (currently acacia.bilink.net), Stratum is 3, Leap status is Normal',
             'Reference ID    : D42D9003',
             'Stratum         : 3',
+            # "System time ... slow" is negative, "Frequency ... slow" too
+            "'offset'=2.129977ms;-300:300;-60000:60000",
+            "'frequency'=-32.084",
+            "'last_offset'=2.588879ms ",
         ],
     },
     {
@@ -45,7 +50,93 @@ TESTS = [
         'id': 'warn-chronyd-not-running',
         'test': 'stdout/chronyd-not-running,,1',
         'assert-retc': STATE_WARN,
-        'assert-in': ['`chronyc tracking` failed (exit 1): 506 Cannot talk to daemon'],
+        'assert-in': [
+            '`chronyc -n tracking` failed (exit 1): 506 Cannot talk to daemon'
+        ],
+    },
+    # chronyd falls back to its local clock (`local` directive) with NTP blocked and
+    # reports the configured stratum and an offset of 0. Captured with chrony 4.6.1
+    # on Rocky 10 (`local stratum 3`) and chrony 3.5 on Rocky 8 (`local stratum 10`).
+    {
+        'id': 'warn-local-reference-stratum-3',
+        'test': 'stdout/local-reference-stratum-3,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'NTP server not reachable. chronyd serves its local clock',
+            '^? ntp02.maillink.ch             0   6     0     -',
+        ],
+    },
+    {
+        'id': 'warn-local-reference-stratum-10',
+        'test': 'stdout/local-reference-stratum-10,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['NTP server not reachable. chronyd serves its local clock'],
+    },
+    # The clock was moved 60 s ahead after chronyd had used up its `makestep 1.0 3`
+    # steps, so chronyd slews it, which takes about 12 minutes. "System time" shows the
+    # real offset, "Last offset" stays at a few milliseconds. Captured with chrony 3.5
+    # on Rocky 8.
+    {
+        'id': 'warn-slewing-57s-fast',
+        'test': 'stdout/slewing-57s-fast,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'System clock is 56752.384ms fast [WARNING] compared to the time chronyd',
+            "'last_offset'=-3.621011ms ",
+        ],
+    },
+    {
+        'id': 'crit-slewing-57s-fast',
+        'test': 'stdout/slewing-57s-fast,,0',
+        'params': '--critical=10000',
+        'assert-retc': STATE_CRIT,
+    },
+    # Nagios ranges: the same clock 57 s fast stays OK with wider thresholds
+    {
+        'id': 'ok-slewing-57s-fast-wide-range',
+        'test': 'stdout/slewing-57s-fast,,0',
+        'params': '--warning=60000 --critical=120000',
+        'assert-retc': STATE_OK,
+    },
+    # chronyd with one of four configured sources usable (the IPv6 ones unreachable),
+    # captured on Fedora 44; the -now fixture puts the check 11 minutes after the last
+    # clock update.
+    {
+        'id': 'ok-one-usable-source-of-four',
+        'test': 'stdout/one-usable-source-of-four,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'last synchronized 11m 31s ago, 1 usable source',
+            "'sync_age'=691s;3600;;0",
+            "'usable_sources'=1;;;0",
+        ],
+    },
+    {
+        'id': 'warn-one-usable-source-of-four-below-two',
+        'test': 'stdout/one-usable-source-of-four,,0',
+        'params': '--warning-sources=2:',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 usable source [WARNING]', "'usable_sources'=1;2:;;0"],
+    },
+    # The same, three hours after the last clock update: chronyd still reports
+    # stratum 3 and a tiny offset, but has not synchronized the clock since.
+    {
+        'id': 'warn-one-usable-source-of-four-stale',
+        'test': 'stdout/one-usable-source-of-four-stale,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['last synchronized 3h 2m ago [WARNING]'],
+    },
+    {
+        'id': 'ok-one-usable-source-of-four-stale-age-disabled',
+        'test': 'stdout/one-usable-source-of-four-stale,,0',
+        'params': '--warning-age=0D',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'crit-one-usable-source-of-four-stale',
+        'test': 'stdout/one-usable-source-of-four-stale,,0',
+        'params': '--critical-age=2h',
+        'assert-retc': STATE_CRIT,
     },
 ]
 

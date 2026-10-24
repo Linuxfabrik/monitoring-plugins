@@ -11,24 +11,56 @@
 """See the check's README for more details."""
 
 import argparse
+import calendar
 import sys
+import time
 
 import lib.args
 import lib.base
 import lib.human
 import lib.lftest
 import lib.shell
+import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026102301'
 
-DESCRIPTION = """Checks the clock offset of chronyd in milliseconds compared to the configured NTP
-servers. Alerts when the offset exceeds the configured thresholds."""
+DESCRIPTION = """Checks how far the system clock is off from the time chronyd derives
+from its NTP servers, in milliseconds, and how long ago chronyd last synchronized it.
+Alerts when the offset or the time since the last synchronization exceeds the configured
+thresholds, when the stratum is too high, when too few NTP sources are usable, or when
+chronyd uses no NTP server, including when it only serves its local clock."""
 
-DEFAULT_CRIT = 86400000  # 24h in ms offset
+DEFAULT_CRIT = '60000'  # ms offset, 1 minute
+DEFAULT_CRIT_AGE = '0D'
 DEFAULT_STRATUM = 6
-DEFAULT_WARN = 800  # ms offset
+DEFAULT_TIMEOUT = 8
+DEFAULT_WARN = '300'  # ms offset
+# chronyd polls every 1024 s at most by default (maxpoll 10), so an hour means several
+# missed updates
+DEFAULT_WARN_AGE = '1h'
+
+MONTHS = {
+    month: number
+    for number, month in enumerate(
+        (
+            'Jan',
+            'Feb',
+            'Mar',
+            'Apr',
+            'May',
+            'Jun',
+            'Jul',
+            'Aug',
+            'Sep',
+            'Oct',
+            'Nov',
+            'Dec',
+        ),
+        start=1,
+    )
+}
 
 
 def parse_args():
@@ -57,11 +89,30 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for the NTP time offset, in milliseconds. '
-        'Default: %(default)sms',
+        help='CRIT threshold for the offset of the system clock, fast or slow, in '
+        'milliseconds. Supports Nagios ranges. '
+        'Default: %(default)s',
         dest='CRIT',
-        type=int,
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-age',
+        help='CRIT threshold for the time since chronyd last synchronized the clock. '
+        'A duration such as `30m`, `2h` or `1D`; `0D` disables it. '
+        'Default: %(default)s',
+        dest='CRIT_AGE',
+        type=lib.args.duration,
+        default=DEFAULT_CRIT_AGE,
+    )
+
+    parser.add_argument(
+        '--critical-sources',
+        help='CRIT threshold for the number of usable NTP sources. '
+        'Supports Nagios ranges. '
+        'Example: `--critical-sources=1:` alerts if no source is usable.',
+        dest='CRIT_SOURCES',
+        default=None,
     )
 
     parser.add_argument(
@@ -88,17 +139,104 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for the NTP time offset, in milliseconds. '
-        'Default: %(default)sms',
+        help='WARN threshold for the offset of the system clock, fast or slow, in '
+        'milliseconds. Supports Nagios ranges. '
+        'Default: %(default)s',
         dest='WARN',
-        type=int,
         default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-age',
+        help='WARN threshold for the time since chronyd last synchronized the clock. '
+        'A duration such as `30m`, `2h` or `1D`; `0D` disables it. '
+        'Default: %(default)s',
+        dest='WARN_AGE',
+        type=lib.args.duration,
+        default=DEFAULT_WARN_AGE,
+    )
+
+    parser.add_argument(
+        '--warning-sources',
+        help='WARN threshold for the number of usable NTP sources. '
+        'Supports Nagios ranges. '
+        'Example: `--warning-sources=2:` warns if fewer than two sources are usable, '
+        'so a single remaining one does not go unnoticed.',
+        dest='WARN_SOURCES',
+        default=None,
     )
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def get_sources(args, deadline):
+    """
+    Return the output of `chronyc -n sources`.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        The parsed command line, for `TEST`.
+    deadline : float
+        `time.monotonic()` value by which chronyc has to answer.
+
+    Returns
+    -------
+    str or None
+        The source list, or None if chronyc fails or no time is left. Under `--test`
+        the optional fixture `<base>-sources`.
+    """
+    if args.TEST is not None:
+        return lib.lftest.test_text(
+            args.TEST, f'{args.TEST[0]}-sources', missing_ok=True
+        )
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        return None
+    success, result = lib.shell.shell_exec(
+        ['chronyc', '-n', 'sources'], timeout=remaining
+    )
+    if not success or result[2] != 0:
+        return None
+    return result[0]
+
+
+def ref_time_to_epoch(value):
+    """
+    Convert chronyc's "Ref time (UTC)" to a Unix timestamp.
+
+    chronyc formats it with `strftime("%a %b %d %T %Y")` in UTC and never sets a locale
+    (client.c), so the month is always English.
+
+    Parameters
+    ----------
+    value : str
+        For example `Fri Oct 23 19:08:35 2026`.
+
+    Returns
+    -------
+    int or None
+        Seconds since the epoch, or None if `value` does not have that form.
+    """
+    try:
+        _, month, day, clock, year = value.split()
+        hour, minute, second = (int(x) for x in clock.split(':'))
+        return calendar.timegm(
+            (int(year), MONTHS[month], int(day), hour, minute, second, 0, 0, 0)
+        )
+    except (KeyError, ValueError):
+        return None
 
 
 def main():
@@ -111,20 +249,40 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    cmd = ['chronyc', 'tracking']
+    # both chronyc calls share --timeout
+    deadline = time.monotonic() + args.TIMEOUT
+    # -n: no reverse lookup of the source addresses, which could hang on DNS
+    cmd = ['chronyc', '-n', 'tracking']
     if args.TEST is None:
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        success, result = lib.shell.shell_exec(cmd, timeout=args.TIMEOUT)
+        if not success:
+            # a timeout, or chronyc is not installed
+            lib.base.oao(
+                f'`{" ".join(cmd)}` failed: {result}',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
+        stdout, stderr, retc = result
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
     if retc != 0:
-        # chronyc reports a daemon it cannot reach on stdout ("506 Cannot talk to daemon"),
-        # with nothing on stderr. Verified with chrony 4.1 on openSUSE Leap 15.5.
+        # chronyc reports a daemon it cannot reach on stdout ("506 Cannot talk to
+        # daemon"), with nothing on stderr. Verified with chrony 4.1 on openSUSE Leap
+        # 15.5.
         lib.base.oao(
             f'`{" ".join(cmd)}` failed (exit {retc}): {(stderr or stdout).strip()}',
             STATE_WARN,
             always_ok=args.ALWAYS_OK,
         )
+
+    # "now" for the age of the last update; under --test from the optional fixture
+    # `<base>-now`, so the age does not depend on when the test runs
+    if args.TEST is None:
+        now = time.time()
+    else:
+        now = lib.lftest.test_text(args.TEST, f'{args.TEST[0]}-now', missing_ok=True)
+        now = float(now) if now else None
 
     # init some vars
     msg = ''
@@ -132,30 +290,60 @@ def main():
     perfdata = ''
 
     frequency = 0
+    ref_time = None
     last_offset = 0
     leap_status = ''
     peer_used = False
+    ref_id = ''
+    ref_name = ''
     residual_freq = 0
     rms_offset = 0
     root_delay = 0
     root_dispersion = 0
     skew = 0
+    stratum = 0
+    system_time = 0
 
     # analyze data
     for line in stdout.splitlines():
         line = line.strip()
+        if line.startswith('Reference ID'):
+            # "Reference ID    : D993DF4E (192.0.2.1)", "Reference ID    : 7F7F0101 ()"
+            ref_id = line.split()[3]
+            ref_name = line[line.find('(') + 1 : line.rfind(')')]
+            continue
         if line.startswith('Stratum'):
             stratum = int(line.split()[-1])
             peer_used = stratum != 0
             continue
+        if line.startswith('Ref time'):
+            # "Ref time (UTC)  : Fri Oct 23 19:08:35 2026", the last clock update
+            ref_time = ref_time_to_epoch(line.split(':', 1)[1])
+            continue
+        if line.startswith('System time'):
+            # "System time     : 57.666652679 seconds fast of NTP time". This is how far
+            # the system clock is off right now. chronyd corrects a large offset by
+            # slewing, which can take hours, and while it does, "Last offset" (relative
+            # to chronyd's own NTP clock) stays small. chronyc prints the absolute value
+            # and says "fast" or "slow". Verified with chrony 3.5 on Rocky 8 and 4.6.1
+            # on Rocky 10 after moving the clock 60 s ahead.
+            parts = line.split()
+            system_time = round(float(parts[3]) * 1000, 6)  # to ms
+            if parts[5] == 'slow':
+                system_time = -system_time
+            continue
         if line.startswith('Last offset'):
-            last_offset = float(line.split()[-2]) * 1000  # convert to ms
+            last_offset = round(float(line.split()[-2]) * 1000, 6)  # to ms
             continue
         if line.startswith('RMS offset'):
-            rms_offset = float(line.split()[-2]) * 1000  # convert to ms
+            rms_offset = round(float(line.split()[-2]) * 1000, 6)  # to ms
             continue
         if line.startswith('Frequency'):
-            frequency = float(line.split()[-3])
+            # "Frequency       : 27.909 ppm fast", the sign is in the last word
+            parts = line.split()
+            frequency = float(parts[-3])
+            if parts[-1] == 'slow':
+                frequency = -frequency
             continue
         if line.startswith('Residual freq'):
             residual_freq = float(line.split()[-2])
@@ -164,42 +352,88 @@ def main():
             skew = float(line.split()[-2])
             continue
         if line.startswith('Root delay'):
-            root_delay = float(line.split()[-2]) * 1000  # convert to ms
+            root_delay = round(float(line.split()[-2]) * 1000, 6)  # to ms
             continue
         if line.startswith('Root dispersion'):
-            root_dispersion = float(line.split()[-2]) * 1000  # convert to ms
+            root_dispersion = round(float(line.split()[-2]) * 1000, 6)  # to ms
             continue
         if line.startswith('Leap status'):
             leap_status = ' '.join(line.split()[3:])
 
-    if not peer_used:
+    # With the `local` directive, chronyd falls back to its own clock (reference ID
+    # 127.127.1.1) and reports the configured stratum, leap status "Normal" and an
+    # offset of 0, so neither the stratum nor the offset reveals that no NTP server is
+    # used. Verified with `local stratum 3` and blocked NTP traffic on chrony 3.5
+    # (Rocky 8) and 4.6.1 (Rocky 10).
+    local_reference = ref_id == '7F7F0101'
+    if not peer_used or local_reference:
         # let's find out why and display the configured NTP servers
-        msg = 'NTP server not reachable. No NTP server is used.'
-        if args.TEST is None:
-            success, result = lib.shell.shell_exec(['chronyc', 'sources'])
-            sources = result[0] if success else ''
-        else:
-            # the second source comes from its own fixture, `<fixture>-sources`
-            sources, _stderr, _retc = lib.lftest.test(
-                [f'{args.TEST[0]}-sources', *args.TEST[1:]]
+        if local_reference:
+            msg = (
+                'NTP server not reachable. chronyd serves its local clock instead'
+                ' (local directive in the chrony configuration).'
             )
+        else:
+            msg = 'NTP server not reachable. No NTP server is used.'
+        sources = get_sources(args, deadline)
         if sources:
             msg += '\n\n' + sources
         lib.base.oao(msg, STATE_WARN, always_ok=args.ALWAYS_OK)
 
+    # usable sources: selected ("*") or combined with the selected one ("+")
+    sources = get_sources(args, deadline)
+    usable_sources = None
+    if sources is not None:
+        usable_sources = sum(
+            1 for line in sources.splitlines() if len(line) > 1 and line[1] in '*+'
+        )
+    # chronyd keeps its reference for a while after the sources go silent, without
+    # updating the clock; the age of the last update shows it
+    sync_age = None
+    if ref_time and now:
+        sync_age = max(0, round(now - ref_time))
+
     # build the message
-    offset_state = lib.base.get_state(abs(last_offset), args.WARN, args.CRIT)
+    # the thresholds apply to the offset in both directions
+    offset_state = lib.base.get_state(
+        abs(system_time), args.WARN, args.CRIT, _operator='range'
+    )
     state = lib.base.get_worst(state, offset_state)
+    # chronyc's "System time": the offset of the system clock from the time chronyd
+    # derives from its NTP servers, positive if the system clock is fast
+    source = f' (currently {ref_name})' if ref_name else ''
     msg += (
-        f'NTP offset is {round(last_offset, 3)}ms'
-        f'{lib.base.state2str(offset_state, prefix=" ")}, '
-        f'Stratum is {stratum}'
+        f'System clock is {abs(round(system_time, 3))}ms'
+        f' {"fast" if system_time >= 0 else "slow"}'
+        f'{lib.base.state2str(offset_state, prefix=" ")} compared to the time chronyd'
+        f' derives from its NTP servers{source}, Stratum is {stratum}'
     )
     if stratum >= args.STRATUM:
         stratum_state = STATE_WARN
         state = lib.base.get_worst(state, stratum_state)
         msg += f' (is >= {args.STRATUM} {lib.base.state2str(stratum_state)})'
     msg += f', Leap status is {leap_status}'
+    if sync_age is not None:
+        age_state = lib.base.get_state(
+            sync_age,
+            int(args.WARN_AGE) or None,
+            int(args.CRIT_AGE) or None,
+        )
+        state = lib.base.get_worst(state, age_state)
+        msg += (
+            f', last synchronized {lib.human.seconds2human(sync_age)} ago'
+            f'{lib.base.state2str(age_state, prefix=" ")}'
+        )
+    if usable_sources is not None:
+        sources_state = lib.base.get_state(
+            usable_sources, args.WARN_SOURCES, args.CRIT_SOURCES, _operator='range'
+        )
+        state = lib.base.get_worst(state, sources_state)
+        msg += (
+            f', {usable_sources} usable'
+            f' {lib.txt.pluralize("source", usable_sources)}'
+            f'{lib.base.state2str(sources_state, prefix=" ")}'
+        )
 
     perfdata += lib.base.get_perfdata(
         'frequency',
@@ -210,12 +444,24 @@ def main():
         _min=None,
         _max=None,
     )
+    # last_offset and offset as RFC 5905, ntpq and the other NTP checks have them:
+    # NTP time minus the local clock, so positive if the local clock is behind; chronyc
+    # prints the opposite sign ("positive ... was ahead", chronyc.adoc)
     perfdata += lib.base.get_perfdata(
         'last_offset',
-        last_offset,
+        -last_offset or 0.0,
         uom='ms',
-        warn=args.WARN,
-        crit=args.CRIT,
+        warn=None,
+        crit=None,
+        _min=None,
+        _max=None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'offset',
+        -system_time or 0.0,
+        uom='ms',
+        warn=lib.base.symmetric_range(args.WARN),
+        crit=lib.base.symmetric_range(args.CRIT),
         _min=None,
         _max=None,
     )
@@ -268,11 +514,32 @@ def main():
         'stratum',
         stratum,
         uom=None,
-        warn=args.STRATUM,
+        # --stratum warns from this stratum on, a perfdata range above its end
+        warn=args.STRATUM - 1,
         crit=None,
         _min=0,
         _max=16,
     )
+    if sync_age is not None:
+        perfdata += lib.base.get_perfdata(
+            'sync_age',
+            sync_age,
+            uom='s',
+            warn=int(args.WARN_AGE) or None,
+            crit=int(args.CRIT_AGE) or None,
+            _min=0,
+            _max=None,
+        )
+    if usable_sources is not None:
+        perfdata += lib.base.get_perfdata(
+            'usable_sources',
+            usable_sources,
+            uom=None,
+            warn=args.WARN_SOURCES,
+            crit=args.CRIT_SOURCES,
+            _min=0,
+            _max=None,
+        )
 
     # over and out
     lib.base.oao(
