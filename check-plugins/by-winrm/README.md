@@ -153,19 +153,19 @@ options:
                         PowerShell session configuration name (JEA endpoint).
                         Only supported with pypsrp.
   --winrm-domain WINRM_DOMAIN
-                        AD domain name for NTLM authentication. When set,
+                        AD domain name for NTLM authentication. When set, the
                         username is sent as user@DOMAIN. Not needed for
-                        Kerberos or local accounts. Default: None
+                        Kerberos or local accounts.
   --winrm-hostname WINRM_HOSTNAME
                         Target Windows computer on which the command will be
                         executed.
   --winrm-password WINRM_PASSWORD
                         WinRM account password. Optional for Kerberos (uses
-                        credential cache from kinit).
+                        the credential cache from kinit).
   --winrm-transport {basic,ntlm,kerberos,credssp,plaintext}
                         WinRM transport type. Default: ntlm
   --winrm-username WINRM_USERNAME
-                        WinRM account name. Optional for Kerberos (uses
+                        WinRM account name. Optional for Kerberos (uses the
                         credential cache from kinit).
 
 Documentation:

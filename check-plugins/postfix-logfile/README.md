@@ -148,10 +148,13 @@ options:
                         day and wants this raised. 0 turns the threshold off.
                         Example: `--bounced-warning=1`. Default: 20
   --critical-level {panic,fatal,error,warning,none}
-                        Level from which a line returns CRITICAL, the levels
-                        above it included. `none` turns the level counts off
-                        and leaves the named events. Example: `--critical-
-                        level=error`. Default: fatal
+                        Least severe Postfix log level that returns CRITICAL.
+                        Each level includes everything more severe than
+                        itself, so `error` covers `fatal` and `panic` as well.
+                        Case-sensitive. `none` lets no level return CRITICAL,
+                        which leaves the events this check names as the only
+                        way to reach it. Example: `--critical-level=error`.
+                        Default: fatal
   --deferred-critical DEFERRED_CRITICAL
                         Number of deliveries put back into the queue within
                         `--lookback` that returns CRITICAL. 0 turns the
@@ -304,10 +307,13 @@ options:
                         threshold off. Example: `--tls-failures-warning=5`.
                         Default: 20
   --warning-level {panic,fatal,error,warning,none}
-                        Level from which a line returns WARNING, up to the
-                        level `--critical-level` names. `none` turns the level
-                        counts off and leaves the named events. Example:
-                        `--warning-level=error`. Default: warning
+                        Least severe Postfix log level that returns WARNING.
+                        Each level includes everything more severe than
+                        itself, and a level that `--critical-level` already
+                        covers returns CRITICAL instead. Case-sensitive.
+                        `none` lets no level return WARNING, which leaves the
+                        events this check names as the only way to reach it.
+                        Example: `--warning-level=error`. Default: warning
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/postfix-logfile/

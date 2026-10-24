@@ -70,18 +70,21 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   -w, --warning WARN    WARN threshold in percent. Default: >= 80
   --winrm-domain WINRM_DOMAIN
-                        WinRM Domain Name. Default: None
+                        AD domain name for NTLM authentication. When set, the
+                        username is sent as user@DOMAIN. Not needed for
+                        Kerberos or local accounts.
   --winrm-hostname WINRM_HOSTNAME
                         Target Windows computer on which the command will be
                         executed. Without it, the command runs on the local
                         Windows host.
   --winrm-password WINRM_PASSWORD
                         WinRM account password. Optional for Kerberos (uses
-                        credential cache from kinit).
+                        the credential cache from kinit).
   --winrm-transport {basic,ntlm,kerberos,credssp,plaintext}
                         WinRM transport type. Default: ntlm
   --winrm-username WINRM_USERNAME
-                        WinRM account name. Default: Administrator
+                        WinRM account name. Optional for Kerberos (uses the
+                        credential cache from kinit). Default: Administrator
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dhcp-scope-usage/
