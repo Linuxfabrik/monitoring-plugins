@@ -58,12 +58,12 @@ options:
                         specified multiple times. Example: `--extend-ignore-
                         fstype=iso9660`.
   --ignore IGNORE       Mount point prefix to ignore. All mount points
-                        starting with this value will be skipped. Case-
-                        sensitive. Replaces the default list, use `--extend-
-                        ignore` to append to it. Can be specified multiple
-                        times. Example: `--ignore=/sys/fs` ignores
-                        `/sys/fs/cgroup` and similar. Default: /dev/loop,
-                        /proc, /run/credentials, /snap, /sys/fs,
+                        starting with this value will be skipped. Replaces the
+                        default list, use `--extend-ignore` to append to it.
+                        Case-sensitive. Can be specified multiple times.
+                        Example: `--ignore=/sys/fs` ignores `/sys/fs/cgroup`
+                        and similar. Default: /dev/loop, /proc,
+                        /run/credentials, /snap, /sys/fs,
                         /var/lib/docker/containers.
   --ignore-fstype IGNORE_FSTYPE
                         Filesystem type to ignore, as shown in the third

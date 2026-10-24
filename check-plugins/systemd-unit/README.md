@@ -65,7 +65,7 @@ options:
   --machine MACHINE     Execute operation on a local container. Specify the
                         name of the container to connect to. A user name
                         prefix (`user@container`) is not accepted. Example:
-                        `--machine=mycontainer`
+                        `--machine=mycontainer`.
   --severity {warn,crit}
                         Severity for alerting. Default: warn
   --substate {None,abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting}

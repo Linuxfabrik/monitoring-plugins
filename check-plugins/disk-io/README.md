@@ -101,8 +101,9 @@ options:
                         busy HDD can sustain tens of milliseconds), so set it
                         to what is abnormal for your disks. Supports Nagios
                         ranges. Disabled by default.
-  --count COUNT         Number of consecutive checks the threshold must be
-                        exceeded before alerting. Default: 5
+  --count COUNT         Number of check runs the period averages (R15, W15)
+                        and the await average cover; the thresholds apply to
+                        these averages. Default: 5
   --include-unmounted   Also monitor block devices that have no mounted
                         filesystem (Linux only). By default only block devices
                         with a mounted filesystem are monitored. Enable this

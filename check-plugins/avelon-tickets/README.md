@@ -82,7 +82,7 @@ options:
                         Ticket status that returns CRIT. `none` returns CRIT
                         for no status. Takes precedence over `--warning`. Can
                         be specified multiple times. Example: `--critical=OPEN
-                        --critical=REOPENED`. Default: none
+                        --critical=REOPENED`.
   --extend-type {ALARM,BUILDING,SYSTEM_MONITOR}
                         Ticket type to check, appended to the default or the
                         `--type` list. Can be specified multiple times.

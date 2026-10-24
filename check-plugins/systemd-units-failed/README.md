@@ -42,10 +42,11 @@ options:
   -h, --help       show this help message and exit
   -V, --version    show program's version number and exit
   --always-ok      Always returns OK.
-  --ignore IGNORE  Unit name to exclude from the check. Can be specified
-                   multiple times. Supports glob patterns according to
-                   https://docs.python.org/3/library/fnmatch.html. Example:
-                   `--ignore=dhcpd.service`. Default: []
+  --ignore IGNORE  Unit name to exclude from the check. Supports glob patterns
+                   according to
+                   https://docs.python.org/3/library/fnmatch.html. Case-
+                   sensitive. Can be specified multiple times. Example:
+                   `--ignore=dhcpd.service`.
   --no-perfdata    Suppress the performance data section from the output. The
                    status message and the exit code are unaffected, so
                    alerting keeps working while trending data is dropped.

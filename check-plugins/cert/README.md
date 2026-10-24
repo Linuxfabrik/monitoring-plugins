@@ -118,8 +118,10 @@ options:
                         `--exclude=192.0.2.1 --exclude=192.0.2.254`
   --extend-ports EXTEND_PORTS
                         TCP port to probe on every scanned target, appended to
-                        the default or the `--ports` list. Can be specified
-                        multiple times. Example: `--extend-ports=8443`.
+                        the default or the `--ports` list. A range is written
+                        `start-end`. Only applies to --source=scan. Can be
+                        specified multiple times. Example: `--extend-
+                        ports=8443`.
   --filename FILENAME   Path to a certificate file or a glob pattern matching
                         multiple certificate files. Required when
                         --source=file. Files are read as PEM or DER
