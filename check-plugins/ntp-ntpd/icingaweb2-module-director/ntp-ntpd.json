@@ -8,14 +8,29 @@
                 "--critical": {
                     "value": "$ntp_ntpd_critical$"
                 },
+                "--critical-age": {
+                    "value": "$ntp_ntpd_critical_age$"
+                },
+                "--critical-sources": {
+                    "value": "$ntp_ntpd_critical_sources$"
+                },
                 "--no-perfdata": {
                     "set_if": "$ntp_ntpd_no_perfdata$"
                 },
                 "--stratum": {
                     "value": "$ntp_ntpd_stratum$"
                 },
+                "--timeout": {
+                    "value": "$ntp_ntpd_timeout$"
+                },
                 "--warning": {
                     "value": "$ntp_ntpd_warning$"
+                },
+                "--warning-age": {
+                    "value": "$ntp_ntpd_warning_age$"
+                },
+                "--warning-sources": {
+                    "value": "$ntp_ntpd_warning_sources$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/ntp-ntpd",
@@ -43,6 +58,31 @@
                 },
                 {
                     "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -88,7 +128,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the clock offset of ntpd in milliseconds compared to the configured NTP servers. Alerts when the offset exceeds the configured thresholds.",
+            "notes": "Checks how far the system clock is off from the NTP server ntpd synchronizes to, in milliseconds, and how long ago ntpd last synchronized it, for ntp and NTPsec. Alerts when the offset or the time since the last synchronization exceeds the configured thresholds, when the stratum is too high, when too few NTP sources are usable, or when ntpd uses no NTP server, including when it only uses its local clock.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ntp-ntpd/",
             "object_name": "tpl-service-ntp-ntpd",
             "object_type": "template",
@@ -100,10 +140,13 @@
             "vars": {
                 "criticality": "C",
                 "ntp_ntpd_always_ok": false,
-                "ntp_ntpd_critical": 86400000,
+                "ntp_ntpd_critical": "60000",
+                "ntp_ntpd_critical_age": "0D",
                 "ntp_ntpd_no_perfdata": false,
                 "ntp_ntpd_stratum": 6,
-                "ntp_ntpd_warning": 800
+                "ntp_ntpd_timeout": 8,
+                "ntp_ntpd_warning": "300",
+                "ntp_ntpd_warning_age": "1h"
             },
             "volatile": null,
             "zone": null,
@@ -123,7 +166,7 @@
         "2": {
             "varname": "ntp_ntpd_critical",
             "caption": "NTP Ntpd: Critical",
-            "description": "CRIT threshold for the NTP time offset, in milliseconds.",
+            "description": "CRIT threshold for the offset of the system clock, fast or slow, in milliseconds. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -132,6 +175,28 @@
             "uuid": "089be0f0-442c-4c43-aacd-49bf366f1301"
         },
         "3": {
+            "varname": "ntp_ntpd_critical_age",
+            "caption": "NTP Ntpd: Critical Age",
+            "description": "CRIT threshold for the time since ntpd last synchronized the clock. A duration such as `30m`, `2h` or `1D`; `0D` disables it.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e690d790-417c-40b9-af0a-791cd67f3f92"
+        },
+        "4": {
+            "varname": "ntp_ntpd_critical_sources",
+            "caption": "NTP Ntpd: Critical Sources",
+            "description": "CRIT threshold for the number of usable NTP sources. Supports Nagios ranges. Example: `--critical-sources=1:` alerts if no source is usable.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "9bf172ad-5b38-41be-8044-8a9eb353d1b3"
+        },
+        "5": {
             "varname": "ntp_ntpd_no_perfdata",
             "caption": "NTP Ntpd: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -140,10 +205,10 @@
             "settings": {},
             "uuid": "0406f40d-b393-4bed-a015-c0267f6fd74b"
         },
-        "4": {
+        "6": {
             "varname": "ntp_ntpd_stratum",
             "caption": "NTP Ntpd: Stratum",
-            "description": "Warns if the determined stratum of the time server is greater than or equal to this value. Stratum 1 indicates a computer with a locally attached reference clock. A computer that is synchronised to a stratum 1 computer is at stratum 2. A computer that is synchronised to a stratum 2 computer is at stratum 3, and so on.",
+            "description": "Warns if the stratum of this host is greater than or equal to this value. Stratum 1 indicates a computer with a locally attached reference clock. A computer that is synchronised to a stratum 1 computer is at stratum 2. A computer that is synchronised to a stratum 2 computer is at stratum 3, and so on.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -151,16 +216,49 @@
             },
             "uuid": "071f5ae6-4290-4a57-ae80-4e81efba332d"
         },
-        "5": {
+        "7": {
+            "varname": "ntp_ntpd_timeout",
+            "caption": "NTP Ntpd: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "86cd173c-dd51-4119-b1ce-d22276db23df"
+        },
+        "8": {
             "varname": "ntp_ntpd_warning",
             "caption": "NTP Ntpd: Warning",
-            "description": "WARN threshold for the NTP time offset, in milliseconds.",
+            "description": "WARN threshold for the offset of the system clock, fast or slow, in milliseconds. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "ab7d61e1-be5c-4506-ab51-f5e1a93c2dcb"
+        },
+        "9": {
+            "varname": "ntp_ntpd_warning_age",
+            "caption": "NTP Ntpd: Warning Age",
+            "description": "WARN threshold for the time since ntpd last synchronized the clock. A duration such as `30m`, `2h` or `1D`; `0D` disables it.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "1b3a6d71-5b5f-4240-83a0-1cf95f2b5c27"
+        },
+        "10": {
+            "varname": "ntp_ntpd_warning_sources",
+            "caption": "NTP Ntpd: Warning Sources",
+            "description": "WARN threshold for the number of usable NTP sources. Supports Nagios ranges. Example: `--warning-sources=2:` warns if fewer than two sources are usable, so a single remaining one does not go unnoticed.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a9de48a4-867c-41a2-a4da-5d2984acc584"
         }
     }
 }

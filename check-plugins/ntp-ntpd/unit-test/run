@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 
 TESTS = [
     {
@@ -29,7 +29,8 @@ TESTS = [
         'test': 'stdout/stratum-2-synced-v1,,0',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'NTP offset is -0.03ms, Stratum is 2',
+            'System clock is 0.03ms fast compared to the NTP server ntpd synchronizes to'
+            ' (ns3.fiberteleco), Stratum is 3',
             'remote           refid      st t when poll reach   delay   offset  jitter',
             '==============================================================================',
             '*ns3.fiberteleco 192.168.10.1     2 u  233   64   30   44.555   -0.030   4.486',
@@ -52,7 +53,7 @@ TESTS = [
         'test': 'stdout/stratum-2-synced-v2,,0',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'NTP offset is -0.182ms, Stratum is 2',
+            'System clock is 0.182ms fast',
             'remote           refid      st t when poll reach   delay   offset  jitter',
             '==============================================================================',
             '*185.232.69.65 ( 79.133.44.146    2 u  232  256  377    0.398   -0.182   0.170',
@@ -67,7 +68,7 @@ TESTS = [
         'test': 'stdout/twenty-peers-ipv6-and-pool,,0',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'NTP offset is -0.409ms, Stratum is 2',
+            'System clock is 0.409ms fast',
             "'offset'=-0.409ms",
         ],
     },
@@ -78,7 +79,139 @@ TESTS = [
         'test': 'stdout/twenty-peers-ipv6-and-pool,,0',
         'params': '--stratum=2',
         'assert-retc': STATE_WARN,
-        'assert-in': ['Stratum is 2 (is >= 2'],
+        'assert-in': ['Stratum is 3 (is >= 2'],
+    },
+    # NTPsec prints four decimals. Captured with ntpsec 1.2.4 on Rocky 10.
+    {
+        'id': 'ok-stratum-1-server-ntpsec',
+        'test': 'stdout/stratum-1-synced-ntpsec-1.2,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'System clock is 1.231ms fast compared to the NTP server ntpd synchronizes to'
+            ' (193.134.29.12), Stratum is 2'
+        ],
+    },
+    # ntpq exits 0 when ntpd is down and only complains on stderr. Captured with
+    # ntp 4.2.8p18 on Rocky 8 and ntpsec 1.2.4 on Rocky 10.
+    {
+        'id': 'warn-ntpd-not-running-ntp',
+        'test': ',stderr/not-running-ntp-4.2.8,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '`ntpq --numeric --peers` failed (exit 0): ntpq: read: Connection refused'
+        ],
+    },
+    {
+        'id': 'warn-ntpd-not-running-ntpsec',
+        'test': ',stderr/not-running-ntpsec-1.2,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['***Socket error; probably ntpd is not running'],
+    },
+    # Constructed, no PPS device was available: the ntp 4.2.8 capture from Rocky 8
+    # plus a PPS driver line. ntpd marks a PPS peer "o" and uses its offset instead
+    # of the "*" peer's (CTL_PST_SEL_PPS in ntpd/ntp_proto.c).
+    {
+        'id': 'ok-pps-peer-wins-over-system-peer',
+        'test': 'stdout/pps-peer-constructed,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'System clock is 0.002ms slow compared to the NTP server ntpd synchronizes to'
+            ' (PPS(0)), Stratum is 1'
+        ],
+    },
+    # A peer without a tally whose name starts with "o" must not count as a PPS peer.
+    {
+        'id': 'ok-peer-name-starting-with-o',
+        'test': 'stdout/peer-name-starting-with-o,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'System clock is 2.625ms fast compared to the NTP server ntpd synchronizes to'
+            ' (ntp1-2.glattnet), Stratum is 3'
+        ],
+    },
+    # No NTP server reachable, ntpd synchronizes to its undisciplined local clock.
+    # Without a fudge line it has stratum 5 and offset 0. Captured with ntp 4.2.8p18
+    # on Rocky 8 after 320 s.
+    {
+        'id': 'warn-only-local-clock-ntp',
+        'test': 'stdout/local-clock-ntp-4.2.8,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'NTP server not reachable. ntpd uses its local clock (LOCAL(0)) instead.'
+        ],
+    },
+    {
+        'id': 'warn-only-local-clock-fudged-stratum-ntp',
+        'test': 'stdout/local-clock-fudge-stratum-10-ntp-4.2.8,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['ntpd uses its local clock (LOCAL(0)) instead.'],
+    },
+    # Same with ntpsec 1.2.4 on Rocky 10.
+    {
+        'id': 'warn-only-local-clock-fudged-stratum-ntpsec',
+        'test': 'stdout/local-clock-fudge-stratum-10-ntpsec-1.2,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['ntpd uses its local clock (LOCAL(0)) instead.'],
+    },
+    # A GPS receiver with PPS through the SHM driver, stratum 0. Taken from the
+    # example output in NTPsec's docs/quick.adoc.
+    {
+        'id': 'ok-gps-and-pps-reference-clocks',
+        'test': 'stdout/gps-pps-shm-ntpsec-docs,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'System clock is 0.003ms slow compared to the NTP server ntpd synchronizes to'
+            ' (SHM(1)), Stratum is 1'
+        ],
+    },
+    # Debian's and Ubuntu's NTPsec configuration has `tos minclock 4 minsane 3`, so a
+    # lone LOCAL(0) stays a candidate ("+") and never becomes the system peer.
+    # Captured with ntpsec 1.2.3 on Debian 13.
+    {
+        'id': 'warn-local-clock-selected-among-candidates',
+        'test': 'stdout/local-clock-candidate-minsane-3-ntpsec-1.2,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No NTP server used.'],
+    },
+    # Nagios ranges: 0.409 ms against a WARN range of 0 to 0.3 ms
+    {
+        'id': 'warn-twenty-peers-tight-range',
+        'test': 'stdout/twenty-peers-ipv6-and-pool,,0',
+        'params': '--warning=0.3',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['System clock is 0.409ms fast [WARNING]'],
+    },
+    # "when" of the system peer: seconds since ntpd last heard from it
+    {
+        'id': 'ok-twenty-peers-age-and-sources',
+        'test': 'stdout/twenty-peers-ipv6-and-pool,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'last synchronized 54s ago, 3 usable sources',
+            "'sync_age'=54s;3600;;0",
+            "'usable_sources'=3;;;0",
+        ],
+    },
+    {
+        'id': 'warn-twenty-peers-fewer-than-four-sources',
+        'test': 'stdout/twenty-peers-ipv6-and-pool,,0',
+        'params': '--warning-sources=4:',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['3 usable sources [WARNING]'],
+    },
+    # Constructed from stratum-2-synced-v1: the system peer has been silent for two
+    # hours ("when" 2h), ntpd still lists it as the system peer.
+    {
+        'id': 'warn-system-peer-silent-beyond-warning-age',
+        'test': 'stdout/system-peer-silent-2h-constructed,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['last synchronized 2h ago [WARNING]', "'sync_age'=7200s;3600;;0"],
+    },
+    {
+        'id': 'crit-system-peer-silent-beyond-critical-age',
+        'test': 'stdout/system-peer-silent-2h-constructed,,0',
+        'params': '--critical-age=90m',
+        'assert-retc': STATE_CRIT,
     },
 ]
 

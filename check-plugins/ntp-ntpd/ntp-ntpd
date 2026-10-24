@@ -18,17 +18,30 @@ import lib.base
 import lib.human
 import lib.lftest
 import lib.shell
+import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026102301'
 
-DESCRIPTION = """Checks the clock offset of ntpd in milliseconds compared to the configured NTP
-servers. Alerts when the offset exceeds the configured thresholds."""
+DESCRIPTION = """Checks how far the system clock is off from the NTP server ntpd
+synchronizes to, in milliseconds, and how long ago ntpd last synchronized it, for ntp
+and NTPsec. Alerts when the offset or the time since the last synchronization exceeds
+the configured thresholds, when the stratum is too high, when too few NTP sources are
+usable, or when ntpd uses no NTP server, including when it only uses its local clock."""
 
-DEFAULT_CRIT = 86400000  # 24h in ms offset
+DEFAULT_CRIT = '60000'  # ms offset, 1 minute
+DEFAULT_CRIT_AGE = '0D'
 DEFAULT_STRATUM = 6
-DEFAULT_WARN = 800  # ms offset
+DEFAULT_TIMEOUT = 8
+DEFAULT_WARN = '300'  # ms offset
+# ntpd polls every 1024 s at most by default (maxpoll 10), so an hour means several
+# missed answers
+DEFAULT_WARN_AGE = '1h'
+
+# units of ntpq's "when" column, see prettyinterval() in ntpq/ntpq-subs.c (ntp) and
+# ntpclients/ntpq.py (NTPsec): seconds up to 2048, then m, h, d and (ntp only) y
+WHEN_UNITS = {'d': 86400, 'h': 3600, 'm': 60, 'y': 31557600}
 
 
 def parse_args():
@@ -57,11 +70,30 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for the NTP time offset, in milliseconds. '
-        'Default: %(default)sms',
+        help='CRIT threshold for the offset of the system clock, fast or slow, in '
+        'milliseconds. Supports Nagios ranges. '
+        'Default: %(default)s',
         dest='CRIT',
-        type=int,
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-age',
+        help='CRIT threshold for the time since ntpd last synchronized the clock. '
+        'A duration such as `30m`, `2h` or `1D`; `0D` disables it. '
+        'Default: %(default)s',
+        dest='CRIT_AGE',
+        type=lib.args.duration,
+        default=DEFAULT_CRIT_AGE,
+    )
+
+    parser.add_argument(
+        '--critical-sources',
+        help='CRIT threshold for the number of usable NTP sources. '
+        'Supports Nagios ranges. '
+        'Example: `--critical-sources=1:` alerts if no source is usable.',
+        dest='CRIT_SOURCES',
+        default=None,
     )
 
     parser.add_argument(
@@ -88,17 +120,69 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for the NTP time offset, in milliseconds. '
-        'Default: %(default)sms',
+        help='WARN threshold for the offset of the system clock, fast or slow, in '
+        'milliseconds. Supports Nagios ranges. '
+        'Default: %(default)s',
         dest='WARN',
-        type=int,
         default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-age',
+        help='WARN threshold for the time since ntpd last synchronized the clock. '
+        'A duration such as `30m`, `2h` or `1D`; `0D` disables it. '
+        'Default: %(default)s',
+        dest='WARN_AGE',
+        type=lib.args.duration,
+        default=DEFAULT_WARN_AGE,
+    )
+
+    parser.add_argument(
+        '--warning-sources',
+        help='WARN threshold for the number of usable NTP sources. '
+        'Supports Nagios ranges. '
+        'Example: `--warning-sources=2:` warns if fewer than two sources are usable, '
+        'so a single remaining one does not go unnoticed.',
+        dest='WARN_SOURCES',
+        default=None,
     )
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def when_to_seconds(value):
+    """
+    Convert ntpq's "when" column to seconds.
+
+    Parameters
+    ----------
+    value : str
+        For example `45`, `17m`, `2h`, `3d`, or `-` for "just now".
+
+    Returns
+    -------
+    int or None
+        Seconds, or None if `value` does not have that form.
+    """
+    if value == '-':
+        return 0
+    try:
+        if value[-1] in WHEN_UNITS:
+            return int(value[:-1]) * WHEN_UNITS[value[-1]]
+        return int(value)
+    except (IndexError, ValueError):
+        return None
 
 
 def main():
@@ -111,18 +195,31 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
+    # --numeric: no reverse lookup of the peer addresses, which could hang on DNS.
+    # ntp 4.2.8 (ntpq-opts.def) and NTPsec (ntpq.py) both know the long options.
+    cmd = ['ntpq', '--numeric', '--peers']
     if args.TEST is None:
-        cmd = ['ntpq', '-p']
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
-        if retc != 0:
+        success, result = lib.shell.shell_exec(cmd, timeout=args.TIMEOUT)
+        if not success:
+            # a timeout, or ntpq is not installed
             lib.base.oao(
-                f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
+                f'`{" ".join(cmd)}` failed: {result}',
                 STATE_WARN,
                 always_ok=args.ALWAYS_OK,
             )
+        stdout, stderr, retc = result
     else:
         # do not call the command, put in test data
-        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
+    # ntpq exits 0 even if ntpd does not answer and only complains on stderr
+    # ("ntpq: read: Connection refused", "localhost: timed out, nothing received").
+    # Verified with ntp 4.2.8p18 on Rocky 8 and 10 and ntpsec 1.2.4 on Rocky 10.
+    if retc != 0 or (not stdout.strip() and stderr.strip()):
+        lib.base.oao(
+            f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
 
     # init some vars
     msg = ''
@@ -134,46 +231,97 @@ def main():
     offset = None
     peer = ''
     peer_used = False
+    refid = ''
     stratum = 0
+    sync_age = None
 
     # analyze data
+    # usable sources: system peer ("*"), PPS peer ("o"), candidates ("+") and backups
+    # ("#"), the tally codes ntpd's selection accepts (flash3[] in ntpq/ntpq-subs.c)
+    usable_sources = sum(
+        1 for line in stdout.splitlines() if line[:1] in ('*', '+', 'o', '#')
+    )
     for line in stdout.splitlines():
+        # The system peer is tallied "*", or "o" if ntpd disciplines the clock with a
+        # PPS signal; the "o" peer's offset is then the one ntpd uses, so it wins over
+        # a "*" line. See flash3[] in ntpq/ntpq-subs.c and CTL_PST_SEL_PPS in
+        # ntpd/ntp_proto.c (ntp 4.2.8, ntpsec 1.2). The tally is the first column,
+        # so the line must not be stripped before, or a peer without a tally whose
+        # name starts with "o" would match.
+        if not line.startswith(('*', 'o')) or (peer_used and line[0] == '*'):
+            continue
         line = line.strip()
-        if line.startswith('*'):
-            peer_used = True
-            try:
-                # line of peer in the form
-                # [tally]remote refid st t when pool reach delay offset jitter
-                split_line = line[1:].split()  # remove '*' and split
+        peer_used = True
+        try:
+            # line of peer in the form
+            # [tally]remote refid st t when pool reach delay offset jitter
+            split_line = line[1:].split()  # remove the tally code and split
 
-                # get numeric values via negative index as there might be
-                # multiple whitespaces in remote
-                peer = split_line[0]
-                stratum = int(split_line[-8])
-                delay = split_line[-3]
-                offset = float(split_line[-2])
-                jitter = split_line[-1]
-            except Exception:
-                pass
+            # get numeric values via negative index as there might be
+            # multiple whitespaces in remote
+            peer = split_line[0]
+            refid = split_line[-9]
+            # ntpq lists the stratum of the peer; this host is one further down, and
+            # that is the stratum the other NTP checks and `--stratum` speak of
+            stratum = int(split_line[-8]) + 1
+            delay = split_line[-3]
+            offset = float(split_line[-2])
+            jitter = split_line[-1]
+            # "when": the last answer of the system peer, which ntpd synchronizes to
+            sync_age = when_to_seconds(split_line[-6])
+        except (IndexError, ValueError):
+            # a line ntpq cut short; without its offset, ntpd counts as using no server
+            offset = None
 
     if offset is None or not peer_used:
         lib.base.oao('No NTP server used.', STATE_WARN, always_ok=args.ALWAYS_OK)
     elif peer == '':
         lib.base.oao('No NTP server found.', STATE_WARN, always_ok=args.ALWAYS_OK)
-    elif peer == 'LOCAL':
-        lib.base.oao('Only LOCAL clock is used.', STATE_WARN, always_ok=args.ALWAYS_OK)
+    elif refid == '.LOCL.':
+        # The undisciplined local clock driver ("LOCAL(0)", refid ".LOCL.") reports
+        # an offset of 0 and stratum 5 unless fudged, so it passes every other test.
+        lib.base.oao(
+            f'NTP server not reachable. ntpd uses its local clock ({peer}) instead.',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
 
     # build the message
-    offset_state = lib.base.get_state(abs(offset), args.WARN, args.CRIT)
+    # the thresholds apply to the offset in both directions
+    offset_state = lib.base.get_state(
+        abs(offset), args.WARN, args.CRIT, _operator='range'
+    )
     state = lib.base.get_worst(state, offset_state)
+    # ntpq's offset of the system peer, measured and filtered by ntpd: the time of the
+    # peer minus the system clock (RFC 5905), so positive if the system clock is slow
     msg += (
-        f'NTP offset is {offset}ms{lib.base.state2str(offset_state, prefix=" ")}, '
-        f'Stratum is {stratum}'
+        f'System clock is {abs(round(offset, 3))}ms {"slow" if offset > 0 else "fast"}'
+        f'{lib.base.state2str(offset_state, prefix=" ")} compared to the NTP server'
+        f' ntpd synchronizes to ({peer}), Stratum is {stratum}'
     )
     if stratum >= args.STRATUM:
         stratum_state = STATE_WARN
         state = lib.base.get_worst(state, stratum_state)
         msg += f' (is >= {args.STRATUM} {lib.base.state2str(stratum_state)})'
+    if sync_age is not None:
+        age_state = lib.base.get_state(
+            sync_age,
+            int(args.WARN_AGE) or None,
+            int(args.CRIT_AGE) or None,
+        )
+        state = lib.base.get_worst(state, age_state)
+        msg += (
+            f', last synchronized {lib.human.seconds2human(sync_age)} ago'
+            f'{lib.base.state2str(age_state, prefix=" ")}'
+        )
+    sources_state = lib.base.get_state(
+        usable_sources, args.WARN_SOURCES, args.CRIT_SOURCES, _operator='range'
+    )
+    state = lib.base.get_worst(state, sources_state)
+    msg += (
+        f', {usable_sources} usable {lib.txt.pluralize("source", usable_sources)}'
+        f'{lib.base.state2str(sources_state, prefix=" ")}'
+    )
 
     perfdata += lib.base.get_perfdata(
         'delay',
@@ -197,8 +345,8 @@ def main():
         'offset',
         offset,
         uom='ms',
-        warn=args.WARN,
-        crit=args.CRIT,
+        warn=lib.base.symmetric_range(args.WARN),
+        crit=lib.base.symmetric_range(args.CRIT),
         _min=None,
         _max=None,
     )
@@ -206,10 +354,30 @@ def main():
         'stratum',
         stratum,
         uom=None,
-        warn=args.STRATUM,
+        # --stratum warns from this stratum on, a perfdata range above its end
+        warn=args.STRATUM - 1,
         crit=None,
         _min=0,
         _max=16,
+    )
+    if sync_age is not None:
+        perfdata += lib.base.get_perfdata(
+            'sync_age',
+            sync_age,
+            uom='s',
+            warn=int(args.WARN_AGE) or None,
+            crit=int(args.CRIT_AGE) or None,
+            _min=0,
+            _max=None,
+        )
+    perfdata += lib.base.get_perfdata(
+        'usable_sources',
+        usable_sources,
+        uom=None,
+        warn=args.WARN_SOURCES,
+        crit=args.CRIT_SOURCES,
+        _min=0,
+        _max=None,
     )
 
     # over and out
