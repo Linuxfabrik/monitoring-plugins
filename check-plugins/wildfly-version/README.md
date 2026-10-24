@@ -39,7 +39,7 @@ usage: wildfly-version [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                        [--insecure] [--instance INSTANCE]
                        [--mode {standalone,domain}] [--no-perfdata]
                        [--no-proxy] [--node NODE] -p PASSWORD [--proxy PROXY]
-                       [--timeout TIMEOUT] [--url URL] --username USERNAME
+                       [--timeout TIMEOUT] [--url URL] [--username USERNAME]
 
 Checks if a newer version of WildFly is available by comparing the installed
 version, queried from the HTTP management API, against the latest release on

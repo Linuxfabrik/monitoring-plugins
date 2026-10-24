@@ -24,7 +24,7 @@ import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102301'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks if a newer version of NodeBB is available by comparing the installed
 version against the latest release, both as reported by the NodeBB API. Alerts when the
@@ -159,8 +159,10 @@ def main():
         msg = f'NodeBB v{installed_version} is up to date'
     else:
         state = STATE_WARN
+        # the marker belongs to the update, not to the restart details behind it
         msg = (
             f'NodeBB v{installed_version} installed, NodeBB v{latest_version} available'
+            f'{lib.base.state2str(state, prefix=" ")}'
         )
 
     if result['lastrestart']['timestamp']:
@@ -176,8 +178,6 @@ def main():
             f' <{restart_user["email"]}>'
             f' ({ago} ago)'
         )
-
-    msg += lib.base.state2str(state, prefix=' ')
 
     # over and out
     lib.base.oao(
