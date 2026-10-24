@@ -20,7 +20,10 @@ holds only the happy-path integration test. A freshly booted MariaDB has
 no anonymous accounts, no empty-password users, no wildcard hosts beyond the
 default `root@%` (which the seed removes), no InnoDB tables without a
 PRIMARY KEY and no replication lag, so the score lands near 100 and the
-plugin returns STATE_OK.
+plugin returns STATE_OK. The server has been up for seconds, so a threshold the
+score misses must not alert either: the plugin stays at STATE_OK and says that
+the score is not evaluated yet. The evaluated path starts after one hour of
+uptime, which a container cannot reach.
 
 The test matrix is defined by the Containerfiles under
 `containerfiles/`. Each file is a Containerfile (typically a
@@ -119,6 +122,21 @@ def _check_image(test, containerfile):
         test.assertIn(result.returncode, (STATE_OK, STATE_WARN))
         test.assertRegex(combined, r'Health Score: \d+/100')
         issues_before = _security_issues(combined)
+
+        # no score reaches 101, but a cold server is not judged yet
+        result = subprocess.run(
+            [*cmd, '--warning=101:'],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            capture_output=True,
+            text=True,
+        )
+        combined = result.stdout + result.stderr
+        print(f'Script output with --warning=101:\n{combined.strip()}', flush=True)
+        test.assertEqual(result.returncode, STATE_OK)
+        test.assertRegex(
+            combined,
+            r'Server is warming up \(uptime .+ < 1 h\); score alert suppressed\.',
+        )
 
         # Accounts on `mysql_native_password` cost Security points on MySQL 8.0+,
         # where the plugin is deprecated, and nowhere else: on MariaDB it is the

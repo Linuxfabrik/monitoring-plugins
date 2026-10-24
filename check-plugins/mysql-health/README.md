@@ -12,6 +12,7 @@ Produces a single 0-100 health score for a MySQL/MariaDB server, modelled on mys
 * Partial port of mysqltuner's `calculate_health_score()`. mysqltuner's broader schema-modelling checks (mixed collations, naming conventions, foreign key hygiene, basic password dictionary) are not implemented here, so on heavily-flagged servers our score can sit 5 to 15 points above mysqltuner's. The direct checks (perf hit rates, replication lag, log sizing) do match, and security does too, except that a legacy authentication plugin counts on MySQL 8.0+ only, where it is deprecated: on MariaDB and older MySQL `mysql_native_password` is the default plugin, so counting it would put every server with six accounts at 0/30
 * This plugin does not produce per-issue fix advice; the output lists each component score plus a pointer to the underlying `mysql-*` plugin for fixes
 * Output format mirrors mysqltuner's "Health Score KPI" section
+* The hit rates are lifetime averages, so during the first hour of uptime the score is reported but not evaluated
 * Components without data (e.g. `Innodb_buffer_pool_*` on a freshly-booted server with no I/O yet) award half the points (5/10), the same fallback mysqltuner uses
 * The plugin runs every 5 minutes by default; per-component metrics that require longer baselines (replication lag is meaningful only on a real replica) just contribute their default points when there is nothing to evaluate
 
@@ -58,7 +59,10 @@ hygiene) are not ported, so on a heavily-flagged server our score can sit 5 to
 replication lag, log sizing) do match, and security does too except that a
 legacy authentication plugin counts on MySQL 8.0+ only, where it is
 deprecated. Useful as a top-level alert and Grafana KPI panel; the individual
-`mysql-*` plugins still own the detailed findings and fix advice.
+`mysql-*` plugins still own the detailed findings and fix advice. On
+freshly-booted servers (uptime < 1 hour) the score is reported but not
+evaluated, because the hit rates it rests on are lifetime averages over a cold
+cache then.
 
 options:
   -h, --help            show this help message and exit
@@ -130,8 +134,8 @@ Component breakdown:
 
 ## States
 
-* WARN if the overall health score is at or below `--warning` (default: `70:`, alerts below 70).
-* CRIT if the score is at or below `--critical` (default: `50:`, alerts below 50).
+* WARN if the overall health score is at or below `--warning` (default: `70:`, alerts below 70), after at least one hour of uptime.
+* CRIT if the score is at or below `--critical` (default: `50:`, alerts below 50), after at least one hour of uptime.
 * Defaults match mysqltuner's colour-coding (yellow zone below 80, red zone below 50; we use 70 as WARN to surface degradation slightly earlier).
 * Both `--warning` and `--critical` accept Nagios range expressions, see [THRESHOLDS.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/THRESHOLDS.md).
 * `--always-ok` suppresses all alerts and always returns OK.

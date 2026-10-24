@@ -16,10 +16,11 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026101301'
+__version__ = '2026102401'
 
 DESCRIPTION = """Single-number health score for a MySQL/MariaDB server. Ports mysqltuner's
 `calculate_health_score()` weighting (Performance 40 / Security 30 / Resilience 30) and a
@@ -31,7 +32,9 @@ ported, so on a heavily-flagged server our score can sit 5 to 15 points above my
 the direct mysqltuner checks (perf hit rates, replication lag, log sizing) do match, and
 security does too except that a legacy authentication plugin counts on MySQL 8.0+ only,
 where it is deprecated. Useful as a top-level alert and Grafana KPI panel; the individual
-`mysql-*` plugins still own the detailed findings and fix advice."""
+`mysql-*` plugins still own the detailed findings and fix advice. On freshly-booted servers
+(uptime < 1 hour) the score is reported but not evaluated, because the hit rates it rests on
+are lifetime averages over a cold cache then."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -41,6 +44,13 @@ DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_WARN = '70:'
 DEFAULT_CRIT = '50:'
 DEFAULT_TIMEOUT = 3
+
+# Below this uptime we skip the score alert because the buffer pool and thread cache hit
+# rates are lifetime averages over a cold cache (same window as `mysql-table-cache`,
+# `mysql-temp-tables` and `mysql-thread-cache`). Seen on MariaDB 11.4 right after the
+# start: buffer pool hit rate 11.4% (0/10) and thread cache hit rate 75% (5/10), 15
+# points below the score the same server reaches once warm.
+WARMUP_UPTIME_SECONDS = 3600
 
 # Schema names excluded from the metadata check (PRIMARY KEY missing). System
 # schemas legitimately have tables without user-defined primary keys.
@@ -473,6 +483,8 @@ def main():
 
     # init some vars
     perfdata = ''
+    uptime = int(mystat.get('Uptime') or 0)
+    warming_up = uptime < WARMUP_UPTIME_SECONDS
 
     # analyze data
     perf_bp_score, perf_bp_val = score_perf_bp(mystat)
@@ -490,12 +502,13 @@ def main():
     resilience_total = res_lag_score + res_logs_score + res_meta_score
     total_score = performance_total + sec_score + resilience_total
 
-    state = lib.base.get_state(
+    score_state = lib.base.get_state(
         total_score,
         args.WARNING,
         args.CRITICAL,
         _operator='range',
     )
+    state = STATE_OK if warming_up else score_state
 
     # build the message
     summary = (
@@ -506,8 +519,13 @@ def main():
         f'{lib.base.state2str(state, prefix=" ")}'
     )
 
-    if state == STATE_OK:
+    if score_state == STATE_OK:
         sections = ['Everything is ok. ' + summary + '.']
+    elif warming_up:
+        sections = [
+            f'{summary}. Server is warming up (uptime'
+            f' {lib.human.seconds2human(uptime)} < 1 h); score alert suppressed.'
+        ]
     else:
         sections = [summary + '.']
 

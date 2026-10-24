@@ -37,7 +37,7 @@ Assets:
 Monitoring Plugins:
 
 * end of life follows the distribution's life cycle, on most \*-version checks
-* fewer false alarms after a restart or on shared hosts, on mysql-connections, mysql-joins, mysql-memory, mysql-table-cache, mysql-temp-tables
+* fewer false alarms after a restart or on shared hosts, on mysql-connections, mysql-health, mysql-joins, mysql-memory, mysql-table-cache, mysql-temp-tables
 * spare, standby and offline components are evaluated, on all redfish-\* checks
 * the monitoring user needs its privileges on `*.*`, on all mysql-\* checks
 * the version perfdata changes its scale, on all \*-version checks
