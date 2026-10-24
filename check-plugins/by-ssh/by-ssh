@@ -19,6 +19,7 @@ import lib.base
 import lib.shell
 import lib.ssh
 import lib.time
+import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -363,7 +364,7 @@ def main():
 
     perfdata = lib.base.get_perfdata(
         'remote_runtime',
-        lib.time.now('float') - timer_start,
+        round(lib.time.now('float') - timer_start, 3),
         uom='s',
     )
 
@@ -406,16 +407,29 @@ def main():
             msg += 'STDOUT is not a "float". '
 
     # check stdout - alert with given severity using pattern matching
-    compiled_warn_regex = [re.compile(item) for item in args.WARN_REGEX]
-    compiled_crit_regex = [re.compile(item) for item in args.CRIT_REGEX]
+    # the help promises case-insensitive matching per line, for the regexes as
+    # for the patterns, and an invalid regex ends in a clear UNKNOWN instead of a
+    # traceback
+    compiled_warn_regex = [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(
+            args.WARN_REGEX, '--warning-regex', flags=re.IGNORECASE | re.MULTILINE
+        )
+    ]
+    compiled_crit_regex = [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(
+            args.CRIT_REGEX, '--critical-regex', flags=re.IGNORECASE | re.MULTILINE
+        )
+    ]
     haystack = stdout.lower()
     if any(
         warn_pattern.lower() in haystack for warn_pattern in args.WARN_PATTERN
-    ) or any(item.search(haystack) for item in compiled_warn_regex):
+    ) or any(item.search(stdout) for item in compiled_warn_regex):
         stdout_state = STATE_WARN
     if any(
         crit_pattern.lower() in haystack for crit_pattern in args.CRIT_PATTERN
-    ) or any(item.search(haystack) for item in compiled_crit_regex):
+    ) or any(item.search(stdout) for item in compiled_crit_regex):
         stdout_state = STATE_CRIT
     state = lib.base.get_worst(state, stdout_state)
 

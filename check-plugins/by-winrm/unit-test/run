@@ -101,6 +101,22 @@ TESTS = [
         'assert-in': ['Everything is ok.', 'DisplayName         : Windows-Zeitgeber'],
     },
     {
+        # the regexes are case-insensitive, as the help says
+        'id': 'crit-regex-ignores-case',
+        'test': 'stdout/service-table,,0',
+        'params': f'{COMMON} --critical-regex=^running.+w32time',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['The output matches a critical pattern [CRITICAL]'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'test': 'stdout/service-table,,0',
+        'params': f'{COMMON} --warning-regex=(',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--warning-regex'],
+        'assert-not-in': ['Traceback'],
+    },
+    {
         'id': 'warn-regex-with-umlaut',
         'test': 'stdout/local-groups-umlaut,,0',
         'params': f'{COMMON} --warning-regex=überwachung',

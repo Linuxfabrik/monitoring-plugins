@@ -3,7 +3,7 @@
 
 ## Overview
 
-This plugin executes PowerShell commands or scripts on remote Windows hosts via WinRM, supporting JEA. It returns standard output (STDOUT) and, in case of failure, standard error (STDERR) along with the command's exit code. By evaluating these results - through threshold checks or pattern matching on STDOUT - the plugin can generate alerts with configurable severity levels.
+Executes a PowerShell command or script on a remote Windows host via WinRM, JEA endpoints included, and evaluates the result. Returns STDOUT and, in case of failure, STDERR and the command's exit code. Supports pattern matching on STDOUT to detect specific conditions, with configurable alert severities per match. Can also alert on single numeric return values against warning and critical thresholds.
 
 **Important Notes:**
 
@@ -89,11 +89,12 @@ usage: by-winrm [-h] [-V] [--always-ok] --command COMMAND [-c CRIT]
                 [--winrm-transport {basic,ntlm,kerberos,credssp,plaintext}]
                 [--winrm-username WINRM_USERNAME]
 
-This plugin executes PowerShell commands or scripts on remote Windows hosts
-via WinRM, supporting JEA. It returns standard output (STDOUT) and, in case of
-failure, standard error (STDERR) along with the command's exit code. By
-evaluating these results - through threshold checks or pattern matching on
-STDOUT - the plugin can generate alerts with configurable severity levels.
+Executes a PowerShell command or script on a remote Windows host via WinRM,
+JEA endpoints included, and evaluates the result. Returns STDOUT and, in case
+of failure, STDERR and the command's exit code. Supports pattern matching on
+STDOUT to detect specific conditions, with configurable alert severities per
+match. Can also alert on single numeric return values against warning and
+critical thresholds.
 
 options:
   -h, --help            show this help message and exit
