@@ -350,7 +350,7 @@ class TestTrustedBinary(unittest.TestCase):
     def test_binary_in_a_directory_anybody_can_write_is_refused(self):
         planted = os.path.join(self.work, 'binary')
         shutil.copy(self.system_binary, planted)
-        os.chmod(self.work, 0o777)
+        os.chmod(self.work, 0o777)  # nosec B103 - world-writable on purpose
         with self.allow_work_dir():
             success, result = self.plugin.find_binary(planted)
         self.assertFalse(success)

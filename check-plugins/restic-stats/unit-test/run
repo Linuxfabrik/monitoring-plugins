@@ -76,7 +76,7 @@ class TestRepositorySafety(unittest.TestCase):
     def test_repository_file_anybody_can_change_is_refused(self):
         work = tempfile.mkdtemp(prefix='lftest-restic-repo-')
         try:
-            os.chmod(work, 0o777)
+            os.chmod(work, 0o777)  # nosec B103 - world-writable on purpose
             repofile = os.path.join(work, 'repo')
             with open(repofile, 'w') as handle:
                 handle.write('rclone:remote:backups\n')
