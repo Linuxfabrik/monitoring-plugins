@@ -15,24 +15,36 @@ import sys
 
 import lib.args
 import lib.base
+import lib.human
 import lib.lftest
 import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026102301'
 
-DESCRIPTION = """Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
-and time source. Useful for diagnosing time synchronization issues on Windows
-servers. Reads the output in English and German.
-Alerts when the time since the last successful synchronization exceeds the configured
-thresholds, when no time source is used or its stratum is too high, when a leap second
-is announced, and when the last synchronization failed."""
+DESCRIPTION = """Checks how far the system clock is off from the time the Windows Time
+service (W32Time) derives from its time source, in milliseconds, and how long ago it
+last synchronized. Alerts when the offset or the time since the last synchronization
+exceeds the configured thresholds, when the stratum is too high, when no time source is
+used, when a leap second is announced, or when the last synchronization failed. Reads
+the output in English and German."""
 
-DEFAULT_CRIT = 129600  # s (36h)
+DEFAULT_CRIT = '60000'  # ms offset, 1 minute
+DEFAULT_CRIT_AGE = '0D'
+# Microsoft requires a host to be no further than stratum 5 from a highly accurate time
+# source for 50 ms accuracy, as `w32tm /query /status` shows it ("Support boundary for
+# high accuracy time", learn.microsoft.com; #794)
 DEFAULT_STRATUM = 6
 DEFAULT_TIMEOUT = 8
-DEFAULT_WARN = 28800  # s (8h)
+DEFAULT_WARN = '300'  # ms offset
+# W32Time polls every 2^15 s (9.1 h) at most by default on domain members and
+# stand-alone hosts (MaxPollInterval 15, "Windows Time Service Tools and Settings",
+# learn.microsoft.com), so 10 h means at least one missed synchronization. A server with
+# the SpecialInterval flag (0x1, as in the default "time.windows.com,0x9") is polled
+# every SpecialPollInterval s instead, 604800 on a stand-alone host; MaxPollInterval
+# caps that since build 1703, so only Windows Server 2016 needs `--warning-age` raised.
+DEFAULT_WARN_AGE = '10h'
 
 # w32tm prints its labels in the display language of the account it runs as. The values
 # keep their format in every language ("0.0070272s", "2 (...)"), so only the labels need
@@ -51,12 +63,14 @@ LABELS = {
     'Precision': 'precision',
     'Root Delay': 'root_delay',
     'Root Dispersion': 'root_dispersion',
+    'Source': 'source',
     'Stratum': 'stratum',
     'Time since Last Good Sync Time': 'time_since_last_good_sync_time',
     # de-DE
     'Letzter Synchronierungsfehler': 'last_sync_error',
     'Phasendifferenz': 'phase_offset',
     'Präzision': 'precision',
+    'Quelle': 'source',
     'Sprungindikator': 'leap_indicator',
     'Stammabweichung': 'root_dispersion',
     'Stammverzögerung': 'root_delay',
@@ -93,11 +107,21 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for the time since "Last Good Sync", in seconds. '
+        help='CRIT threshold for the offset of the system clock, fast or slow, in '
+        'milliseconds. Supports Nagios ranges. '
         'Default: %(default)s',
         dest='CRIT',
-        type=int,
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-age',
+        help='CRIT threshold for the time since W32Time last synchronized the clock. '
+        'A duration such as `30m`, `2h` or `1D`; `0D` disables it. '
+        'Default: %(default)s',
+        dest='CRIT_AGE',
+        type=lib.args.duration,
+        default=DEFAULT_CRIT_AGE,
     )
 
     parser.add_argument(
@@ -134,11 +158,21 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for the time since "Last Good Sync", in seconds. '
+        help='WARN threshold for the offset of the system clock, fast or slow, in '
+        'milliseconds. Supports Nagios ranges. '
         'Default: %(default)s',
         dest='WARN',
-        type=int,
         default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-age',
+        help='WARN threshold for the time since W32Time last synchronized the clock. '
+        'A duration such as `30m`, `2h` or `1D`; `0D` disables it. '
+        'Default: %(default)s',
+        dest='WARN_AGE',
+        type=lib.args.duration,
+        default=DEFAULT_WARN_AGE,
     )
 
     args, _ = parser.parse_known_args()
@@ -177,7 +211,8 @@ def main():
     if retc != 0:
         # ERROR_SERVICE_NOT_ACTIVE, measured on a Windows 10 Pro 22H2 host outside a
         # domain: w32time starts on domain join only, otherwise just briefly for the
-        # weekly SynchronizeTime task. The code stays the same in every display language.
+        # weekly SynchronizeTime task. The code stays the same in every display
+        # language.
         if '0x80070426' in stdout:
             lib.base.oao(
                 'The Windows Time service (w32time) is not running, so this host does'
@@ -209,8 +244,9 @@ def main():
     precision = 0
     root_delay = 0
     root_dispersion = 0
+    source = ''
     stratum = None
-    time_since_last_good_sync_time = None
+    sync_age = None
 
     # analyze data
     # w32tm wraps a long value onto a line of its own, without a label ("... nur
@@ -234,12 +270,6 @@ def main():
             number = value.split('(')[0].split()[0] if value else ''
             if key == 'stratum':
                 stratum = int(number)
-                if stratum == 0:
-                    msg.append(f'No NTP server used {lib.base.state2str(STATE_WARN)}')
-                    state = STATE_WARN
-                if stratum >= args.STRATUM:
-                    msg.append(f'{line} {lib.base.state2str(STATE_WARN)}')
-                    state = STATE_WARN
             elif key == 'leap_indicator':
                 leap_indicator = int(number)
                 if leap_indicator != 0:
@@ -253,14 +283,11 @@ def main():
                 if int(number) != 0:
                     msg.append(f'{line} {lib.base.state2str(STATE_WARN)}')
                     state = STATE_WARN
+            elif key == 'source':
+                # "time.windows.com,0x8", "Local CMOS Clock", with flags cut off
+                source = value.split(',')[0].strip()
             elif key == 'time_since_last_good_sync_time':
-                time_since_last_good_sync_time = float(number.rstrip('s'))
-                local_state = lib.base.get_state(
-                    time_since_last_good_sync_time, args.WARN, args.CRIT
-                )
-                if local_state != STATE_OK:
-                    msg.append(f'{line} {lib.base.state2str(local_state)}')
-                state = lib.base.get_worst(local_state, state)
+                sync_age = round(float(number.rstrip('s')))
             else:
                 # clock_rate, phase_offset, root_delay, root_dispersion: seconds, as ms
                 milliseconds = float(number.rstrip('s')) * 1000
@@ -282,20 +309,61 @@ def main():
 
     # Without these two lines there is nothing to judge the synchronization by. Say so
     # instead of reporting a host whose output could not be read as healthy.
-    if stratum is None or time_since_last_good_sync_time is None:
+    if stratum is None or sync_age is None:
         lib.base.cu(
             'Unable to read the output of `w32tm /query /status /verbose`. It is'
             ' printed in a display language this check does not know. Supported:'
             ' English, German.\n\n' + stdout
         )
 
+    # "Phase Offset" already carries the sign of RFC 5905 and the other ntp-* checks:
+    # positive means the system clock is slow. Verified on Windows Server 2025 by
+    # moving the clock 700 ms ahead (Phase Offset -0.089 s) and behind (+0.081 s).
+    offset = round(phase_offset, 6) or 0.0
+
     # build the message
-    if state == STATE_OK:
-        msg.append('Everything is ok.')
+    if stratum == 0:
+        # not synchronized: there is no offset to judge. Either W32Time uses no NTP
+        # server ("Local CMOS Clock"), or it has not synchronized with its server yet,
+        # as for a while after a clock step. Seen on Windows Server 2025 after moving
+        # the clock 60 s ahead and `w32tm /resync`.
+        state = lib.base.get_worst(state, STATE_WARN)
+        if ' ' not in source and ('.' in source or ':' in source):
+            head = f'Not synchronized with NTP server {source}'
+        else:
+            head = f'No NTP server used (Source: {source or "none"})'
+        head += lib.base.state2str(STATE_WARN, prefix=' ')
+    else:
+        # the thresholds apply to the offset in both directions
+        offset_state = lib.base.get_state(
+            abs(offset), args.WARN, args.CRIT, _operator='range'
+        )
+        state = lib.base.get_worst(state, offset_state)
+        head = (
+            f'System clock is {abs(round(offset, 3))}ms'
+            f' {"slow" if offset > 0 else "fast"}'
+            f'{lib.base.state2str(offset_state, prefix=" ")} compared to the time'
+            f' W32Time derives from {source}, Stratum is {stratum}'
+        )
+        if stratum >= args.STRATUM:
+            stratum_state = STATE_WARN
+            state = lib.base.get_worst(state, stratum_state)
+            head += f' (is >= {args.STRATUM} {lib.base.state2str(stratum_state)})'
+        age_state = lib.base.get_state(
+            sync_age,
+            int(args.WARN_AGE) or None,
+            int(args.CRIT_AGE) or None,
+        )
+        state = lib.base.get_worst(state, age_state)
+        head += (
+            f', last synchronized {lib.human.seconds2human(sync_age)} ago'
+            f'{lib.base.state2str(age_state, prefix=" ")}'
+        )
+    msg.insert(0, head)
 
     perfdata += lib.base.get_perfdata(
         'clock_rate',
-        clock_rate,
+        round(clock_rate, 6),
         uom='ms',
         warn=None,
         crit=None,
@@ -311,15 +379,17 @@ def main():
         _min=0,
         _max=None,
     )
-    perfdata += lib.base.get_perfdata(
-        'phase_offset',
-        phase_offset,
-        uom='ms',
-        warn=None,
-        crit=None,
-        _min=None,
-        _max=None,
-    )
+    if stratum:
+        # without a time source, "Phase Offset" is a leftover of an earlier sync
+        perfdata += lib.base.get_perfdata(
+            'offset',
+            offset,
+            uom='ms',
+            warn=lib.base.symmetric_range(args.WARN),
+            crit=lib.base.symmetric_range(args.CRIT),
+            _min=None,
+            _max=None,
+        )
     perfdata += lib.base.get_perfdata(
         'precision',
         precision,
@@ -331,7 +401,7 @@ def main():
     )
     perfdata += lib.base.get_perfdata(
         'root_delay',
-        root_delay,
+        round(root_delay, 6),
         uom='ms',
         warn=None,
         crit=None,
@@ -340,7 +410,7 @@ def main():
     )
     perfdata += lib.base.get_perfdata(
         'root_dispersion',
-        root_dispersion,
+        round(root_dispersion, 6),
         uom='ms',
         warn=None,
         crit=None,
@@ -351,18 +421,19 @@ def main():
         'stratum',
         stratum,
         uom=None,
-        warn=args.STRATUM,
+        # --stratum warns from this stratum on, a perfdata range above its end
+        warn=args.STRATUM - 1,
         crit=None,
         _min=0,
         _max=16,
     )
     perfdata += lib.base.get_perfdata(
-        'time_since_last_good_sync_time',
-        time_since_last_good_sync_time,
+        'sync_age',
+        sync_age,
         uom='s',
-        warn=None,
-        crit=None,
-        _min=None,
+        warn=int(args.WARN_AGE) or None,
+        crit=int(args.CRIT_AGE) or None,
+        _min=0,
         _max=None,
     )
 

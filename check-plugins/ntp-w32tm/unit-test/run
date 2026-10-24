@@ -23,71 +23,34 @@ TESTS = [
         'test': 'stdout/stratum-4-synced-time-windows,,0',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok.',
-            'Leap Indicator: 0(no warning)',
-            'Stratum: 4 (secondary reference - syncd by (S)NTP)',
-            'Precision: -23 (119.209ns per tick)',
-            'Root Delay: 0.0296267s',
-            'Root Dispersion: 0.0448955s',
-            'ReferenceId: 0x28779426 (source IP:  40.119.148.38)',
-            'Last Successful Sync Time: 9/16/2023 12:47:56 PM',
-            'Source: time.windows.com,0x8',
-            'Poll Interval: 7 (128s)',
-            'Phase Offset: 0.0000039s',
-            'ClockRate: 0.0156250s',
-            'State Machine: 2 (Sync)',
-            'Time Source Flags: 0 (None)',
-            'Server Role: 0 (None)',
-            'Last Sync Error: 0 (The command completed successfully.)',
-            'Time since Last Good Sync Time: 7.8834592s',
+            'System clock is 0.004ms slow compared to the time W32Time derives from'
+            ' time.windows.com, Stratum is 4, last synchronized 8s ago\n',
+            "'offset'=0.0039ms;-300:300;-60000:60000 ",
+            "'stratum'=4;5;;0;16 ",
+            "'sync_age'=8s;36000;;0",
         ],
     },
     {
+        # leap indicator 3 and stratum 0: the phase offset is a leftover
         'id': 'warn-unsynced-time-windows',
         'test': 'stdout/unsynced-time-windows,,0',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'Leap Indicator: 3 (not synchronized) [WARNING], No NTP server used [WARNING], Last Sync Error: 1 (The computer did not resync because no time data was available.)',
-            'Leap Indicator: 3(not synchronized)',
-            'Stratum: 0 (unspecified)',
-            'Precision: -23 (119.209ns per tick)',
-            'Root Delay: 0.0267908s',
-            'Root Dispersion: 0.0402331s',
-            'ReferenceId: 0x00000000 (unspecified)',
-            'Last Successful Sync Time: 9/16/2023 12:52:13 PM',
-            'Source: time.windows.com,0x8',
-            'Poll Interval: 6 (64s)',
-            'Phase Offset: 0.7679486s',
-            'ClockRate: 0.0156250s',
-            'State Machine: 0 (Unset)',
-            'Time Source Flags: 0 (None)',
-            'Server Role: 0 (None)',
-            'Last Sync Error: 1 (The computer did not resync because no time data was available.)',
-            'Time since Last Good Sync Time: 19.2218793s',
+            'Not synchronized with NTP server time.windows.com [WARNING], Leap Indicator:'
+            ' 3 (not synchronized) [WARNING], Last Sync Error: 1 (The computer did'
+            ' not resync because no time data was available.) [WARNING]\n',
         ],
+        'assert-not-in': ["'offset'="],
     },
     {
         'id': 'ok-stratum-1-vm-ic',
         'test': 'stdout/stratum-1-vm-ic,,0',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok.',
-            'Leap Indicator: 0(no warning)',
-            'Stratum: 1 (primary reference - syncd by radio clock)',
-            'Precision: -23 (119.209ns per tick)',
-            'Root Delay: 0.0003538s',
-            'Root Dispersion: 0.0100002s',
-            'ReferenceId: 0x00000000 (unspecified)',
-            'Last Successful Sync Time: 5/23/2023 7:51:39 PM',
-            'Source: VM IC Time Synchronization Provider',
-            'Poll Interval: 6 (64s)',
-            'Phase Offset: -0.0000013s',
-            'ClockRate: 0.0156250s',
-            'State Machine: 2 (Sync)',
-            'Time Source Flags: 3 (Authenticated Hardware )',
-            'Server Role: 0 (None)',
-            'Last Sync Error: 0 (The command completed successfully.)',
-            'Time since Last Good Sync Time: 15.7344985s',
+            'System clock is 0.001ms fast compared to the time W32Time derives from'
+            ' VM IC Time Synchronization Provider, Stratum is 1, last synchronized'
+            ' 16s ago\n',
+            "'offset'=-0.0013ms;-300:300;-60000:60000 ",
         ],
     },
     {
@@ -95,47 +58,22 @@ TESTS = [
         'test': 'stdout/unsynced-local-cmos,,0',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'Leap Indicator: 3 (not synchronized) [WARNING], No NTP server used [WARNING], Last Sync Error: 1 (The computer did not resync because no time data was available.)',
-            'Leap Indicator: 3(not synchronized)',
-            'Stratum: 0 (unspecified)',
-            'Precision: -23 (119.209ns per tick)',
-            'Root Delay: 0.0000000s',
-            'Root Dispersion: 0.0000000s',
-            'ReferenceId: 0x00000000 (unspecified)',
-            'Last Successful Sync Time: unspecified',
-            'Source: Local CMOS Clock',
-            'Poll Interval: 6 (64s)',
-            'Phase Offset: 0.0000000s',
-            'ClockRate: 0.0156250s',
-            'State Machine: 0 (Unset)',
-            'Time Source Flags: 0 (None)',
-            'Server Role: 0 (None)',
-            'Last Sync Error: 1 (The computer did not resync because no time data was available.)',
-            'Time since Last Good Sync Time: 187.9314763s',
+            'No NTP server used (Source: Local CMOS Clock) [WARNING], Leap Indicator:'
+            ' 3 (not synchronized) [WARNING], Last Sync Error: 1 (The computer did'
+            ' not resync because no time data was available.) [WARNING]\n',
         ],
+        'assert-not-in': ["'offset'="],
     },
     {
         'id': 'warn-stale-time-data',
         'test': 'stdout/stale-time-data,,0',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'Leap Indicator: 3 (last minute has 61 seconds) [WARNING], Last Sync Error: 2 (The computer did not resync because only stale time data was available.)',
-            'Leap Indicator: 3(last minute has 61 seconds)',
-            'Stratum: 3 (secondary reference - syncd by (S)NTP)',
-            'Precision: -6 (15.625ms per tick)',
-            'Root Delay: 0.1794868s',
-            'Root Dispersion: 4.6419912s',
-            'ReferenceId: 0x41371515 (source IP:  65.55.21.21)',
-            'Last Successful Sync Time: 2011-12-05 23:25:18',
-            'Source: time.windows.com,0x9',
-            'Poll Interval: 6 (64s)',
-            'Phase Offset: 0.0000695s',
-            'ClockRate: 0.0156243s',
-            'State Machine: 1 (Hold)',
-            'Time Source Flags: 0 (None)',
-            'Server Role: 0 (None)',
-            'Last Sync Error: 2 (The computer did not resync because only stale time data was available.)',
-            'Time since Last Good Sync Time: 1281.9919104s',
+            'System clock is 0.07ms slow compared to the time W32Time derives from'
+            ' time.windows.com, Stratum is 3, last synchronized 21m 22s ago, Leap'
+            ' Indicator: 3 (last minute has 61 seconds) [WARNING], Last Sync Error:'
+            ' 2 (The computer did not resync because only stale time data was'
+            ' available.) [WARNING]\n',
         ],
     },
     {
@@ -143,23 +81,10 @@ TESTS = [
         'test': 'stdout/stratum-5-dc-authenticated,,0',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok.',
-            'Leap Indicator: 0(no warning)',
-            'Stratum: 5 (secondary reference - syncd by (S)NTP)',
-            'Precision: -6 (15.625ms per tick)',
-            'Root Delay: 0.1093000s',
-            'Root Dispersion: 0.2018032s',
-            'ReferenceId: 0xABCDEFAB (source IP:  n.n.n.n)',
-            'Last Successful Sync Time: 11/18/2012 2:26:21 AM',
-            'Source: DCNAME.company.com',
-            'Poll Interval: 14 (16384s)',
-            'Phase Offset: -0.0027702s',
-            'ClockRate: 0.0156001s',
-            'State Machine: 2 (Sync)',
-            'Time Source Flags: 2 (Authenticated )',
-            'Server Role: 0 (None)',
-            'Last Sync Error: 0 (The command completed successfully.)',
-            'Time since Last Good Sync Time: 10651.6021203s',
+            'System clock is 2.77ms fast compared to the time W32Time derives from'
+            ' DCNAME.company.com, Stratum is 5, last synchronized 2h 57m ago\n',
+            "'offset'=-2.7702ms;-300:300;-60000:60000 ",
+            "'sync_age'=10652s;36000;;0",
         ],
     },
     {
@@ -167,71 +92,48 @@ TESTS = [
         'test': 'stdout/stratum-2-nist,,0',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok.',
-            'Leap Indicator: 0(no warning)',
-            'Stratum: 2 (secondary reference - syncd by (S)NTP)',
-            'Precision: -6 (15.625ms per tick)',
-            'Root Delay: 0.0312500s',
-            'Root Dispersion: 0.0314141s',
-            'ReferenceId: 0x81060F1E (source IP:  129.6.15.30)',
-            'Last Successful Sync Time: 3/25/2014 11:55:30 AM',
-            'Source: time-c.nist.gov',
-            'Poll Interval: 7 (128s)',
-            'Phase Offset: 0.0000667s',
-            'ClockRate: 0.0156001s',
-            'State Machine: 2 (Sync)',
-            'Time Source Flags: 0 (None)',
-            'Server Role: 64 (Time Service)',
-            'Last Sync Error: 0 (The command completed successfully.)',
-            'Time since Last Good Sync Time: 97.2535519s',
+            'System clock is 0.067ms slow compared to the time W32Time derives from'
+            ' time-c.nist.gov, Stratum is 2, last synchronized 1m 37s ago\n',
         ],
     },
     {
+        # 10h 49m without a sync: more than one missed poll at the maximum interval
         'id': 'warn-last-sync-too-old',
         'test': 'stdout/last-sync-too-old,,0',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'Time since Last Good Sync Time: 38943.4367708s [WARNING]',
-            'Leap Indicator: 0(no warning)',
-            'Stratum: 4 (secondary reference - syncd by (S)NTP)',
-            'Precision: -6 (15.625ms per tick)',
-            'Root Delay: 0.0937500s',
-            'Root Dispersion: 1.0042565s',
-            'ReferenceId: 0xDEADBEEF (source IP:  n.n.n.n)',
-            'Last Successful Sync Time: 10/24/2012 8:25:56 AM',
-            'Source: DCName.acmecorp.com',
-            'Poll Interval: 11 (2048s)',
-            'Phase Offset: 0.1063193s',
-            'ClockRate: 0.0156005s',
-            'State Machine: 1 (Hold)',
-            'Time Source Flags: 2 (Authenticated )',
-            'Server Role: 0 (None)',
-            'Last Sync Error: 0 (The command completed successfully.)',
-            'Time since Last Good Sync Time: 38943.4367708s',
+            'System clock is 106.319ms slow compared to the time W32Time derives from'
+            ' DCName.acmecorp.com, Stratum is 4, last synchronized 10h 49m ago'
+            ' [WARNING]\n',
+            "'sync_age'=38943s;36000;;0",
         ],
+    },
+    {
+        # the thresholds apply to the offset in both directions
+        'id': 'warn-offset-fast',
+        'test': 'stdout/stratum-5-dc-authenticated,,0',
+        'params': '--warning=2 --critical=1000',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'System clock is 2.77ms fast [WARNING] compared to',
+            "'offset'=-2.7702ms;-2:2;-1000:1000 ",
+        ],
+    },
+    {
+        'id': 'crit-offset-slow',
+        'test': 'stdout/last-sync-too-old,,0',
+        'params': '--warning=50 --critical=100 --warning-age=0D',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['System clock is 106.319ms slow [CRITICAL] compared to'],
     },
     {
         'id': 'ok-stratum-2-vm-ic',
         'test': 'stdout/stratum-2-vm-ic,,0',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok.',
-            'Leap Indicator: 0(no warning)',
-            'Stratum: 2 (secondary reference - syncd by (S)NTP)',
-            'Precision: -6 (15.625ms per tick)',
-            'Root Delay: 0.0000000s',
-            'Root Dispersion: 0.0100000s',
-            'ReferenceId: 0x564D5450 (source IP:  86.77.84.80)',
-            'Last Successful Sync Time: 28/08/2014 08.52.00',
-            'Source: VM IC Time Synchronization Provider',
-            'Poll Interval: 6 (64s)',
-            'Phase Offset: 0.0051939s',
-            'ClockRate: 0.0156215s',
-            'State Machine: 2 (Sync)',
-            'Time Source Flags: 3 (Authenticated Hardware )',
-            'Server Role: 64 (Time Service)',
-            'Last Sync Error: 0 (The command completed successfully.)',
-            'Time since Last Good Sync Time: 3.3291425s',
+            'System clock is 5.194ms slow compared to the time W32Time derives from'
+            ' VM IC Time Synchronization Provider, Stratum is 2, last synchronized 3s'
+            ' ago\n',
         ],
     },
     {
@@ -239,23 +141,9 @@ TESTS = [
         'test': 'stdout/unsynced-local-cmos-poll10,,0',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'Leap Indicator: 3 (not synchronized) [WARNING], No NTP server used [WARNING], Last Sync Error: 1 (The computer did not resync because no time data was available.)',
-            'Leap Indicator: 3(not synchronized)',
-            'Stratum: 0 (unspecified)',
-            'Precision: -23 (119.209ns per tick)',
-            'Root Delay: 0.0000000s',
-            'Root Dispersion: 0.0000000s',
-            'ReferenceId: 0x00000000 (unspecified)',
-            'Last Successful Sync Time: unspecified',
-            'Source: Local CMOS Clock',
-            'Poll Interval: 10 (1024s)',
-            'Phase Offset: 0.0000000s',
-            'ClockRate: 0.0156250s',
-            'State Machine: 0 (Unset)',
-            'Time Source Flags: 0 (None)',
-            'Server Role: 0 (None)',
-            'Last Sync Error: 1 (The computer did not resync because no time data was available.)',
-            'Time since Last Good Sync Time: 19.4881785s',
+            'No NTP server used (Source: Local CMOS Clock) [WARNING], Leap Indicator:'
+            ' 3 (not synchronized) [WARNING], Last Sync Error: 1 (The computer did'
+            ' not resync because no time data was available.) [WARNING]\n',
         ],
     },
     # German fixtures: captured through the Icinga 2 agent (LocalSystem) on Windows
@@ -267,37 +155,34 @@ TESTS = [
         'test': 'stdout/de-stratum-5-synced,,0',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok.',
-            'Stratum: 5 (Sekundärreferenz - synchr. über (S)NTP)',
+            'System clock is 0.043ms fast compared to the time W32Time derives from'
+            ' time.windows.com, Stratum is 5, last synchronized 52s ago\n',
+            "'clock_rate'=15.625ms ",
             "'leap_indicator'=0;",
+            "'offset'=-0.0433ms;-300:300;-60000:60000 ",
             "'precision'=-23 ",
-            "'stratum'=5;6;",
-            "'time_since_last_good_sync_time'=51.6640258s",
+            "'root_delay'=16.5359ms ",
+            "'root_dispersion'=7771.3661ms ",
+            "'stratum'=5;5;",
+            "'sync_age'=52s;36000;;0",
         ],
-        'assert-regex': (
-            r"'clock_rate'=15\.625\d*ms.*'phase_offset'=-0\.0433\d*ms"
-            r".*'root_delay'=16\.535\d*ms.*'root_dispersion'=7771\.366\d*ms"
-        ),
     },
     {
         'id': 'warn-de-last-sync-too-old',
         'test': 'stdout/de-stratum-5-synced,,0',
-        'params': '--warning=30 --critical=3600',
+        'params': '--warning-age=30s --critical-age=1h',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'Zeit seit der letzten erfolgr. Synchronisierungszeit: 51.6640258s'
-            ' [WARNING]',
+            'last synchronized 52s ago [WARNING]',
+            "'sync_age'=52s;30;3600;0",
         ],
     },
     {
         'id': 'crit-de-last-sync-too-old',
         'test': 'stdout/de-stratum-5-synced,,0',
-        'params': '--warning=10 --critical=30',
+        'params': '--warning-age=10s --critical-age=30s',
         'assert-retc': STATE_CRIT,
-        'assert-in': [
-            'Zeit seit der letzten erfolgr. Synchronisierungszeit: 51.6640258s'
-            ' [CRITICAL]',
-        ],
+        'assert-in': ['last synchronized 52s ago [CRITICAL]'],
     },
     {
         'id': 'warn-de-stratum-too-high',
@@ -305,7 +190,8 @@ TESTS = [
         'params': '--stratum=5',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'Stratum: 5 (Sekundärreferenz - synchr. über (S)NTP) [WARNING]',
+            'derives from time.windows.com, Stratum is 5 (is >= 5 [WARNING]),'
+            ' last synchronized 52s ago',
         ],
     },
     {
@@ -313,13 +199,14 @@ TESTS = [
         'test': 'stdout/de-unsynced-local-cmos,,0',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'Sprungindikator: 3 (nicht synchronisiert) [WARNING], No NTP server used [WARNING],'
-            ' Letzter Synchronierungsfehler: 1 (Der Computer wurde nicht'
-            ' synchronisiert, da keine Zeitdaten verfügbar waren.)',
+            'No NTP server used (Source: Local CMOS Clock) [WARNING],'
+            ' Sprungindikator: 3 (nicht synchronisiert) [WARNING], Letzter'
+            ' Synchronierungsfehler: 1 (Der Computer wurde nicht synchronisiert, da'
+            ' keine Zeitdaten verfügbar waren.)',
             "'leap_indicator'=3;",
-            "'stratum'=0;6;",
+            "'stratum'=0;5;",
         ],
-        'assert-not-in': ['Everything is ok.'],
+        'assert-not-in': ["'offset'="],
     },
     {
         # Synthetic: stands in for output in a display language the check does not
@@ -329,7 +216,7 @@ TESTS = [
         'test': 'stdout/empty-output,,0',
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Unable to read the output of `w32tm /query /status /verbose`'],
-        'assert-not-in': ['Everything is ok.'],
+        'assert-not-in': ['System clock is'],
     },
     {
         # Captured on Windows 10 Pro 22H2 (German UI) outside a domain, where w32time

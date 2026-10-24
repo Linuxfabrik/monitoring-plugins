@@ -8,6 +8,9 @@
                 "--critical": {
                     "value": "$ntp_w32tm_windows_critical$"
                 },
+                "--critical-age": {
+                    "value": "$ntp_w32tm_windows_critical_age$"
+                },
                 "--no-perfdata": {
                     "set_if": "$ntp_w32tm_windows_no_perfdata$"
                 },
@@ -19,6 +22,9 @@
                 },
                 "--warning": {
                     "value": "$ntp_w32tm_windows_warning$"
+                },
+                "--warning-age": {
+                    "value": "$ntp_w32tm_windows_warning_age$"
                 }
             },
             "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\ntp-w32tm.exe",
@@ -51,6 +57,16 @@
                 },
                 {
                     "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -96,7 +112,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the Windows Time Service (w32tm) status, including clock offset, stratum, and time source. Useful for diagnosing time synchronization issues on Windows servers. Reads the output in English and German. Alerts when the time since the last successful synchronization exceeds the configured thresholds, when no time source is used or its stratum is too high, when a leap second is announced, and when the last synchronization failed.",
+            "notes": "Checks how far the system clock is off from the time the Windows Time service (W32Time) derives from its time source, in milliseconds, and how long ago it last synchronized. Alerts when the offset or the time since the last synchronization exceeds the configured thresholds, when the stratum is too high, when no time source is used, when a leap second is announced, or when the last synchronization failed. Reads the output in English and German.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ntp-w32tm/",
             "object_name": "tpl-service-ntp-w32tm-windows",
             "object_type": "template",
@@ -108,11 +124,13 @@
             "vars": {
                 "criticality": "C",
                 "ntp_w32tm_windows_always_ok": false,
-                "ntp_w32tm_windows_critical": 129600,
+                "ntp_w32tm_windows_critical": "60000",
+                "ntp_w32tm_windows_critical_age": "0D",
                 "ntp_w32tm_windows_no_perfdata": false,
                 "ntp_w32tm_windows_stratum": 6,
                 "ntp_w32tm_windows_timeout": 8,
-                "ntp_w32tm_windows_warning": 28800
+                "ntp_w32tm_windows_warning": "300",
+                "ntp_w32tm_windows_warning_age": "10h"
             },
             "volatile": null,
             "zone": null,
@@ -132,7 +150,7 @@
         "2": {
             "varname": "ntp_w32tm_windows_critical",
             "caption": "NTP W32Tm: Critical",
-            "description": "CRIT threshold for the time since \"Last Good Sync\", in seconds.",
+            "description": "CRIT threshold for the offset of the system clock, fast or slow, in milliseconds. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -141,6 +159,17 @@
             "uuid": "fa437e67-a3e6-430f-906c-ad6330db9ffa"
         },
         "3": {
+            "varname": "ntp_w32tm_windows_critical_age",
+            "caption": "NTP W32Tm: Critical Age",
+            "description": "CRIT threshold for the time since W32Time last synchronized the clock. A duration such as `30m`, `2h` or `1D`; `0D` disables it.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "08e3409a-4c83-4564-8a7c-d2ecee75154b"
+        },
+        "4": {
             "varname": "ntp_w32tm_windows_no_perfdata",
             "caption": "NTP W32Tm: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -149,10 +178,10 @@
             "settings": {},
             "uuid": "acc532ad-b96c-4a4b-8568-d07edd771ae1"
         },
-        "4": {
+        "5": {
             "varname": "ntp_w32tm_windows_stratum",
             "caption": "NTP W32Tm: Stratum",
-            "description": "Warns if the determined stratum of the time server is greater than or equal to this value. Stratum 1 indicates a computer with a locally attached reference clock. A computer that is synchronised to a stratum 1 computer is at stratum 2. A computer that is synchronised to a stratum 2 computer is at stratum 3, and so on.",
+            "description": "Warns if the stratum of this host is greater than or equal to this value. Stratum 1 indicates a computer with a locally attached reference clock. A computer that is synchronised to a stratum 1 computer is at stratum 2. A computer that is synchronised to a stratum 2 computer is at stratum 3, and so on.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -160,7 +189,7 @@
             },
             "uuid": "8f9f18cb-43d7-45df-99ac-3fc76a0d03a2"
         },
-        "5": {
+        "6": {
             "varname": "ntp_w32tm_windows_timeout",
             "caption": "NTP W32Tm: Timeout",
             "description": "Network timeout in seconds.",
@@ -171,16 +200,27 @@
             },
             "uuid": "8457b3d2-e360-411f-b813-978424265783"
         },
-        "6": {
+        "7": {
             "varname": "ntp_w32tm_windows_warning",
             "caption": "NTP W32Tm: Warning",
-            "description": "WARN threshold for the time since \"Last Good Sync\", in seconds.",
+            "description": "WARN threshold for the offset of the system clock, fast or slow, in milliseconds. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "308ec0c1-ec53-4f57-8f90-9078fa714248"
+        },
+        "8": {
+            "varname": "ntp_w32tm_windows_warning_age",
+            "caption": "NTP W32Tm: Warning Age",
+            "description": "WARN threshold for the time since W32Time last synchronized the clock. A duration such as `30m`, `2h` or `1D`; `0D` disables it.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "97f5916c-b326-4010-b3e9-b97841ef8e02"
         }
     }
 }
