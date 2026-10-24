@@ -51,7 +51,7 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold for the number of services in the
-                        expected status. Accepts Nagios ranges. Default: None
+                        expected status. Supports Nagios ranges. Default: None
   --extend-starttype {automatic,disabled,manual}
                         Filter by service start type, appended to the default
                         or the `--starttype` list. Can be specified multiple
@@ -60,8 +60,8 @@ options:
                         Expected service status, appended to the default or
                         the `--status` list. Can be specified multiple times.
                         Example: `--extend-status=start_pending`.
-  --service SERVICE     Name of the Windows service(s) to check. Supports
-                        Python regular expressions (regex).
+  --service SERVICE     Name of the Windows service(s) to check. Uses Python
+                        regular expressions. Case-insensitive.
   --starttype {automatic,disabled,manual}
                         Filter by service start type. Replaces the default
                         list, use `--extend-starttype` to append to it. Can be
@@ -71,7 +71,7 @@ options:
                         use `--extend-status` to append to it. Can be
                         specified multiple times. Default: running.
   -w, --warning WARN    WARN threshold for the number of services in the
-                        expected status. Accepts Nagios ranges. Default: 1:
+                        expected status. Supports Nagios ranges. Default: 1:
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/service/

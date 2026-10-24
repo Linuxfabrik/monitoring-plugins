@@ -12,7 +12,6 @@
 
 import argparse
 import os
-import re
 import sys
 import uuid
 
@@ -27,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026101901'
+__version__ = '2026102401'
 
 DESCRIPTION = """Scans a logfile for matching patterns or regular expressions and alerts based on the
 number of matches found. Only the lines added since the previous run are scanned, and the
@@ -689,8 +688,14 @@ def main():
         lib.base.oao(result, STATE_UNKNOWN)
 
     # init some vars
-    compiled_warn_regex = [re.compile(item) for item in args.WARN_REGEX]
-    compiled_crit_regex = [re.compile(item) for item in args.CRIT_REGEX]
+    compiled_warn_regex = [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(args.WARN_REGEX, '--warning-regex')
+    ]
+    compiled_crit_regex = [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(args.CRIT_REGEX, '--critical-regex')
+    ]
     compiled_ignore = [
         lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
     ]

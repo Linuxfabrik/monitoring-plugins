@@ -63,6 +63,15 @@ def _db_glob(fixture_basename):
 # flags the scenario needs.
 TESTS = [
     {
+        # an invalid regex is a wrong parameter, named instead of a traceback
+        'id': 'unknown-invalid-warning-regex',
+        'test': 'stdout/django-app-clean,,0',
+        'params': '--filename=stdout/django-app-clean --warning-regex="("',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['`(` (--warning-regex) contains one or more errors'],
+        'assert-not-in': ['Traceback'],
+    },
+    {
         'id': 'ok-clean-log-no-matches',
         'test': 'stdout/django-app-clean,,0',
         'params': (

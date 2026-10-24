@@ -28,7 +28,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100801'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks the state of one or more Windows services. Accepts the case-insensitive
 service name (not the display name) and supports regular expressions to match multiple
@@ -79,7 +79,7 @@ def parse_args():
         '-c',
         '--critical',
         help='CRIT threshold for the number of services in the expected status. '
-        'Accepts Nagios ranges. '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='CRIT',
         default=DEFAULT_CRIT,
@@ -112,7 +112,7 @@ def parse_args():
     parser.add_argument(
         '--service',
         help='Name of the Windows service(s) to check. '
-        'Supports Python regular expressions (regex).',
+        'Uses Python regular expressions. Case-insensitive.',
         dest='SERVICE',
         required=True,
     )
@@ -151,7 +151,7 @@ def parse_args():
         '-w',
         '--warning',
         help='WARN threshold for the number of services in the expected status. '
-        'Accepts Nagios ranges. '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='WARN',
         default=DEFAULT_WARN,
@@ -264,10 +264,9 @@ def main():
     # for a service that very much exists. By splitting the two phases
     # we can give an actionable error when the regex found candidates
     # but the start_type filter removed all of them ([#921]).
-    try:
-        compiled_service_regex = re.compile(args.SERVICE, re.IGNORECASE)
-    except re.error as rerr:
-        lib.base.cu(f'Invalid regex "{args.SERVICE}": {rerr}')
+    compiled_service_regex = lib.base.coe(
+        lib.txt.compile_regex(args.SERVICE, '--service', flags=re.IGNORECASE)
+    )
 
     # fetch data
     regex_matches = collect_matches(compiled_service_regex, args.TEST)
