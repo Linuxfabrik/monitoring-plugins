@@ -54,15 +54,13 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/journald-usage/
 ## Usage Examples
 
 ```bash
-./journald-usage --warning=500
+./journald-usage --warning=1
 ```
 
 Output:
 
 ```text
-3.0GiB used [WARNING] (sum of all archived and active journal files; SystemMaxUse=595M SystemKeepFree=1388M).
-Configure `SystemMaxUse` and `SystemKeepFree` in `/etc/systemd/journald.conf/`, or remove the oldest archived
-journal files by using `journalctl --vacuum-size=`, `--vacuum-time=` and/or `--vacuum-files=`.
+3.7GiB used [WARNING] (sum of all archived and active journal files; SystemMaxUse=4G SystemKeepFree=1M). Configure `SystemMaxUse` and `SystemKeepFree` in `/etc/systemd/journald.conf` or a drop-in below `/etc/systemd/journald.conf.d/`, or remove the oldest archived journal files with `sudo journalctl --vacuum-size=...`, `--vacuum-time=...` and/or `--vacuum-files=...`.
 ```
 
 
@@ -71,6 +69,7 @@ journal files by using `journalctl --vacuum-size=`, `--vacuum-time=` and/or `--v
 * OK if the total journal disk usage is below `--warning` (default: 6 GiB).
 * WARN if the total journal disk usage is >= `--warning` (default: 6 GiB).
 * UNKNOWN if the account running the check may not read the journal, or only the part of it that belongs to the account itself.
+* UNKNOWN if `journalctl --disk-usage` or `systemd-analyze cat-config` fails.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

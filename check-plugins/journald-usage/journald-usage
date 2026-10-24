@@ -19,10 +19,10 @@ import lib.human
 import lib.lftest
 import lib.shell
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks the current disk usage of all systemd journal files (archived and active
 combined). Alerts when journal disk usage exceeds the configured thresholds.
@@ -130,11 +130,8 @@ def main():
                 'via sudo, or add the account running it to the `systemd-journal` '
                 'group.'
             )
-        lib.base.oao(
-            f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
-            STATE_WARN,
-            always_ok=args.ALWAYS_OK,
-        )
+        # a journal that cannot be measured says nothing about how full it is
+        lib.base.cu(f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}')
 
     # journalctl exits 0 and only adds a hint on stderr when the account may read some
     # journal files but not all of them, typically its own user journal but not the
@@ -153,11 +150,7 @@ def main():
         cmd = ['systemd-analyze', 'cat-config', 'systemd/journald.conf']
         config, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         if retc != 0:
-            lib.base.oao(
-                f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
-                STATE_WARN,
-                always_ok=args.ALWAYS_OK,
-            )
+            lib.base.cu(f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}')
         max_use, keep_free = extract_config(config)
     else:
         max_use, keep_free = SYSTEMD_DEFAULT_MAX_USE, SYSTEMD_DEFAULT_KEEP_FREE
@@ -175,8 +168,10 @@ def main():
     )
     value = lib.human.human2bytes(value)
 
-    # build the message
+    # analyze data
     state = lib.base.get_state(value, args.WARN * 1024 * 1024 * 1024, None)
+
+    # build the message
     msg += (
         f'{lib.human.bytes2human(value)} used{lib.base.state2str(state, prefix=" ")} '
         '(sum of all archived and active journal files; '
@@ -185,9 +180,11 @@ def main():
     if state != STATE_OK:
         msg += (
             '. Configure `SystemMaxUse` and `SystemKeepFree` in '
-            '`/etc/systemd/journald.conf/`, '
-            'or remove the oldest archived journal files by using '
-            '`journalctl --vacuum-size=`, `--vacuum-time=` and/or `--vacuum-files=`.'
+            '`/etc/systemd/journald.conf` or a drop-in below '
+            '`/etc/systemd/journald.conf.d/`, '
+            'or remove the oldest archived journal files with '
+            '`sudo journalctl --vacuum-size=...`, `--vacuum-time=...` and/or '
+            '`--vacuum-files=...`.'
         )
     perfdata += lib.base.get_perfdata(
         'journald-usage',

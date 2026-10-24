@@ -23,14 +23,14 @@ import lib.logmatch
 import lib.shell
 import lib.time
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026102401'
 
 DESCRIPTION = """Queries the systemd journal using journalctl and alerts when matching entries are found.
-Supports all journalctl filtering options such as --unit, --priority, --facility,
---identifier, and --grep. Useful for monitoring specific log patterns in real time.
+Supports the journalctl filtering options --unit, --user-unit, --priority, --facility,
+--identifier and --since. Useful for monitoring specific log patterns in real time.
 Optionally asks the monitoring server whether the service running this check is
 acknowledged: where it is, the matching events are suppressed on following runs so
 they don't re-alert.
@@ -325,6 +325,27 @@ def migrate_ack_state(conn):
     lib.base.coe(lib.db_sqlite.drop_table(conn, table='acknowledged_events'))
 
 
+def message_text(value):
+    """Return the text of a journal field as journalctl writes it in JSON, or None.
+
+    A field that is not printable UTF-8 (colour codes, a binary blob) comes as an
+    array of byte values, and a field an entry carries several times as an array of
+    its values, each a string, null or such a byte array (docs/JOURNAL_EXPORT_FORMATS.md
+    and man/journalctl.xml in the systemd source, 263~devel).
+    """
+    if isinstance(value, str):
+        return value
+    if not isinstance(value, list):
+        return None
+    if all(isinstance(byte, int) for byte in value):
+        try:
+            return lib.txt.to_text(bytes(value), errors='strict_or_latin1')
+        except ValueError:
+            return None
+    parts = [message_text(part) for part in value]
+    return ' '.join(part for part in parts if part) or None
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -482,11 +503,10 @@ def main():
                 'via sudo, or add the account running it to the `systemd-journal` '
                 'group.'
             )
-        lib.base.oao(
-            f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
-            STATE_WARN,
-            always_ok=args.ALWAYS_OK,
-        )
+        # what journalctl refuses is a parameter it cannot use, `--since=garbage`
+        # for example, or a journal it cannot read; neither says anything about the
+        # events this check looks for
+        lib.base.cu(f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}')
 
     # journalctl exits 0 and only adds a hint on stderr when the account may read some
     # journal files but not all of them, typically its own user journal but not the
@@ -533,6 +553,7 @@ def main():
             except Exception:
                 lib.base.cu(f'Unable to interpret journald event: {item}')
 
+            event['MESSAGE'] = message_text(event.get('MESSAGE'))
             if event['MESSAGE'] is None:
                 continue
             if any(

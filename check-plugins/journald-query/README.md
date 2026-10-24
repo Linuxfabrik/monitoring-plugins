@@ -3,7 +3,7 @@
 
 ## Overview
 
-Queries the systemd journal using journalctl and alerts when matching entries are found. Supports all journalctl filtering options such as `--unit`, `--priority`, `--facility`, `--identifier`, and `--grep`. Useful for monitoring specific log patterns in real time. Requires root or sudo.
+Queries the systemd journal using journalctl and alerts when matching entries are found. Supports the journalctl filtering options `--unit`, `--user-unit`, `--priority`, `--facility`, `--identifier` and `--since`. Useful for monitoring specific log patterns in real time. Requires root or sudo.
 
 **Important Notes:**
 
@@ -63,8 +63,8 @@ usage: journald-query [-h] [-V] [--always-ok] [--facility FACILITY]
                       [--user-unit USER_UNIT]
 
 Queries the systemd journal using journalctl and alerts when matching entries
-are found. Supports all journalctl filtering options such as --unit,
---priority, --facility, --identifier, and --grep. Useful for monitoring
+are found. Supports the journalctl filtering options --unit, --user-unit,
+--priority, --facility, --identifier and --since. Useful for monitoring
 specific log patterns in real time. Optionally asks the monitoring server
 whether the service running this check is acknowledged: where it is, the
 matching events are suppressed on following runs so they don't re-alert.
