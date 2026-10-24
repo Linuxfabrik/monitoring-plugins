@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102301'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks how far the system clock is off from the time of an NTP server,
 in milliseconds, measured by the check itself and not taken from the local time service.
@@ -591,12 +591,16 @@ def main():
     # parameter, not an unreachable server
     if args.HOSTNAME != 'auto':
         try:
+            # an empty name or one with a blank is no host name either; the resolver
+            # answers the one with an error and waits out the timeout on the other
+            if not args.HOSTNAME.strip() or any(c.isspace() for c in args.HOSTNAME):
+                raise UnicodeError
             args.HOSTNAME.encode('idna')
         except UnicodeError:
             lib.base.cu(
                 f'Invalid --hostname "{args.HOSTNAME}": not a valid host name, for'
-                ' example because of an empty label ("..") or a label longer than 63'
-                ' characters.',
+                ' example because it is empty, holds a blank, has an empty label ("..")'
+                ' or a label longer than 63 characters.',
                 traceback=False,
             )
 

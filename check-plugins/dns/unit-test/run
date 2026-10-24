@@ -118,6 +118,28 @@ TESTS = [
         'assert-not-in': ['Traceback'],
     },
     {
+        'id': 'unknown-invalid-port',
+        'test': 'stdout/rocky8-name-not-known,,0',
+        'params': '--hostname=example.com --port=99999',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid --port 99999'],
+    },
+    {
+        # an empty name and one with a blank are no host names either
+        'id': 'unknown-empty-host-name',
+        'test': 'stdout/rocky8-name-not-known,,0',
+        'params': "--hostname=''",
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid --hostname "": not a valid host name'],
+    },
+    {
+        'id': 'unknown-host-name-with-a-blank',
+        'test': 'stdout/rocky8-name-not-known,,0',
+        'params': "'--hostname=a b'",
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid --hostname "a b": not a valid host name'],
+    },
+    {
         'id': 'warn-leap155-ipv4-literal-tcp6',
         'test': 'stdout/leap155-ipv4-literal-tcp6,,0',
         'params': '--hostname=192.0.2.1 --type=tcp6',

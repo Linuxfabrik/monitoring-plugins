@@ -23,7 +23,7 @@ import lib.net
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102301'
+__version__ = '2026102401'
 
 DESCRIPTION = """Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queries the
 name servers configured on the local machine (e.g. those listed in /etc/resolv.conf).
@@ -85,7 +85,9 @@ def parse_args():
     parser.add_argument(
         '-p',
         '--port',
-        help='Port number to query. Default: %(default)s',
+        help='Port number placed into the addresses the lookup returns. It does not change '
+        'the name server that is asked. '
+        'Default: %(default)s',
         dest='PORT',
         type=int,
         default=DEFAULT_PORT,
@@ -225,11 +227,22 @@ def main():
     # a name that cannot be encoded for DNS, such as one with an empty label, is a wrong
     # parameter, not a failed lookup
     try:
+        # an empty name or one with a blank is no host name either; the resolver
+        # answers the one with an error and waits out the timeout on the other
+        if not args.HOSTNAME.strip() or any(c.isspace() for c in args.HOSTNAME):
+            raise UnicodeError
         args.HOSTNAME.encode('idna')
     except UnicodeError:
         lib.base.cu(
             f'Invalid --hostname "{args.HOSTNAME}": not a valid host name, for example'
-            ' because of an empty label ("..") or a label longer than 63 characters.',
+            ' because it is empty, holds a blank, has an empty label ("..") or a label'
+            ' longer than 63 characters.',
+            traceback=False,
+        )
+
+    if not 0 <= args.PORT <= 65535:
+        lib.base.cu(
+            f'Invalid --port {args.PORT}: a port is a number from 0 to 65535.',
             traceback=False,
         )
 
@@ -283,7 +296,7 @@ def main():
     state = lib.base.get_state(runtime, args.WARN, args.CRIT, _operator='ge')
     perfdata = lib.base.get_perfdata(
         'time',
-        runtime,
+        round(runtime, 3),
         uom='ms',
         warn=args.WARN,
         crit=args.CRIT,

@@ -51,7 +51,9 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  -p, --port PORT       Port number to query. Default: 53
+  -p, --port PORT       Port number placed into the addresses the lookup
+                        returns. It does not change the name server that is
+                        asked. Default: 53
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --type {udp,udp6,tcp,tcp6}
                         Connection type to narrow the list of returned
@@ -84,6 +86,7 @@ Lookup for webserver.example.com returns 192.0.2.43 (ip4:53)
 * WARN if the name does not resolve, if the lookup returns no address, on socket errors, or if the lookup takes longer than `--timeout`.
 * WARN if the DNS lookup time is >= `--warning`.
 * CRIT if the DNS lookup time is >= `--critical`.
+* UNKNOWN if `--hostname` is not a valid host name, and on other invalid parameters.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

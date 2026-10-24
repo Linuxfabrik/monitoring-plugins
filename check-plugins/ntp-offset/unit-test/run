@@ -213,6 +213,21 @@ TESTS = [
         'assert-not-in': ['Traceback'],
     },
     {
+        # an empty name and one with a blank are no host names either
+        'id': 'unknown-empty-host-name',
+        'test': 'stdout/stratum-1-metas,,0',
+        'params': "--hostname=''",
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid --hostname "": not a valid host name'],
+    },
+    {
+        'id': 'unknown-host-name-with-a-blank',
+        'test': 'stdout/stratum-1-metas,,0',
+        'params': "'--hostname=a b'",
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid --hostname "a b": not a valid host name'],
+    },
+    {
         'id': 'warn-auto-no-time-service',
         'test': 'stdout/stratum-3-cloudflare,,0',
         'assert-retc': STATE_WARN,
