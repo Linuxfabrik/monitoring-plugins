@@ -155,7 +155,7 @@ Build, CI/CD:
 Monitoring Plugins:
 
 * other local users can no longer plant state files on Windows, on all plugins
-* \*-logfile: a swapped directory can no longer escape `/var/log`
+* \*-logfile: a swapped file or directory reveals nothing outside `/var/log`
 * acmesh-status, docker-service, docker-swarm: no longer reveal which files exist
 * apache-httpd-security, nginx-security: `--command` runs only root-owned system binaries
 * fail2ban: `--socket` must be root-owned
@@ -163,7 +163,7 @@ Monitoring Plugins:
 * logfile: cannot escape `/var/log`, works on Windows again ([#1587](https://github.com/Linuxfabrik/monitoring-plugins/issues/1587))
 * mastodon-version: `--path` no longer follows symlinks out of the installation
 * metabase-stats: no session token for another instance, works again
-* mysql-logfile: a non-regular `--defaults-file` no longer hangs the check
+* mysql-logfile: `--defaults-file` has to belong to the account calling sudo
 * mysql-user-security: no longer prints a weak password it found
 * nextcloud-\*: `--path` runs `occ` only from a root-controlled installation
 * openvpn-client-list: confined to `/var/log`, supports OpenVPN 2.7 and IPv6

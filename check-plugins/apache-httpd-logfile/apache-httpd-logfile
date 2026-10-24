@@ -15,7 +15,6 @@ import datetime
 import ipaddress
 import os
 import re
-import stat
 import sys
 
 import lib.args
@@ -31,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102301'
+__version__ = '2026102401'
 
 DESCRIPTION = """Scans the Apache HTTP Server error log for the events an administrator
 has to act on: children that died on a signal or had to be killed at a stop, a server that
@@ -1859,57 +1858,51 @@ def main():
         '/var/log',
         os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
     ]
-    # A size is known for plain on-disk files only, so the size fact and its
-    # perfdata series stay out of the output for a unit or a container. Where
-    # several files are read, the series is what they add up to.
-    sizes = {}
-    for server_log in server_logs:
-        kind, _, target = lib.base.coe(lib.logsource.parse(server_log))
-        if kind != lib.logsource.KIND_FILE:
-            continue
-        # Only inside the allowed roots. For any other path, whether it exists, is
-        # a regular file or is empty would tell a caller of this root check about
-        # a file they cannot read; the read below refuses such a path with the
-        # same answer whether it exists or not.
-        if not lib.disk.is_within(target, allowed_roots):
-            continue
-        # Report a path that is not a regular file before reading it, so the
-        # admin hears about a directory or a device rather than about an I/O
-        # error further down. With one source that is the whole answer; with
-        # several it is one source of many and the run goes on.
-        log_stat = lib.disk.stat(target)
-        if log_stat is None or not stat.S_ISREG(log_stat.st_mode):
-            if len(server_logs) == 1:
-                lib.base.oao(
-                    f'Logging seems to be configured, but `{target}` does not'
-                    f' seem to be an existing regular file. Check the path and'
-                    f' file permissions, or provide the `--server-log`'
-                    f' parameter.',
-                    STATE_WARN,
-                )
-            continue
-        sizes[server_log] = log_stat.st_size
-    if len(server_logs) == 1 and sizes.get(server_logs[0]) == 0:
-        # An empty log file is a deterministic "no events observed" state,
-        # not an unknown one - typical right after logrotate fires.
-        lib.base.oao(
-            f'Log file `{server_logs[0]}` is empty. Assuming log-rotation.',
-            STATE_OK,
-        )
-
     # No position is kept on purpose: this check reports on a window of the log,
     # counting startups, restarts and shutdowns next to the problems, so every
     # run has to see the whole window rather than only what is new.
-    result = lib.base.coe(
-        lib.logsource.read_many(
-            server_logs,
-            allowed_roots=allowed_roots,
-            dedup_key=dedup_key,
-            max_lines=MAXLINES,
-            rotated=ROTATED_FILES,
-            timeout=args.TIMEOUT,
-        )
+    success, result = lib.logsource.read_many(
+        server_logs,
+        allowed_roots=allowed_roots,
+        dedup_key=dedup_key,
+        max_lines=MAXLINES,
+        rotated=ROTATED_FILES,
+        timeout=args.TIMEOUT,
     )
+    if not success:
+        # One file and nothing else: name the usual causes. Only for a path inside the
+        # allowed roots; for any other the read refused it with the same answer whether
+        # it exists or not, and that answer stands.
+        kind, _, target = lib.base.coe(lib.logsource.parse(server_logs[0]))
+        if (
+            len(server_logs) == 1
+            and kind == lib.logsource.KIND_FILE
+            and lib.disk.is_within(target, allowed_roots)
+        ):
+            lib.base.oao(
+                f'Logging seems to be configured, but `{target}` does not'
+                f' seem to be an existing regular file. Check the path and'
+                f' file permissions, or provide the `--server-log`'
+                f' parameter.',
+                STATE_WARN,
+            )
+        lib.base.cu(result)
+    # A size is known for plain on-disk files only, so the size fact and its
+    # perfdata series stay out of the output for a unit or a container. Where
+    # several files are read, the series is what they add up to. The size comes from
+    # the handle each file was read from, never from a second look at the path,
+    # which could see another file by then, one outside the allowed roots included.
+    sizes = {
+        item['label']: item['size'] for item in result['sources'] if 'size' in item
+    }
+    if len(server_logs) == 1 and sizes.get(result['sources'][0]['label']) == 0:
+        # An empty log file is a deterministic "no events observed" state,
+        # not an unknown one - typical right after logrotate fires.
+        lib.base.oao(
+            f'Log file `{result["sources"][0]["label"]}` is empty.'
+            ' Assuming log-rotation.',
+            STATE_OK,
+        )
     # What to call the whole of what was read, for the messages that have to
     # name it before the summary below spells every source out.
     # Abbreviated here, because this one shares a line with a sentence; the

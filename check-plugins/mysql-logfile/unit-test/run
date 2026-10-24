@@ -26,6 +26,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, '..')
 
@@ -456,6 +457,31 @@ class TestDefaultsFile(unittest.TestCase):
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
 
+    @unittest.skipUnless(hasattr(os, 'geteuid'), 'POSIX ownership only')
+    def test_only_a_regular_file_of_the_invoking_account_is_used(self):
+        scratch = tempfile.mkdtemp(prefix='mysql-logfile-defaults-')
+        try:
+            own = os.path.join(scratch, 'my.cnf')
+            with open(own, 'w', encoding='utf-8') as handle:
+                handle.write('[client]\nuser=monitoring\n')
+            link = os.path.join(scratch, 'link.cnf')
+            os.symlink(own, link)
+            env = {key: value for key, value in os.environ.items() if key != 'SUDO_UID'}
+            with mock.patch.dict(os.environ, env, clear=True):
+                handle = mysql_logfile.open_defaults_file(own)
+                self.assertIsNotNone(handle)
+                handle.close()
+                # a symlink, a missing file and somebody else's file answer alike
+                for refused in (link, os.path.join(scratch, 'missing.cnf')):
+                    self.assertIsNone(mysql_logfile.open_defaults_file(refused))
+                if os.geteuid() != 0:
+                    self.assertIsNone(mysql_logfile.open_defaults_file('/etc/hostname'))
+            # under sudo, the file has to belong to the account sudo was called from
+            with mock.patch.dict(os.environ, {'SUDO_UID': str(os.geteuid() + 1)}):
+                self.assertIsNone(mysql_logfile.open_defaults_file(own))
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
+
 
 class TestLogFileDiscovery(unittest.TestCase):
     """The log path comes from the server, which a caller of this root check can
@@ -485,6 +511,15 @@ class TestLogFileDiscovery(unittest.TestCase):
                 ),
                 path,
             )
+
+    def test_relative_path_is_relative_to_the_data_directory(self):
+        # where the server writes it, not where the check was started
+        self.assertEqual(
+            mysql_logfile.get_log_file_real_path(
+                'host.err', 'other', self.inside, [self.inside]
+            ),
+            self.fallback,
+        )
 
     def test_guessed_path_outside_the_roots_is_not_probed(self):
         guessed = os.path.join(self.outside, 'host.err')

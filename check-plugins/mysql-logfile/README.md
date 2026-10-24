@@ -135,7 +135,9 @@ options:
                         cache expires, in minutes. Default: 7200
   --defaults-file DEFAULTS_FILE
                         MySQL/MariaDB cnf file to read user, host and password
-                        from. Example: `--defaults-
+                        from. Has to be a regular file that belongs to the
+                        account running the check (the one calling sudo); any
+                        other is not used. Example: `--defaults-
                         file=/var/spool/icinga2/.my.cnf`. Default:
                         /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP

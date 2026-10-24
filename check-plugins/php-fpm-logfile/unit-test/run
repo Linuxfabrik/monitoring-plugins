@@ -601,5 +601,29 @@ class TestPathConfinement(unittest.TestCase):
             self.assertIn('Refusing to read', combined)
 
 
+class TestLogSize(unittest.TestCase):
+    """The size is that of the file the lines were read from, taken from the same
+    handle; a second look at the path could see another file, one outside the
+    allowed roots included."""
+
+    def _run(self, path):
+        return subprocess.run(
+            [PLUGIN, f'--server-log={path}'],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def test_size_is_that_of_the_file_read(self):
+        path = fixture('rocky9-clean-start.txt')
+        result = self._run(path)
+        self.assertIn(f"'php_fpm_logfile_size'={os.path.getsize(path)}B", result.stdout)
+
+    def test_a_missing_file_inside_the_roots_is_named(self):
+        result = self._run(fixture('missing.log'))
+        self.assertEqual(result.returncode, STATE_WARN, result.stdout)
+        self.assertIn('does not seem to be an existing regular file', result.stdout)
+
+
 if __name__ == '__main__':
     unittest.main()
