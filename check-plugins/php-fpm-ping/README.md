@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks whether PHP-FPM is alive by fetching its ping monitoring page. Alerts when the reply differs from the expected "pong" or the page cannot be fetched at all, at the level `--severity` sets.
+Checks whether PHP-FPM is alive by fetching its ping monitoring page. Alerts when the reply differs from the expected "pong" or the page cannot be fetched at all, at the level `--severity` sets. Reports how long the page took to answer.
 
 **Important Notes:**
 
@@ -51,7 +51,8 @@ usage: php-fpm-ping [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
 
 Checks whether PHP-FPM is alive by fetching its ping monitoring page. Alerts
 when the reply differs from the expected "pong" or the page cannot be fetched
-at all, at the level `--severity` sets.
+at all, at the level `--severity` sets. Reports how long the page took to
+answer.
 
 options:
   -h, --help            show this help message and exit
@@ -111,7 +112,7 @@ pong
 
 | Name | Type | Description |
 |----|----|----|
-| ping | Number | 0 (STATE_OK) if the response matches, 1 (STATE_WARN) or 2 (STATE_CRIT) otherwise. |
+| response_time | Seconds | How long the ping page took to answer. Missing when the page cannot be fetched at all. |
 
 
 ## Credits, License

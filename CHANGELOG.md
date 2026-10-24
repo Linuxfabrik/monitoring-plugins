@@ -56,7 +56,7 @@ Monitoring Plugins:
 * ntp-ntpd: alerts on the real clock offset and on a silent NTP server, `--stratum` applies to this host
 * ntp-w32tm: `--warning` and `--critical` check the clock offset, renamed metrics, works on German Windows
 * php-fpm-logfile: reports fatal errors and hung workers, fewer false alarms
-* php-fpm-ping: an unreachable ping page follows `--severity`
+* php-fpm-ping: an unreachable ping page follows `--severity`, perfdata `response_time` replaces `ping`
 * redfish-memory: fewer false alarms, detects defects on Fujitsu iRMC
 * redfish-sensors: CRIT only above the fatal threshold, fewer false alarms
 * redis-status, valkey-status: a refused login is UNKNOWN

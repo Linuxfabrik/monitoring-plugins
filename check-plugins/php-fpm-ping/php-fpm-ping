@@ -16,15 +16,16 @@ import sys
 import lib.args
 import lib.base
 import lib.lftest
+import lib.time
 import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100501'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks whether PHP-FPM is alive by fetching its ping monitoring page. Alerts when the
 reply differs from the expected "pong" or the page cannot be fetched at all, at the level
-`--severity` sets."""
+`--severity` sets. Reports how long the page took to answer."""
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
@@ -140,7 +141,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
+    response_time = None
     if args.TEST is None:
+        start = lib.time.now(as_type='float')
         success, result = lib.url.fetch(
             args.URL,
             insecure=args.INSECURE,
@@ -162,26 +165,32 @@ def main():
                 f' refused connection means PHP-FPM or the web server in front of'
                 f' it is not running.',
                 state,
-                lib.base.get_perfdata('ping', state, _min=0, _max=STATE_UNKNOWN),
                 always_ok=args.ALWAYS_OK,
-                no_perfdata=args.NO_PERFDATA,
             )
+        response_time = lib.time.now(as_type='float') - start
     else:
         # do not call the command, put in test data
         stdout, _stderr, _retc = lib.lftest.test(args.TEST)
         result = stdout
 
+    # init some vars
+    perfdata = ''
+
+    # analyze data
     if result != args.RESPONSE:
         state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
     else:
         state = STATE_OK
+
+    # build the message
     msg = f'{result}{lib.base.state2str(state, prefix=" ")}'
-    perfdata = lib.base.get_perfdata(
-        'ping',
-        state,
-        _min=0,
-        _max=STATE_UNKNOWN,
-    )
+    if response_time is not None:
+        perfdata += lib.base.get_perfdata(
+            'response_time',
+            round(response_time, 3),
+            uom='s',
+            _min=0,
+        )
 
     # over and out
     lib.base.oao(
