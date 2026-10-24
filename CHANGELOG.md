@@ -47,6 +47,7 @@ Monitoring Plugins:
 * crypto-policy: compares only the base policy by default, and named subpolicies in any order
 * disk-usage: returns on time despite a hung NFS mount
 * gitlab-version: CRIT on a pending security update
+* journald-usage, openvpn-client-list: the thresholds take Nagios ranges, a plain number alerts above it instead of at it
 * lynis: lists every finding per host, refuses to run as root
 * memory-paging: swap-out no longer alerts by default
 * mysql-health: MariaDB no longer drops to 0/30 Security points

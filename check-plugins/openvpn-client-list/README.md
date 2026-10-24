@@ -48,14 +48,14 @@ options:
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for the number of connected clients.
-                       Default: None
+                       Supports Nagios ranges. Default: None
   --filename FILENAME  Path to the OpenVPN status log file. Default:
                        /var/log/openvpn-status.log
   --no-perfdata        Suppress the performance data section from the output.
                        The status message and the exit code are unaffected, so
                        alerting keeps working while trending data is dropped.
   -w, --warning WARN   WARN threshold for the number of connected clients.
-                       Default: None
+                       Supports Nagios ranges. Default: None
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openvpn-client-list/
@@ -86,8 +86,8 @@ e@linuxfabrik.ch 5.6.7.8      10.123.11.2 Mon May 31 23:08:38 2021
 ## States
 
 * OK if the number of connected clients is below the thresholds.
-* WARN if the number of connected clients is >= `--warning`.
-* CRIT if the number of connected clients is >= `--critical`.
+* WARN if the number of connected clients is outside the `--warning` range.
+* CRIT if the number of connected clients is outside the `--critical` range.
 
 
 ## Perfdata / Metrics

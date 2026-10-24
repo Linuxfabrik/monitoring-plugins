@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100601'
+__version__ = '2026102401'
 
 DESCRIPTION = """Lists all clients currently connected to an OpenVPN server by parsing the status
 log file in any of the formats OpenVPN writes (`status-version` 1, 2 or 3). Reports client
@@ -75,9 +75,9 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for the number of connected clients. Default: %(default)s',
+        help='CRIT threshold for the number of connected clients. '
+        'Supports Nagios ranges. Default: %(default)s',
         dest='CRIT',
-        type=int,
         default=DEFAULT_CRIT,
     )
 
@@ -107,9 +107,9 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for the number of connected clients. Default: %(default)s',
+        help='WARN threshold for the number of connected clients. '
+        'Supports Nagios ranges. Default: %(default)s',
         dest='WARN',
-        type=int,
         default=DEFAULT_WARN,
     )
 
@@ -261,7 +261,7 @@ def main():
         )
     counter = len(table)
 
-    state = lib.base.get_state(counter, args.WARN, args.CRIT)
+    state = lib.base.get_state(counter, args.WARN, args.CRIT, _operator='range')
     perfdata = lib.base.get_perfdata(
         'clients',
         counter,

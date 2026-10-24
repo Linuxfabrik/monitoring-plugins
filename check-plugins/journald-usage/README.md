@@ -44,7 +44,9 @@ options:
   --no-perfdata       Suppress the performance data section from the output.
                       The status message and the exit code are unaffected, so
                       alerting keeps working while trending data is dropped.
-  -w, --warning WARN  WARN threshold in GiB. Default: >= 6
+  -w, --warning WARN  WARN threshold for the journal disk usage in GiB.
+                      Supports Nagios ranges. Example: `--warning=10` alerts
+                      above 10 GiB. Default: 6
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/journald-usage/
@@ -66,8 +68,7 @@ Output:
 
 ## States
 
-* OK if the total journal disk usage is below `--warning` (default: 6 GiB).
-* WARN if the total journal disk usage is >= `--warning` (default: 6 GiB).
+* WARN if the total journal disk usage in GiB is outside the `--warning` range (default: `6`, alerts above 6 GiB).
 * UNKNOWN if the account running the check may not read the journal, or only the part of it that belongs to the account itself.
 * UNKNOWN if `journalctl --disk-usage` or `systemd-analyze cat-config` fails.
 * `--always-ok` suppresses all alerts and always returns OK.

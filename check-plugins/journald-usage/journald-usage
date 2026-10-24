@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import re
 import sys
 
 import lib.args
@@ -19,16 +20,16 @@ import lib.human
 import lib.lftest
 import lib.shell
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Checks the current disk usage of all systemd journal files (archived and active
 combined). Alerts when journal disk usage exceeds the configured thresholds.
 Requires root or sudo."""
 
-DEFAULT_WARN = 6  # GiB; journald: "capped to 4G" per default
+DEFAULT_WARN = '6'  # GiB; journald: "capped to 4G" per default
 SYSTEMD_DEFAULT_MAX_USE = '4G'
 SYSTEMD_DEFAULT_KEEP_FREE = '1M'
 
@@ -74,9 +75,11 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold in GiB. Default: >= %(default)s',
+        help='WARN threshold for the journal disk usage in GiB. '
+        'Supports Nagios ranges. '
+        'Example: `--warning=10` alerts above 10 GiB. '
+        'Default: %(default)s',
         dest='WARN',
-        type=int,
         default=DEFAULT_WARN,
     )
 
@@ -169,7 +172,9 @@ def main():
     value = lib.human.human2bytes(value)
 
     # analyze data
-    state = lib.base.get_state(value, args.WARN * 1024 * 1024 * 1024, None)
+    # every bound of the range is a number of GiB
+    warn = lib.human.humanrange2bytes(re.sub(r'(\d+(?:\.\d+)?)', r'\1GiB', args.WARN))
+    state = lib.base.get_state(value, warn, None, _operator='range')
 
     # build the message
     msg += (
@@ -177,7 +182,7 @@ def main():
         '(sum of all archived and active journal files; '
         f'SystemMaxUse={max_use} SystemKeepFree={keep_free})'
     )
-    if state != STATE_OK:
+    if state == STATE_WARN:
         msg += (
             '. Configure `SystemMaxUse` and `SystemKeepFree` in '
             '`/etc/systemd/journald.conf` or a drop-in below '
@@ -190,7 +195,7 @@ def main():
         'journald-usage',
         value,
         uom='B',
-        warn=args.WARN * 1024 * 1024 * 1024,
+        warn=warn,
         crit=None,
         _min=0,
         _max=None,

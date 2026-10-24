@@ -49,6 +49,21 @@ TESTS = [
         'assert-retc': STATE_CRIT,
         'assert-in': ['5 users connected to OpenVPN Server.'],
     },
+    {
+        # a plain number alerts above it, not at it
+        'id': 'ok-at-the-warn-threshold',
+        'test': 'stdout/five-clients-four-users,,0',
+        'params': '--warning 5',
+        'assert-retc': STATE_OK,
+    },
+    {
+        # fewer than 6 clients is a problem too: a VPN everyone left is down
+        'id': 'warn-below-a-lower-bound',
+        'test': 'stdout/five-clients-four-users,,0',
+        'params': '--warning 6:',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'clients'=5;6:;;0"],
+    },
     # Recorded from OpenVPN 2.7.7 (Copr) on Rocky 8 with `proto udp6`: client01 connects
     # over IPv4 (printed as IPv4-mapped address), client02 over IPv6 to ::1.
     {
