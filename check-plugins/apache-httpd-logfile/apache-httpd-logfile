@@ -1332,6 +1332,7 @@ def describe_matching(event, hits, origins):
     """
     files = []
     units = []
+    containers = []
     for line in hits:
         origin = origins.get(line)
         if origin is None:
@@ -1339,16 +1340,26 @@ def describe_matching(event, hits, origins):
         success, parsed = lib.logsource.parse(origin)
         if not success:
             continue
-        kind, _, target = parsed
-        bucket = files if kind == lib.logsource.KIND_FILE else units
-        if target not in bucket:
-            bucket.append(target)
-    if not files and not units:
+        kind, engine, target = parsed
+        if kind == lib.logsource.KIND_FILE:
+            bucket, item = files, target
+        elif kind == lib.logsource.KIND_JOURNALD:
+            bucket, item = units, target
+        else:
+            bucket, item = containers, (engine, target)
+        if item not in bucket:
+            bucket.append(item)
+    if not files and not units and not containers:
         return []
 
     label = lib.txt.pluralize(event['label'], len(hits), event.get('suffix', 's'))
     heading = f'{len(hits)} {label}'
-    where = ', '.join(f'`{item}`' for item in files + [f'systemd:{u}' for u in units])
+    where = ', '.join(
+        f'`{item}`'
+        for item in files
+        + [f'systemd:{u}' for u in units]
+        + [f'{engine}:{target}' for engine, target in containers]
+    )
 
     # A criterion that is not a pattern is described rather than run: the
     # request-scoped fallback holds the lines no named counter claimed, and no
@@ -1370,6 +1381,12 @@ def describe_matching(event, hits, origins):
     # it, because sudo closes the descriptor the substitution hands to `grep`.
     commands.extend(
         f'grep -n {expression} <(sudo journalctl --unit={unit})' for unit in units
+    )
+    # A container writes its error log to standard error, which `logs` hands on as
+    # its own standard error.
+    commands.extend(
+        f'grep -n {expression} <(sudo {engine} logs {target} 2>&1)'
+        for engine, target in containers
     )
     return [f'{heading}:'] + [f'  {item}' for item in commands]
 

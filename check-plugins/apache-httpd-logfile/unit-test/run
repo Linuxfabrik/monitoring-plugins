@@ -30,6 +30,7 @@ import glob
 import importlib.machinery
 import importlib.util
 import os
+import re
 import shutil
 import subprocess  # nosec B404 - runs the plugin and grep, argv lists only
 import sys
@@ -1312,6 +1313,29 @@ class TestLogSize(unittest.TestCase):
         result = self._run(fixture('missing.log'))
         self.assertEqual(result.returncode, STATE_WARN, result.stdout)
         self.assertIn('does not seem to be an existing regular file', result.stdout)
+
+
+class TestDescribeMatching(unittest.TestCase):
+    """Each source kind gets the command that reads it."""
+
+    def test_a_container_gets_its_logs_command_not_journalctl(self):
+        event = {
+            'label': 'segfault',
+            'regex': re.compile(r'exit signal Segmentation fault'),
+        }
+        lines = apache_httpd_logfile.describe_matching(
+            event, ['a', 'b'], {'a': 'podman:web', 'b': 'systemd:httpd'}
+        )
+        self.assertIn(
+            "  grep -n -e 'exit signal Segmentation fault' <(sudo podman logs web 2>&1)",
+            lines,
+        )
+        self.assertIn(
+            "  grep -n -e 'exit signal Segmentation fault'"
+            ' <(sudo journalctl --unit=httpd)',
+            lines,
+        )
+        self.assertNotIn('--unit=web', ' '.join(lines))
 
 
 if __name__ == '__main__':
