@@ -43,7 +43,7 @@ Scans the system for numerous known rootkits by checking for their characteristi
 **Data Collection:**
 
 * Loads rootkit definitions from YAML files in the `assets` directory
-* Checks for rootkit-specific files, UNIX sockets, named pipes (FIFOs) and directories on the filesystem. Device nodes do not count as file indicators.
+* Checks for rootkit-specific files, UNIX sockets, named pipes (FIFOs) and directories on the filesystem. Device nodes do not count as file indicators. A symlink at an indicator path is reported as such and never followed, and indicators written as shell patterns (`/tmp/ss0-[0-9]...`) are expanded, as rkhunter does.
 * Scans kernel symbols (`/proc/kallsyms` or `/proc/ksyms`) for rootkit indicators
 
 
@@ -112,7 +112,7 @@ Possible Rootkits:
 * Symbiote userland Linux rootkit (2022): /usr/include/certbot.h (File)
 ```
 
-Each finding lists the rootkit name followed by the year it was first publicly disclosed in parentheses (when known), the matched indicator, and the indicator type (`File`, `Socket`, `FIFO`, `Dir`, or `Kernel Symbol`). The summary line counts distinct rootkits, so two indicator hits for the same rootkit count once. Possible findings (signatures with `cl < 100`, e.g. broad component groups or modern rootkits whose paths could collide with legitimate software) are listed in a separate section and produce a WARN state instead of CRIT, regardless of `--severity`.
+Each finding lists the rootkit name followed by the year it was first publicly disclosed in parentheses (when known), the matched indicator, and the indicator type (`File`, `Socket`, `FIFO`, `Symlink`, `Dir`, or `Kernel Symbol`). The summary line counts distinct rootkits, so two indicator hits for the same rootkit count once. Possible findings (signatures with `cl < 100`, e.g. broad component groups or modern rootkits whose paths could collide with legitimate software) are listed in a separate section and produce a WARN state instead of CRIT, regardless of `--severity`.
 
 
 ## States

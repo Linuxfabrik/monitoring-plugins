@@ -179,6 +179,53 @@ class TestCheck(unittest.TestCase):
         self.assertIn(f'{target_dir} (Dir)', stdout)
         self.assertEqual(retc, STATE_CRIT)
 
+    def test_symlink_indicator_is_reported_and_never_followed(self):
+        # an indicator path in /tmp is anybody's; followed as root, a link there
+        # would tell its owner whether the target exists, for files and dirs alike
+        hidden = self._touch(self.trigger_prefix + 'hidden-target')
+        missing = self.trigger_prefix + 'missing-target'
+        links = []
+        for name, target in (('to-file', hidden), ('to-missing', missing)):
+            link = self.trigger_prefix + f'link-{name}'
+            os.symlink(target, link)
+            self._tmp_paths.append(link)
+            links.append(link)
+        dir_link = self.trigger_prefix + 'link-to-dir'
+        os.symlink(self.workdir, dir_link)
+        self._tmp_paths.append(dir_link)
+        self._add_signature(
+            'symlink',
+            (
+                "name: 'Test Symlink Rootkit'\n"
+                f"files:\n  - '{links[0]}'\n  - '{links[1]}'\n"
+                f"dirs:\n  - '{dir_link}'\n"
+                'ksyms: []\n'
+                'cl: 100\n'
+            ),
+        )
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
+        for link in (*links, dir_link):
+            self.assertIn(f'{link} (Symlink)', stdout)
+        self.assertNotIn('(File)', stdout)
+        self.assertNotIn('(Dir)', stdout)
+        self.assertEqual(retc, STATE_CRIT)
+
+    def test_pattern_indicator_is_expanded(self):
+        target = self._touch(self.trigger_prefix + 'ss0-123456.sst')
+        self._add_signature(
+            'pattern',
+            (
+                "name: 'Test Pattern Rootkit'\n"
+                f"files:\n  - '{self.trigger_prefix}ss0-[0-9][0-9][0-9][0-9][0-9][0-9].sst'\n"
+                'dirs: []\n'
+                'ksyms: []\n'
+                'cl: 100\n'
+            ),
+        )
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
+        self.assertIn(f'{target} (File)', stdout)
+        self.assertEqual(retc, STATE_CRIT)
+
     def test_socket_and_fifo_indicators_are_detected(self):
         socket_target = self._mksocket(self.trigger_prefix + 'socket')
         fifo_target = self._mkfifo(self.trigger_prefix + 'fifo')

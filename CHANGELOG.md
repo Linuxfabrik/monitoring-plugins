@@ -171,6 +171,7 @@ Monitoring Plugins:
 * podman-\*: `--user` needs a subordinate UID range
 * postgresql-version: `--path` runs only a `psql` that nobody but root can change
 * restic-\*: `--repo` can no longer run programs or write files as root, works with restic 0.18
+* scanrootkit: no longer reveals which files exist, finds the rootkits named by a pattern
 * strongswan-connections: `--socket` must be root-owned ([GHSA-cw8h-7h72-79v8](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-cw8h-7h72-79v8))
 * systemd-unit: `--machine` takes only a container name
 

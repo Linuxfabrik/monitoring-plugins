@@ -30,7 +30,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102301'
+__version__ = '2026102401'
 
 DESCRIPTION = """Scans the system for numerous known rootkits by checking for their
 characteristic files, directories, and kernel symbols. Each finding includes the year
@@ -87,16 +87,39 @@ def parse_args():
     return args
 
 
-def get_file_type(path):
-    """Return 'File', 'Socket' or 'FIFO' if a file indicator exists at `path`,
-    `None` otherwise. Implants like Exaramel leave UNIX sockets or named pipes
-    instead of regular files, which `os.path.isfile()` would miss. Device nodes
-    are deliberately not matched: several historic rkhunter signatures name
-    paths under /dev, and udev owns what lives there.
+def expand(pattern):
+    """Return the paths an indicator names. A few rkhunter signatures are shell
+    patterns (`/tmp/ss0-[0-9]...sst`, `/usr/lib/.ark?`), which rkhunter expands
+    in an unquoted `for` loop; every one of them has its wildcard in the last
+    component, below a directory only root can change or /tmp itself.
     """
-    st = lib.disk.stat(path)
-    if st is None:
+    if any(char in pattern for char in '*?['):
+        return lib.disk.glob(pattern, recursive=False)
+    return [pattern]
+
+
+def get_file_type(path, want_dir=False):
+    """Return what sits at `path`: 'Dir' for a directory (with `want_dir`), else
+    'File', 'Socket' or 'FIFO', 'Symlink' for a symlink, and `None` if there is
+    nothing or something else. Implants like Exaramel leave UNIX sockets or named
+    pipes instead of regular files, which `os.path.isfile()` would miss. Device
+    nodes are deliberately not matched: several historic rkhunter signatures name
+    paths under /dev, and udev owns what lives there.
+
+    A symlink is never followed, as rkhunter tests it with `-h`. Many indicators
+    lie in /tmp, /var/tmp and /dev/shm, where anybody can create one; followed by
+    a check that runs as root, a link there would tell its owner whether any file
+    or directory only root can see exists. A link at an indicator path is reported
+    as such instead.
+    """
+    try:
+        st = os.lstat(path)
+    except (OSError, ValueError):
         return None
+    if stat.S_ISLNK(st.st_mode):
+        return 'Symlink'
+    if want_dir:
+        return 'Dir' if stat.S_ISDIR(st.st_mode) else None
     if stat.S_ISREG(st.st_mode):
         return 'File'
     if stat.S_ISSOCK(st.st_mode):
@@ -181,16 +204,17 @@ def main():
             hit = False
 
             # see if any of the known files, sockets or FIFOs exists
-            for item in rk['files']:
-                file_type = get_file_type(item)
+            for path in (path for item in rk['files'] for path in expand(item)):
+                file_type = get_file_type(path)
                 if file_type:
-                    target.append(f'* {label}: {item} ({file_type})')
+                    target.append(f'* {label}: {path} ({file_type})')
                     hit = True
 
             # see if any of the directories exist
-            for item in rk['dirs']:
-                if lib.disk.dir_exists(item):
-                    target.append(f'* {label}: {item} (Dir)')
+            for path in (path for item in rk['dirs'] for path in expand(item)):
+                file_type = get_file_type(path, want_dir=True)
+                if file_type:
+                    target.append(f'* {label}: {path} ({file_type})')
                     hit = True
 
             # scan kernel symbols for signs of rootkits or other malicious software
