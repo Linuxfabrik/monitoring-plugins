@@ -9,7 +9,12 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import atexit
+import contextlib
 import datetime
+import importlib.machinery
+import importlib.util
+import io
+import json
 import os
 import sys
 import time
@@ -17,6 +22,7 @@ import time
 sys.path.insert(0, '..')
 
 import unittest
+from unittest import mock
 
 import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
@@ -222,6 +228,58 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+def _load_plugin_module():
+    loader = importlib.machinery.SourceFileLoader(
+        'lynis_logfile', os.path.join(HERE, '..', 'lynis-logfile')
+    )
+    spec = importlib.util.spec_from_loader('lynis_logfile', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+class TestAuditRunning(unittest.TestCase):
+    """While an audit rewrites the report, the result of the one before stands, and
+    without one there is nothing wrong to report. Only the live path knows a running
+    audit, so the module is driven with the host stubbed out."""
+
+    def run_main(self, cached):
+        plugin = _load_plugin_module()
+        with open(os.path.join(HERE, 'stdout', 'report-audit-running'), 'rb') as handle:
+            partial = handle.read()
+        out = io.StringIO()
+        with (
+            mock.patch.object(sys, 'argv', ['lynis-logfile', '--max-age=0']),
+            mock.patch.object(plugin.os.path, 'lexists', return_value=True),
+            mock.patch.object(
+                plugin.lib.disk, 'read_file', return_value=(True, partial)
+            ),
+            mock.patch.object(plugin, 'audit_running', return_value='4242'),
+            mock.patch.object(plugin.lib.cache, 'get', return_value=cached),
+            mock.patch.object(plugin.lib.cache, 'set') as cache_set,
+            contextlib.redirect_stdout(out),
+            self.assertRaises(SystemExit) as end,
+        ):
+            plugin.main()
+        cache_set.assert_not_called()
+        return end.exception.code, out.getvalue()
+
+    def test_the_last_finished_audit_stands(self):
+        with open(
+            os.path.join(HERE, 'stdout', 'report-rocky10'), encoding='utf-8'
+        ) as f:
+            cached = json.dumps({'text': f.read()})
+        retc, stdout = self.run_main(cached)
+        self.assertEqual(retc, STATE_OK, stdout)
+        self.assertIn('A lynis audit is running right now (PID 4242)', stdout)
+        self.assertIn('Hardening index 65', stdout)
+
+    def test_ok_without_an_earlier_result(self):
+        retc, stdout = self.run_main(False)
+        self.assertEqual(retc, STATE_OK, stdout)
+        self.assertIn('no result of an earlier audit is known yet', stdout)
 
 
 if __name__ == '__main__':

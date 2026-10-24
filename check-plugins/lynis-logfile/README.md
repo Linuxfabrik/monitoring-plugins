@@ -34,6 +34,7 @@ Evaluates the report of the lynis security audit that runs on the host once a da
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | Requirements                          | A daily lynis audit, for example `lynis.timer`; User with higher permissions |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-lynis-logfile.db` |
 
 
 ## Help
@@ -114,7 +115,8 @@ sudo ./lynis-logfile --warning=70: --critical=50: --max-age=48
 * WARN if the report is incomplete and no audit is running, because the last audit did not finish.
 * WARN if the report comes from a partial audit, because its hardening index and findings say nothing about the host.
 * CRIT if the hardening index drops below `--critical` (empty by default, so CRIT is never raised unless a threshold is set).
-* UNKNOWN if an audit is running right now, so the report is not complete yet, and if the report cannot be read, most likely because the check does not run via `sudo`.
+* While an audit runs and the report is not complete yet, the result of the last finished audit stands; OK if none is known yet.
+* UNKNOWN if the report cannot be read, most likely because the check does not run via `sudo`.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
