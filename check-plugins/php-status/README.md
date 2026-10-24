@@ -174,9 +174,10 @@ options:
   --dev                 Development mode. Tolerates `display_errors=On` and
                         `display_startup_errors=On`.
   --extend-module EXTEND_MODULES
-                        PHP module name to check (startswith match), appended
-                        to the default or the `--module` list. Can be
-                        specified multiple times. Example: `--extend-
+                        PHP module name to check, matched against the start of
+                        each module `php --modules` lists, appended to the
+                        default or the `--module` list. Case-insensitive. Can
+                        be specified multiple times. Example: `--extend-
                         module=mbstring`.
   --ignore-multiple-masters
                         Do not warn when more than one PHP-FPM master is
@@ -185,14 +186,15 @@ options:
                         own check.
   --insecure            This option explicitly allows insecure SSL
                         connections.
-  --module MODULES      PHP module name to check (startswith match). Replaces
-                        the default list, use `--extend-module` to append to
-                        it. Can be specified multiple times. Example:
-                        `--module=json --module=mbstring`. Default: calendar,
-                        Core, ctype, date, exif, fileinfo, filter, ftp,
-                        gettext, hash, iconv, json, libxml, openssl, pcntl,
-                        pcre, Phar, readline, Reflection, session, sockets,
-                        SPL, standard, tokenizer, xml, zlib.
+  --module MODULES      PHP module name to check, matched against the start of
+                        each module `php --modules` lists. Replaces the
+                        default list, use `--extend-module` to append to it.
+                        Case-insensitive. Can be specified multiple times.
+                        Example: `--module=json --module=mbstring`. Default:
+                        calendar, Core, ctype, date, exif, fileinfo, filter,
+                        ftp, gettext, hash, iconv, json, libxml, openssl,
+                        pcntl, pcre, Phar, readline, Reflection, session,
+                        sockets, SPL, standard, tokenizer, xml, zlib.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

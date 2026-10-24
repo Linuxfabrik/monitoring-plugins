@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102301'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks PHP configuration and health, including startup errors, missing modules, and
 misconfigured php.ini directives. Optionally reads extended PHP information from a
@@ -214,8 +214,9 @@ def parse_args():
     )
     parser.add_argument(
         '--extend-module',
-        help='PHP module name to check (startswith match), '
-        'appended to the default or the `--module` list. '
+        help='PHP module name to check, matched against the start of each module '
+        '`php --modules` lists, appended to the default or the `--module` list. '
+        'Case-insensitive. '
         'Can be specified multiple times. '
         'Example: `--extend-module=mbstring`.',
         dest='EXTEND_MODULES',
@@ -240,8 +241,10 @@ def parse_args():
     )
     parser.add_argument(
         '--module',
-        help='PHP module name to check (startswith match). '
+        help='PHP module name to check, matched against the start of each module '
+        '`php --modules` lists. '
         'Replaces the default list, use `--extend-module` to append to it. '
+        'Case-insensitive. '
         'Can be specified multiple times. '
         'Example: `--module=json --module=mbstring`. '
         f'Default: {", ".join(DEFAULT_MODULES)}.',
@@ -339,12 +342,8 @@ def get_config_errors(args, php_info):
         if values.get('date.timezone', 'no value').lower() in ('', 'no value'):
             result += 'date.timezone is not set, '
     for config in args.CONFIG:
-        try:
-            key, value = config.split('=')
-            key = key.strip()
-            value = value.strip()
-        except Exception:
-            continue
+        # main() refused a pair without `=`; a value may hold one itself
+        key, value = (part.strip() for part in config.split('=', 1))
         actual = values.get(key.lower())
         if actual is None or actual.lower() != value.lower():
             result += f'{key} = {value}, '
@@ -364,10 +363,12 @@ def get_module(args):
     if not success:
         lib.base.cu(result)
     stdout, _, _ = result
-    php_modules = stdout.lower()
+    # one module per line, `Zend OPcache` among them; a name matches the start of a
+    # line, so `json` does not count as loaded because of some `json_schema`
+    php_modules = [line.strip().lower() for line in stdout.splitlines()]
     result = ''
     for module in args.MODULES:
-        if module.lower() not in php_modules:
+        if not any(line.startswith(module.lower()) for line in php_modules):
             result += f'{module}, '
     return result
 
@@ -522,6 +523,13 @@ def main():
         args.MODULES = DEFAULT_MODULES
     # build a new list, `+=` would modify DEFAULT_MODULES in place
     args.MODULES = args.MODULES + args.EXTEND_MODULES
+    for config in args.CONFIG:
+        if '=' not in config or not config.split('=', 1)[0].strip():
+            lib.base.cu(
+                f'Invalid --config "{config}": expected a "key=value" pair, '
+                'for example `--config=memory_limit=128M`.',
+                traceback=False,
+            )
 
     # fetch data
     # Request the per-file OPcache script list unless the top-scripts table is

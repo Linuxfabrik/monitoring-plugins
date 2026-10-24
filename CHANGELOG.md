@@ -167,7 +167,7 @@ Monitoring Plugins:
 * mysql-user-security: no longer prints a weak password it found
 * nextcloud-\*: `--path` runs `occ` only from a root-controlled installation
 * openvpn-client-list: confined to `/var/log`, supports OpenVPN 2.7 and IPv6
-* php-status: reads only root-owned pool configs
+* php-status: reads only root-owned pool configs, compares a `--config` value that holds `=`
 * podman-\*: `--user` needs a subordinate UID range
 * postgresql-version: `--path` runs only a `psql` that nobody but root can change
 * restic-\*: `--repo` can no longer run programs or write files as root, works with restic 0.18

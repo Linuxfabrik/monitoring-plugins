@@ -28,6 +28,7 @@ import importlib.machinery
 import importlib.util
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 
@@ -37,7 +38,7 @@ import unittest
 import unittest.mock
 
 import lib.base
-from lib.globals import STATE_WARN
+from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 
 def _load_plugin_module():
@@ -133,7 +134,9 @@ class TestParseFpmPools(unittest.TestCase):
 
 PHP_INFO = """Directive => Local Value => Master Value
 date.timezone => Europe/Zurich => Europe/Zurich
+error_reporting => E_ALL => E_ALL
 memory_limit => 128M => 128M
+session.save_path => tcp://redis:6379?auth=x => tcp://redis:6379?auth=x
 PCRE (Perl Compatible Regular Expressions) Support => enabled
 """
 
@@ -164,6 +167,14 @@ class TestGetConfigErrors(unittest.TestCase):
     def test_unknown_directive_does_not_match(self):
         self.assertIn('nonexistent = 1', self.errors(['nonexistent=1']))
 
+    def test_a_value_holding_an_equals_sign_is_compared(self):
+        # a value with `=` in it was dropped and never compared before
+        self.assertEqual(self.errors(['session.save_path=tcp://redis:6379?auth=x']), '')
+        self.assertIn(
+            'session.save_path = tcp://redis:6379?auth=y',
+            self.errors(['session.save_path=tcp://redis:6379?auth=y']),
+        )
+
     def test_without_config_a_set_timezone_is_fine(self):
         self.assertEqual(self.errors([]), '')
 
@@ -172,6 +183,38 @@ class TestGetConfigErrors(unittest.TestCase):
             'Europe/Zurich => Europe/Zurich', 'no value => no value'
         )
         self.assertIn('date.timezone', self.errors([], php_info))
+
+
+class TestInvalidConfig(unittest.TestCase):
+    def test_a_pair_without_equals_sign_is_refused(self):
+        result = subprocess.run(
+            ['../php-status', '--config=memory_limit'],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, STATE_UNKNOWN, result.stdout)
+        self.assertIn('Invalid --config "memory_limit"', result.stdout)
+
+
+class TestModules(unittest.TestCase):
+    """A module name matches the start of a module `php --modules` lists."""
+
+    def missing(self, modules, listing):
+        args = argparse.Namespace(MODULES=modules)
+        with unittest.mock.patch.object(
+            php_status.lib.shell, 'shell_exec', return_value=(True, (listing, '', 0))
+        ):
+            return php_status.get_module(args)
+
+    def test_start_of_a_listed_module_matches_ignoring_case(self):
+        listing = '[PHP Modules]\nZend OPcache\njson\n\n[Zend Modules]\nZend OPcache\n'
+        self.assertEqual(self.missing(['zend opcache', 'JSON'], listing), '')
+
+    def test_a_name_inside_another_module_does_not_match(self):
+        self.assertEqual(
+            self.missing(['schema'], '[PHP Modules]\njson_schema\n'), 'schema, '
+        )
 
 
 class TestHumanBytesShorthand(unittest.TestCase):
