@@ -44,7 +44,7 @@ Monitoring Plugins:
 * about-me: proposes the tags of the new Service Sets
 * apache-httpd-logfile: more detail, far fewer false alarms
 * cpu-vulnerabilities: fewer false alarms in virtual machines
-* crypto-policy: compares only the base policy by default
+* crypto-policy: compares only the base policy by default, and named subpolicies in any order
 * disk-usage: returns on time despite a hung NFS mount
 * gitlab-version: CRIT on a pending security update
 * lynis: lists every finding per host, refuses to run as root

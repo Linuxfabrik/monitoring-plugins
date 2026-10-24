@@ -20,7 +20,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026102401'
 
 DESCRIPTION = """Verifies that the system-wide cryptographic policy (as reported by update-crypto-policies)
 matches the expected setting (default: "DEFAULT"). Subpolicies such as NO-SHA1 are listed,
@@ -30,6 +30,7 @@ consistent TLS and cipher configurations across a fleet of servers."""
 
 CMD = ['update-crypto-policies', '--show']
 DEFAULT_CRYPTO_POLICY = 'DEFAULT'
+DEFAULT_TIMEOUT = 8
 
 
 def parse_args():
@@ -73,6 +74,14 @@ def parse_args():
         type=lib.args.csv,
     )
 
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -88,8 +97,14 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        success, result = lib.shell.shell_exec(CMD)
+        success, result = lib.shell.shell_exec(CMD, timeout=args.TIMEOUT)
         if not success:
+            if result.startswith('Timeout after'):
+                lib.base.oao(
+                    f'Timeout after {args.TIMEOUT}s while running `{" ".join(CMD)}`.',
+                    STATE_WARN,
+                    always_ok=args.ALWAYS_OK,
+                )
             lib.base.cu('Crypto policies are not applicable to your system.')
         stdout, _stderr, _retc = result
     else:
@@ -102,17 +117,24 @@ def main():
     # "DEFAULT:NO-SHA1:NO-CAMELLIA" (ProfileConfig in python/update-crypto-policies.py).
     # Subpolicies tighten or loosen the base policy and are added and removed for
     # local reasons, so only the base policy is compared, unless the admin names
-    # subpolicies in --policy and thereby asks for the exact combination.
+    # subpolicies in --policy and thereby asks for the exact combination. That one
+    # is a set: the tool keeps the subpolicies in the order they were set in
+    # (ProfileConfig.parse_string() and __str__(), crypto-policies at 359ab16), which
+    # says nothing about the policy in force.
     crypto_policy = stdout.strip()
     base_policy, *subpolicies = crypto_policy.split(':')
-    expected = args.CRYPTO_POLICY.strip()
-    current = crypto_policy if ':' in expected else base_policy
+    expected_base, *expected_subpolicies = args.CRYPTO_POLICY.strip().split(':')
+    matches = base_policy.upper() == expected_base.upper()
+    if ':' in args.CRYPTO_POLICY:
+        matches = matches and {item.upper() for item in subpolicies if item} == {
+            item.upper() for item in expected_subpolicies if item
+        }
 
     # build the message
     msg = f'Crypto policy is "{base_policy}"'
     if subpolicies:
         msg += f' with the subpolicies {", ".join(subpolicies)}'
-    if current.lower() == expected.lower():
+    if matches:
         msg += ' (as expected).'
         state = STATE_OK
     else:

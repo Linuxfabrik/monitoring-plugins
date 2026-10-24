@@ -31,6 +31,7 @@ Verifies that the system-wide cryptographic policy (as reported by `update-crypt
 
 ```text
 usage: crypto-policy [-h] [-V] [--always-ok] [--policy CRYPTO_POLICY]
+                     [--timeout TIMEOUT]
 
 Verifies that the system-wide cryptographic policy (as reported by
 update-crypto-policies) matches the expected setting (default: "DEFAULT").
@@ -48,6 +49,7 @@ options:
                         compared, unless this names subpolicies itself. Case-
                         insensitive. Example: `FUTURE`, or `DEFAULT:NO-SHA1`
                         to require that subpolicy. Default: DEFAULT
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/crypto-policy/

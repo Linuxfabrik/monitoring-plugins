@@ -66,6 +66,20 @@ TESTS = [
         'assert-retc': STATE_OK,
     },
     {
+        # the tool keeps the order the subpolicies were set in, which says nothing
+        'id': 'ok-expected-subpolicies-in-another-order',
+        'test': 'stdout/default-five-subpolicies,,0',
+        'params': '--policy=default:linuxfabrik-ssh-no-etm:LINUXFABRIK-NO-SHA1'
+        ':LINUXFABRIK-SSH-NO-CHACHA20:LINUXFABRIK-NO-WEAKMAC:LINUXFABRIK-SSH-NO-CBC',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'warn-one-subpolicy-too-many',
+        'test': 'stdout/default-five-subpolicies,,0',
+        'params': '--policy=DEFAULT:LINUXFABRIK-NO-SHA1:LINUXFABRIK-NO-WEAKMAC',
+        'assert-retc': STATE_WARN,
+    },
+    {
         'id': 'warn-expected-subpolicy-missing',
         'test': 'stdout/default,,0',
         'params': '--policy=DEFAULT:NO-SHA1',
