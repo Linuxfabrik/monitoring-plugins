@@ -81,8 +81,8 @@ usage: by-winrm [-h] [-V] [--always-ok] --command COMMAND [-c CRIT]
                 [--severity-stdout {ok,warn,crit,unknown}]
                 [--severity-timeout {ok,warn,crit,unknown}]
                 [--skip-stderr SKIP_STDERR] [--skip-stdout SKIP_STDOUT]
-                [--verbose] [-w WARN] [--warning-pattern WARN_PATTERN]
-                [--warning-regex WARN_REGEX]
+                [--timeout TIMEOUT] [--verbose] [-w WARN]
+                [--warning-pattern WARN_PATTERN] [--warning-regex WARN_REGEX]
                 [--winrm-configuration-name WINRM_CONFIGURATION_NAME]
                 [--winrm-domain WINRM_DOMAIN] --winrm-hostname WINRM_HOSTNAME
                 [--winrm-password WINRM_PASSWORD]
@@ -136,6 +136,7 @@ options:
   --skip-stdout SKIP_STDOUT
                         Ignore all (0) or first n lines on STDOUT. Default: -1
                         (no ignore)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --verbose             Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
                         hood.

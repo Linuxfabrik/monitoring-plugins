@@ -21,7 +21,10 @@ makes of an answer, not the transport.
 import importlib.machinery
 import importlib.util
 import os
+import socket
+import subprocess
 import sys
+import time
 import unittest
 
 sys.path.insert(0, '..')
@@ -262,6 +265,49 @@ lib.lftest.attach_each(
     refuses_what_jea_cannot_run,
     id_func=lambda it: f'refuses_{it[0]}',
 )
+
+
+class TestTimeout(unittest.TestCase):
+    """A WinRM endpoint that accepts the connection and never answers must not hold
+    the check past --timeout. The listener takes the port WinRM over HTTP uses, since
+    the plugin derives the port from the transport."""
+
+    def setUp(self):
+        self.listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            self.listener.bind(('127.0.0.1', 5985))
+        except OSError:
+            self.listener.close()
+            self.skipTest('port 5985 is in use')
+        self.listener.listen(5)
+
+    def tearDown(self):
+        self.listener.close()
+
+    def test_silent_endpoint_returns_warn_on_time(self):
+        started = time.monotonic()
+        result = subprocess.run(
+            [
+                sys.executable,
+                PLUGIN,
+                '--winrm-hostname=127.0.0.1',
+                '--winrm-username=linuxfabrik',
+                '--winrm-password=linuxfabrik',
+                '--command=hostname',
+                '--timeout=2',
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        self.assertLess(time.monotonic() - started, 10)
+        self.assertEqual(result.returncode, STATE_WARN, result.stdout)
+        self.assertEqual(
+            result.stdout.strip(),
+            'Timeout after 2s while running the command on 127.0.0.1.',
+        )
 
 
 if __name__ == '__main__':
