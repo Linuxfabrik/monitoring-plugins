@@ -54,13 +54,12 @@ Monitoring Plugins:
 * nextcloud-enterprise: shows how old the subscription data is
 * ntp-chronyd: alerts on the real clock offset and on a silent NTP server
 * ntp-ntpd: alerts on the real clock offset and on a silent NTP server, `--stratum` applies to this host
-* ntp-w32tm: `--warning` and `--critical` check the clock offset, renamed metrics, works on German Windows
+* ntp-w32tm: `--warning` and `--critical` check the clock offset, renamed or dropped metrics, works on German Windows
 * php-fpm-logfile: reports fatal errors and hung workers, fewer false alarms
 * php-fpm-ping: an unreachable ping page follows `--severity`, perfdata `response_time` replaces `ping`
 * redfish-memory: fewer false alarms, detects defects on Fujitsu iRMC
-* redfish-sensors: CRIT only above the fatal threshold, fewer false alarms
+* redfish-sensors: CRIT only above the fatal threshold, fewer false alarms, renamed power supply metrics
 * redis-status, valkey-status: a refused login is UNKNOWN
-* scanrootkit: detects 23 more rootkits
 * scheduled-task: alerts on a failed last run, works on non-English Windows
 * systemd-timedate-status: warns on an unsynchronized clock
 * wordpress-\*: find the installation without `--path`
@@ -87,7 +86,7 @@ Grafana:
 Monitoring Plugins:
 
 * a clear message instead of a Python or OS error, on many plugins
-* a hanging binary returns WARN after `--timeout`, on all \*-version checks that run one
+* a hanging command returns WARN after `--timeout`, on many plugins
 * compressed logs are no longer reported again on every run, on logfile and all \*-logfile checks
 * HTTPS works with root certificates Windows has not cached yet, on all plugins
 * no journal warning without systemd, on the \*-logfile checks ([#1544](https://github.com/Linuxfabrik/monitoring-plugins/issues/1544))
@@ -95,7 +94,8 @@ Monitoring Plugins:
 * return on time despite a hung NFS mount, on nfs-exports, nfs-mounts, path-rw-test
 * the acknowledgement is read from the right service, on all plugins with `--icinga-callback`
 * borgbackup: a running backup is no longer UNKNOWN
-* by-winrm: works with JEA endpoints and with pywinrm only
+* by-ssh: `--warning-regex` and `--critical-regex` ignore case, as documented
+* by-winrm: works with JEA endpoints and with pywinrm only, regexes ignore case
 * cert: `--source=file` works on RHEL 8
 * cpu-usage: no alert on idle CPUs waiting for I/O
 * dhcp-scope-usage: works again, also locally on Windows
@@ -112,7 +112,7 @@ Monitoring Plugins:
 * grafana-version: reads the version more reliably
 * haproxy-status, starface-\*, ups-nut: no garbled non-ASCII text
 * infomaniak-swiss-backup-devices: works behind a mandatory proxy
-* journald-\*: UNKNOWN instead of a false OK without journal rights
+* journald-\*: UNKNOWN without journal rights or when journalctl fails, journald-query reads binary messages
 * mediawiki-version: reads MediaWiki before 1.31.7
 * moodle-version: finds Moodle 5.1 and newer
 * ntp-systemd-timesyncd: warns when the NTP server stops answering, `--stratum` applies to this host
@@ -129,6 +129,7 @@ Monitoring Plugins:
 * systemd-units-failed: no longer names an ignored unit
 * tuned-profile: accepts post-loaded and System Roles profiles
 * updates: warns on a disabled Windows Update service, no longer hangs ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
+* wildfly-version: honours `--proxy` and `--timeout` for the GitHub lookup
 * xca-cert: works without `--prefix`
 
 Notification Plugins:
@@ -171,7 +172,7 @@ Monitoring Plugins:
 * podman-\*: `--user` needs a subordinate UID range
 * postgresql-version: `--path` runs only a `psql` that nobody but root can change
 * restic-\*: `--repo` can no longer run programs or write files as root, works with restic 0.18
-* scanrootkit: no longer reveals which files exist, finds the rootkits named by a pattern
+* scanrootkit: no longer reveals which files exist, detects 23 more rootkits and those named by a pattern
 * strongswan-connections: `--socket` must be root-owned ([GHSA-cw8h-7h72-79v8](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-cw8h-7h72-79v8))
 * systemd-unit: `--machine` takes only a container name
 
