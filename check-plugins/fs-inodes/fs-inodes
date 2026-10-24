@@ -23,14 +23,16 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100901'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks the percentage of used inodes on local filesystems. Fetches a list of local
 devices that are in use and have a filesystem. Filesystems that do not report inode usage
 (such as some network filesystems) are skipped automatically, and mount points the plugin
 cannot read (for example a Kubernetes CSI volume that requires root) are reported as
 unreadable instead of aborting the whole check. Supports filtering mount points by regular
-expression via --match and --ignore. Supports extended reporting via --lengthy.
+expression via --match and --ignore. Supports extended reporting via --lengthy. On
+systems with many filesystems, --brief hides the mount points within the thresholds so
+the output only shows those in WARN/CRIT state.
 Alerts when inode usage exceeds the configured thresholds."""
 
 DEFAULT_CRIT = '95'
@@ -61,6 +63,16 @@ def parse_args():
         '--always-ok',
         help=lib.args.help('--always-ok'),
         dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help='Hide mount points within the thresholds and show only those in '
+        'WARN/CRIT state. Perfdata and alerting are unaffected: all mount points '
+        'still emit perfdata and still drive the overall check state.',
+        dest='BRIEF',
         action='store_true',
         default=False,
     )
@@ -260,16 +272,28 @@ def main():
                 'percent': f'{usage["percent"]}%{lib.base.state2str(local_state, prefix=" ")}',
                 # numeric usage percentage the output is sorted by (see below).
                 '_percent': usage['percent'],
+                '_state': local_state,
             }
         )
 
     # build the message
     # sort by inode usage, fullest first; unreadable mounts (_percent -1) last.
     table_data.sort(key=lambda row: row['_percent'], reverse=True)
+    # --brief only reshapes the output: perfdata and the state above cover every
+    # mount point
+    if args.BRIEF:
+        display_rows = [
+            row for row in table_data if row.get('_state', STATE_OK) != STATE_OK
+        ]
+    else:
+        display_rows = table_data
     thresholds = f'warn={args.WARN} crit={args.CRIT}'
     if not table_data:
         msg = 'Nothing checked.'
         state = lib.base.str2state(args.NO_MATCH_SEVERITY)
+    elif not display_rows:
+        # --brief and nothing worth showing: one-line summary only
+        msg = f'Everything is ok. ({thresholds})'
     elif args.LENGTHY:
         # extended reporting: a table with the inode counts per mount point.
         if state == STATE_CRIT:
@@ -279,14 +303,14 @@ def main():
         else:
             header = 'Everything is ok.'
         table = lib.base.get_table(
-            table_data,
+            display_rows,
             ['mountpoint', 'device', 'itotal', 'iused', 'ifree', 'percent'],
             header=['Mountpoint', 'Device', 'ITotal', 'IUsed', 'IFree', 'Use%'],
         )
         msg = f'{header} ({thresholds})\n\n{table}'
     else:
         # default: a compact single line, one item per mount point.
-        msg = ', '.join(f'{row["mountpoint"]} {row["percent"]}' for row in table_data)
+        msg = ', '.join(f'{row["mountpoint"]} {row["percent"]}' for row in display_rows)
         if state != STATE_OK:
             msg += '. Have a look at the README on how to find where inodes are being used.'
 

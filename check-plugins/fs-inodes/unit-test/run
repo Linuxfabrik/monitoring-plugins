@@ -85,6 +85,30 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': ['/var 93.0%', '[WARNING]', 'Have a look at the README'],
     },
+    # --brief shows only the mount points in WARN/CRIT state
+    {
+        'id': 'warn-brief-shows-only-the-alerting-mount',
+        'test': 'stdout/three-mounts-one-warn,,0',
+        'params': '--brief',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'^/var 93\.0% \[WARNING\]\. Have a look',
+        'assert-not-in': ['/boot '],  # the perfdata keeps '/boot'
+    },
+    {
+        'id': 'ok-brief-nothing-to-show',
+        'test': 'stdout/three-mounts-one-warn,,0',
+        'params': '--brief --warning 99 --critical 99',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^Everything is ok\. \(warn=99 crit=99\)\|',
+    },
+    {
+        'id': 'warn-brief-lengthy-table-keeps-the-alerting-row',
+        'test': 'stdout/three-mounts-one-warn,,0',
+        'params': '--brief --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are warnings.', '/var', 'ITotal'],
+        'assert-not-in': ['/boot '],  # the perfdata keeps '/boot'
+    },
     # --lengthy switches to a table with the inode counts per mount point.
     {
         'id': 'ok-lengthy-adds-columns',

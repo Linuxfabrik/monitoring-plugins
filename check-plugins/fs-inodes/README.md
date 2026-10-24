@@ -36,7 +36,7 @@ Checks the percentage of used inodes on local filesystems. Fetches a list of loc
 ## Help
 
 ```text
-usage: fs-inodes [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
+usage: fs-inodes [-h] [-V] [--always-ok] [--brief] [-c CRIT] [--ignore IGNORE]
                  [--lengthy] [--match MATCH]
                  [--no-match-severity {ok,warn,crit,unknown}] [--no-perfdata]
                  [-w WARN]
@@ -48,12 +48,18 @@ automatically, and mount points the plugin cannot read (for example a
 Kubernetes CSI volume that requires root) are reported as unreadable instead
 of aborting the whole check. Supports filtering mount points by regular
 expression via --match and --ignore. Supports extended reporting via
---lengthy. Alerts when inode usage exceeds the configured thresholds.
+--lengthy. On systems with many filesystems, --brief hides the mount points
+within the thresholds so the output only shows those in WARN/CRIT state.
+Alerts when inode usage exceeds the configured thresholds.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide mount points within the thresholds and show only
+                        those in WARN/CRIT state. Perfdata and alerting are
+                        unaffected: all mount points still emit perfdata and
+                        still drive the overall check state.
   -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
                         Default: 95
   --ignore IGNORE       Any item matching this Python regex will be ignored.

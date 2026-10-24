@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$fs_inodes_always_ok$"
                 },
+                "--brief": {
+                    "set_if": "$fs_inodes_brief$"
+                },
                 "--critical": {
                     "value": "$fs_inodes_critical$"
                 },
@@ -71,6 +74,11 @@
                     "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -114,7 +122,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the percentage of used inodes on local filesystems. Fetches a list of local devices that are in use and have a filesystem. Filesystems that do not report inode usage (such as some network filesystems) are skipped automatically, and mount points the plugin cannot read (for example a Kubernetes CSI volume that requires root) are reported as unreadable instead of aborting the whole check. Supports filtering mount points by regular expression via --match and --ignore. Supports extended reporting via --lengthy. Alerts when inode usage exceeds the configured thresholds.",
+            "notes": "Checks the percentage of used inodes on local filesystems. Fetches a list of local devices that are in use and have a filesystem. Filesystems that do not report inode usage (such as some network filesystems) are skipped automatically, and mount points the plugin cannot read (for example a Kubernetes CSI volume that requires root) are reported as unreadable instead of aborting the whole check. Supports filtering mount points by regular expression via --match and --ignore. Supports extended reporting via --lengthy. On systems with many filesystems, --brief hides the mount points within the thresholds so the output only shows those in WARN/CRIT state. Alerts when inode usage exceeds the configured thresholds.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-inodes/",
             "object_name": "tpl-service-fs-inodes",
             "object_type": "template",
@@ -126,6 +134,7 @@
             "vars": {
                 "criticality": "C",
                 "fs_inodes_always_ok": false,
+                "fs_inodes_brief": false,
                 "fs_inodes_critical": "95",
                 "fs_inodes_ignore": [],
                 "fs_inodes_lengthy": true,
@@ -183,6 +192,15 @@
             "uuid": "08312972-167b-404f-bfe4-4533b5194b4d"
         },
         "2": {
+            "varname": "fs_inodes_brief",
+            "caption": "FS Inodes: Brief?",
+            "description": "Hide mount points within the thresholds and show only those in WARN/CRIT state. Perfdata and alerting are unaffected: all mount points still emit perfdata and still drive the overall check state.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "44e29f64-de27-4528-9b3b-afb3c8205637"
+        },
+        "3": {
             "varname": "fs_inodes_critical",
             "caption": "FS Inodes: Critical",
             "description": "CRIT threshold in percent. Supports Nagios ranges.",
@@ -193,7 +211,7 @@
             },
             "uuid": "7b551be1-0aa4-4f81-be7d-a8836a116450"
         },
-        "3": {
+        "4": {
             "varname": "fs_inodes_ignore",
             "caption": "FS Inodes: Ignore",
             "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
@@ -204,7 +222,7 @@
             },
             "uuid": "31ea1289-5d21-4c85-8d24-a96ab2eceb0a"
         },
-        "4": {
+        "5": {
             "varname": "fs_inodes_lengthy",
             "caption": "FS Inodes: Lengthy?",
             "description": "Extended reporting.",
@@ -213,7 +231,7 @@
             "settings": {},
             "uuid": "d773d6d0-4e76-4670-bdd6-411768d1463b"
         },
-        "5": {
+        "6": {
             "varname": "fs_inodes_match",
             "caption": "FS Inodes: Match",
             "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
@@ -224,7 +242,7 @@
             },
             "uuid": "418b8605-14e3-4cfc-8c5d-bceffd6e0b1e"
         },
-        "6": {
+        "7": {
             "varname": "fs_inodes_no_match_severity",
             "caption": "FS Inodes: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -237,7 +255,7 @@
             },
             "uuid": "733bde14-a169-40a8-8ce5-846cc8070db5"
         },
-        "7": {
+        "8": {
             "varname": "fs_inodes_no_perfdata",
             "caption": "FS Inodes: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -246,7 +264,7 @@
             "settings": {},
             "uuid": "d9fcd128-4b29-4c71-99f3-fe234153e5da"
         },
-        "8": {
+        "9": {
             "varname": "fs_inodes_warning",
             "caption": "FS Inodes: Warning",
             "description": "WARN threshold in percent. Supports Nagios ranges.",
