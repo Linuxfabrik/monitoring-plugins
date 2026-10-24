@@ -27,7 +27,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100101'
+__version__ = '2026102401'
 
 DESCRIPTION = """Monitors PHP-FPM pool performance via the pool status page. Reports pool
 saturation (percentage of busy workers), new slow requests since the previous check, the
@@ -858,9 +858,8 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # `action='append'` with a non-None default appends to it; we use `None`
-    # and substitute the default list here so that user-supplied values
-    # replace the default instead of being appended to it.
+    # set default values for append parameters that were not specified
+    # (`action='append'` with a non-None default appends to it)
     if not args.URL:
         args.URL = [DEFAULT_URL]
 
@@ -870,14 +869,15 @@ def main():
             f'{len(args.TEST)} test specs for {len(args.URL)} URLs)'
         )
 
+    # init some vars
     now = lib.time.now()
-
     conn = None
     if args.TEST is None:
         conn = open_cache()
-
     results = []
     overall_state = STATE_OK
+
+    # fetch data and analyze data, one pool after the other
     for index, url in enumerate(args.URL):
         test_spec = args.TEST[index] if args.TEST is not None else None
 
@@ -913,6 +913,7 @@ def main():
         lib.base.coe(lib.db_sqlite.commit(conn))
         lib.db_sqlite.close(conn)
 
+    # build the message
     if len(results) == 1:
         msg = format_single_pool(results[0], args)
     else:
@@ -920,6 +921,7 @@ def main():
 
     perfdata = ''.join(r['perfdata'] for r in results)
 
+    # over and out
     lib.base.oao(
         msg,
         overall_state,

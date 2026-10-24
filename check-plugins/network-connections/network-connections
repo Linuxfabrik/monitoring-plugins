@@ -44,7 +44,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100801'
+__version__ = '2026102401'
 
 DESCRIPTION = """Counts system-wide socket connections by type (TCP, TCP6, UDP, UDP6) and state.
 Alerts when the total number of connections in a specific state exceeds the configured
@@ -223,6 +223,12 @@ def main():
         stdout, _, _ = lib.lftest.test(args.TEST)
         connections = _load_network_connections_fixture(stdout)
 
+    # init some vars
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+
+    # analyze data
     stats = {}
     for c in connections:
         if 'all' not in args.CONN_STATUS and c.status.lower() not in args.CONN_STATUS:
@@ -237,11 +243,6 @@ def main():
             stats[key] += 1
         else:
             stats[key] = 1
-
-    # init some vars
-    msg = ''
-    perfdata = ''
-    state = STATE_OK
 
     # build the message
     for item in lib.base.sort(stats, reverse=True):

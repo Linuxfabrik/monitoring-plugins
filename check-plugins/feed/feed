@@ -23,7 +23,7 @@ import lib.time
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026101201'
+__version__ = '2026102401'
 
 DESCRIPTION = """Monitors an RSS or Atom feed for new entries and alerts when new items appear within
 a configurable time window (default: 3 days). With the callback enabled, the alert is
@@ -287,6 +287,7 @@ def main():
             '--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name'
         )
 
+    # fetch data
     if args.LATEST:
         # get the newest/latest feed item, even if it is in the future
         feed_item = lib.base.coe(
@@ -314,14 +315,16 @@ def main():
     if not feed_item:
         lib.base.oao('No news are good news.', STATE_OK)
 
-    delta = abs(
-        lib.time.now(as_type='datetime')
-        - feed_item.get('updated_parsed', lib.time.now(as_type='datetime'))
-    )
+    # init some vars
+    now = lib.time.now(as_type='datetime')
+
+    # analyze data
+    delta = abs(now - feed_item.get('updated_parsed', now))
     delta = delta.total_seconds()  # this is the age of the newest feed item, in seconds
 
     state = get_feed_state(feed_item['id'], delta, args)
 
+    # build the message
     if args.NO_SUMMARY:
         msg = f'{feed_item.get("title", "No title").strip()} ({lib.human.seconds2human(delta)} ago)'
     else:

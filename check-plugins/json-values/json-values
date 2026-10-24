@@ -23,7 +23,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026102401'
 
 DESCRIPTION = """Parses a JSON object from a file, URL, or SMB share and extracts message, state,
 and perfdata values from configurable keys. Useful for integrating custom applications or
@@ -414,22 +414,22 @@ def main():
     if result is None:
         lib.base.cu('Nothing returned.')
 
+    # init some vars
+    state_warn = STATE_OK
+    state_crit = STATE_OK
+
     # analyze data; an empty --state-key is an intentional opt-out
     # (the admin is driving the result from key-level thresholds only,
     # e.g. when the monitored JSON has no dedicated state field) and
     # must not degrade the check to UNKNOWN, so default it to OK.
-    msg = get_nested(result, args.MESSAGE_KEY) or '' if args.MESSAGE_KEY else ''
     if args.STATE_KEY:
         state = coerce_state(get_nested(result, args.STATE_KEY))
     else:
         state = STATE_OK
-    perfdata = get_nested(result, args.PERFDATA_KEY) if args.PERFDATA_KEY else None
 
     # apply key-level thresholds; UNKNOWN if any of them cannot be
     # resolved or is non-numeric, otherwise WARN/CRIT/OK as computed
     # against the Nagios range
-    state_warn = STATE_OK
-    state_crit = STATE_OK
     if args.WARNING_KEY:
         state_warn = evaluate_key_threshold(
             result,
@@ -446,6 +446,10 @@ def main():
         )
 
     state = lib.base.get_worst(state, state_warn, state_crit)
+
+    # build the message: message and perfdata come from the JSON as they are
+    msg = get_nested(result, args.MESSAGE_KEY) or '' if args.MESSAGE_KEY else ''
+    perfdata = get_nested(result, args.PERFDATA_KEY) if args.PERFDATA_KEY else None
 
     # over and out
     lib.base.oao(

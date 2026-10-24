@@ -31,7 +31,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026102401'
 
 DESCRIPTION = """Monitors swap space usage as a percentage of total swap. Optionally lists the top
 processes consuming the most swap to help identify the source of high usage. Alerts
@@ -204,7 +204,15 @@ def main():
     else:
         stdout, _, _ = lib.lftest.test(args.TEST)
         swap = _load_swap_fixture(stdout)
+
+    # init some vars
     swap_usage_percent = swap.percent
+    # How much a host pages is a rate and not a total, so it belongs to the
+    # `memory-paging` check, which reports it as bytes per second.
+    msg_body = ''
+
+    # analyze data
+    state = lib.base.get_state(swap_usage_percent, args.WARN, args.CRIT)
 
     # build the message
     msg_header = (
@@ -245,10 +253,6 @@ def main():
         _max=swap.total,
     )
 
-    # How much a host pages is a rate and not a total, so it belongs to the
-    # `memory-paging` check, which reports it as bytes per second.
-    msg_body = ''
-
     # On Linux only, get the top processes causing swap usage
     # (skip under --test to keep the test deterministic and avoid
     # walking the real /proc tree)
@@ -266,9 +270,6 @@ def main():
             always_ok=args.ALWAYS_OK,
             no_perfdata=args.NO_PERFDATA,
         )
-
-    # calculating the final check state
-    state = lib.base.get_state(swap_usage_percent, args.WARN, args.CRIT)
 
     # over and out
     lib.base.oao(

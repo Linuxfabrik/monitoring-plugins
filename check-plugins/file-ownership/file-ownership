@@ -209,7 +209,8 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # build the file list: merge defaults with user-supplied entries (last wins by path)
+    # init some vars
+    # the file list: defaults merged with user-supplied entries (last wins by path)
     if args.NO_DEFAULT_FILES:
         file_list = [(entry, False) for entry in args.FILES or []]
     else:
@@ -225,10 +226,12 @@ def main():
     state = STATE_OK
     table_values = []
 
+    # fetch data
     for file_spec, is_default in file_list:
         result = check_file(file_spec, skip_symlink=is_default)
         if result is None:
             continue
+        # analyze data
         state = lib.base.get_worst(result.pop('state'), state)
         table_values.append(result)
 
