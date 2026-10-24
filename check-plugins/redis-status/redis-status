@@ -26,7 +26,7 @@ from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 __author__ = """
 Linuxfabrik GmbH, Zurich/Switzerland;
 """
-__version__ = '2026101401'
+__version__ = '2026102401'
 
 DESCRIPTION = """Monitors a Redis server via the INFO command. Reports memory usage, fragmentation ratio,
 keyspace hit rate, connected clients, replication status, and persistence state. Alerts
@@ -133,7 +133,7 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-thp',
-        help='Suppress the warning about transparent huge pages being enabled.',
+        help='Suppress the warning about transparent huge pages being set to "always".',
         dest='IGNORE_THP',
         default=DEFAULT_IGNORE_THP,
         action='store_true',
@@ -289,7 +289,7 @@ def main():
         except Exception:
             continue
 
-    # fetch data using `valkey-cli memory doctor`
+    # fetch data using `redis-cli memory doctor`
     result['memory_doctor'] = 'Hi Sam'
     if args.TEST is None:
         cmd = [*base_cmd, 'memory', 'doctor']
@@ -309,8 +309,7 @@ def main():
     state = STATE_OK
     perfdata = ''
 
-    # analyze result, get the state and build the message
-
+    # analyze data
     # Redis v5.0.3, standalone mode on 127.0.0.1:6379, /etc/redis.conf, up 1h 39m
     if 'redis_mode' not in result:
         lib.base.cu('This is not a Redis server.')
@@ -322,7 +321,10 @@ def main():
     else:
         msg += 'connected via socket, '
     # /etc/redis.conf, up 1h 39m
-    msg += f'{result["config_file"]}, up {lib.human.seconds2human(result["uptime_in_seconds"])}, '
+    # a server started without a configuration file reports an empty config_file
+    if result.get('config_file'):
+        msg += f'{result["config_file"]}, '
+    msg += f'up {lib.human.seconds2human(result["uptime_in_seconds"])}, '
 
     # 61.0% memory usage (5.8MiB/9.5MiB, 10.0MiB peak, 17.7MiB RSS), maxmemory-policy=noeviction
     if result['maxmemory'] != 0:

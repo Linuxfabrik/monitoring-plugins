@@ -3,7 +3,7 @@
 
 ## Overview
 
-Monitors a Valkey server via the `INFO` command and the `MEMORY DOCTOR` subcommand. Reports memory usage, fragmentation ratio, keyspace hit rate, connected clients, replication status, and persistence state.
+Monitors a Valkey server via the `INFO` command and the `MEMORY DOCTOR` subcommand. Reports memory usage, fragmentation ratio, keyspace hit rate, connected clients, replication status, and persistence state. Alerts on memory consumption, high fragmentation, low hit rates, and OS-level misconfigurations such as overcommit and transparent huge pages.
 
 **Important Notes:**
 
@@ -46,8 +46,9 @@ usage: valkey-status [-h] [-V] [--always-ok] [--cacert CACERT] [-c CRIT]
 
 Monitors a Valkey server via the INFO command. Reports memory usage,
 fragmentation ratio, keyspace hit rate, connected clients, replication status,
-and persistence state. Alerts on memory consumption, high fragmentation, and
-low hit rates.
+and persistence state. Alerts on memory consumption, high fragmentation, low
+hit rates, and OS-level misconfigurations such as overcommit and transparent
+huge pages. Includes Valkey Memory Doctor diagnostics when available.
 
 options:
   -h, --help            show this help message and exit
@@ -55,23 +56,23 @@ options:
   --always-ok           Always returns OK.
   --cacert CACERT       CA certificate file for TLS verification. Requires
                         `--tls`. Default: /etc/pki/tls/certs/rootCA.pem
-  -c, --critical CRIT   CRIT threshold for memory usage in percent. Default:
-                        >= None
+  -c, --critical CRIT   CRIT threshold for memory usage as a percentage.
+                        Default: >= None
   -H, --hostname HOSTNAME
                         Valkey server hostname. Default: 127.0.0.1
-  --ignore-maxmemory0   Suppress warning when Valkey maxmemory is set to 0
+  --ignore-maxmemory0   Suppress the warning when Valkey maxmemory is set to 0
                         (unlimited).
-  --ignore-overcommit   Suppress warning when vm.overcommit_memory is not set
-                        to 1.
-  --ignore-somaxconn    Suppress warning when net.core.somaxconn is lower than
-                        net.ipv4.tcp_max_syn_backlog.
+  --ignore-overcommit   Suppress the warning when vm.overcommit_memory is not
+                        set to 1.
+  --ignore-somaxconn    Suppress the warning when net.core.somaxconn is lower
+                        than net.ipv4.tcp_max_syn_backlog.
   --ignore-sync-partial-err
-                        Suppress warning about partial sync errors. Useful
-                        when asynchronous replication is in use, where a small
-                        number of "denied partial resync requests" might be
-                        normal.
-  --ignore-thp          Suppress warning about transparent huge pages being
-                        set to "always".
+                        Suppress the warning about partial sync errors. Useful
+                        for asynchronous replication setups where a small
+                        number of "denied partial resync requests" is
+                        expected.
+  --ignore-thp          Suppress the warning about transparent huge pages
+                        being set to "always".
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -79,16 +80,15 @@ options:
   -p, --password PASSWORD
                         Password for Valkey server authentication.
   --port PORT           Valkey server port. Default: 6379
-  --socket SOCKET       Valkey server Unix socket path. Overrides hostname and
-                        port.
-  --tls                 Establish a secure TLS connection to the Valkey
-                        server.
+  --socket SOCKET       Valkey server Unix socket path. Overrides --hostname
+                        and --port.
+  --tls                 Establish a secure TLS connection to Valkey.
   --username USERNAME   Username for Valkey server authentication.
   --verbose             Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
                         hood.
-  -w, --warning WARN    WARN threshold for memory usage in percent. Default:
-                        >= 90
+  -w, --warning WARN    WARN threshold for memory usage as a percentage.
+                        Default: >= 90
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/valkey-status/

@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The fixtures are `valkey-cli info default` from the official valkey/valkey:8.1
+# image, started without a configuration file and later with `requirepass`. The
+# kernel settings (overcommit, transparent huge pages, somaxconn) are read from the
+# host running the test, so only the testcase that ignores them pins OK.
+TESTS = [
+    {
+        'id': 'warn-valkey-8.1-standalone-maxmemory-unlimited',
+        'test': 'stdout/valkey-8.1-standalone,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Valkey v8.1.10 (based on Redis v7.2.4), standalone mode on 127.0.0.1:6379,'
+            ' up 3s',
+            'unlimited memory usage enabled [WARNING]',
+            'hit rate 0% (0 hits, 0 misses)',
+        ],
+        'assert-not-in': [', ,'],
+    },
+    {
+        'id': 'ok-valkey-8.1-standalone-ignore-all',
+        'test': 'stdout/valkey-8.1-standalone,,0',
+        'params': (
+            '--warning=100 --critical=100 --ignore-maxmemory0 --ignore-overcommit '
+            '--ignore-somaxconn --ignore-sync-partial-err --ignore-thp'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'unlimited memory usage enabled,',
+            "'clients_connected_clients'=1.0;;;0",
+        ],
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        'id': 'unknown-valkey-8.1-noauth',
+        'test': 'stdout/valkey-8.1-noauth,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Failed to authenticate: Valkey requires a password.',
+            '`--password`',
+        ],
+    },
+    {
+        'id': 'unknown-valkey-8.1-wrongpass',
+        'test': 'stdout/valkey-8.1-noauth,stderr/valkey-8.1-wrongpass,0',
+        'params': '--password=linuxfabrik',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Failed to authenticate: Valkey rejected the username or password.',
+        ],
+        'assert-not-in': ['linuxfabrik'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../valkey-status'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

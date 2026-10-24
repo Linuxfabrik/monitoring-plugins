@@ -3,7 +3,7 @@
 
 ## Overview
 
-Monitors a Redis server via the `INFO` command, reporting memory usage, fragmentation ratio, keyspace hit rate, connected clients, replication status, and persistence state.
+Monitors a Redis server via the `INFO` command, reporting memory usage, fragmentation ratio, keyspace hit rate, connected clients, replication status, and persistence state. Alerts on memory consumption, high fragmentation, low hit rates, and OS-level misconfigurations such as overcommit and transparent huge pages.
 
 **Important Notes:**
 
@@ -71,7 +71,7 @@ options:
                         number of "denied partial resync requests" is
                         expected.
   --ignore-thp          Suppress the warning about transparent huge pages
-                        being enabled.
+                        being set to "always".
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

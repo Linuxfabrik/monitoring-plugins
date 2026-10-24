@@ -27,11 +27,13 @@ __author__ = """
 Linuxfabrik GmbH, Zurich/Switzerland;
 enhanced by Claudio Kuenzler
 """
-__version__ = '2026101401'
+__version__ = '2026102401'
 
 DESCRIPTION = """Monitors a Valkey server via the INFO command. Reports memory usage, fragmentation
 ratio, keyspace hit rate, connected clients, replication status, and persistence state.
-Alerts on memory consumption, high fragmentation, and low hit rates."""
+Alerts on memory consumption, high fragmentation, low hit rates, and OS-level
+misconfigurations such as overcommit and transparent huge pages. Includes Valkey Memory
+Doctor diagnostics when available."""
 
 DEFAULT_CACERT = '/etc/pki/tls/certs/rootCA.pem'
 DEFAULT_CRIT = None
@@ -71,7 +73,8 @@ def parse_args():
 
     parser.add_argument(
         '--cacert',
-        help='CA certificate file for TLS verification. Requires `--tls`. '
+        help='CA certificate file for TLS verification. '
+        'Requires `--tls`. '
         'Default: %(default)s',
         dest='CACERT',
         default=DEFAULT_CACERT,
@@ -80,7 +83,7 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for memory usage in percent. Default: >= %(default)s',
+        help='CRIT threshold for memory usage as a percentage. Default: >= %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -96,7 +99,7 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-maxmemory0',
-        help='Suppress warning when Valkey maxmemory is set to 0 (unlimited).',
+        help='Suppress the warning when Valkey maxmemory is set to 0 (unlimited).',
         dest='IGNORE_MAXMEMORY0',
         default=DEFAULT_IGNORE_MAXMEMORY0,
         action='store_true',
@@ -104,7 +107,7 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-overcommit',
-        help='Suppress warning when vm.overcommit_memory is not set to 1.',
+        help='Suppress the warning when vm.overcommit_memory is not set to 1.',
         dest='IGNORE_OVERCOMMIT',
         default=DEFAULT_IGNORE_OVERCOMMIT,
         action='store_true',
@@ -112,7 +115,8 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-somaxconn',
-        help='Suppress warning when net.core.somaxconn is lower than net.ipv4.tcp_max_syn_backlog.',
+        help='Suppress the warning when net.core.somaxconn is lower than '
+        'net.ipv4.tcp_max_syn_backlog.',
         dest='IGNORE_SOMAXCONN',
         default=DEFAULT_IGNORE_SOMAXCONN,
         action='store_true',
@@ -120,9 +124,9 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-sync-partial-err',
-        help='Suppress warning about partial sync errors. '
-        'Useful when asynchronous replication is in use, where a small number of '
-        '"denied partial resync requests" might be normal.',
+        help='Suppress the warning about partial sync errors. '
+        'Useful for asynchronous replication setups where a small number of '
+        '"denied partial resync requests" is expected.',
         dest='IGNORE_SYNCPARTIALERR',
         default=DEFAULT_IGNORE_SYNCPARTIALERR,
         action='store_true',
@@ -130,7 +134,7 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-thp',
-        help='Suppress warning about transparent huge pages being set to "always".',
+        help='Suppress the warning about transparent huge pages being set to "always".',
         dest='IGNORE_THP',
         default=DEFAULT_IGNORE_THP,
         action='store_true',
@@ -161,7 +165,7 @@ def parse_args():
 
     parser.add_argument(
         '--socket',
-        help='Valkey server Unix socket path. Overrides hostname and port.',
+        help='Valkey server Unix socket path. Overrides --hostname and --port.',
         dest='SOCKET',
         default=None,
     )
@@ -175,7 +179,7 @@ def parse_args():
 
     parser.add_argument(
         '--tls',
-        help='Establish a secure TLS connection to the Valkey server.',
+        help='Establish a secure TLS connection to Valkey.',
         dest='TLS',
         action='store_true',
         default=False,
@@ -198,7 +202,7 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for memory usage in percent. Default: >= %(default)s',
+        help='WARN threshold for memory usage as a percentage. Default: >= %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -306,8 +310,7 @@ def main():
     state = STATE_OK
     perfdata = ''
 
-    # analyze result, get the state and build the message
-
+    # analyze data
     # Valkey v8.0.3 (based on Redis v7.2.4), standalone mode on 127.0.0.1:6379,
     if 'valkey_version' not in result:
         lib.base.cu('This is not a Valkey server.')
@@ -323,7 +326,10 @@ def main():
     else:
         msg += 'connected via socket, '
     # /etc/valkey.conf, up 1h 39m
-    msg += f'{result["config_file"]}, up {lib.human.seconds2human(result["uptime_in_seconds"])}, '
+    # a server started without a configuration file reports an empty config_file
+    if result.get('config_file'):
+        msg += f'{result["config_file"]}, '
+    msg += f'up {lib.human.seconds2human(result["uptime_in_seconds"])}, '
 
     # 61.0% memory usage (5.8MiB/9.5MiB, 10.0MiB peak, 17.7MiB RSS), maxmemory-policy=noeviction
     if result['maxmemory'] != 0:
