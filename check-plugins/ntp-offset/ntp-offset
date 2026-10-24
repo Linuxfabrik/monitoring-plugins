@@ -1,0 +1,727 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import re
+import socket
+import struct
+import sys
+import time
+
+import lib.args
+import lib.base
+import lib.lftest
+import lib.net
+import lib.shell
+import lib.txt
+from lib.globals import STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026102301'
+
+DESCRIPTION = """Checks how far the system clock is off from the time of an NTP server,
+in milliseconds, measured by the check itself and not taken from the local time service.
+By default it asks the NTP server the local time service follows. Alerts when the offset
+exceeds the configured thresholds, when no NTP server is found, when it does not answer,
+or when it is not synchronized itself."""
+
+DEFAULT_CRIT = '60000'  # ms, 1 minute
+DEFAULT_HOSTNAME = 'auto'
+DEFAULT_TIMEOUT = 8
+DEFAULT_WARN = '300'  # ms
+
+# a server name or address taken from the output of a time service
+HOST_REGEX = re.compile(r'[A-Za-z0-9.:_-]{1,253}')
+# Kiss codes that tell a client to go away (RFC 5905, section 7.4). ntpd's
+# kiss_code_check() acts on exactly these; chronyd sends RATE.
+KISS_CODES = ('DENY', 'RATE', 'RSTR')
+# A server whose root distance (root delay / 2 + root dispersion) exceeds this is no
+# usable reference. The strictest daemon default: ntpd's and NTPsec's MAXDISTANCE
+# (chronyd: maxdistance 3 s, systemd-timesyncd: RootDistanceMaxSec 5 s).
+MAX_ROOT_DISTANCE = 1.5  # s
+NTP_PORT = 123
+# Several samples, of which the one with the smallest round-trip delay counts: queueing
+# on one of the two paths adds to the delay and skews the offset (RFC 5905, section
+# 10, clock filter). One second apart, as check_ntp_time does: ntpd and NTPsec drop
+# requests from a client faster than that with `restrict ... limited` (ntp_minpkt,
+# ntp_monitor.c), chronyd's `ratelimit` allows a burst of 8 by default.
+SAMPLES = 4
+SAMPLE_SPACING = 1  # s
+# seconds between the NTP era 0 epoch (1900-01-01) and the Unix epoch (1970-01-01)
+NTP_UNIX_DELTA = 2208988800
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the offset of the system clock, fast or slow, in'
+        ' milliseconds. Supports Nagios ranges. Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '-H',
+        '--hostname',
+        help='NTP server to compare the system clock with. '
+        + lib.args.help('--hostname')
+        + ' `auto` takes the NTP server the local time service follows (chronyd, ntpd,'
+        ' systemd-timesyncd, W32Time). '
+        'Default: %(default)s',
+        dest='HOSTNAME',
+        default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the offset of the system clock, fast or slow, in'
+        ' milliseconds. Supports Nagios ranges. Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def analyze(answer):
+    """
+    Validate an SNTP answer and compute offset and round-trip delay.
+
+    The checks follow what the clients of ntp 4.2.8 (`kiss_code_check()`, the
+    `MAXDISTANCE` selection threshold), chrony 4.9 (`ntp_core.c`) and systemd-timesyncd
+    259 (`manager_receive_response()`) do with an answer. Offset and delay are computed
+    as in RFC 5905, section 8.
+
+    Parameters
+    ----------
+    answer : dict
+        What `query()` returns: `reply` and `request` (bytes), `t1` and `t4` (the local
+        send and receive times as Unix timestamps).
+
+    Returns
+    -------
+    tuple
+        `(True, {'delay': ms, 'offset': ms, 'stratum': int})`, where a positive offset
+        means that the server is ahead and the system clock is slow, or
+        `(False, reason)`.
+    """
+    reply = answer['reply']
+    if len(reply) < 48:
+        return (False, f'Invalid answer ({len(reply)} bytes).')
+    first, stratum = reply[0], reply[1]
+    leap, version, mode = first >> 6, (first >> 3) & 0b111, first & 0b111
+    root_delay, root_dispersion = struct.unpack('!II', reply[4:12])
+    originate = reply[24:32]
+    receive = struct.unpack('!II', reply[32:40])
+    transmit = struct.unpack('!II', reply[40:48])
+    # The reference ID comes from the server, so only a kiss code or a reference ID
+    # like INIT or STEP (uppercase ASCII letters and digits) ever reaches the output.
+    refid = reply[12:16].rstrip(b'\x00')
+    code = lib.txt.to_text(refid) if re.fullmatch(rb'[A-Z0-9]{1,4}', refid) else ''
+
+    if mode != 4:
+        return (False, f'Invalid answer (mode {mode} instead of 4).')
+    if version not in (3, 4):
+        return (False, f'Invalid answer (NTP version {version}).')
+    if originate != answer['request'][40:48]:
+        return (False, 'The answer does not belong to the request.')
+    # Kiss-o'-Death: leap 3, stratum 0 and a kiss code. An unsynchronized server also
+    # sends leap 3 and stratum 0 (stratum 16 on the wire), with INIT or STEP (ntpd)
+    # or 0 (chronyd) as reference ID, so only the kiss codes mean "go away".
+    if leap == 3 and stratum == 0 and code in KISS_CODES:
+        return (False, f"The server refuses to answer (Kiss-o'-Death code {code}).")
+    if leap == 3 or stratum == 0 or stratum >= 16:
+        detail = f' (reference ID {code})' if code else ''
+        return (
+            False,
+            f'The server is not synchronized itself{detail}. Use another NTP server.',
+        )
+    # root delay and root dispersion are NTP short format, 16.16 fixed point
+    root_distance = root_delay / 2**16 / 2 + root_dispersion / 2**16
+    if root_distance > MAX_ROOT_DISTANCE:
+        return (
+            False,
+            f'The server is too far from its reference clock (root distance'
+            f' {round(root_distance, 3)}s, more than {MAX_ROOT_DISTANCE}s).'
+            ' Use another NTP server.',
+        )
+    if transmit == (0, 0):
+        return (False, 'Invalid answer (empty transmit timestamp).')
+
+    t1, t4 = answer['t1'], answer['t4']
+    t2, t3 = from_ntp(*receive), from_ntp(*transmit)
+    return (
+        True,
+        {
+            'delay': ((t4 - t1) - (t3 - t2)) * 1000,
+            'offset': ((t2 - t1) + (t3 - t4)) / 2 * 1000,
+            'stratum': stratum,
+        },
+    )
+
+
+def discover(args, deadline):
+    """
+    Find the NTP server the local time service follows.
+
+    Asks the running time service, not its configuration files: W32Time on Windows,
+    otherwise chronyd, ntpd and systemd-timesyncd, in this order.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        The parsed command line, for `TEST` and `TIMEOUT`.
+    deadline : float
+        `time.monotonic()` value by which the time services have to answer.
+
+    Returns
+    -------
+    tuple
+        `(True, (server, how))` with `how` like "used by chronyd", or `(False, message)`
+        if no time service names an NTP server or one of them does not answer in time.
+    """
+    # time services that did not answer before the deadline, as "`cmd` (service)"
+    silent = []
+
+    def ask(cmd, suffix, service):
+        # the output of `cmd`, or None if it fails; under --test the fixture
+        # `<base>-<suffix>`
+        if args.TEST is not None:
+            return lib.lftest.test_text(
+                args.TEST, f'{args.TEST[0]}-{suffix}', missing_ok=True
+            )
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        success, result = lib.shell.shell_exec(cmd, timeout=remaining)
+        if not success and str(result).startswith('Timeout after'):
+            # a hanging daemon is not an absent one, so say which one hangs
+            silent.append(f'{service} (`{" ".join(cmd)}`)')
+        if not success or result[2] != 0:
+            return None
+        return result[0]
+
+    if lib.base.WINDOWS or args.TEST is not None:
+        found = _from_w32time(args, deadline)
+        if found is not None:
+            return found
+
+    stdout = ask(['chronyc', '-n', 'sources'], 'chronyc', 'chronyd')
+    if stdout is not None:
+        server = _from_chronyc(stdout)
+        if server:
+            return (True, (server, 'used by chronyd'))
+
+    # ntpq --peers cuts addresses to 15 characters, the system variable has them in full
+    stdout = ask(['ntpq', '--numeric', '--command=rv 0 peeradr'], 'ntpq', 'ntpd')
+    if stdout is not None:
+        server = _from_ntpq(stdout)
+        if server:
+            return (True, (server, 'used by ntpd'))
+
+    # Asking a timesyncd that is not running would start it through D-Bus activation,
+    # next to another time service, so only ask an active one.
+    active = ask(
+        ['systemctl', 'is-active', 'systemd-timesyncd'],
+        'timesyncd-active',
+        'systemd',
+    )
+    if active is not None and active.strip() == 'active':
+        stdout = ask(
+            ['timedatectl', 'show-timesync', '--all'],
+            'timedatectl',
+            'systemd-timesyncd',
+        )
+        if stdout is not None:
+            server = _from_timedatectl(stdout)
+            if server:
+                return (True, (server, 'used by systemd-timesyncd'))
+
+    if silent:
+        return (
+            False,
+            f'No NTP server to compare the system clock with: {" and ".join(silent)}'
+            f' did not answer within {args.TIMEOUT}s. Set --hostname to an NTP server.',
+        )
+    return (
+        False,
+        'No NTP server to compare the system clock with: no running time service'
+        ' (chronyd, ntpd, systemd-timesyncd) uses one. Set --hostname to an NTP'
+        ' server.',
+    )
+
+
+def _from_chronyc(stdout):
+    """The source chronyd selected, else the first configured NTP source."""
+    # "^* 192.0.2.1   2   6   377   34   +12us[  +20us] +/-   15ms"; "^" is a server,
+    # "=" a peer, "#" a reference clock; "*" marks the selected source
+    first = None
+    for line in stdout.splitlines():
+        if len(line) < 3 or line[0] not in '^=':
+            continue
+        fields = line[2:].split()
+        if not fields or not _is_host(fields[0]):
+            continue
+        if line[1] == '*':
+            return fields[0]
+        first = first or fields[0]
+    return first
+
+
+def _from_ntpq(stdout):
+    """The address of ntpd's system peer, unless it is a reference clock."""
+    # "peeradr=192.0.2.1:123", "peeradr=[2001:db8::1]:123"
+    match = re.search(r'peeradr=(\S+?)(?:,|\s|$)', stdout)
+    if not match:
+        return None
+    value = match.group(1)
+    if value.startswith('['):
+        server = value[1 : value.find(']')]
+    else:
+        server = value.rsplit(':', 1)[0]
+    # 127.127.t.u are reference clocks, 0.0.0.0 means no system peer
+    if server.startswith('127.127.') or server in ('0.0.0.0', '::'):  # nosec B104
+        return None
+    return server if _is_host(server) else None
+
+
+def _from_timedatectl(stdout):
+    """The server timesyncd talks to, else the first configured one."""
+    values = {}
+    for line in stdout.splitlines():
+        key, _, value = line.strip().partition('=')
+        values[key] = '' if value == '(null)' else value
+    for key in ('ServerAddress', 'ServerName'):
+        if _is_host(values.get(key, '')):
+            return values[key]
+    for key in ('LinkNTPServers', 'SystemNTPServers', 'FallbackNTPServers'):
+        for server in values.get(key, '').split():
+            if _is_host(server):
+                return server
+    return None
+
+
+def _from_w32time(args, deadline):
+    """
+    The NTP server W32Time uses, from `w32tm /query /source`, else from its
+    configuration.
+
+    Only an administrator may ask W32Time; any other account gets "access denied"
+    (0x80070005), but may read the configuration in the registry. Verified on Windows
+    Server 2025 and Windows 11 with a standard user. The error codes are the same in
+    every display language, the text around them is not.
+
+    Returns
+    -------
+    tuple or None
+        Like `discover()`, or None under `--test` without the fixture `<base>-w32tm`.
+    """
+    if args.TEST is not None:
+        stdout = lib.lftest.test_text(
+            args.TEST, f'{args.TEST[0]}-w32tm', missing_ok=True
+        )
+        if stdout is None:
+            return None
+        failed = '0x8007' in stdout
+    else:
+        remaining = max(1, deadline - time.monotonic())
+        success, result = lib.shell.shell_exec(
+            ['w32tm', '/query', '/source'], timeout=remaining
+        )
+        stdout = f'{result[0]}{result[1]}' if success else str(result)
+        failed = not success or result[2] != 0
+    hint = 'Set --hostname to an NTP server.'
+
+    if not failed:
+        # "time.windows.com,0x9", or a provider like "Local CMOS Clock"
+        source = stdout.strip().splitlines()[0].strip() if stdout.strip() else ''
+        server = source.split(',')[0].strip()
+        if _is_host(server):
+            return (True, (server, 'used by W32Time'))
+        return (
+            False,
+            f'No NTP server to compare the system clock with: W32Time uses'
+            f' "{source[:80]}". {hint}',
+        )
+    if '0x80070426' in stdout:
+        # ERROR_SERVICE_NOT_ACTIVE
+        return (
+            False,
+            'No NTP server to compare the system clock with: W32Time is not running,'
+            ' so nothing keeps the clock in time. Start it in an elevated prompt'
+            ' (`sc config w32time start= auto` and `net start w32time`), or set'
+            ' --hostname to an NTP server.',
+        )
+
+    # access denied or another failure: what W32Time is configured to use
+    config = _w32time_config(args)
+    sync_type = config.get('Type', '')
+    if sync_type in ('NTP', 'AllSync'):
+        for entry in config.get('NtpServer', '').split():
+            server = entry.split(',')[0]
+            if _is_host(server):
+                return (True, (server, 'configured in W32Time'))
+    if sync_type == 'NT5DS':
+        return (
+            False,
+            'No NTP server to compare the system clock with: W32Time follows the'
+            ' domain hierarchy, and only an administrator may ask it which domain'
+            ' controller it uses. Set --hostname to a domain controller.',
+        )
+    return (
+        False,
+        f'No NTP server to compare the system clock with: W32Time could not be asked'
+        f' and is configured with type "{sync_type[:20]}". {hint}',
+    )
+
+
+def _is_host(value):
+    """True for something that looks like a host name or an IP address."""
+    return bool(HOST_REGEX.fullmatch(value)) and ('.' in value or ':' in value)
+
+
+def _w32time_config(args):
+    """The values `Type` and `NtpServer` of the W32Time configuration (registry)."""
+    if args.TEST is not None:
+        text = lib.lftest.test_text(
+            args.TEST, f'{args.TEST[0]}-w32time-registry', missing_ok=True
+        )
+        return dict(
+            line.strip().split('=', 1)
+            for line in (text or '').splitlines()
+            if '=' in line
+        )
+    try:
+        import winreg  # only on Windows
+
+        with winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE,
+            r'SYSTEM\CurrentControlSet\Services\W32Time\Parameters',
+        ) as key:
+            return {
+                name: str(winreg.QueryValueEx(key, name)[0])
+                for name in ('Type', 'NtpServer')
+            }
+    except (ImportError, OSError):
+        return {}
+
+
+def from_ntp(seconds, fraction):
+    """
+    Convert an NTP timestamp to a Unix timestamp.
+
+    Parameters
+    ----------
+    seconds : int
+        Seconds since 1900-01-01 (NTP era 0).
+    fraction : int
+        Fraction of a second in units of 1/2^32 s.
+
+    Returns
+    -------
+    float
+        Seconds since 1970-01-01.
+    """
+    return seconds - NTP_UNIX_DELTA + fraction / 2**32
+
+
+def query(hostname, timeout):
+    """
+    Send one SNTP client request (NTP version 4, mode 3) and return the answer.
+
+    Tries the resolved addresses of `hostname` one after the other until one answers,
+    within `timeout` seconds overall, name resolution included.
+
+    Parameters
+    ----------
+    hostname : str
+        Name or IP address of the NTP server.
+    timeout : int
+        Seconds to wait for an answer, for all addresses together.
+
+    Returns
+    -------
+    tuple
+        `(True, {'address': str, 'reply': bytes, 'request': bytes, 't1': float,
+        't4': float})`, with `t1` and `t4` the local send and receive times, or
+        `(False, message)`.
+    """
+    deadline = time.monotonic() + timeout
+    try:
+        addresses = lib.net.getaddrinfo(
+            hostname, NTP_PORT, socktype=lib.net.SOCK_UDP, timeout=timeout
+        )
+    except socket.timeout:
+        return (
+            False,
+            f'Cannot resolve NTP server {hostname}: the name server did not answer'
+            f' within {timeout}s.',
+        )
+    except (OSError, UnicodeError) as e:
+        return (False, f'Cannot resolve NTP server {hostname}: {e}.')
+
+    hint = ' Check that outgoing NTP traffic (UDP port 123) is allowed.'
+    error = f'No answer from NTP server {hostname} within {timeout}s.{hint}'
+    for family, socktype, proto, _, sockaddr in addresses:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        # name the address only if it is not the given host name already
+        server = hostname if sockaddr[0] == hostname else f'{hostname} ({sockaddr[0]})'
+        try:
+            with socket.socket(family, socktype, proto) as sock:
+                sock.settimeout(remaining)
+                # connected, so the kernel drops datagrams from any other sender
+                sock.connect(sockaddr)
+                t1 = time.time()
+                # LI 0, version 4, mode 3 (client); the server echoes the transmit
+                # timestamp back as originate timestamp
+                request = struct.pack('!B39xII', 0x23, *to_ntp(t1))
+                sock.send(request)
+                reply = sock.recv(1024)
+                t4 = time.time()
+        except socket.timeout:
+            error = f'No answer from NTP server {server} within {timeout}s.{hint}'
+            continue
+        except OSError as e:
+            # for example "Connection refused" if the host runs no NTP server
+            error = f'No answer from NTP server {server}: {e.strerror or e}.'
+            continue
+        return (
+            True,
+            {
+                'address': sockaddr[0],
+                'reply': reply,
+                'request': request,
+                't1': t1,
+                't4': t4,
+            },
+        )
+    return (False, error)
+
+
+def to_ntp(unix_time):
+    """
+    Convert a Unix timestamp to an NTP timestamp.
+
+    Parameters
+    ----------
+    unix_time : float
+        Seconds since 1970-01-01.
+
+    Returns
+    -------
+    tuple
+        `(seconds, fraction)`: seconds since 1900-01-01 (NTP era 0) and the fraction of
+        a second in units of 1/2^32 s.
+    """
+    seconds = int(unix_time)
+    fraction = int((unix_time - seconds) * 2**32)
+    return seconds + NTP_UNIX_DELTA, fraction
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # a name that cannot be encoded for DNS, such as one with an empty label, is a wrong
+    # parameter, not an unreachable server
+    if args.HOSTNAME != 'auto':
+        try:
+            args.HOSTNAME.encode('idna')
+        except UnicodeError:
+            lib.base.cu(
+                f'Invalid --hostname "{args.HOSTNAME}": not a valid host name, for'
+                ' example because of an empty label ("..") or a label longer than 63'
+                ' characters.',
+                traceback=False,
+            )
+
+    # fetch data
+    # finding the server and asking it share --timeout
+    deadline = time.monotonic() + args.TIMEOUT
+    hostname, used_by = args.HOSTNAME, ''
+    if hostname == 'auto':
+        success, found = discover(args, deadline)
+        if not success:
+            lib.base.oao(found, STATE_WARN, always_ok=args.ALWAYS_OK)
+        hostname, used_by = found
+    if args.TEST is None:
+        remaining = max(1, round(deadline - time.monotonic()))
+        success, answer = query(hostname, remaining)
+        if not success:
+            lib.base.oao(answer, STATE_WARN, always_ok=args.ALWAYS_OK)
+        answers = [answer]
+        # more samples from the same address, as long as the server gives usable ones
+        # and the time allows
+        while (
+            len(answers) < SAMPLES
+            and analyze(answers[-1])[0]
+            and deadline - time.monotonic() > SAMPLE_SPACING + 1
+        ):
+            time.sleep(SAMPLE_SPACING)
+            remaining = max(1, round(deadline - time.monotonic()))
+            success, answer = query(answers[0]['address'], remaining)
+            if not success:
+                break
+            answers.append(answer)
+    else:
+        # do not query a server, put in test data: one answer or a list of them, each
+        # the request and the answer as hex plus the local send and receive times
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        answers = json.loads(stdout)
+        if isinstance(answers, dict):
+            answers = [answers]
+        for answer in answers:
+            answer['reply'] = bytes.fromhex(answer['reply'])
+            answer['request'] = bytes.fromhex(answer['request'])
+
+    # init some vars
+    perfdata = ''
+
+    # analyze data
+    # the server, with its address where that says more than the name, and who uses it
+    details = []
+    if answers[0]['address'] != hostname:
+        details.append(answers[0]['address'])
+    if used_by:
+        details.append(used_by)
+    server = f'{hostname} ({", ".join(details)})' if details else hostname
+    # the usable sample with the smallest round-trip delay
+    result, failure = None, None
+    for answer in answers:
+        success, sample = analyze(answer)
+        if not success:
+            failure = failure or sample
+        elif result is None or sample['delay'] < result['delay']:
+            result = sample
+    if result is None:
+        lib.base.oao(
+            f'NTP server {server}: {failure}',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
+    delay = round(result['delay'], 3)
+    offset = round(result['offset'], 3)
+    # the thresholds apply to the offset in both directions
+    state = lib.base.get_state(abs(offset), args.WARN, args.CRIT, _operator='range')
+
+    # build the message
+    # a positive offset means the server is ahead, so the system clock is slow
+    direction = 'slow' if offset > 0 else 'fast'
+    # the stratum of the server, not of this host, so it goes with the server
+    details.insert(
+        1 if answers[0]['address'] != hostname else 0, f'stratum {result["stratum"]}'
+    )
+    msg = (
+        f'System clock is {abs(offset)}ms {direction}'
+        f'{lib.base.state2str(state, prefix=" ")} compared to NTP server'
+        f' {hostname} ({", ".join(details)}), Delay is {delay}ms'
+    )
+
+    perfdata += lib.base.get_perfdata(
+        'delay',
+        delay,
+        uom='ms',
+        warn=None,
+        crit=None,
+        _min=None,
+        _max=None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'offset',
+        offset,
+        uom='ms',
+        warn=lib.base.symmetric_range(args.WARN),
+        crit=lib.base.symmetric_range(args.CRIT),
+        _min=None,
+        _max=None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'stratum',
+        result['stratum'],
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=16,
+    )
+
+    # over and out
+    lib.base.oao(
+        msg,
+        state,
+        perfdata,
+        always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

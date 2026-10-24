@@ -1,0 +1,234 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+TESTS = [
+    # Answers of real servers, captured with the plugin's own request: the request and
+    # reply as hex plus the local send and receive times.
+    {
+        'id': 'ok-stratum-1-server',
+        'test': 'stdout/stratum-1-metas,,0',
+        'params': '--hostname=ntp.metas.ch',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'System clock is 5.642ms slow compared to NTP server ntp.metas.ch'
+            ' (192.0.2.11, stratum 1), Delay is 43.633ms',
+            "'offset'=5.642ms;-300:300;-60000:60000",
+        ],
+    },
+    {
+        'id': 'ok-stratum-3-server',
+        'test': 'stdout/stratum-3-cloudflare,,0',
+        'params': '--hostname=ntp.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': ['System clock is 8.608ms fast', "'offset'=-8.608ms;"],
+    },
+    # The clock of a Rocky 10 VM was moved 60 s ahead, and chronyd was slewing it back.
+    {
+        'id': 'warn-clock-fast-beyond-warning',
+        'test': 'stdout/system-clock-29s-fast,,0',
+        'params': '--hostname=ntp.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['System clock is 28941.16ms fast [WARNING]'],
+    },
+    {
+        'id': 'crit-clock-fast-beyond-critical',
+        'test': 'stdout/system-clock-29s-fast,,0',
+        'params': '--hostname=ntp.example.com --critical=10000',
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'ok-clock-fast-within-wide-range',
+        'test': 'stdout/system-clock-29s-fast,,0',
+        'params': '--hostname=ntp.example.com --warning=60000 --critical=120000',
+        'assert-retc': STATE_OK,
+    },
+    # chronyd with `ratelimit interval 1 burst 1 kod 1` (chrony 4.8, Ubuntu 26.04)
+    {
+        'id': 'warn-kiss-o-death-rate',
+        'test': 'stdout/kiss-o-death-rate-chrony-4.8,,0',
+        'params': '--hostname=ntp.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["The server refuses to answer (Kiss-o'-Death code RATE)."],
+    },
+    # Servers without upstream: chronyd sends reference ID 0 (chrony 4.3, Debian 12),
+    # NTPsec INIT (ntpsec 1.2.3, Debian 13), both with leap 3 and stratum 0. Neither is a
+    # Kiss-o'-Death.
+    {
+        'id': 'warn-server-unsynchronized-refid-zero',
+        'test': 'stdout/not-synchronized-chrony-4.3,,0',
+        'params': '--hostname=ntp.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['The server is not synchronized itself. Use another NTP server.'],
+        'assert-not-in': ["Kiss-o'-Death"],
+    },
+    {
+        'id': 'warn-server-unsynchronized-refid-init',
+        'test': 'stdout/not-synchronized-init-ntpsec-1.2,,0',
+        'params': '--hostname=ntp.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['The server is not synchronized itself (reference ID INIT).'],
+        'assert-not-in': ["Kiss-o'-Death"],
+    },
+    # chronyd reported a root dispersion of 11.6 s after the clock tests (chrony 4.8)
+    {
+        'id': 'warn-server-root-distance-too-large',
+        'test': 'stdout/root-distance-11s-chrony-4.8,,0',
+        'params': '--hostname=ntp.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['root distance 11.642s, more than 1.5s'],
+    },
+    # Constructed from the ntp.metas.ch answer: the originate timestamp does not echo
+    # the request (a stale or spoofed answer), and an answer in client mode.
+    {
+        'id': 'warn-answer-not-for-this-request',
+        'test': 'stdout/originate-mismatch-constructed,,0',
+        'params': '--hostname=ntp.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['The answer does not belong to the request.'],
+    },
+    {
+        'id': 'warn-answer-in-client-mode',
+        'test': 'stdout/mode-3-constructed,,0',
+        'params': '--hostname=ntp.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Invalid answer (mode 3 instead of 4).'],
+    },
+    # Constructed from the chronyd 4.3 answer: the server sends a reference ID with a
+    # pipe ("A|B "), which must not reach the output; the former isprintable() check
+    # let it through.
+    {
+        'id': 'warn-hostile-reference-id-not-printed',
+        'test': 'stdout/hostile-reference-id-constructed,,0',
+        'params': '--hostname=ntp.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['The server is not synchronized itself. Use another NTP server.'],
+        'assert-not-in': ['A|', 'reference ID'],
+    },
+    # Four answers of the same server through a home internet line, the offset grows
+    # with the delay (queueing). The sample with the smallest delay counts; the
+    # captured order is reversed so that it is the last one.
+    {
+        'id': 'ok-four-samples-smallest-delay-counts',
+        'test': 'stdout/four-samples-varying-delay,,0',
+        'params': '--hostname=ntp.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': ['System clock is 0.497ms slow', 'Delay is 27.043ms'],
+    },
+    # --hostname=auto. W32Time captured on Windows Server 2025 and Windows 11 (German
+    # display language): an administrator may ask `w32tm /query /source`, a standard
+    # user gets 0x80070005 and falls back to the configuration in the registry.
+    {
+        'id': 'ok-auto-w32time-administrator',
+        'test': 'stdout/w32time-administrator,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'NTP server time.windows.com (198.51.100.11, stratum 3, used by W32Time), Delay'
+        ],
+    },
+    {
+        'id': 'ok-auto-w32time-standard-user',
+        'test': 'stdout/w32time-standard-user,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['(198.51.100.11, stratum 3, configured in W32Time), Delay'],
+    },
+    {
+        'id': 'warn-auto-w32time-not-running',
+        'test': 'stdout/w32time-not-running,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['W32Time is not running, so nothing keeps the clock in time.'],
+    },
+    # Constructed: a domain member (Type NT5DS) asked by a standard user.
+    {
+        'id': 'warn-auto-w32time-standard-user-domain-constructed',
+        'test': 'stdout/w32time-standard-user-domain-constructed,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['W32Time follows the domain hierarchy'],
+    },
+    # chronyd with four configured sources, one of them selected
+    {
+        'id': 'ok-auto-chronyd-selected-source',
+        'test': 'stdout/chronyd-one-usable-source,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'NTP server 192.0.2.31 (198.51.100.11, stratum 3, used by chronyd), Delay'
+        ],
+    },
+    {
+        # ntpq names its system peer in full, with the port
+        'id': 'ok-auto-ntpd-system-peer',
+        'test': 'stdout/ntpd-system-peer,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'NTP server 192.0.2.32 (198.51.100.11, stratum 3, used by ntpd), Delay'
+        ],
+    },
+    {
+        # a reference clock (127.127.t.u) is no NTP server to compare with
+        'id': 'warn-auto-ntpd-reference-clock-only',
+        'test': 'stdout/ntpd-reference-clock,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['no running time service'],
+    },
+    {
+        'id': 'ok-auto-timesyncd-server',
+        'test': 'stdout/timesyncd-server,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'NTP server 192.0.2.33 (198.51.100.11, stratum 3, used by'
+            ' systemd-timesyncd), Delay'
+        ],
+    },
+    {
+        # an inactive timesyncd is not asked: timedatectl would start it via D-Bus
+        'id': 'warn-auto-timesyncd-inactive-not-asked',
+        'test': 'stdout/timesyncd-inactive,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['no running time service'],
+        'assert-not-in': ['192.0.2.33'],
+    },
+    {
+        # an empty label cannot be encoded for DNS: a wrong parameter, decided before
+        # any query, so the fixture is never read
+        'id': 'unknown-invalid-host-name',
+        'test': 'stdout/stratum-1-metas,,0',
+        'params': '--hostname=a..example',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid --hostname "a..example": not a valid host name'],
+        'assert-not-in': ['Traceback'],
+    },
+    {
+        'id': 'warn-auto-no-time-service',
+        'test': 'stdout/stratum-3-cloudflare,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'no running time service (chronyd, ntpd, systemd-timesyncd) uses one'
+        ],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../ntp-offset'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
