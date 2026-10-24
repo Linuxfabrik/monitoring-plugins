@@ -110,21 +110,6 @@ class TestVirtualenv(unittest.TestCase):
                 (True, os.path.join(venv, 'bin', 'python3')),
             )
 
-    def test_anything_but_an_activate_script_is_refused(self):
-        with tempfile.TemporaryDirectory() as venv:
-            os.makedirs(os.path.join(venv, 'bin'))
-            for name in ('python3', 'activate'):
-                open(os.path.join(venv, 'bin', name), 'w').close()
-            for given in (
-                venv,
-                os.path.join(venv, 'bin'),
-                os.path.join(venv, 'bin', 'python3'),
-            ):
-                with self.subTest(given=given):
-                    success, message = pip_updates.get_interpreter(given)
-                    self.assertFalse(success)
-                    self.assertIn('expects the activate script', message)
-
     def test_an_activate_script_without_an_interpreter_is_named(self):
         with tempfile.TemporaryDirectory() as venv:
             activate = os.path.join(venv, 'activate')
@@ -132,6 +117,32 @@ class TestVirtualenv(unittest.TestCase):
             success, message = pip_updates.get_interpreter(activate)
         self.assertFalse(success)
         self.assertIn(f'No interpreter `{os.path.join(venv, "python3")}`', message)
+
+
+# what --virtualenv refuses, relative to a virtualenv that has an activate script
+NOT_AN_ACTIVATE_SCRIPT = [
+    ('venv-directory', ()),
+    ('bin-directory', ('bin',)),
+    ('interpreter', ('bin', 'python3')),
+]
+
+
+def refuses_anything_but_an_activate_script(test, item):
+    with tempfile.TemporaryDirectory() as venv:
+        os.makedirs(os.path.join(venv, 'bin'))
+        for name in ('python3', 'activate'):
+            open(os.path.join(venv, 'bin', name), 'w').close()
+        success, message = pip_updates.get_interpreter(os.path.join(venv, *item[1]))
+    test.assertFalse(success)
+    test.assertIn('expects the activate script', message)
+
+
+lib.lftest.attach_each(
+    TestVirtualenv,
+    NOT_AN_ACTIVATE_SCRIPT,
+    refuses_anything_but_an_activate_script,
+    id_func=lambda it: f'refuses_{it[0]}',
+)
 
 
 if __name__ == '__main__':

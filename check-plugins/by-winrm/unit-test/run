@@ -215,17 +215,6 @@ class TestSplitJeaCommand(unittest.TestCase):
             (True, ('Get-Item', {'Path': '$(whoami)'})),
         )
 
-    def test_refuses_what_jea_cannot_run(self):
-        for command in (
-            'Get-Service | Where-Object Status -eq Running',
-            'Get-Service|Where-Object',
-            'Get-Service; Remove-Item C:\\x',
-            '(Get-Date).Year',
-            '',
-        ):
-            with self.subTest(command=command):
-                self.assertFalse(by_winrm.split_jea_command(command)[0])
-
     def test_refuses_mixed_parameters(self):
         success, message = by_winrm.split_jea_command('Get-Service -Name W32Time X')
         self.assertFalse(success)
@@ -235,6 +224,28 @@ class TestSplitJeaCommand(unittest.TestCase):
         success, message = by_winrm.split_jea_command('Get-Service -Name "W32')
         self.assertFalse(success)
         self.assertIn('Unable to split --command', message)
+
+
+# commands a JEA endpoint cannot run, each refused before it is sent
+JEA_REFUSED = [
+    ('pipeline', 'Get-Service | Where-Object Status -eq Running'),
+    ('pipeline-without-spaces', 'Get-Service|Where-Object'),
+    ('statement-separator', 'Get-Service; Remove-Item C:\\x'),
+    ('subexpression', '(Get-Date).Year'),
+    ('empty', ''),
+]
+
+
+def refuses_what_jea_cannot_run(test, item):
+    test.assertFalse(by_winrm.split_jea_command(item[1])[0])
+
+
+lib.lftest.attach_each(
+    TestSplitJeaCommand,
+    JEA_REFUSED,
+    refuses_what_jea_cannot_run,
+    id_func=lambda it: f'refuses_{it[0]}',
+)
 
 
 if __name__ == '__main__':
