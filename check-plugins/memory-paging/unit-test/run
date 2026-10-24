@@ -8,16 +8,27 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import atexit
 import os
+import shutil
 import sys
+import tempfile
 import time
 import unittest
 
 sys.path.insert(0, '..')
 
-import lib.db_sqlite
-import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+# The cache lives in a throwaway directory: the reset below would otherwise delete the
+# baseline of the check running for real on the machine that runs the tests. Set before
+# the lib is imported and `tempfile.tempdir` cleared, because tempfile caches the
+# directory it found first. The check inherits TMPDIR.
+os.environ['TMPDIR'] = tempfile.mkdtemp(prefix='memory-paging-utest-')
+tempfile.tempdir = None
+atexit.register(shutil.rmtree, os.environ['TMPDIR'], ignore_errors=True)
+
+import lib.db_sqlite  # noqa: E402
+import lib.lftest  # noqa: E402
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN  # noqa: E402
 
 # memory-paging reads files and runs no command, so its fixtures are directory trees
 # under `config/` that stand in for the host's /proc, selected with the hidden
