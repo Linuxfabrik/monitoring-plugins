@@ -115,6 +115,7 @@ Monitoring Plugins:
 * journald-\*: UNKNOWN without journal rights or when journalctl fails, journald-query reads binary messages
 * mediawiki-version: reads MediaWiki before 1.31.7
 * moodle-version: finds Moodle 5.1 and newer
+* network-errors: one state file for all interfaces, also cleans up after interfaces that went away
 * ntp-systemd-timesyncd: warns when the NTP server stops answering, `--stratum` applies to this host
 * openjdk-redhat-version: no wrong version with quoted Java options
 * podman-stats: no false CRIT for rootless containers on cgroups v1

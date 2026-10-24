@@ -11,6 +11,8 @@
 """See the check's README for more details."""
 
 import argparse
+import glob
+import os
 import re
 import sys
 
@@ -32,7 +34,7 @@ if lib.base.WINDOWS:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026102401'
 
 DESCRIPTION = """Monitors network interface errors per interface and alerts on receive and transmit
 errors. On Linux it additionally shows the receive and transmit error breakdown (the
@@ -69,6 +71,10 @@ WINDOWS_METRICS = ['rx_errs', 'tx_errs']
 # Metrics summed into the per-interface alert value. Only the kernel error totals,
 # to avoid double-counting the fifo/frame/carrier breakdown they already contain.
 ALERT_METRICS = ['rx_errs', 'tx_errs']
+
+DB_FILENAME = 'linuxfabrik-monitoring-plugins-network-errors.db'
+# the caches of v8.0.0 and earlier, one file per interface
+LEGACY_DB_PATTERN = 'linuxfabrik-monitoring-plugins-network-errors-*.db'
 
 DEFAULT_CRIT = None
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
@@ -246,6 +252,7 @@ def main():
         metrics = LINUX_METRICS
 
     # --match/--ignore: filter interfaces by name
+    existing = set(interfaces)
     filtered = {}
     for name, counters in interfaces.items():
         if not name:
@@ -265,21 +272,33 @@ def main():
     analyzed = []
 
     # Turn the cumulative kernel counters into per-second rates using the
-    # previous run as a baseline. One cache file per interface keeps each
-    # interface's two-sample history independent. In test mode, skip persistent
-    # state and treat the fetched counters as the per-interval delta directly,
-    # so fixtures can drive the full state machine.
+    # previous run as a baseline, one cache for all interfaces, each keeping its
+    # own two-sample history. In test mode, skip persistent state and treat the
+    # fetched counters as the per-interval delta directly, so fixtures can drive
+    # the full state machine.
     rates = {}
     if args.TEST is None:
         for name, counters in interfaces.items():
-            safe_name = re.sub(r'\W+', '_', name)
-            iface_rates = lib.db_sqlite.per_second_deltas(
-                f'linuxfabrik-monitoring-plugins-network-errors-{safe_name}.db',
-                name,
-                counters,
-            )
+            iface_rates = lib.db_sqlite.per_second_deltas(DB_FILENAME, name, counters)
             if iface_rates is not None:
                 rates[name] = iface_rates
+        # forget the baselines of interfaces that no longer exist, otherwise the
+        # cache grows with every short-lived interface (the veth pair of each
+        # container). Best effort: a failed cleanup must not take the check down.
+        success, cache = lib.db_sqlite.connect(filename=DB_FILENAME)
+        if success:
+            lib.db_sqlite.forget_sensors(cache, 'name', existing)
+            lib.db_sqlite.commit(cache)
+            lib.db_sqlite.close(cache)
+        success, db_path = lib.db_sqlite.get_db_path(filename=DB_FILENAME)
+        if success:
+            for legacy in glob.glob(
+                os.path.join(os.path.dirname(db_path), LEGACY_DB_PATTERN)
+            ):
+                try:
+                    os.remove(legacy)
+                except OSError:
+                    pass
         if interfaces and not rates:
             # no usable baseline yet (first run, or counters just reset)
             lib.base.oao('Waiting for more data.', STATE_OK)
