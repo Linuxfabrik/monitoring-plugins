@@ -23,7 +23,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092702'
+__version__ = '2026102401'
 
 DESCRIPTION = """Collects statistics across multiple snapshots in a restic repository, including the
 number of unique files and their total size. Supports different counting modes
@@ -32,6 +32,7 @@ never alert on their own.
 Requires root or sudo."""
 
 DEFAULT_MODE = 'restore-size'
+DEFAULT_TIMEOUT = 280  # the command timeout of the basket is 300
 
 
 def parse_args():
@@ -99,6 +100,7 @@ def parse_args():
     parser.add_argument(
         '--repo',
         help='Restic repository location. '
+        'A local repository has to be a directory that only root can change. '
         'Give exactly one of --repo and --repository-file.',
         dest='REPO',
         default=None,
@@ -130,6 +132,14 @@ def parse_args():
         type=lib.args.csv,
     )
 
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -148,6 +158,7 @@ def main():
         cmd = [
             'restic',
             '--json',
+            *lib.restic.READ_ONLY_ARGS,
             *lib.base.coe(lib.restic.repo_args(args.REPO, args.REPOSITORY_FILE)),
             *lib.base.coe(lib.restic.password_file_arg(args.PASSWORD_FILE)),
             f'--mode={args.MODE}',
@@ -159,10 +170,18 @@ def main():
         if args.TAG:
             cmd += [f'--tag={tag}' for tag in args.TAG]
         cmd.append('stats')
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        success, result = lib.shell.shell_exec(cmd, timeout=args.TIMEOUT)
+        if not success and result.startswith('Timeout after'):
+            lib.base.oao(
+                f'Timeout after {args.TIMEOUT}s while running `restic stats`.',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
+        stdout, stderr, retc = lib.base.coe((success, result))
         if retc != 0:
             lib.base.oao(
-                f'`restic stats` failed (exit {retc}): {stderr.strip()}',
+                f'`restic stats` failed (exit {retc}): '
+                + ' '.join(lib.restic.error_lines(stderr)),
                 STATE_WARN,
                 always_ok=args.ALWAYS_OK,
             )

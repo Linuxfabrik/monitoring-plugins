@@ -73,6 +73,18 @@ class TestRepositorySafety(unittest.TestCase):
         self.assertEqual(retc, STATE_UNKNOWN)
         self.assertIn('rclone', stdout)
 
+    def test_local_repository_anybody_can_change_is_refused(self):
+        # restic writes its locks into a local repository; in a directory of the
+        # caller's, a planted `locks/` symlink would redirect them
+        work = tempfile.mkdtemp(prefix='lftest-restic-repo-')
+        try:
+            os.chmod(work, 0o777)  # nosec B103 - world-writable on purpose
+            retc, stdout = self.run_check(f'--repo={work}')
+            self.assertEqual(retc, STATE_UNKNOWN)
+            self.assertIn('nobody but root', stdout)
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+
     def test_repository_file_anybody_can_change_is_refused(self):
         work = tempfile.mkdtemp(prefix='lftest-restic-repo-')
         try:

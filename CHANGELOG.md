@@ -169,7 +169,7 @@ Monitoring Plugins:
 * php-status: reads only root-owned pool configs
 * podman-\*: `--user` needs a subordinate UID range
 * postgresql-version: `--path` runs only a `psql` that nobody but root can change
-* restic-\*: `--repo` can no longer run programs as root, works with restic 0.18
+* restic-\*: `--repo` can no longer run programs or write files as root, works with restic 0.18
 * strongswan-connections: `--socket` must be root-owned ([GHSA-cw8h-7h72-79v8](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-cw8h-7h72-79v8))
 * systemd-unit: `--machine` takes only a container name
 

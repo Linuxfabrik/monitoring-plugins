@@ -41,6 +41,7 @@ usage: restic-stats [-h] [-V] [--always-ok] [--host HOST]
                     [--no-perfdata] [--password-file PASSWORD_FILE]
                     [--path PATH] [--repo REPO]
                     [--repository-file REPOSITORY_FILE] [--tag TAG]
+                    [--timeout TIMEOUT]
 
 Collects statistics across multiple snapshots in a restic repository,
 including the number of unique files and their total size. Supports different
@@ -65,8 +66,9 @@ options:
                         Must be a file that only root can change.
   --path PATH           Only consider snapshots for this path. Can be
                         specified multiple times.
-  --repo REPO           Restic repository location. Give exactly one of --repo
-                        and --repository-file.
+  --repo REPO           Restic repository location. A local repository has to
+                        be a directory that only root can change. Give exactly
+                        one of --repo and --repository-file.
   --repository-file REPOSITORY_FILE
                         Path to a file whose first line is the repository
                         location. Use this instead of --repo for a repository
@@ -78,6 +80,7 @@ options:
   --tag TAG             Only consider snapshots matching this taglist in the
                         format `tag[,tag,...]`. Can be specified multiple
                         times.
+  --timeout TIMEOUT     Network timeout in seconds. Default: 280 (seconds)
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/restic-stats/

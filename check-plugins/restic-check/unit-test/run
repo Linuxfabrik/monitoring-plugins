@@ -26,7 +26,8 @@ BASE_PARAMS = '--repo=test --password-file=test'
 
 # restic prints plain text for `check` before v0.18 and a JSON summary since
 # v0.18. The fixtures are real output captured from restic 0.16.5 (text) and
-# 0.18.1 (json), on a healthy and on a damaged repository.
+# 0.18.1 (json), on a healthy and on a damaged repository, and from restic 0.19.1
+# that could not check at all.
 TESTS = [
     {
         'id': 'ok-text-no-errors',
@@ -55,6 +56,22 @@ TESTS = [
         'params': BASE_PARAMS,
         'assert-retc': STATE_WARN,
         'assert-in': ['There are errors', 'does not exist'],
+    },
+    {
+        'id': 'warn-json-wrong-password',
+        'test': ',stderr/json-wrong-password,12',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['`restic check` failed (exit 12): Fatal: wrong password'],
+        'assert-not-in': ['There are errors', 'message_type'],
+    },
+    {
+        'id': 'warn-json-no-repository',
+        'test': ',stderr/json-no-repository,10',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['failed (exit 10): Fatal: repository does not exist'],
+        'assert-not-in': ['There are errors'],
     },
 ]
 
@@ -86,6 +103,18 @@ class TestRepositorySafety(unittest.TestCase):
         retc, stdout = self.run_check('--repo=rclone:remote:backups')
         self.assertEqual(retc, STATE_UNKNOWN)
         self.assertIn('rclone', stdout)
+
+    def test_local_repository_anybody_can_change_is_refused(self):
+        # restic writes its locks into a local repository; in a directory of the
+        # caller's, a planted `locks/` symlink would redirect them
+        work = tempfile.mkdtemp(prefix='lftest-restic-repo-')
+        try:
+            os.chmod(work, 0o777)  # nosec B103 - world-writable on purpose
+            retc, stdout = self.run_check(f'--repo={work}')
+            self.assertEqual(retc, STATE_UNKNOWN)
+            self.assertIn('nobody but root', stdout)
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
 
     def test_repository_file_anybody_can_change_is_refused(self):
         work = tempfile.mkdtemp(prefix='lftest-restic-repo-')

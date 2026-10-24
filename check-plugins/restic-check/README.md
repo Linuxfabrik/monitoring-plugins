@@ -34,6 +34,7 @@ Verifies the integrity of a restic backup repository by running `restic check`. 
 ```text
 usage: restic-check [-h] [-V] [--always-ok] [--password-file PASSWORD_FILE]
                     [--repo REPO] [--repository-file REPOSITORY_FILE]
+                    [--timeout TIMEOUT]
 
 Verifies the integrity of a restic backup repository by running "restic
 check". Alerts when the repository contains errors or inconsistencies.
@@ -46,8 +47,9 @@ options:
   --password-file PASSWORD_FILE
                         Path to the file containing the repository password.
                         Must be a file that only root can change.
-  --repo REPO           Restic repository location. Give exactly one of --repo
-                        and --repository-file.
+  --repo REPO           Restic repository location. A local repository has to
+                        be a directory that only root can change. Give exactly
+                        one of --repo and --repository-file.
   --repository-file REPOSITORY_FILE
                         Path to a file whose first line is the repository
                         location. Use this instead of --repo for a repository
@@ -56,6 +58,7 @@ options:
                         root can change, so an unprivileged caller cannot
                         choose what runs. Give exactly one of --repo and
                         --repository-file.
+  --timeout TIMEOUT     Network timeout in seconds. Default: 280 (seconds)
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/restic-check/

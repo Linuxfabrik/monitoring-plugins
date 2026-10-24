@@ -40,7 +40,7 @@ usage: restic-snapshots [-h] [-V] [--always-ok] [-c CRIT]
                         [--lengthy] [--no-perfdata]
                         [--password-file PASSWORD_FILE] [--path PATH]
                         [--repo REPO] [--repository-file REPOSITORY_FILE]
-                        [--tag TAG] [-w WARN]
+                        [--tag TAG] [--timeout TIMEOUT] [-w WARN]
 
 Checks the age of the newest snapshot in a restic repository. Alerts when the
 most recent backup is older than the configured thresholds. Useful for
@@ -69,8 +69,9 @@ options:
                         Must be a file that only root can change.
   --path PATH           Only consider snapshots for this path. Can be
                         specified multiple times.
-  --repo REPO           Restic repository location. Give exactly one of --repo
-                        and --repository-file.
+  --repo REPO           Restic repository location. A local repository has to
+                        be a directory that only root can change. Give exactly
+                        one of --repo and --repository-file.
   --repository-file REPOSITORY_FILE
                         Path to a file whose first line is the repository
                         location. Use this instead of --repo for a repository
@@ -82,6 +83,7 @@ options:
   --tag TAG             Only consider snapshots matching this taglist in the
                         format `tag[,tag,...]`. Can be specified multiple
                         times.
+  --timeout TIMEOUT     Network timeout in seconds. Default: 280 (seconds)
   -w, --warning WARN    WARN threshold for the age of the newest snapshot in
                         each group, in hours. Default: 24
 

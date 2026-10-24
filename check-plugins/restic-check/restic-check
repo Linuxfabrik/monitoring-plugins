@@ -22,11 +22,13 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026102401'
 
 DESCRIPTION = """Verifies the integrity of a restic backup repository by running "restic check". Alerts
 when the repository contains errors or inconsistencies.
 Requires root or sudo."""
+
+DEFAULT_TIMEOUT = 280  # the command timeout of the basket is 300
 
 
 def parse_args():
@@ -62,6 +64,7 @@ def parse_args():
     parser.add_argument(
         '--repo',
         help='Restic repository location. '
+        'A local repository has to be a directory that only root can change. '
         'Give exactly one of --repo and --repository-file.',
         dest='REPO',
         default=None,
@@ -82,6 +85,14 @@ def parse_args():
         help=lib.args.help('--test'),
         dest='TEST',
         type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     args, _ = parser.parse_known_args()
@@ -109,30 +120,6 @@ def get_check_summary(stdout):
     return None
 
 
-def get_error_lines(stderr):
-    """Return restic's human-readable error lines from stderr.
-
-    Before v0.18 they are plain text; since v0.18 they are one JSON object per line
-    carrying the text in `message`. Both shapes come back as a list of plain lines,
-    capped so a damaged repository cannot flood the output.
-    """
-    lines = []
-    for line in stderr.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            message = json.loads(line)
-        except ValueError:
-            lines.append(line)
-            continue
-        if isinstance(message, dict) and message.get('message'):
-            lines.append(message['message'].strip())
-    if len(lines) > 10:
-        lines = [*lines[:5], '...', *lines[-5:]]
-    return lines
-
-
 def main():
     """The main function. This is where the magic happens."""
 
@@ -147,14 +134,31 @@ def main():
         cmd = [
             'restic',
             '--json',
+            *lib.restic.READ_ONLY_ARGS,
             *lib.base.coe(lib.restic.repo_args(args.REPO, args.REPOSITORY_FILE)),
             *lib.base.coe(lib.restic.password_file_arg(args.PASSWORD_FILE)),
             'check',
         ]
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        success, result = lib.shell.shell_exec(cmd, timeout=args.TIMEOUT)
+        if not success and result.startswith('Timeout after'):
+            lib.base.oao(
+                f'Timeout after {args.TIMEOUT}s while running `restic check`.',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
+        stdout, stderr, retc = lib.base.coe((success, result))
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
+    # 1 is what `check` returns for a damaged repository, anything else means it could
+    # not check at all, such as 10 (no repository there) or 12 (wrong password)
+    if retc not in (0, 1):
+        lib.base.oao(
+            f'`restic check` failed (exit {retc}): '
+            + ' '.join(lib.restic.error_lines(stderr)),
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
 
     # init some vars
     msg = ''
@@ -175,7 +179,7 @@ def main():
                 hints.append('restic repair index')
             if summary.get('suggest_prune'):
                 hints.append('restic prune')
-            details = get_error_lines(stderr)
+            details = lib.restic.error_lines(stderr)
             if details:
                 msg += '\n\n' + '\n'.join(details)
             if hints:
@@ -187,7 +191,7 @@ def main():
         else:
             state = STATE_WARN
             msg = 'There are errors.'
-            details = get_error_lines(stderr) or get_error_lines(stdout)
+            details = lib.restic.error_lines(stderr) or lib.restic.error_lines(stdout)
             if details:
                 msg += '\n\n' + '\n'.join(details)
 
