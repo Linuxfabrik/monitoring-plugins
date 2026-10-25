@@ -129,7 +129,9 @@ options:
                         Severity for alerting if there is an output on STDOUT.
                         Default: ok
   --severity-timeout {ok,warn,crit,unknown}
-                        Severity on connection problems. Default: unknown
+                        Severity on connection problems, and on a command that
+                        does not finish within `--timeout` (WARN if this
+                        parameter is not specified). Default: unknown
   --skip-stderr SKIP_STDERR
                         Ignore all (0) or first n lines on STDERR. Default: -1
                         (no ignore)
@@ -334,6 +336,10 @@ Return code != 0?
 
 * Depending on the given `--severity-timeout`, returns OK, WARN, CRIT or UNKNOWN (default) if WinRM can't connect (no command output but error present). Nothing ran then, so this alone decides the state, and the first line says why the connection failed.
 * Depending on the given `--severity-retc`, returns OK, WARN (default), CRIT or UNKNOWN if there is a return code != 0.
+
+Command does not finish in time?
+
+* Returns WARN with "Timeout after ..." if the command has not finished after `--timeout` seconds (default: 8), or the state `--severity-timeout` names if it is specified. A connection WinRM itself gives up on before that follows `--severity-timeout`.
 
 `--always-ok` suppresses all alerts and always returns OK.
 

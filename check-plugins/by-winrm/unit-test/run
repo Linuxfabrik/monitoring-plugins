@@ -309,6 +309,25 @@ class TestTimeout(unittest.TestCase):
             'Timeout after 2s while running the command on 127.0.0.1.',
         )
 
+    def test_silent_endpoint_follows_an_explicit_severity_timeout(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                PLUGIN,
+                '--winrm-hostname=127.0.0.1',
+                '--winrm-username=linuxfabrik',
+                '--winrm-password=linuxfabrik',
+                '--command=hostname',
+                '--timeout=2',
+                '--severity-timeout=crit',
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        self.assertEqual(result.returncode, STATE_CRIT, result.stdout)
+
 
 if __name__ == '__main__':
     unittest.main()

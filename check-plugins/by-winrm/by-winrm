@@ -24,7 +24,7 @@ import lib.winrm
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102402'
+__version__ = '2026102403'
 
 DESCRIPTION = """Executes a PowerShell command or script on a remote Windows host via WinRM,
 JEA endpoints included, and evaluates the result. Returns STDOUT and, in case of failure,
@@ -140,9 +140,13 @@ def parse_args():
 
     parser.add_argument(
         '--severity-timeout',
-        help='Severity on connection problems. Default: %(default)s',
+        # `None` tells "not specified" apart from an explicit value: only an explicit
+        # value applies to a command that runs into `--timeout`, which is WARN otherwise
+        help='Severity on connection problems, and on a command that does not finish '
+        'within `--timeout` (WARN if this parameter is not specified). '
+        f'Default: {DEFAULT_SEVERITY_CONNTIMEOUT}',
         dest='SEVERITY_CONNTIMEOUT',
-        default=DEFAULT_SEVERITY_CONNTIMEOUT,
+        default=None,
         choices=['ok', 'warn', 'crit', 'unknown'],
     )
 
@@ -325,6 +329,11 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+    if args.SEVERITY_CONNTIMEOUT is None:
+        timeout_state = STATE_WARN
+        args.SEVERITY_CONNTIMEOUT = DEFAULT_SEVERITY_CONNTIMEOUT
+    else:
+        timeout_state = lib.base.str2state(args.SEVERITY_CONNTIMEOUT)
 
     # set default values for append parameters that were not specified
     if args.CRIT_PATTERN is None:
@@ -348,7 +357,7 @@ def main():
             lib.base.oao(
                 f'Timeout after {args.TIMEOUT}s while running the command on'
                 f' {args.WINRM_HOSTNAME}.',
-                STATE_WARN,
+                timeout_state,
                 always_ok=args.ALWAYS_OK,
             )
         stdout, stderr, retc = result['stdout'], result['stderr'], result['retc']
