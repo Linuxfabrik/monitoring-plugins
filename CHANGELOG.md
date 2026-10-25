@@ -36,6 +36,7 @@ Assets:
 
 Monitoring Plugins:
 
+* `--timeout` defaults to 3 seconds for a network connect or an API request, on 33 checks
 * end of life follows the distribution's life cycle, on most \*-version checks
 * spare, standby and offline components are evaluated, on all redfish-\* checks
 * the monitoring user needs its privileges on `*.*`, on all mysql-\* checks
@@ -44,6 +45,8 @@ Monitoring Plugins:
 * apache-httpd-logfile: more detail, far fewer false alarms
 * cpu-vulnerabilities: fewer false alarms in virtual machines
 * crypto-policy: compares only the base policy by default, and named subpolicies in any order
+* deb-updates, rpm-updates: a timeout of apt or yum warns and names the command
+* dns: the thresholds take Nagios ranges, honours `--timeout` also on Windows, names the lookup time
 * gitlab-version: CRIT on a pending security update
 * journald-usage: the thresholds take Nagios ranges, a plain number alerts only above it, UNKNOWN when journalctl fails
 * memory-paging: swap-out no longer alerts by default
@@ -59,8 +62,9 @@ Monitoring Plugins:
 * php-fpm-ping: an unreachable ping page follows `--severity`, perfdata `response_time` replaces `ping`
 * redfish-memory: fewer false alarms, detects defects on Fujitsu iRMC
 * redfish-sensors: CRIT only above the fatal threshold, fewer false alarms, renamed power supply metrics
-* redis-status, valkey-status: a refused login is UNKNOWN
+* restic-snapshots: warns when the repository has no snapshot or the filters match none
 * scheduled-task: alerts on a failed last run, works on non-English Windows
+* swap-usage: the thresholds take Nagios ranges, a plain number alerts only above it
 * systemd-timedate-status: warns on an unsynchronized clock
 * wordpress-\*: find the installation without `--path`
 
@@ -81,6 +85,12 @@ Grafana:
 
 * re-import all dashboards and re-deploy the `icingaweb2-module-grafana` assets
 
+### Removed
+
+Monitoring Plugins:
+
+* redfish-storage: perfdata `<drive>_power_on_hours`
+
 ### Fixed
 
 Monitoring Plugins:
@@ -91,6 +101,7 @@ Monitoring Plugins:
 * HTTPS works with root certificates Windows has not cached yet, on all plugins
 * non-ASCII arguments are no longer garbled, on all Windows plugins
 * the acknowledgement is read from the right service, on all plugins with `--icinga-callback`
+* the message names a threshold that is no Nagios range, on all plugins with ranges
 * apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: no journal warning without systemd ([#1544](https://github.com/Linuxfabrik/monitoring-plugins/issues/1544))
 * borgbackup: a running backup is no longer UNKNOWN
 * by-ssh: `--warning-regex` and `--critical-regex` ignore case, as documented
@@ -102,7 +113,6 @@ Monitoring Plugins:
 * disk-io: learns the bandwidth for a week before it warns
 * disk-usage, nfs-exports, nfs-mounts, path-rw-test: return on time despite a hung NFS mount
 * dmesg: fewer false alarms on Debian 13 and Ubuntu 26.04 VMs
-* dns: honours `--timeout`, also on Windows, names the lookup time when it alerts
 * docker-image, podman-image: no false CRIT for images dated 1970
 * fedora-version, rhel-version: no false end of life on other distributions
 * feed: respects the time zone of an entry, acknowledging an entry without an ID no longer silences the next one
@@ -149,7 +159,7 @@ Icinga Director:
 * by-ssh, by-winrm, dhcp-scope-usage: re-import the basket, so that a hanging command returns WARN
 * ClamAV Service Set: works on Debian and Ubuntu
 * FortiOS 6 Service Set: `FortiOS Sensor` gets the host address
-* IPMI, kdump and all OS Basic Service Sets: ipmi-sel, ipmi-sensor, kdump and dmesg run via sudo
+* IPMI, kdump, Nextcloud, Scanrootkit and all OS Basic Service Sets: deb-updates, dmesg, ipmi-\*, kdump, nextcloud-security-scan and scanrootkit run via sudo
 * Mastodon and Rocket.Chat Service Sets: check the rootless containers
 * Nextcloud Service Set: no warning for an enabled `nextcloud-app-update.timer`
 * ntp-chronyd, ntp-ntpd, ntp-systemd-timesyncd, ntp-w32tm: re-import the basket
@@ -183,6 +193,7 @@ Monitoring Plugins:
 * php-status: reads only root-owned pool configs, `--config` compares the whole value, finds every missing module
 * podman-\*: `--user` needs a subordinate UID range
 * postgresql-version: `--path` runs only a `psql` that nobody but root can change
+* redis-status, valkey-status: the password stays out of the process list, a refused login is UNKNOWN
 * restic-\*: `--repo` can no longer run programs or write files as root, works with restic 0.18
 * scanrootkit: no longer reveals which files exist, detects 23 more rootkits and those named by a pattern
 * snmp: a device answer is never run as code, works with the default `--device` and on Debian and Ubuntu
