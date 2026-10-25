@@ -19,9 +19,9 @@
 #                        lib) and assembles them.
 #   --zip                Install the signed source zip from download.linuxfabrik.ch
 #                        (sha256 + GPG verified) into a venv. Defaults to the 'latest' alias
-#                        on the download server; pin an exact release with --version. For
-#                        air-gapped or version-pinned production hosts that cannot or do not
-#                        want to reach the repository.
+#                        on the download server; pin an exact release with --version. The
+#                        download server carries releases only, while --source also installs
+#                        the development state of a branch.
 #   --uninstall          Reverse a previous install (package, source or zip).
 #
 # Usage (recommended path):
@@ -176,7 +176,7 @@ Modes (mutually exclusive; --package is the default):
                        (--git is accepted as an alias.)
   --zip                Install the signed source zip from download.linuxfabrik.ch
                        (sha256 + GPG verified) into a venv. Defaults to the latest release;
-                       pin with --version. For air-gapped or pinned hosts.
+                       pin with --version. Releases only, unlike --source.
   --uninstall          Reverse a previous package, source or zip install.
 
 Options:
@@ -1107,7 +1107,11 @@ install_from_zip() {
                 install -m 0755 "${entry}" "${PLUGIN_DIR}/${base}"
                 record "${PLUGIN_DIR}/${base}"
             else
-                cp -a "${entry}" "${PLUGIN_DIR}/${base}"
+                # Copy the contents, not the folder: on a re-run the target exists, and
+                # `cp -a <dir> <target>` would then create <target>/<dir> and leave the
+                # previous lib/, lockfiles/ and assets/ in use.
+                mkdir -p "${PLUGIN_DIR}/${base}"
+                cp -a "${entry}/." "${PLUGIN_DIR}/${base}/"
                 record "${PLUGIN_DIR}/${base}"
             fi
         done
