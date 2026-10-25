@@ -29,7 +29,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Runs a lynis security audit across the hosts of a subnet or a host list from
 a single management host, and reports each host's hardening index, its findings (the lynis
@@ -501,13 +501,17 @@ def validate_lynis_args(args):
                 f'--lynis-option "{option}" has to start with "-" and may only contain'
                 ' letters, digits, spaces and `._:=-`.',
             )
-        name = option.split('=', 1)[0].split(' ', 1)[0]
-        if name in LYNIS_OPTIONS_WITH_PATH:
-            return (
-                False,
-                f'--lynis-option "{name}" takes a path and is not passed on;'
-                ' use the dedicated parameter where there is one.',
-            )
+        # The remote shell splits the value at spaces, so `--quick --profile x`
+        # reaches lynis as three arguments: every word is checked, not only the
+        # first one.
+        for word in option.split():
+            name = word.split('=', 1)[0]
+            if name in LYNIS_OPTIONS_WITH_PATH:
+                return (
+                    False,
+                    f'--lynis-option "{name}" takes a path and is not passed on;'
+                    ' use the dedicated parameter where there is one.',
+                )
     return (True, None)
 
 

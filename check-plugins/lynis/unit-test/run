@@ -153,6 +153,15 @@ TESTS = [
         'assert-in': ['"--plugin-dir" takes a path'],
     },
     {
+        # the remote shell splits the value at spaces, so a path option behind a
+        # harmless one reaches lynis as an argument of its own
+        'id': 'unknown-option-with-a-path-in-a-later-word',
+        'test': 'stdout/report-ok,,0',
+        'params': "--lynis-option='--quick --profile default.prf'",
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['"--profile" takes a path'],
+    },
+    {
         'id': 'unknown-more-than-one-category',
         'test': 'stdout/report-ok,,0',
         'params': '--lynis-test-category=security --lynis-test-category=performance',
