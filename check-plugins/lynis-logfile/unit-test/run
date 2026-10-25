@@ -57,7 +57,9 @@ def write_report(name, hours_ago):
     """Write a copy of report-rocky10 that finished `hours_ago` hours ago. It has to
     live below unit-test/, the only place the plugin reads a fixture from.
     """
-    end = datetime.datetime.now() - datetime.timedelta(hours=hours_ago)
+    # count back on the epoch, not on the wall clock: across a DST change,
+    # `now() - timedelta()` is off by the hour that the change adds or removes
+    end = datetime.datetime.fromtimestamp(time.time() - hours_ago * 3600)
     with open(os.path.join(HERE, 'stdout', 'report-rocky10'), encoding='utf-8') as f:
         lines = f.read().splitlines()
     lines = [
@@ -85,7 +87,7 @@ TESTS = [
             'Hardening index 65, 0 findings, 37 suggestions, audited ',
             # a suggestion is advice, it carries no state
             'Suggestions:\n* ACCT-9622: Enable process accounting.\n',
-            '`lynis show details ACCT-9622`',
+            '`sudo lynis show details ACCT-9622`',
         ],
         'assert-not-in': ['[WARNING]', 'Findings:'],
         'assert-regex': r"'hardening_index'=65;65:;;0;100 'findings'=0;0;;0 "

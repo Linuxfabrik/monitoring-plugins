@@ -35,6 +35,7 @@ import shutil
 import subprocess  # nosec B404 - runs the plugin and grep, argv lists only
 import sys
 import tempfile
+import time
 import unittest
 
 sys.path.insert(0, '..')
@@ -690,7 +691,7 @@ class TestArrivalRate(unittest.TestCase):
     def _write_denials(self, count, minutes_ago, peers=1):
         """Write `count` denied requests, spread evenly over `peers` clients."""
         path = os.path.join(self.scratch_dir, 'error_log')
-        first = datetime.datetime.now() - datetime.timedelta(minutes=minutes_ago)
+        first = datetime.datetime.fromtimestamp(time.time() - minutes_ago * 60)
         with open(path, 'w', encoding='utf-8') as handle:
             for index in range(count):
                 logged_at = first + datetime.timedelta(seconds=index)
@@ -771,7 +772,7 @@ class TestRelayedStandardError(unittest.TestCase):
     def _write(self, bursts, lines_per_burst, text='  File "app.py", line 3, in inner'):
         """Write `bursts` events, `lines_per_burst` lines each, one thread apiece."""
         path = os.path.join(self.scratch_dir, 'error_log')
-        first = datetime.datetime.now() - datetime.timedelta(minutes=5)
+        first = datetime.datetime.fromtimestamp(time.time() - 5 * 60)
         with open(path, 'w', encoding='utf-8') as handle:
             for burst in range(bursts):
                 started = first + datetime.timedelta(seconds=10 * burst)
@@ -831,7 +832,7 @@ class TestRepeatedScoreboardFull(unittest.TestCase):
     def _write(self, offsets, extra_lines=()):
         """One line per offset in seconds, counted from five minutes ago."""
         path = os.path.join(self.scratch_dir, 'error_log')
-        first = datetime.datetime.now() - datetime.timedelta(minutes=5)
+        first = datetime.datetime.fromtimestamp(time.time() - 5 * 60)
         with open(path, 'w', encoding='utf-8') as handle:
             for offset in offsets:
                 logged_at = first + datetime.timedelta(seconds=offset)
@@ -864,7 +865,7 @@ class TestRepeatedScoreboardFull(unittest.TestCase):
             ' the MaxRequestWorkers setting'
         ).format(
             timestamp=(
-                datetime.datetime.now() - datetime.timedelta(minutes=4)
+                datetime.datetime.fromtimestamp(time.time() - 4 * 60)
             ).strftime(APACHE_TIMESTAMP_FORMAT)
         )
         path = self._write(range(8), extra_lines=[once])
@@ -903,7 +904,7 @@ class TestReverseProxy(unittest.TestCase):
         """Write one refused PHP request per entry of `peers`, the last one
         five minutes ago."""
         path = os.path.join(self.scratch_dir, 'error_log')
-        first = datetime.datetime.now() - datetime.timedelta(minutes=5)
+        first = datetime.datetime.fromtimestamp(time.time() - 5 * 60)
         with open(path, 'w', encoding='utf-8') as handle:
             for index, peer in enumerate(peers):
                 logged_at = first - datetime.timedelta(seconds=len(peers) - index)

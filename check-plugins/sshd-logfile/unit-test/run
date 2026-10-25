@@ -37,6 +37,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 sys.path.insert(0, '..')
@@ -460,7 +461,7 @@ class TestArrivalRate(unittest.TestCase):
     def _write_failures(self, count, minutes_ago, peers=1):
         """Write `count` failed passwords, spread evenly over `peers` addresses."""
         path = os.path.join(self.scratch_dir, 'secure')
-        first = datetime.datetime.now() - datetime.timedelta(minutes=minutes_ago)
+        first = datetime.datetime.fromtimestamp(time.time() - minutes_ago * 60)
         with open(path, 'w', encoding='utf-8') as handle:
             for index in range(count):
                 logged_at = first + datetime.timedelta(seconds=index)

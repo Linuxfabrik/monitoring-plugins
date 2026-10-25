@@ -144,9 +144,9 @@ def _check_image(test, containerfile):
         # component.
         is_mysql = os.path.basename(path).startswith('mysql')
         plugin_clause = (
-            'IDENTIFIED WITH mysql_native_password BY \'x\''
+            "IDENTIFIED WITH mysql_native_password BY 'x'"
             if is_mysql
-            else 'IDENTIFIED BY \'x\''
+            else "IDENTIFIED BY 'x'"
         )
         for number in range(6):
             container.exec(
@@ -155,7 +155,7 @@ def _check_image(test, containerfile):
                     '-c',
                     'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
                     'else C=mysql; fi; '
-                    f'SQL="CREATE USER \'native{number}\'@\'localhost\' '
+                    f"SQL=\"CREATE USER 'native{number}'@'localhost' "
                     f'{plugin_clause}"; '
                     '"$C" -uroot -e "$SQL" 2>/dev/null '
                     '|| "$C" -uroot -ptest -e "$SQL"',
@@ -168,7 +168,9 @@ def _check_image(test, containerfile):
             text=True,
         )
         combined = result.stdout + result.stderr
-        print(f'Script output with six native accounts:\n{combined.strip()}', flush=True)
+        print(
+            f'Script output with six native accounts:\n{combined.strip()}', flush=True
+        )
         issues_after = _security_issues(combined)
         if containerfile == 'mysql-v84':
             # MySQL 8.4 ships `mysql_native_password` disabled, so CREATE USER

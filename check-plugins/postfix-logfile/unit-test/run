@@ -38,6 +38,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 sys.path.insert(0, '..')
@@ -381,7 +382,7 @@ class TestArrivalRate(unittest.TestCase):
         self.assertIn('6 failed logins from 198.51.100.7', combined)
 
     def test_the_same_burst_an_hour_ago_does_not(self):
-        now = datetime.datetime.now() - datetime.timedelta(hours=1)
+        now = datetime.datetime.fromtimestamp(time.time() - 1 * 3600)
         moments = [now - datetime.timedelta(seconds=30 * i) for i in range(6)]
         returncode, combined = _run([f'--server-log={self._write("old.log", moments)}'])
         self.assertEqual(returncode, STATE_OK, combined)
