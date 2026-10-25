@@ -13,6 +13,7 @@
 import argparse
 import datetime
 import json
+import re
 import sys
 
 import lib.args
@@ -24,7 +25,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Checks the security of a private Nextcloud server using the Nextcloud security scanner.
 Reports the assigned security rating and alerts on known vulnerabilities in the
@@ -37,6 +38,10 @@ DEFAULT_NO_PROXY = False
 DEFAULT_PATH = None
 DEFAULT_TIMEOUT = 7
 DEFAULT_TRIGGER = 14
+
+# The scan ID scan.nextcloud.com hands out is a UUID
+# (`8b7f369a-3dd6-4cde-82de-555a7ab2dd62`, verified against /api/queue on 2026-10-24).
+UUID_REGEX = re.compile(r'[0-9A-Fa-f-]{1,64}')
 
 
 def parse_args():
@@ -157,9 +162,14 @@ def get_uuid_from_scan_nextcloud_com(nc_url, args):
             f'The scan for {nc_url} failed. Either no Nextcloud or ownCloud can be found there or you tried to scan too many servers.',
         )
     try:
-        return (True, json.loads(result)['uuid'])
+        uuid = json.loads(result)['uuid']
     except Exception:
         return (False, 'No JSON object could be decoded')
+    # The uuid becomes part of the next request path, so whatever the scanner sent
+    # back is taken only if it looks like what it is.
+    if not isinstance(uuid, str) or not UUID_REGEX.fullmatch(uuid):
+        return (False, f'The scanner returned an unexpected scan ID for {nc_url}.')
+    return (True, uuid)
 
 
 def trigger_rescan_nextcloud_com(nc_url, args):

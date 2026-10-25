@@ -3,7 +3,9 @@
 
 ## Overview
 
-Checks the security of a Nextcloud (or ownCloud) server using the Nextcloud security scanner at <https://scan.nextcloud.com/>. Reports the assigned security rating and alerts on known vulnerabilities, missing hardenings, and setup issues.
+Checks the security of a private Nextcloud server using the Nextcloud security scanner. Reports the assigned security rating and alerts on known vulnerabilities in the installed version. When `--path` points at a local Nextcloud installation, the plugin reads the installed version and forces a fresh scan after an update, so the rating never lags behind. Requires root or sudo.
+
+The scanner at <https://scan.nextcloud.com/> also covers ownCloud. Besides the rating, the check lists missing hardenings and setup issues.
 
 **Important Notes:**
 

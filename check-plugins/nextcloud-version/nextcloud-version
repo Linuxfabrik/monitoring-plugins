@@ -15,13 +15,12 @@ import sys
 
 import lib.args
 import lib.base
-import lib.disk
 import lib.nextcloud
 import lib.version
-from lib.globals import STATE_UNKNOWN
+from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks the installed Nextcloud version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -163,8 +162,12 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    success, config = lib.nextcloud.run_occ(args.PATH, 'config:list')
+    success, config = lib.nextcloud.run_occ(
+        args.PATH, 'config:list', timeout=args.TIMEOUT
+    )
     if not success:
+        if config.startswith('Timeout after'):
+            lib.base.oao(config, STATE_WARN, always_ok=args.ALWAYS_OK)
         lib.base.cu(config)
 
     # init some vars
