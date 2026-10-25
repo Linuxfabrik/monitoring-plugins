@@ -12,7 +12,7 @@ Monitors CPU utilization on QNAP appliances running QTS via the API. Alerts only
 **Data Collection:**
 
 * Authenticates against the QTS API and fetches system information via `/cgi-bin/management/manaRequest.cgi`
-* Uses a local SQLite database to store historical CPU measurements for trend tracking
+* Uses a local SQLite database to store historical CPU measurements for trend tracking, separately for each `--url`, so one monitoring host can check several appliances
 * `--count=5` (the default) while checking every minute means the check reports a warning if the overall CPU usage is above a threshold in the last 5 minutes
 
 

@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import re
 import sys
 
 import lib.args
@@ -29,7 +30,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102301'
+__version__ = '2026102401'
 
 DESCRIPTION = """Monitors CPU utilization on QNAP appliances running QTS via the API. Alerts only if
 the threshold has been exceeded for a configurable number of consecutive check runs
@@ -170,13 +171,15 @@ def parse_args():
     return args
 
 
-def get_state_from_db(conn, count, warn, crit):
+def get_state_from_db(conn, table, count, warn, crit):
     """Return the state the last COUNT CPU usage samples agree on.
 
     A single sample above the threshold is a spike, COUNT of them in a row is load.
     Same hysteresis as `cpu-usage`.
     """
-    rows = lib.base.coe(lib.db_sqlite.select(conn, 'SELECT cpu_usage FROM perfdata'))
+    # the table name comes from main(), every non-word character replaced
+    sql = f'SELECT cpu_usage FROM {table}'  # nosec B608
+    rows = lib.base.coe(lib.db_sqlite.select(conn, sql))
     if len(rows) < count:
         # still warming up, too few samples to tell a spike from a trend
         return STATE_OK
@@ -241,14 +244,18 @@ def main():
             in_memory=args.TEST is not None,
         )
     )
-    lib.base.coe(lib.db_sqlite.create_table(conn, definition))
+    # One monitoring host usually checks several appliances. Each gets a table of its
+    # own, named after its URL (as in fortios-network-io), so the load of one appliance
+    # never counts towards the consecutive runs of another.
+    table = 'perfdata_' + re.sub(r'\W+', '_', args.URL)
+    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table=table))
 
     # save trend data to local sqlite database, limited to "count" rows max.
-    lib.base.coe(lib.db_sqlite.insert(conn, stats))
-    lib.base.coe(lib.db_sqlite.cut(conn, _max=args.COUNT))
+    lib.base.coe(lib.db_sqlite.insert(conn, stats, table=table))
+    lib.base.coe(lib.db_sqlite.cut(conn, table=table, _max=args.COUNT))
     lib.base.coe(lib.db_sqlite.commit(conn))
 
-    state = get_state_from_db(conn, args.COUNT, args.WARN, args.CRIT)
+    state = get_state_from_db(conn, table, args.COUNT, args.WARN, args.CRIT)
     lib.db_sqlite.close(conn)
 
     # build the message
