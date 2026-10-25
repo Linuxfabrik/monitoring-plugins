@@ -64,6 +64,28 @@ TESTS = [
         'assert-in': ['1 failed unit: chronyd.service'],
     },
     {
+        # systemctl names a unit in its escaped form; --ignore takes either form
+        'id': 'warn-one-failed-escaped-swap',
+        'test': 'stdout/one-failed-escaped-swap,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [r'1 failed unit: dev-disk-by\x2duuid-0a1b2c3d.swap'],
+    },
+    {
+        'id': 'ok-one-failed-escaped-swap-ignore-escaped',
+        'test': 'stdout/one-failed-escaped-swap,,0',
+        # single quotes, so shlex keeps the backslash
+        'params': r"'--ignore=dev-disk-by\x2duuid-*'",
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok.',
+    },
+    {
+        'id': 'ok-one-failed-escaped-swap-ignore-readable',
+        'test': 'stdout/one-failed-escaped-swap,,0',
+        'params': '--ignore=dev-disk-by-uuid-*',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok.',
+    },
+    {
         'id': 'warn-three-failed-tomcat-varnish',
         'test': 'stdout/three-failed-tomcat-varnish,,0',
         'assert-retc': STATE_WARN,

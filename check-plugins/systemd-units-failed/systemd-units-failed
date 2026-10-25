@@ -25,13 +25,15 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Checks for failed systemd units. Alerts when any unit is in a failed state. Specific
 units can be excluded from the check via --ignore with glob patterns. When no unit
 is currently failed, reports the most recent system unit-failed event from the current
 boot's journal so operators see at a glance how long the host has been clean since the
 last reboot."""
+
+JOURNAL_TIMEOUT = 5  # seconds
 
 
 def parse_args():
@@ -90,12 +92,30 @@ def parse_args():
 
 def _unescape_systemd_name(name):
     """Replace systemd's `\\xNN` hex escapes with the original character so
-    unit names are human-readable.
+    unit names are human-readable. A run of escapes is decoded as a whole, as a
+    character outside ASCII spans several bytes (`\\xc3\\xa4` is "ä").
     """
     return re.sub(
-        r'\\x([0-9a-fA-F]{2})',
-        lambda m: bytes.fromhex(m.group(1)).decode('utf-8', errors='replace'),
+        r'(?:\\x[0-9a-fA-F]{2})+',
+        lambda m: bytes.fromhex(m.group(0).replace('\\x', '')).decode(
+            'utf-8', errors='replace'
+        ),
         name,
+    )
+
+
+def _is_ignored(name, ignores):
+    """Tell whether the unit `name` matches one of the `ignores` glob patterns.
+
+    systemctl and the journal both name a unit in its escaped form
+    (`dev-disk-by\\x2duuid-...`), while an admin may well write the readable one, so
+    either form matches, in the list of failed units and in the last-failed hint alike.
+    """
+    names = {name, _unescape_systemd_name(name)}
+    return any(
+        fnmatch.fnmatchcase(candidate, ignore)
+        for candidate in names
+        for ignore in ignores
     )
 
 
@@ -138,7 +158,9 @@ def get_last_failed_unit(ignores):
         '_PID=1',
         '--grep=Failed with result',
     ]
-    success, result = lib.shell.shell_exec(cmd)
+    # The hint is a courtesy: a journal that takes long to search must not hold up the
+    # check, so a timeout simply drops the hint.
+    success, result = lib.shell.shell_exec(cmd, timeout=JOURNAL_TIMEOUT)
     if not success:
         return None, None, None
     stdout, _stderr, retc = result
@@ -146,10 +168,7 @@ def get_last_failed_unit(ignores):
         return None, None, None
     for line in reversed(stdout.splitlines()):
         match = _LAST_FAILED_LINE.match(line)
-        if match and not any(
-            fnmatch.fnmatchcase(_unescape_systemd_name(match.group(2)), ignore)
-            for ignore in ignores
-        ):
+        if match and not _is_ignored(match.group(2), ignores):
             break
     else:
         return None, None, None
@@ -206,9 +225,7 @@ def main():
             if line.startswith('*'):
                 offset = 1
             unit = line.split()
-            if any(
-                fnmatch.fnmatchcase(unit[0 + offset], ignore) for ignore in args.IGNORE
-            ):
+            if _is_ignored(unit[0 + offset], args.IGNORE):
                 continue
             count += 1
             table_data.append(

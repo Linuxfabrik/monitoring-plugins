@@ -10,8 +10,8 @@ When no unit is currently failed, the plugin reads the current boot's journal fo
 **Data Collection:**
 
 * Executes `systemctl --state=failed --no-pager --no-legend`
-* When everything is OK, additionally runs `journalctl --output=short-unix --boot=0 _PID=1 --grep="Failed with result"` and picks the last matching line client-side, to read the most recent system-scope unit-failed event of the current boot. Scoping to `--boot=0` keeps the call fast regardless of total journal size. If `journalctl` is unavailable, returns nothing, or its entry cannot be parsed, the suffix is silently omitted
-* Units can be excluded from the check via `--ignore`, which supports glob patterns according to Python's `fnmatch` module (e.g. `--ignore="sshd@*.service"`)
+* When everything is OK, additionally runs `journalctl --output=short-unix --boot=0 _PID=1 --grep="Failed with result"` and picks the last matching line client-side, to read the most recent system-scope unit-failed event of the current boot. Scoping to `--boot=0` keeps the call fast regardless of total journal size. If `journalctl` is unavailable, takes longer than 5 seconds, returns nothing, or its entry cannot be parsed, the suffix is silently omitted
+* Units can be excluded from the check via `--ignore`, which supports glob patterns according to Python's `fnmatch` module (e.g. `--ignore="sshd@*.service"`). A pattern matches the unit name as systemd writes it (`dev-disk-by\x2duuid-0a1b2c3d.swap`) as well as its readable form (`dev-disk-by-uuid-0a1b2c3d.swap`), in the list of failed units and in the journal alike
 
 
 ## Fact Sheet
