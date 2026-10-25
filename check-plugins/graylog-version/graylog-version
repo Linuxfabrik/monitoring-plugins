@@ -23,7 +23,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Checks the installed Graylog version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -174,9 +174,12 @@ def get_installed_version(test_arg=None, timeout=DEFAULT_TIMEOUT, always_ok=Fals
     else:
         stdout, _, _ = lib.lftest.test(test_arg)
         stdout = stdout.strip()
-    version_regex = r'graylog-server.*\s+(\d+\.\d+\.\d+)'
+    # yum lists installed packages only. `dpkg --list` also lists removed ones whose
+    # configuration is left behind ("rc"), so a line there counts only if the second
+    # letter of its status says installed ("ii" or "hi", "iiR" with an error flag).
+    version_regex = r'^(?:[uihrp]iR?\s+)?graylog-server\S*\s+(\d+\.\d+\.\d+)'
     try:
-        stdout = re.search(version_regex, stdout)
+        stdout = re.search(version_regex, stdout, re.MULTILINE)
         return stdout.group(1).strip()
     except Exception:
         return ''
@@ -203,12 +206,7 @@ def main():
         )
 
     # init some vars
-    perfdata = lib.base.get_perfdata(
-        'graylog-version',
-        lib.version.version2float(installed_version),
-        uom=None,
-        _min=0,
-    )
+    perfdata = ''
 
     # analyze data
     state, eol = lib.version.check_eol(
@@ -227,6 +225,13 @@ def main():
 
     # build the message
     msg = f'Graylog v{installed_version} ({eol})'
+
+    perfdata += lib.base.get_perfdata(
+        'graylog-version',
+        lib.version.version2float(installed_version),
+        uom=None,
+        _min=0,
+    )
 
     # over and out
     lib.base.oao(

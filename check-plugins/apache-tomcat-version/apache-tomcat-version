@@ -20,11 +20,12 @@ import lib.args
 import lib.base
 import lib.lftest
 import lib.shell
+import lib.txt
 import lib.version
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Checks the installed Apache Tomcat version against the endoflife.date API and alerts if
 the version is end-of-life or if newer major, minor, or patch releases are available.
@@ -194,9 +195,10 @@ def get_version_output(catalina_home, timeout=DEFAULT_TIMEOUT, always_ok=False):
     jar = os.path.join(catalina_home, 'lib', 'catalina.jar')
     try:
         with zipfile.ZipFile(jar) as archive:
-            return archive.read(
-                'org/apache/catalina/util/ServerInfo.properties'
-            ).decode('utf-8', 'replace')
+            return lib.txt.to_text(
+                archive.read('org/apache/catalina/util/ServerInfo.properties'),
+                errors='strict_or_latin1',
+            )
     except Exception:
         return ''
 
@@ -234,12 +236,7 @@ def main():
         )
 
     # init some vars
-    perfdata = lib.base.get_perfdata(
-        'apache-tomcat-version',
-        lib.version.version2float(installed_version),
-        uom=None,
-        _min=0,
-    )
+    perfdata = ''
 
     # analyze data
     state, eol = lib.version.check_eol(
@@ -260,6 +257,13 @@ def main():
 
     # build the message
     msg = f'Apache Tomcat v{installed_version} ({eol})'
+
+    perfdata += lib.base.get_perfdata(
+        'apache-tomcat-version',
+        lib.version.version2float(installed_version),
+        uom=None,
+        _min=0,
+    )
 
     # over and out
     lib.base.oao(
