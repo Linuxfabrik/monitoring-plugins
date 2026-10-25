@@ -329,7 +329,7 @@ def main():
             STATE_UNKNOWN,
         )
 
-    # analyze data and build the message
+    # analyze data
     snapshot_count = 0
     if 'group_key' in snapshots[0]:
         # --group-by was used, so check every group of snapshots
@@ -339,8 +339,6 @@ def main():
                 table_data.append(get_snapshot_data(s, args))
             snapshot_msg, snapshot_state = get_message(table_data, args)
             snapshot_count += len(table_data)
-
-            # build the message
             msg += snapshot_msg
             state = lib.base.get_worst(snapshot_state, state)
     else:
@@ -349,6 +347,7 @@ def main():
         msg, state = get_message(table_data, args)
         snapshot_count = len(table_data)
 
+    # build the message
     perfdata += lib.base.get_perfdata(
         'snapshots',
         snapshot_count,

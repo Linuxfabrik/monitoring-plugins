@@ -330,7 +330,10 @@ def get_config_errors(args, php_info):
     The whole value is compared, not its beginning: this check runs as root and reads
     a php.ini the caller may not, so a match on the beginning would let a caller learn
     a value piece by piece. Without `--config`, only an unset `date.timezone` is
-    reported, the one directive whose absence makes PHP guess.
+    reported, which makes PHP fall back to UTC. From PHP 8.2 on, the compiled-in default
+    of `date.timezone` is "UTC", so `php --info` shows an unset value as "UTC" and the
+    check cannot tell it from a configured one (ext/date/php_date.c; verified with
+    php 8.1 and 8.2 from docker.io/library/php).
     """
     values = {}
     for line in php_info.splitlines():

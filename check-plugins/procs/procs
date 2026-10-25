@@ -770,59 +770,7 @@ def main():
             ' the account the check runs as may not read their user or arguments'
         )
 
-    # build --top table
-    if show_top_table and top_procs:
-        # filter out processes with zero CPU time,
-        # sort by total cpu time descending, take top N
-        table_data = []
-        for pname, data in top_procs.items():
-            statuses = data['statuses']
-            total = data['user'] + data['system']
-            if total == 0:
-                continue
-            status_parts = []
-            for s, cnt in sorted(statuses.items()):
-                status_parts.append(f'{cnt}x {s}')
-            row = {
-                'name': pname,
-                'total': lib.human.seconds2human(total),
-                'status': ', '.join(status_parts),
-                '_total_raw': total,
-            }
-            if args.LENGTHY:
-                row['user'] = lib.human.seconds2human(data['user'])
-                row['system'] = lib.human.seconds2human(data['system'])
-                display_fields = mem_fields
-            else:
-                display_fields = mem_fields_short
-            for attr, _, fmt in display_fields:
-                if fmt == 'bytes':
-                    row[attr] = lib.human.bytes2human(data[attr])
-                else:
-                    row[attr] = data[attr]
-            table_data.append(row)
-        table_data.sort(key=lambda x: x['_total_raw'], reverse=True)
-        table_data = table_data[: args.TOP]
-        for row in table_data:
-            del row['_total_raw']
-        if table_data:
-            if args.LENGTHY:
-                keys = ['name', 'user', 'system', 'total']
-                headers = ['Name', 'CPU User', 'CPU System', 'CPU Total']
-                display_fields = mem_fields
-            else:
-                keys = ['name', 'total']
-                headers = ['Name', 'CPU Total']
-                display_fields = mem_fields_short
-            for attr, header, _ in display_fields:
-                keys.append(attr)
-                headers.append(header)
-            keys.append('status')
-            headers.append('Status')
-            msg += '\n\n'
-            msg += lib.base.get_table(table_data, keys, header=headers)
-
-    # build perfdata
+    # perfdata, complete whatever the table shows
     perfdata += lib.base.get_perfdata(
         'procs',
         procs_count,
@@ -933,6 +881,58 @@ def main():
         _min=0,
         _max=None,
     )
+
+    # build table output
+    if show_top_table and top_procs:
+        # filter out processes with zero CPU time,
+        # sort by total cpu time descending, take top N
+        table_data = []
+        for pname, data in top_procs.items():
+            statuses = data['statuses']
+            total = data['user'] + data['system']
+            if total == 0:
+                continue
+            status_parts = []
+            for s, cnt in sorted(statuses.items()):
+                status_parts.append(f'{cnt}x {s}')
+            row = {
+                'name': pname,
+                'total': lib.human.seconds2human(total),
+                'status': ', '.join(status_parts),
+                '_total_raw': total,
+            }
+            if args.LENGTHY:
+                row['user'] = lib.human.seconds2human(data['user'])
+                row['system'] = lib.human.seconds2human(data['system'])
+                display_fields = mem_fields
+            else:
+                display_fields = mem_fields_short
+            for attr, _, fmt in display_fields:
+                if fmt == 'bytes':
+                    row[attr] = lib.human.bytes2human(data[attr])
+                else:
+                    row[attr] = data[attr]
+            table_data.append(row)
+        table_data.sort(key=lambda x: x['_total_raw'], reverse=True)
+        table_data = table_data[: args.TOP]
+        for row in table_data:
+            del row['_total_raw']
+        if table_data:
+            if args.LENGTHY:
+                keys = ['name', 'user', 'system', 'total']
+                headers = ['Name', 'CPU User', 'CPU System', 'CPU Total']
+                display_fields = mem_fields
+            else:
+                keys = ['name', 'total']
+                headers = ['Name', 'CPU Total']
+                display_fields = mem_fields_short
+            for attr, header, _ in display_fields:
+                keys.append(attr)
+                headers.append(header)
+            keys.append('status')
+            headers.append('Status')
+            msg += '\n\n'
+            msg += lib.base.get_table(table_data, keys, header=headers)
 
     # over and out
     lib.base.oao(

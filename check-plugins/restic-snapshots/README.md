@@ -13,7 +13,7 @@ Checks the age of the newest snapshot in a restic repository and alerts when the
 
 **Data Collection:**
 
-* Executes `restic --json --repo=... snapshots` with the specified filters
+* Executes `restic --json --no-cache --no-lock --repo=... --password-file=... snapshots` (or `--repository-file=...` instead of `--repo=...`) with the specified filters. Runs read-only: creates no lock in the repository and no local cache
 * Supports filtering by `--host`, `--path`, and `--tag`
 * Supports grouping snapshots by host, paths, and/or tags via `--group-by` (default: `host,paths`)
 * Shows the latest N snapshots per group via `--latest` (default: 3)
@@ -27,9 +27,10 @@ Checks the age of the newest snapshot in a restic repository and alerts when the
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/restic-snapshots> |
 | Nagios/Icinga Check Name              | `check_restic_snapshots` |
 | Check Interval Recommendation         | Every day |
-| Can be called without parameters      | No (`--repo` is required) |
+| Can be called without parameters      | No (`--password-file` and one of `--repo` or `--repository-file` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
+| Requirements                          | command-line tool `restic`; User with higher permissions |
 
 
 ## Help
@@ -145,8 +146,9 @@ A restic snapshot check via SFTP:
 * OK if the newest snapshot in each group is younger than `--warning`.
 * WARN if the age of the newest snapshot exceeds `--warning` (default: 24 hours).
 * CRIT if the age of the newest snapshot exceeds `--critical`.
+* WARN if `restic snapshots` fails (for example no repository at that location, or a wrong password), or does not finish within `--timeout`.
 * UNKNOWN if no snapshots match the filter criteria.
-* UNKNOWN if `--repo` names an `rclone:` repository, or if `--repository-file` or `--password-file` can be changed by anybody but root.
+* UNKNOWN if `--repo` names an `rclone:` repository or a `rest:` repository over a Unix socket, or if a local repository, `--repository-file` or `--password-file` can be changed by anybody but root.
 
 
 ## Perfdata / Metrics

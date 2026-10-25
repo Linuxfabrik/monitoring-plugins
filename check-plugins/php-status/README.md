@@ -10,7 +10,7 @@ Checks PHP configuration and health, including startup errors, missing modules, 
 * The `monitoring.php` helper script is optional. Without it, the plugin still reports CLI-side health (startup errors, modules, CLI php.ini), but cannot report OPcache statistics or the web server's php.ini runtime settings.
 * OPcache is shared per PHP-FPM master, so a separate PHP-FPM service (a different PHP version, or a dedicated service for one app) needs its own helper and its own check. See the Background and [Deploying the monitoring.php helper](#deploying-the-monitoringphp-helper) sections.
 * If the output is missing directives or whole sections, the `monitoring.php` deployed on the web server is older than the plugin. Update `monitoring.php`; the plugin only displays what the helper reports.
-* The `--config` parameter compares the whole value against the local value in the `php --info` output, case-insensitive. Without `--config`, the check only warns if `date.timezone` is not set.
+* The `--config` parameter compares the whole value against the local value in the `php --info` output, case-insensitive. Without `--config`, the check only warns if `date.timezone` is not set. PHP 8.2 and later report an unset `date.timezone` as `UTC`, so there the warning never fires; use `--config=date.timezone=Europe/Zurich` (or your zone) to enforce a value.
 * The `--module` parameter uses startswith matching against `php --modules` output.
 
 **Data Collection:**

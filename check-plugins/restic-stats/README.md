@@ -3,7 +3,7 @@
 
 ## Overview
 
-Collects statistics across multiple snapshots in a restic repository, including the number of unique files and their total size. Reports these as perfdata for trending and capacity planning.
+Collects statistics across multiple snapshots in a restic repository, including the number of unique files and their total size. Supports different counting modes (restore-size, files-by-contents, blobs-per-file, raw-data). The figures are reported for trending and capacity planning and never alert on their own; alerts only if restic fails or times out.
 
 **Important Notes:**
 
@@ -12,7 +12,7 @@ Collects statistics across multiple snapshots in a restic repository, including 
 
 **Data Collection:**
 
-* Executes `restic --json --repo=... stats` with the specified filters and counting mode
+* Executes `restic --json --no-cache --no-lock --repo=... --password-file=... stats` with the specified filters and counting mode, so the check writes nothing into the repository or the restic cache
 * Supports filtering by `--host`, `--path`, and `--tag`
 * Supports different counting modes via `--mode`:
     * `blobs-per-file`: A combination of files-by-contents and raw-data
@@ -28,9 +28,10 @@ Collects statistics across multiple snapshots in a restic repository, including 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/restic-stats> |
 | Nagios/Icinga Check Name              | `check_restic_stats` |
 | Check Interval Recommendation         | Every day |
-| Can be called without parameters      | No (`--repo` is required) |
+| Can be called without parameters      | No (`--password-file` and one of `--repo` or `--repository-file` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
+| Requirements                          | command-line tool `restic`; User with higher permissions |
 
 
 ## Help
@@ -45,8 +46,9 @@ usage: restic-stats [-h] [-V] [--always-ok] [--host HOST]
 
 Collects statistics across multiple snapshots in a restic repository,
 including the number of unique files and their total size. Supports different
-counting modes (restore-size, files-by-contents, raw-data). The figures are
-reported for trending and never alert on their own. Requires root or sudo.
+counting modes (restore-size, files-by-contents, blobs-per-file, raw-data).
+The figures are reported for trending and never alert on their own; alerts
+only if restic fails or times out. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -96,14 +98,16 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/restic-stats/
 Output:
 
 ```text
-242.0 files, 433.7KiB size (total stats in restore-size mode over all snapshots)
+242 files, 433.4KiB size (total stats in restore-size mode over all snapshots)
 ```
 
 
 ## States
 
-* Always returns OK.
-* UNKNOWN if `--repo` names an `rclone:` repository, or if `--repository-file` or `--password-file` can be changed by anybody but root.
+* OK if `restic stats` succeeds. The figures never alert on their own.
+* WARN if `restic stats` fails or runs longer than `--timeout` (default: 280 seconds).
+* UNKNOWN if `--repo` names an `rclone:` repository or a `rest:` repository over a Unix socket, an `sftp:` repository whose host starts with `-`, or if the local repository, `--repository-file` or `--password-file` can be changed by anybody but root.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

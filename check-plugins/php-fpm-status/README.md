@@ -253,7 +253,7 @@ Pool      ! Req/s ! Act ! Tot ! Sat    ! Slow+ ! State
 wordpress ! 2.1   ! 1   ! 5   ! 20.0%  ! 0     ! [OK]
 nextcloud ! 71.0  ! 10  ! 10  ! 100.0% ! 0     ! [CRITICAL]
 
-Pool nextcloud — processes:
+Processes of pool nextcloud:
 PID   ! Reqs ! LastDur  ! Mthd ! URI          ! User
 ------+------+----------+------+--------------+-----
 55238 ! 5    ! 926ms    ! GET  ! /index.php?… ! -

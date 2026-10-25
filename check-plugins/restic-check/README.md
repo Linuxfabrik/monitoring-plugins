@@ -12,8 +12,8 @@ Verifies the integrity of a restic backup repository by running `restic check`. 
 
 **Data Collection:**
 
-* Executes `restic --json --repo=... --password-file=... check`
-* Always loads all data directly from the repository and does not use a local cache, so execution may take several minutes, especially if the repository is corrupted
+* Executes `restic --json --no-cache --no-lock --repo=... --password-file=... check` (or `--repository-file=...` instead of `--repo=...`)
+* Runs read-only: creates no lock in the repository and no local cache, so it always loads all data directly from the repository. Execution may take several minutes, especially if the repository is corrupted
 * If the output exceeds 10 lines, it is shortened to the first 5 and last 5 lines
 
 
@@ -24,9 +24,10 @@ Verifies the integrity of a restic backup repository by running `restic check`. 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/restic-check> |
 | Nagios/Icinga Check Name              | `check_restic_check` |
 | Check Interval Recommendation         | Every day |
-| Can be called without parameters      | No (`--repo` is required) |
+| Can be called without parameters      | No (`--password-file` and one of `--repo` or `--repository-file` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
+| Requirements                          | command-line tool `restic`; User with higher permissions |
 
 
 ## Help
@@ -92,8 +93,8 @@ Fatal: repository contains errors
 ## States
 
 * OK if the repository has no errors.
-* WARN if `restic check` reports errors in the repository, or fails.
-* UNKNOWN if `--repo` names an `rclone:` repository, or if `--repository-file` or `--password-file` can be changed by anybody but root.
+* WARN if `restic check` reports errors in the repository, fails (for example no repository at that location, or a wrong password), or does not finish within `--timeout`.
+* UNKNOWN if `--repo` names an `rclone:` repository or a `rest:` repository over a Unix socket, or if a local repository, `--repository-file` or `--password-file` can be changed by anybody but root.
 
 
 ## Perfdata / Metrics

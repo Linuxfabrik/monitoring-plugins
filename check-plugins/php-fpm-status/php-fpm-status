@@ -27,7 +27,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102402'
+__version__ = '2026102403'
 
 DESCRIPTION = """Monitors PHP-FPM pool performance via the pool status page. Reports pool
 saturation (percentage of busy workers), new slow requests since the previous check, the
@@ -628,7 +628,7 @@ def analyze_pool(url, raw, old_snapshot, now, args):
         f' (since {lib.time.epoch2iso(data.get("start time", 0))})'
     )
     if baseline:
-        header += ' — baseline captured, waiting for more data'
+        header += ', baseline captured, waiting for more data'
 
     pool_row = build_pool_row(pool_name, data, saturation, req_rate, slow_delta)
     # last column, because IcingaWeb replaces the bracketed state with an icon,
@@ -834,7 +834,7 @@ def format_multi_pool(results, args):
     for r in results:
         if not r['ok'] or not r['process_rows']:
             continue
-        msg += f'\n\nPool {r["name"]} — processes:\n'
+        msg += f'\n\nProcesses of pool {r["name"]}:\n'
         proc_keys = (
             PROCESS_TABLE_KEYS_LENGTHY if args.LENGTHY else PROCESS_TABLE_KEYS_DEFAULT
         )
