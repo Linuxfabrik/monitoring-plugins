@@ -40,8 +40,8 @@ usage: redis-status [-h] [-V] [--always-ok] [--cacert CACERT] [-c CRIT]
                     [-H HOSTNAME] [--ignore-maxmemory0] [--ignore-overcommit]
                     [--ignore-somaxconn] [--ignore-sync-partial-err]
                     [--ignore-thp] [--no-perfdata] [-p PASSWORD] [--port PORT]
-                    [--socket SOCKET] [--tls] [--username USERNAME]
-                    [--verbose] [-w WARN]
+                    [--socket SOCKET] [--timeout TIMEOUT] [--tls]
+                    [--username USERNAME] [--verbose] [-w WARN]
 
 Monitors a Redis server via the INFO command. Reports memory usage,
 fragmentation ratio, keyspace hit rate, connected clients, replication status,
@@ -81,6 +81,7 @@ options:
   --port PORT           Redis server port. Default: 6379
   --socket SOCKET       Redis server Unix socket path. Overrides --hostname
                         and --port.
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --tls                 Establish a secure TLS connection to Redis.
   --username USERNAME   Username for Redis server authentication.
   --verbose             Makes this plugin verbose during the operation. Useful
@@ -137,6 +138,7 @@ I'm here to keep you safe, Sam. I want to help you.
 * WARN on memory issues reported by Redis Memory Doctor (except harmless peak-only or jemalloc cases).
 * WARN on partial sync errors, unless suppressed via `--ignore-sync-partial-err`.
 * WARN on OS-level misconfigurations (`vm.overcommit_memory`, transparent huge pages, `somaxconn`), each individually suppressible.
+* WARN if `redis-cli` cannot reach the server, or gets no answer within `--timeout`.
 * UNKNOWN if the login fails, because `--password` is missing or Redis rejects the username or password.
 * `--always-ok` suppresses all alerts and always returns OK.
 

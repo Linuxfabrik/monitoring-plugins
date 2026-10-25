@@ -41,8 +41,8 @@ usage: valkey-status [-h] [-V] [--always-ok] [--cacert CACERT] [-c CRIT]
                      [-H HOSTNAME] [--ignore-maxmemory0] [--ignore-overcommit]
                      [--ignore-somaxconn] [--ignore-sync-partial-err]
                      [--ignore-thp] [--no-perfdata] [-p PASSWORD]
-                     [--port PORT] [--socket SOCKET] [--tls]
-                     [--username USERNAME] [--verbose] [-w WARN]
+                     [--port PORT] [--socket SOCKET] [--timeout TIMEOUT]
+                     [--tls] [--username USERNAME] [--verbose] [-w WARN]
 
 Monitors a Valkey server via the INFO command. Reports memory usage,
 fragmentation ratio, keyspace hit rate, connected clients, replication status,
@@ -82,6 +82,7 @@ options:
   --port PORT           Valkey server port. Default: 6379
   --socket SOCKET       Valkey server Unix socket path. Overrides --hostname
                         and --port.
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --tls                 Establish a secure TLS connection to Valkey.
   --username USERNAME   Username for Valkey server authentication.
   --verbose             Makes this plugin verbose during the operation. Useful
@@ -127,6 +128,7 @@ is not set to "madvise" or "never"
 * WARN on OS misconfigurations: `vm.overcommit_memory`, `transparent_hugepage`, `somaxconn` (each suppressible via the corresponding `--ignore-*` flag).
 * WARN on partial sync errors (unless `--ignore-sync-partial-err`).
 * WARN on memory doctor findings (peak-memory-only and jemalloc-related high-RSS are auto-suppressed).
+* WARN if `valkey-cli` cannot reach the server, or gets no answer within `--timeout`.
 * UNKNOWN if the login fails, because `--password` is missing or Valkey rejects the username or password.
 * `--always-ok` suppresses all alerts and always returns OK.
 
