@@ -126,6 +126,7 @@ service --service="^(?!DPS|MSDTC|MapsBroker|UsoSvc|Dnscache|gpsvc$).*$" --startt
 * WARN if the number of services in the expected status falls outside `--warning` (default: `1:`).
 * CRIT if the number of services in the expected status falls outside `--critical`.
 * UNKNOWN if the service regex is invalid or no matching services are found.
+* UNKNOWN if the account the check runs as may not list the Windows services, for example a standard user logged in over SSH or WinRM.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

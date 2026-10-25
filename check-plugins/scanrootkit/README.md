@@ -3,7 +3,7 @@
 
 ## Overview
 
-Scans the system for numerous known rootkits by checking for their characteristic files, directories, and kernel symbols. Each finding includes the year the rootkit was first publicly disclosed when known. New rootkit definitions can be added by dropping YAML files into the `assets` folder. Alerts when rootkit indicators are found. Requires root or sudo.
+Scans the system for numerous known rootkits by checking for their characteristic files, directories, and kernel symbols. Each finding includes the year the rootkit was first publicly disclosed when known. Additional rootkit definitions can be added by dropping YAML files into the `assets` folder. Alerts when rootkit indicators are found. Requires root or sudo.
 
 **Important Notes:**
 
@@ -94,9 +94,9 @@ usage: scanrootkit [-h] [-V] [--always-ok] [--no-perfdata]
 
 Scans the system for numerous known rootkits by checking for their
 characteristic files, directories, and kernel symbols. Each finding includes
-the year the rootkit was first publicly disclosed when known. New rootkit
-definitions can be added by dropping YAML files into the assets folder. Alerts
-when rootkit indicators are found. Requires root or sudo.
+the year the rootkit was first publicly disclosed when known. Additional
+rootkit definitions can be added by dropping YAML files into the assets
+folder. Alerts when rootkit indicators are found. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -146,6 +146,7 @@ Each finding lists the rootkit name followed by the year it was first publicly d
 * WARN or CRIT (depending on `--severity`, default: CRIT) if confirmed rootkit items are found.
 * WARN if only possible rootkit items are found (confidence level below 100%), regardless of the selected severity.
 * UNKNOWN if no rootkit definition files are found in the `assets` directory.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

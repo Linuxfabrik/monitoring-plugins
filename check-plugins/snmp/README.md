@@ -80,16 +80,16 @@ options:
                         expressions, so it must be writable only by trusted,
                         privileged users. The monitoring user (for example
                         `icinga` or `nagios`) only needs read access. Example:
-                        `--device switch-fs-s3900.csv`. Example: `--device
-                        /etc/icinga2/snmp-devices/switch-fs-s3900.csv`.
-                        Default: any-any-any.csv
+                        `--device=switch-fs-s3900.csv`. Example:
+                        `--device=/etc/icinga2/snmp-devices/switch-
+                        fs-s3900.csv`. Default: any-any-any.csv
   --hide-ok             Suppress OIDs with OK state from output.
   --hide-table          Suppress the table from output.
   -H, --hostname HOSTNAME
                         SNMP appliance hostname or IP address.
   --mib MIB             MIB(s) to load, behaves like the `-m` option of
-                        `snmpget`. Example: `--mib "+FS-MIB"` or `--mib "FS-
-                        MIB:BROTHER-MIB"`.
+                        `snmpget`. Example: `--mib=+FS-MIB` or `--mib=FS-
+                        MIB:BROTHER-MIB`.
   --mib-dir MIB_DIR     Colon-separated list of directories to search for
                         MIBs, behaves like the `-M` option of `snmpget`: a
                         leading `+` adds them to the search path of net-snmp
@@ -113,7 +113,7 @@ options:
                         (v3) in it. When set, `--community`, `--v3-auth-prot-
                         password` and `--v3-priv-prot-password` are ignored.
                         Keep the file readable only by the monitoring user.
-                        Example: `--snmpconf-path /var/spool/icinga2/.snmp`.
+                        Example: `--snmpconf-path=/var/spool/icinga2/.snmp`.
   -t, --timeout TIMEOUT
                         Network timeout in seconds. Default: 7 (seconds)
   --v3-auth-prot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}
@@ -154,13 +154,13 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/snmp/
 A minimal command call:
 
 ```bash
-./snmp --hostname=10.80.32.109
+./snmp --hostname=192.0.2.109
 ```
 
 Calling this the check...
 
 1.  fetches a set of most common SNMP OIDs like *Contact* or *Uptime*, defined in `device-oids/any-any-any.csv`,
-2.  calls `snmpget -v 2c -c public -r 0 -t 7 -OSqtU 10.80.32.109 OID1 OID2 ...`,
+2.  calls `snmpget -v 2c -c public -r 0 -t 7 -OSqtU 192.0.2.109 OID1 OID2 ...`,
 3.  parses the output,
 4.  interprets the result and calculates the return state.
 
@@ -168,10 +168,10 @@ Other example using a more specific OID list and an additional MIB directory:
 
 ```bash
 /usr/lib64/nagios/plugins/snmp \
-    --device switch-fs-s3900.csv \
-    --mib-dir +/usr/lib64/nagios/plugins/device-mibs/switch-fs-s3900 \
+    --device=switch-fs-s3900.csv \
+    --mib-dir=+/usr/lib64/nagios/plugins/device-mibs/switch-fs-s3900 \
     --hide-ok \
-    --hostname 10.80.32.109
+    --hostname=192.0.2.109
 ```
 
 Checking a Radware Alteon load balancer appliance - CSV file and result:
@@ -352,7 +352,7 @@ snmpbulkwalk -v2c \
     -c public \
     -OSt \
     -M +/usr/lib64/nagios/plugins/device-mibs/switch-netgear-xs716t \
-    10.80.32.141 NETGEAR-SWITCHING-MIB::agentInfoGroup
+    192.0.2.141 NETGEAR-SWITCHING-MIB::agentInfoGroup
 ```
 
 

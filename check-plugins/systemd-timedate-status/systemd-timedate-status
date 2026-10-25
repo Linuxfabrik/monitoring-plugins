@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Checks system clock and RTC settings via timedatectl, including whether network time
 synchronization is active and whether the system clock is synchronized. Alerts when
@@ -107,31 +107,32 @@ def main():
     msg = ''
     state = STATE_OK
 
-    # analyze data and build the message
-    # i->ntp_synced
-    msg += lib.txt.extract_str(
-        stdout, 'NTP synchronized: ', '\n', include_fromto=True
-    ).replace('\n', ', ')
+    # analyze data
+    rtc_in_local_tz = 'RTC in local TZ: yes' in stdout
+    # systemd up to v238 says "NTP synchronized", later releases "System clock
+    # synchronized". Both mean that the kernel considers the clock synchronized to a
+    # time source, whichever service does the synchronizing.
+    unsynchronized = any(
+        f'{label}: no' in stdout
+        for label in ('NTP synchronized', 'System clock synchronized')
+    )
 
     # build the message
-    msg += lib.txt.extract_str(
-        stdout, 'System clock synchronized: ', '\n', include_fromto=True
-    ).replace('\n', ', ')
-
-    # yes_no(i->ntp), i->ntp_capable
-    msg += lib.txt.extract_str(
-        stdout, 'NTP enabled: ', '\n', include_fromto=True
-    ).replace('\n', ', ')
-    msg += lib.txt.extract_str(
-        stdout, 'systemd-timesyncd.service active: ', '\n', include_fromto=True
-    ).replace('\n', ', ')
-    msg += lib.txt.extract_str(
-        stdout, 'NTP service: ', '\n', include_fromto=True
-    ).replace('\n', ', ')
-
+    # i->ntp_synced, yes_no(i->ntp), i->ntp_capable, in the wording of the systemd
+    # release at hand
+    for label in (
+        'NTP synchronized',
+        'System clock synchronized',
+        'NTP enabled',
+        'systemd-timesyncd.service active',
+        'NTP service',
+    ):
+        msg += lib.txt.extract_str(
+            stdout, f'{label}: ', '\n', include_fromto=True
+        ).replace('\n', ', ')
     msg = msg[:-2]
 
-    if 'RTC in local TZ: yes' in stdout:
+    if rtc_in_local_tz:
         state = STATE_WARN
         msg += (
             '. The system is configured to read the RTC time in the local time zone. '
@@ -144,13 +145,7 @@ def main():
     else:
         msg += ', RTC in local TZ: no'
 
-    # systemd up to v238 says "NTP synchronized", later releases "System clock
-    # synchronized". Both mean that the kernel considers the clock synchronized to a
-    # time source, whichever service does the synchronizing.
-    if any(
-        f'{label}: no' in stdout
-        for label in ('NTP synchronized', 'System clock synchronized')
-    ):
+    if unsynchronized:
         state = STATE_WARN
         msg += ' ' if msg.endswith('.') else '. '
         msg += (

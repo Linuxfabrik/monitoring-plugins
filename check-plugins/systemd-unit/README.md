@@ -74,7 +74,7 @@ options:
                         multiple times. If omitted or set to "None", the
                         unit's substate will not be checked.
   --unit UNIT           Systemd unit name to check (service, timer, mount,
-                        etc.). Required. Example: `--unit sshd.service`.
+                        etc.). Required. Example: `--unit=sshd.service`.
   --unitfilestate {None,bad,disabled,empty,enabled,enabled-runtime,generated,indirect,linked,linked-runtime,masked,masked-runtime,static,transient}
                         Expected systemd UnitFileState. If set to "empty",
                         checks exactly for `UnitFileState=""`. If omitted or

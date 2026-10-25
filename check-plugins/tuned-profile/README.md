@@ -44,8 +44,8 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --profile TUNED_PROFILE
-                        Expected tuned profile name (case-insensitive).
-                        Example: `--profile virtual-guest`. Default: virtual-
+                        Expected tuned profile name. Case-insensitive.
+                        Example: `--profile=virtual-guest`. Default: virtual-
                         guest
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
 
@@ -85,6 +85,7 @@ tuned is not running, so the profile "virtual-guest" is not applied. Start it wi
 * WARN if the tuned profile does not match the expected value.
 * WARN if no tuned profile is active.
 * WARN if the tuned daemon is not running, so its preset profile is not applied.
+* WARN if `tuned-adm active` takes longer than `--timeout` (default: 8 seconds).
 * UNKNOWN if `tuned-adm` cannot be run.
 * `--always-ok` suppresses all alerts and always returns OK.
 

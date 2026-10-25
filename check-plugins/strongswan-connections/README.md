@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks IPSec connection states on a strongSwan VPN gateway by connecting to the charon daemon via the VICI (Versatile IKE Control Interface) socket. Reports IKE SA and CHILD SA states, re-authentication/re-keying timers, and traffic counters. "EST" in the output means "Established".
+Checks IPSec connection states on a strongSwan VPN gateway. Connects to the charon daemon via the VICI (Versatile IKE Control Interface) socket to retrieve IKE SA and CHILD SA states, re-authentication/re-keying timers, and traffic counters. Alerts on connections that are not in the expected established state. Connection names can be filtered out with `--ignore`, which is useful for gateways that mix permanent site-to-site peers with transient remote-access clients where only the site-to-site peers should drive the alert. Supports extended reporting via `--lengthy`. "EST" in the output means "Established".
 
 **Important Notes:**
 
@@ -142,9 +142,17 @@ acme      ! EST   ! 2022-05-10 15:03:43 ! 2022-05-11 14:57:14 ! v2  ! 198.51.100
 
 ## Troubleshooting
 
-### `[Errno 2] No such file or directory`
+### No VICI socket
 
-Check the path to `charon.vici`, and specify `--socket` accordingly.
+`No VICI socket at /run/strongswan/charon.vici. Check that strongSwan runs and that its vici plugin is loaded.`
+
+charon is not running, its `vici` plugin is not loaded, or the socket lives elsewhere. Check with `sudo systemctl status strongswan` (or `strongswan-starter`) and `sudo swanctl --list-conns`. If `swanctl` works, find the socket path in `/etc/strongswan.d/charon/vici.conf` (`socket = unix://...`) and pass it via `--socket`.
+
+### Socket refused
+
+`Refusing to use socket "/path/to/socket": it resolves outside /run and /var/run.`
+
+The check runs as root and trusts what the socket answers, so it only connects to a socket in the system runtime directories that nobody but root can replace. Move the socket below `/run` (option `socket` in `vici.conf`) and make sure no directory above it belongs to an unprivileged account.
 
 ### `Python module "vici" is not installed.`
 

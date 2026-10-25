@@ -46,7 +46,7 @@ options:
   -c, --critical CRIT  Threshold for logged-in tty/pts users, in the format
                        "tty,pts". On Windows, you can additionally specify a
                        threshold for disconnected users in the format
-                       "tty,pts,disc". Example: `--critical 3,10`. Default:
+                       "tty,pts,disc". Example: `--critical=3,10`. Default:
                        [None, None, None]
   --no-perfdata        Suppress the performance data section from the output.
                        The status message and the exit code are unaffected, so
@@ -54,7 +54,7 @@ options:
   -w, --warning WARN   Threshold for logged-in tty/pts users, in the format
                        "tty,pts". On Windows, you can additionally specify a
                        threshold for disconnected users in the format
-                       "tty,pts,disc". Example: `--warning 1,5`. Default: [1,
+                       "tty,pts,disc". Example: `--warning=1,5`. Default: [1,
                        20, 1]
 
 Documentation:

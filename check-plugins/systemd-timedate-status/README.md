@@ -69,6 +69,7 @@ System clock synchronized: yes. NTP service: active. The system is configured to
 * OK if the system clock is synchronized and RTC is set to UTC.
 * WARN if the system clock is not synchronized to a time source.
 * WARN if the system is configured to read the RTC time in the local time zone.
+* WARN if `timedatectl status` writes an error or takes longer than `--timeout` (default: 8 seconds).
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
