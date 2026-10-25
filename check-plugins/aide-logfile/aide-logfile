@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102501'
+__version__ = '2026102502'
 
 DESCRIPTION = """Evaluates the report of the last AIDE file integrity check, which a timer such
 as aidecheck.timer runs on the host at regular intervals, and reports the number of added,
@@ -141,6 +141,14 @@ SUMMARY_LETTERS = {
 # report_detailed_init and report_format=json, for --init, --check, --update and
 # --compare, which the check all evaluates as AIDE meant them.
 DASHES_REGEX = re.compile(r'^-{20,}$')
+# The end of an "Entry <file name> in databases has different attributes: <attributes>"
+# line, which AIDE writes ahead of the start timestamp and the outline of a report
+# (print_report_diff_attrs_entries_plain() in src/report_plain.c since aide 0.18,
+# terse_report() in src/report.c of aide 0.17, add_file_to_tree() in src/gen_list.c
+# of aide 0.16).
+DIFF_ATTRS_REGEX = re.compile(
+    r' in databases has different attributes: [^\n]*$', re.MULTILINE
+)
 OUTLINE_REGEX = re.compile(
     r'^AIDE (?:(successfully initialized database\.|initialized database at )'
     r'|found (NO )?differences between (?:database and filesystem|the two '
@@ -463,8 +471,13 @@ def parse_report(lines):
     # (CVE-2025-54389), and the "Entry ... in databases has different attributes"
     # lines, which carry file names, come ahead of the outline. A file name with a
     # line break could therefore forge a line there, so the last match counts.
-    # appended reports without any section end up in the head together
-    if len(OUTLINE_REGEX.findall(text)) > 1:
+    # Appended reports without any section end up in the head together. Only the
+    # outlines behind the last of those lines are counted for that: every line a
+    # file name forges there is followed by the real end of its own entry, so none
+    # of them can come behind it, and a forged outline cannot pass the report off
+    # as one of several runs. Verified against the aide sources 0.16 to 0.19.4.
+    match = last_match(DIFF_ATTRS_REGEX, text)
+    if len(OUTLINE_REGEX.findall(text[match.end() :] if match else text)) > 1:
         report['appended'] = True
     match = last_match(OUTLINE_REGEX, text)
     if match and match.group(1):
@@ -597,15 +610,15 @@ def main():
     # With report_append=yes, AIDE writes every run behind the previous ones. Only
     # the first report is parsed: taking a later one as the result would let a file
     # name with a line break, which AIDE wrote unescaped before 0.19.2
-    # (CVE-2025-54389), forge a whole clean report further down.
-    if report['appended']:
-        lib.base.oao(
-            f'{REPORT} holds the reports of several AIDE runs. Set '
-            '`report_append=no` in the AIDE configuration, so that every run writes '
-            'a new report.',
-            STATE_UNKNOWN,
-            always_ok=args.ALWAYS_OK,
-        )
+    # (CVE-2025-54389), forge a whole clean report further down. For the same
+    # reason, the outline of a further report can be forged by a file name in the
+    # lists or the details of the first one. So a further report never hides what
+    # the first one found: if that one alerts, the check alerts with it (see the
+    # end of main()), otherwise it cannot tell what the last run found.
+    append_hint = (
+        'Set `report_append=no` in the AIDE configuration, so that every run writes'
+        ' a new report.'
+    )
     # AIDE empties its report when it starts and writes the new one when it has
     # finished, which takes an hour or more on a large file server. Meanwhile, the
     # result of the previous run still stands, so it is reported again instead of
@@ -810,6 +823,20 @@ def main():
     if compared and report['total'] is not None:
         perfdata += lib.base.get_perfdata(
             'removed', report['removed'], uom=None, _min=0
+        )
+
+    if report['appended']:
+        if state == STATE_OK:
+            lib.base.oao(
+                f'{REPORT} holds the reports of several AIDE runs. {append_hint}',
+                STATE_UNKNOWN,
+                always_ok=args.ALWAYS_OK,
+            )
+        # the first report alerts on its own, which a further one cannot undo; the
+        # start of that one may as well be a forged file name
+        msg += (
+            f'\n\n{REPORT} seems to hold the reports of several AIDE runs.'
+            f' {append_hint}'
         )
 
     # over and out

@@ -127,7 +127,8 @@ sudo ./aide-logfile --critical=0 --max-age=48
 * WARN if there is no report, because the file integrity of the host is then not being checked.
 * WARN if the report is empty or holds no result and no AIDE process is running, because the last run aborted.
 * While an AIDE run is in progress, the state of the previous run, or OK if no earlier result is known.
-* UNKNOWN if the report cannot be read, most likely because the check does not run via `sudo`, if the report is not a plain one, and if it holds the reports of several runs (`report_append=yes`).
+* WARN if the report holds the reports of several runs (`report_append=yes`) and the first one alerts on its own, with the differences of that one.
+* UNKNOWN if the report cannot be read, most likely because the check does not run via `sudo`, if the report is not a plain one, and if it holds the reports of several runs (`report_append=yes`) and the first one does not alert.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -168,7 +169,7 @@ AIDE empties its report when it starts, and an aborted run leaves it empty. Most
 
 ### `/var/log/aide/aide.log holds the reports of several AIDE runs`
 
-`report_append=yes` in the AIDE configuration writes every run behind the previous ones. The check refuses to pick one of them, since a later report in the same file cannot be told apart from text a file name put there. Remove `report_append=yes`: AIDE then writes a new report on every run.
+`report_append=yes` in the AIDE configuration writes every run behind the previous ones. The check evaluates the first report only, since a later report in the same file cannot be told apart from text a file name put there. If the first report alerts, the check alerts with its differences and adds this hint; otherwise it cannot tell what the last run found and returns UNKNOWN. Remove `report_append=yes`: AIDE then writes a new report on every run.
 
 ### The report is older than `--max-age`
 

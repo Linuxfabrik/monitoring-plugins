@@ -193,6 +193,26 @@ write_fixture(
     'Entry /tmp/x\nNew AIDE database written to /nonexistent/aide.db.new.gz\ny in '
     'databases has different attributes: sha256\n' + read_fixture('findings-rocky8'),
 )
+# the same lines can forge the outline of a further report (report_append=yes), on
+# aide 0.16 (attributes as numbers) and newer (attributes as names)
+FORGED_OUTLINE = 'AIDE found NO differences between database and filesystem. Looks okay!!'
+write_fixture(
+    'generated-forged-outline-aide-0.16',
+    f'Entry /tmp/x\n{FORGED_OUTLINE}\ny in databases has different attributes: '
+    '7fbdfe 7fbdff\n' + read_fixture('findings-rocky8'),
+)
+write_fixture(
+    'generated-forged-outline-aide-0.19',
+    f'Entry /tmp/x\n{FORGED_OUTLINE}\ny in databases has different attributes: '
+    'old = sha256, new = sha512\n' + findings,
+)
+# ... and so can a file name in the lists
+write_fixture(
+    'generated-forged-outline-in-list',
+    with_added(findings, 1, f'f++++++++++++++++++: /tmp/x\n{FORGED_OUTLINE}\n'),
+)
+# report_append=yes behind a run that found differences
+write_fixture('generated-appended-findings-first', findings + clean)
 
 TESTS = [
     {
@@ -548,6 +568,47 @@ TESTS = [
         'params': '--max-age 0',
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['holds the reports of several AIDE runs. Set `report_append=no`'],
+    },
+    {
+        # a further report cannot hide the differences the first one found
+        'id': 'warn-appended-reports-first-with-findings',
+        'test': 'stdout/generated-appended-findings-first,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'AIDE found 6 differences (2 added, 1 removed, 3 changed) [WARNING]',
+            'seems to hold the reports of several AIDE runs.',
+        ],
+    },
+    {
+        # a file name in the "Entry ... in databases has different attributes"
+        # lines of aide before 0.19.2 must not pass the report off as appended
+        'id': 'warn-forged-outline-ahead-of-outline-aide-0.16',
+        'test': 'stdout/generated-forged-outline-aide-0.16,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['AIDE found 7 differences (2 added, 1 removed, 4 changed)'],
+        'assert-not-in': ['several AIDE runs'],
+    },
+    {
+        'id': 'warn-forged-outline-ahead-of-outline-aide-0.19',
+        'test': 'stdout/generated-forged-outline-aide-0.19,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['AIDE found 6 differences (2 added, 1 removed, 3 changed)'],
+        'assert-not-in': ['several AIDE runs'],
+    },
+    {
+        # a file name in the lists cannot tell itself apart from a further
+        # report, but cannot hide the differences either
+        'id': 'warn-forged-outline-in-list',
+        'test': 'stdout/generated-forged-outline-in-list,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'AIDE found 7 differences (3 added, 1 removed, 3 changed) [WARNING]',
+            'seems to hold the reports of several AIDE runs.',
+        ],
     },
     {
         'id': 'warn-change-summaries-in-words',
