@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the time since last modification of one or more files or directories. Supports glob patterns (including recursive), SMB shares, and optional aggregation (mean or median) across all matched files. Can also alert on the number of files within a specific age range. Supports extended reporting via `--lengthy`. Reads only the file metadata, never the contents.
+Checks the time since last modification of one or more files or directories. Supports glob patterns (including recursive), SMB shares, and optional aggregation (mean or median) across all matched files. Alerts when an item is older than the warning or critical age. With `--warning-count` and `--critical-count`, alerts when the number of items outside the age range leaves the count range instead, for example when an application stops producing fresh files. Supports extended reporting via `--lengthy`. Reads only the file metadata, never the contents.
 
 This plugin is part of the file plugin group. Selecting files with globs, reading from an SMB share, the threshold format, aggregating performance data, and what to do when the plugin cannot read a file are described once in [PLUGINS-FILE.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-FILE.md).
 
@@ -47,11 +47,14 @@ usage: file-age [-h] [-V] [--always-ok] [--brief] [-c CRIT]
 
 Checks the time since last modification of one or more files or directories.
 Supports glob patterns (including recursive), SMB shares, and optional
-aggregation (mean or median) across all matched files. Can also alert on the
-number of files within a specific age range. Supports extended reporting via
---lengthy. Reads only the file metadata, never the contents. The plugin is not
-shipped in the sudoers allowlist, so it can only see files the monitoring user
-may read; see PLUGINS-FILE.md for what to do about a file it cannot access.
+aggregation (mean or median) across all matched files. Alerts when an item is
+older than the warning or critical age. With --warning-count and
+--critical-count, alerts when the number of items outside the age range leaves
+the count range instead, for example when an application stops producing fresh
+files. Supports extended reporting via --lengthy. Reads only the file
+metadata, never the contents. The plugin is not shipped in the sudoers
+allowlist, so it can only see files the monitoring user may read; see
+PLUGINS-FILE.md for what to do about a file it cannot access.
 
 options:
   -h, --help            show this help message and exit

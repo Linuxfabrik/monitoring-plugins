@@ -56,10 +56,11 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --brief               Hide mount points within the thresholds and show only
-                        those in WARN/CRIT state. Perfdata and alerting are
-                        unaffected: all mount points still emit perfdata and
-                        still drive the overall check state.
+  --brief               Hide the rows that are within the thresholds and show
+                        only those in a WARN or CRIT state. Perfdata and
+                        alerting are unaffected: every item still emits
+                        performance data and still drives the overall check
+                        state, so this is safe to leave on.
   -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
                         Default: 95
   --ignore IGNORE       Any item matching this Python regex will be ignored.

@@ -23,11 +23,14 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026102401'
 
 DESCRIPTION = """Counts the number of files matching a glob pattern and alerts when the count exceeds
 the configured thresholds. Can filter by modification time range, restrict to files
-or directories only, and supports SMB shares."""
+or directories only, and supports SMB shares.
+Reads only the file metadata, never the contents. The plugin is not shipped in the
+sudoers allowlist, so it can only see files the monitoring user may read; see
+PLUGINS-FILE.md for what to do about a file it cannot access."""
 
 DEFAULT_PATTERN = '*'
 DEFAULT_TIMEOUT = 3
@@ -203,16 +206,20 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # fetch data
     if args.FILENAME and args.URL:
         lib.base.cu(
             'The --filename and -u / --url parameter are mutually exclusive. Please only use one.'
         )
+    if args.URL:
+        split_url = args.URL.split('://')
+        if len(split_url) != 2:
+            lib.base.cu(f'Could not parse the protocol of the url "{args.URL}".')
+        proto, url = split_url
+        if proto != 'smb':
+            lib.base.cu(f'The protocol "{proto}" is not supported.')
 
+    # fetch data
     now = lib.time.now()
-
-    # init some vars
-    msg = ''
     file_count = 0
     exceeded_threshold = False
 
@@ -251,11 +258,6 @@ def main():
                 break
 
     if args.URL:
-        split_url = args.URL.split('://')
-        if len(split_url) != 2:
-            lib.base.cu(f'Could not parse the protocol of the url "{args.URL}".')
-        proto, url = split_url
-
         if proto == 'smb':
             for item in lib.base.coe(
                 lib.smb.glob(
@@ -292,11 +294,12 @@ def main():
                 if early_break_at and file_count >= early_break_at:
                     exceeded_threshold = True
                     break
-        else:
-            lib.base.cu(f'The protocol "{proto}" is not supported.')
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
 
     # analyze data
-    state = STATE_OK
     if not lib.base.coe(lib.base.match_range(file_count, args.WARN)):
         state = STATE_WARN
     if not lib.base.coe(lib.base.match_range(file_count, args.CRIT)):

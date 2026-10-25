@@ -3,7 +3,7 @@
 
 ## Overview
 
-Counts the number of files matching a glob pattern and alerts when the count exceeds the configured thresholds. Can filter by modification time range, restrict to files or directories only, and supports SMB shares.
+Counts the number of files matching a glob pattern and alerts when the count exceeds the configured thresholds. Can filter by modification time range, restrict to files or directories only, and supports SMB shares. Reads only the file metadata, never the contents.
 
 This plugin is part of the file plugin group. Selecting files with globs, reading from an SMB share, the threshold format, aggregating performance data, and what to do when the plugin cannot read a file are described once in [PLUGINS-FILE.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-FILE.md).
 
@@ -43,7 +43,10 @@ usage: file-count [-h] [-V] [--always-ok] [-c CRIT] [--filename FILENAME]
 
 Counts the number of files matching a glob pattern and alerts when the count
 exceeds the configured thresholds. Can filter by modification time range,
-restrict to files or directories only, and supports SMB shares.
+restrict to files or directories only, and supports SMB shares. Reads only the
+file metadata, never the contents. The plugin is not shipped in the sudoers
+allowlist, so it can only see files the monitoring user may read; see
+PLUGINS-FILE.md for what to do about a file it cannot access.
 
 options:
   -h, --help            show this help message and exit
