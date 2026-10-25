@@ -367,7 +367,7 @@ Use `cache` for a simple key-value store (see `nextcloud-version`), otherwise `d
 
 Every plugin handles timeouts gracefully (e.g. `df` on a failed network drive, unresponsive APIs, stuck database connections):
 
-* Always support `--timeout` (default: 8 seconds, below Icinga's own 10s).
+* Always support `--timeout`, well below the check timeout of the monitoring server (often 10 seconds): 3 seconds for a network connect or an HTTP/API request (it applies per connect and per read, leaving time for the run), 8 seconds for the whole runtime of a local command. Another default needs a measured reason in a comment next to `DEFAULT_TIMEOUT` and a matching command timeout in the basket `.yml`.
 * HTTP: `lib.base.coe(lib.url.fetch(..., timeout=args.TIMEOUT))`. Shell commands: pass a timeout to `lib.shell.shell_exec()`.
 * On timeout, return `STATE_WARN` with a meaningful message (e.g. "Timeout after 8s while connecting to ...").
 
