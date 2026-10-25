@@ -185,6 +185,14 @@ write_fixture(
     'generated-update-not-a-database',
     with_database_out(read_fixture('update-debian13'), '/nonexistent/linuxfabrik'),
 )
+# aide before 0.19.2 writes the file names in the "Entry ... in databases has different
+# attributes" lines, ahead of the outline, unescaped, so a file name can forge the line
+# of an update run there; the check stays a check
+write_fixture(
+    'generated-forged-update',
+    'Entry /tmp/x\nNew AIDE database written to /nonexistent/aide.db.new.gz\ny in '
+    'databases has different attributes: sha256\n' + read_fixture('findings-rocky8'),
+)
 
 TESTS = [
     {
@@ -375,6 +383,14 @@ TESTS = [
         'params': '--max-age 0',
         'assert-retc': STATE_WARN,
         'assert-in': ['in an update run '],
+    },
+    {
+        'id': 'warn-forged-update-line-ahead-of-outline',
+        'test': 'stdout/generated-forged-update,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['AIDE found 7 differences (2 added, 1 removed, 4 changed)'],
+        'assert-not-in': ['accepted', 'in an update run'],
     },
     {
         # the daily check of Debian's aide-common: an update run by default that

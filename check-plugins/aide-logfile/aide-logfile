@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102501'
 
 DESCRIPTION = """Evaluates the report of the last AIDE file integrity check, which a timer such
 as aidecheck.timer runs on the host at regular intervals, and reports the number of added,
@@ -473,7 +473,11 @@ def parse_report(lines):
         report['action'] = 'check'
         report['compare'] = match.group(0).endswith('the two databases')
         report['found'] = not match.group(2)
-        match = last_match(r'^New AIDE database written to (.+)$', text)
+        # AIDE writes this line right behind the outline (print_report_header()
+        # in src/report.c of aide 0.17, print_report() since aide 0.18, verified
+        # up to 0.19.4). One in front of it can only be forged by a file name, and
+        # would make a check look like an accepted update.
+        match = last_match(r'^New AIDE database written to (.+)$', text[match.end() :])
         if match:
             report['action'] = 'update'
             report['database_out'] = match.group(1).strip()
