@@ -98,6 +98,9 @@ Output:
 * OK if the rating is A or A+.
 * WARN if the rating is C or D.
 * CRIT if the rating is E or F.
+* WARN if `occ` does not answer within `--timeout` while `--path` is given.
+* UNKNOWN if the scanner cannot be reached or returns an unexpected answer, or if `occ` fails.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

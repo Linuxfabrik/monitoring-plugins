@@ -25,7 +25,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100901'
+__version__ = '2026102501'
 
 DESCRIPTION = """Checks the installed Mastodon version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -248,8 +248,16 @@ def get_container_version_file(user, timeout):
     if not success:
         return (False, result)
     stdout, stderr, retc = result
+    # A version check cannot say anything about the version when Podman does not
+    # answer, and an engine outage is not what it alerts on, so a failure that is
+    # not a refused permission is UNKNOWN as well, not the CRIT of the podman-* checks.
     if retc != 0:
-        return (False, lib.container.get_engine_error(stderr, stdout))
+        return (
+            False,
+            lib.container.get_engine_error(
+                stderr, stdout, fallback_state=STATE_UNKNOWN
+            ),
+        )
     container_id = next(
         (
             line.split()[0]
@@ -270,7 +278,12 @@ def get_container_version_file(user, timeout):
         return (False, result)
     stdout, stderr, retc = result
     if retc != 0:
-        return (False, lib.container.get_engine_error(stderr, stdout))
+        return (
+            False,
+            lib.container.get_engine_error(
+                stderr, stdout, fallback_state=STATE_UNKNOWN
+            ),
+        )
     return (True, stdout)
 
 

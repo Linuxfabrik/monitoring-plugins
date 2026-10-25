@@ -25,7 +25,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102402'
+__version__ = '2026102501'
 
 DESCRIPTION = """Checks the security of a private Nextcloud server using the Nextcloud security scanner.
 Reports the assigned security rating and alerts on known vulnerabilities in the
@@ -241,9 +241,13 @@ def main():
             # Reading the locally installed version lets us spot a scan result that
             # predates a local Nextcloud update. Needs to run on the Nextcloud server
             # with sudo for the UID owning config/config.php.
-            config = lib.base.coe(
-                lib.nextcloud.run_occ(args.PATH, 'config:list', timeout=args.TIMEOUT)
+            success, config = lib.nextcloud.run_occ(
+                args.PATH, 'config:list', timeout=args.TIMEOUT
             )
+            if not success:
+                if config.startswith('Timeout after'):
+                    lib.base.oao(config, STATE_WARN, always_ok=args.ALWAYS_OK)
+                lib.base.cu(config)
             installed_version = config['system']['version']
     else:
         # do not call the API, put in test data. args.TEST[0] is the fixture base

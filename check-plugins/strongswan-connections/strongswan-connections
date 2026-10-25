@@ -13,7 +13,6 @@
 import argparse
 import json
 import os
-import re
 import socket
 import sys
 
@@ -34,7 +33,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102501'
 
 DESCRIPTION = """Checks IPSec connection states on a strongSwan VPN gateway. Connects to the charon
 daemon via the VICI interface to retrieve IKE SA and CHILD SA states. Alerts on
@@ -91,8 +90,7 @@ def parse_args():
         'matching. Can be specified multiple times. Example: `--ignore="^RA_"` '
         'to skip transient remote-access clients on a VPN gateway that also '
         'carries permanent site-to-site peers. Example: `--ignore="(?i)test"` '
-        '(case-insensitive) to skip any connection with "test" in its name. '
-        'Default: %(default)s',
+        '(case-insensitive) to skip any connection with "test" in its name.',
         dest='IGNORE',
         action='append',
         default=None,
@@ -114,8 +112,7 @@ def parse_args():
         + lib.args.MATCH_IGNORE_PRECEDENCE
         + ' Example: `--match="^S2S_SITE-XY$"` to pin an Icinga service to one '
         'specific site-to-site peer. Example: `--match="(?i)^s2s_"` '
-        '(case-insensitive) to check every site-to-site peer on a gateway. '
-        'Default: %(default)s',
+        '(case-insensitive) to check every site-to-site peer on a gateway.',
         dest='MATCH',
         action='append',
         default=None,
@@ -443,6 +440,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # set default values for append parameters that were not specified
     if args.IGNORE is None:
         args.IGNORE = []
     if args.MATCH is None:
@@ -450,12 +448,14 @@ def main():
 
     # compile --match and --ignore patterns (case-sensitive by default,
     # matching the lib.args convention; the user can opt into
-    # case-insensitive matching with the inline `(?i)` flag)
-    try:
-        match_patterns = [re.compile(p) for p in args.MATCH]
-        ignore_patterns = [re.compile(p) for p in args.IGNORE]
-    except re.error as e:
-        lib.base.cu(f'Invalid regular expression: {e}')
+    # case-insensitive matching with the inline `(?i)` flag). An invalid
+    # pattern is a typo, so it ends UNKNOWN with the reason, not a traceback.
+    match_patterns = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    ignore_patterns = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     # fetch data
     if args.TEST is None:

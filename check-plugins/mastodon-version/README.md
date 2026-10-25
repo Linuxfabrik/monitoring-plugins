@@ -123,6 +123,8 @@ Mastodon v4.2.10 (EOL unknown)
 ## States
 
 * UNKNOWN if the Mastodon installation or version information cannot be found.
+* UNKNOWN if Podman cannot be asked as `--user`, or cannot read the version file out of the running Mastodon container.
+* WARN if Podman does not answer within `--timeout`.
 
 The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
 

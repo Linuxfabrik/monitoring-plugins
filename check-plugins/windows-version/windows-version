@@ -22,7 +22,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092702'
+__version__ = '2026102501'
 
 DESCRIPTION = """Checks the installed Windows or Windows Server version against the
 endoflife.date API and alerts if the version is end-of-life. The lifecycle is chosen by
@@ -219,6 +219,10 @@ def get_cycles(values):
     # DisplayVersion ("24H2") exists since 20H2. Before that, ReleaseId ("1809") names the
     # feature release; from 20H2 on, ReleaseId is frozen at "2009" and must not be used.
     release = (values.get('DisplayVersion') or values.get('ReleaseId') or '').lower()
+    if not release and build == MIN_BUILD_WINDOWS_10:
+        # The first Windows 10 release (1507, still found as Enterprise 2015 LTSB) has
+        # no ReleaseId yet; the value was introduced with 1511.
+        release = '1507'
     product_name = values.get('ProductName', 'Windows')
 
     if 'Server' in values.get('InstallationType', ''):

@@ -22,11 +22,15 @@ The verdict comes from the endoflife.date feed, which the fixtures do not stand 
 for, so the testcases pin the parsed version and leave the state alone.
 """
 
+import importlib.machinery
+import importlib.util
+import os
 import sys
 
 sys.path.insert(0, '..')
 
 import unittest
+from unittest import mock
 
 import lib.lftest
 from lib.globals import STATE_UNKNOWN
@@ -66,6 +70,44 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+def _load_plugin_module():
+    here = os.path.dirname(os.path.abspath(__file__))
+    loader = importlib.machinery.SourceFileLoader(
+        'mastodon_version', os.path.join(here, '..', 'mastodon-version')
+    )
+    spec = importlib.util.spec_from_loader('mastodon_version', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+class TestPodmanFailure(unittest.TestCase):
+    """A version check says nothing about the version when Podman fails, so the
+    failure is UNKNOWN and not the CRIT of an engine outage. Only the live path asks
+    Podman, so the module is driven with `lib.container.run()` stubbed out."""
+
+    PS = (True, ('0123abcd ghcr.io/mastodon/mastodon:latest\n', '', 0))
+
+    def get_state(self, *answers):
+        plugin = _load_plugin_module()
+        with mock.patch.object(plugin.lib.container, 'run', side_effect=answers):
+            success, result = plugin.get_container_version_file('mastodon', 8)
+        self.assertFalse(success)
+        return result[1]
+
+    def test_unknown_if_podman_ps_fails(self):
+        engine_down = 'Error: cannot connect to Podman socket: no such file\n'
+        self.assertEqual(self.get_state((True, ('', engine_down, 125))), STATE_UNKNOWN)
+
+    def test_unknown_if_the_version_file_is_missing(self):
+        missing = (
+            'cat: /opt/mastodon/lib/mastodon/version.rb: No such file or directory\n'
+        )
+        self.assertEqual(
+            self.get_state(self.PS, (True, ('', missing, 1))), STATE_UNKNOWN
+        )
 
 
 if __name__ == '__main__':

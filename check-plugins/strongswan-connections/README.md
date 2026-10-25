@@ -57,7 +57,7 @@ options:
                      remote-access clients on a VPN gateway that also carries
                      permanent site-to-site peers. Example:
                      `--ignore="(?i)test"` (case-insensitive) to skip any
-                     connection with "test" in its name. Default: None
+                     connection with "test" in its name.
   --lengthy          Extended reporting.
   --match MATCH      Only check connections whose VICI key matches this Python
                      regular expression. Case-sensitive by default; use `(?i)`
@@ -68,7 +68,7 @@ options:
                      `--match="^S2S_SITE-XY$"` to pin an Icinga service to one
                      specific site-to-site peer. Example:
                      `--match="(?i)^s2s_"` (case-insensitive) to check every
-                     site-to-site peer on a gateway. Default: None
+                     site-to-site peer on a gateway.
   --no-perfdata      Suppress the performance data section from the output.
                      The status message and the exit code are unaffected, so
                      alerting keeps working while trending data is dropped.
@@ -123,6 +123,8 @@ acme      ! EST   ! 2022-05-10 15:03:43 ! 2022-05-11 14:57:14 ! v2  ! 198.51.100
 * WARN if charon does not answer on the VICI socket within `--timeout`.
 * UNKNOWN if no connections are configured.
 * UNKNOWN if `--socket` resolves outside `/run` or `/var/run`, or if anybody but root could replace the socket or a directory above it.
+* UNKNOWN if there is no VICI socket, or connecting to it fails (strongSwan not running, vici plugin not loaded).
+* UNKNOWN if `--match` or `--ignore` is not a valid regular expression.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

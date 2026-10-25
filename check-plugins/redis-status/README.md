@@ -3,7 +3,7 @@
 
 ## Overview
 
-Monitors a Redis server via the `INFO` command, reporting memory usage, fragmentation ratio, keyspace hit rate, connected clients, replication status, and persistence state. Alerts on memory consumption, high fragmentation, low hit rates, and OS-level misconfigurations such as overcommit and transparent huge pages.
+Monitors a Redis server via the `INFO` command, reporting memory usage, fragmentation ratio, keyspace hit rate, connected clients, replication status, and persistence state. Alerts on memory consumption, high fragmentation, low hit rates, and OS-level misconfigurations such as overcommit and transparent huge pages. Includes Redis Memory Doctor diagnostics when available.
 
 **Important Notes:**
 
