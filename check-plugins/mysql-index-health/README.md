@@ -3,9 +3,9 @@
 
 ## Overview
 
-Reports the two index-housekeeping findings that [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_pfs() flags: unused indexes (never read since the last server start, listed in `sys.schema_unused_indexes`) and redundant indexes (a narrower index fully covered by a wider one, listed in `sys.schema_redundant_indexes`). Both views are populated by the Performance Schema; the plugin reports STATE_UNKNOWN with a clear hint when `performance_schema = OFF` (the MariaDB default).
+Reports the two index-housekeeping findings that MySQLTuner flags inside its `mysql_pfs()` block: unused indexes (never read since the last server start, listed in `sys.schema_unused_indexes`) and redundant indexes (a narrower index fully covered by a wider one, listed in `sys.schema_redundant_indexes`). Both views are populated by the Performance Schema; the plugin reports UNKNOWN with a clear hint when `performance_schema = OFF` (the MariaDB default). The check is meant as a trip-wire only: it surfaces the findings, not the full per-index analysis. System schemas (`mysql`, `information_schema`, `performance_schema`, `sys`) are excluded. `--match` and `--ignore` narrow the report further, down to a single schema, table or index name. Counters are cumulative since server start; restarting the server resets them, so the plugin stays silent (OK with a wait hint) until server uptime crosses `--min-uptime-hours` (default 24h). This avoids the false-clean signal right after a restart and the false-positive "unused" signal that would fire before weekly or monthly jobs have had a chance to touch their indexes. Index housekeeping is never a wake-up-at-night finding, so the plugin only emits WARN (and the implicit OK), never CRIT. Alerts when redundant indexes exist, and when the count of unused indexes crosses `--warning-unused`, which is off by default. Supports extended reporting via `--lengthy`.
 
-The check is meant as a trip-wire only: it surfaces the findings, not the full per-index analysis. The plugin itself does not duplicate mysqltuner's deep diagnostic output; it is sized for a once-a-day Icinga check, not a 60-second one (the underlying counters are cumulative since server start, so sub-daily sampling would add nothing).
+The plugin does not duplicate mysqltuner's deep diagnostic output; it is sized for a once-a-day check, not a 60-second one (the underlying counters are cumulative since server start, so sub-daily sampling would add nothing).
 
 **Important Notes:**
 
@@ -57,21 +57,21 @@ Reports the two index-housekeeping findings that MySQLTuner flags inside its
 `mysql_pfs()` block: unused indexes (never read since the last server start,
 listed in `sys.schema_unused_indexes`) and redundant indexes (a narrower index
 fully covered by a wider one, listed in `sys.schema_redundant_indexes`). Both
-views are populated by the Performance Schema; the plugin reports
-STATE_UNKNOWN with a clear hint when `performance_schema = OFF` (the MariaDB
-default). The check is meant as a trip-wire only: it surfaces the findings,
-not the full per-index analysis. System schemas (`mysql`,
-`information_schema`, `performance_schema`, `sys`) are excluded. `--match` and
-`--ignore` narrow the report further, down to a single schema, table or index
-name. Counters are cumulative since server start; restarting the server resets
-them, so the plugin stays silent (STATE_OK with a wait hint) until server
-uptime crosses `--min-uptime-hours` (default 24h). This avoids the false-clean
-signal right after a restart and the false-positive "unused" signal that would
-fire before weekly or monthly jobs have had a chance to touch their indexes.
-Index housekeeping is never a wake-up-at-night finding, so the plugin only
-emits WARN (and the implicit OK), never CRIT. Alerts when redundant indexes
-exist, and when the count of unused indexes crosses `--warning-unused`, which
-is off by default. Supports extended reporting via --lengthy.
+views are populated by the Performance Schema; the plugin reports UNKNOWN with
+a clear hint when `performance_schema = OFF` (the MariaDB default). The check
+is meant as a trip-wire only: it surfaces the findings, not the full per-index
+analysis. System schemas (`mysql`, `information_schema`, `performance_schema`,
+`sys`) are excluded. `--match` and `--ignore` narrow the report further, down
+to a single schema, table or index name. Counters are cumulative since server
+start; restarting the server resets them, so the plugin stays silent (OK with
+a wait hint) until server uptime crosses `--min-uptime-hours` (default 24h).
+This avoids the false-clean signal right after a restart and the
+false-positive "unused" signal that would fire before weekly or monthly jobs
+have had a chance to touch their indexes. Index housekeeping is never a
+wake-up-at-night finding, so the plugin only emits WARN (and the implicit OK),
+never CRIT. Alerts when redundant indexes exist, and when the count of unused
+indexes crosses `--warning-unused`, which is off by default. Supports extended
+reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit

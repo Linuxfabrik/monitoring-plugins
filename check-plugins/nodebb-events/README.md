@@ -3,7 +3,7 @@
 
 ## Overview
 
-Retrieves recent events from the NodeBB event log via the admin API. Reports administrative actions such as user bans, plugin activations, and configuration changes. This is an informational check only.
+Retrieves recent events from the NodeBB event log via the admin API. Reports administrative actions such as user bans, plugin activations, and configuration changes. The figures are reported for trending and never alert on their own.
 
 **Important Notes:**
 

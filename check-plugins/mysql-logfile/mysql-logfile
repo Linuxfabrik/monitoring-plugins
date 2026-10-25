@@ -532,7 +532,7 @@ def read_pfs_error_log(conn):
     file mode).
     """
     sql = (
-        'SELECT LOGGED, PRIO, ERROR_CODE, SUBSYSTEM, DATA'
+        'SELECT LOGGED, PRIO, ERROR_CODE, SUBSYSTEM, DATA'  # nosec B608 - constant
         ' FROM performance_schema.error_log'
         f' ORDER BY LOGGED DESC LIMIT {MAXLINES};'
     )
@@ -622,6 +622,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # set default values for append parameters that were not specified
     if args.IGNORE is None:
         args.IGNORE = []
     if args.IGNORE_PATTERN is None:

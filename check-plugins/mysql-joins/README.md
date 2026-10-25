@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the rate of joins executed without indexes in MySQL/MariaDB (`Select_range_check + Select_full_join`). More than 250 such joins per day (matching MySQLTuner) indicates missing indexes that can severely impact query performance. The rate is an average per day over the uptime, so it is only evaluated once the server has been up for `--min-uptime-hours` (default 24 hours); before that it is reported without raising WARN.
+Checks the rate of joins executed without indexes in MySQL/MariaDB (`Select_range_check + Select_full_join`). A high rate (more than 250 such joins per day, matching MySQLTuner) indicates missing indexes and can severely impact query performance. Alerts when the rate exceeds the threshold. A per-day rate extrapolated from a few minutes or hours of uptime says little, so on freshly-booted servers (uptime below `--min-uptime-hours`, default 24 hours) the rate is reported but not evaluated.
 
 **Important Notes:**
 

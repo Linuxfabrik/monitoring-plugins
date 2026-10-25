@@ -3,7 +3,7 @@
 
 ## Overview
 
-Estimates MySQL/MariaDB memory consumption and compares it to the host's physical RAM. Reports the currently-reached usage (server-wide buffers + per-thread buffers * `Max_used_connections` + Performance Schema memory + Galera GCache if present) and the theoretical worst-case peak (same formula but with `max_connections`). Also surfaces RAM consumed by non-database processes so admins can see when MySQL plus the rest of the system would exceed physical memory.
+Estimates MySQL/MariaDB memory consumption and compares it to the host's physical RAM. Reports the currently-reached usage (server-wide buffers + per-thread buffers * `Max_used_connections` + Performance Schema memory + Galera GCache if present) and the theoretical worst-case peak (same formula but with `max_connections`). Also surfaces the RAM consumed by non-database processes on the host so admins can see when MySQL plus the rest of the system would exceed physical memory. Alerts when used or peak memory crosses the `--warning` / `--critical` thresholds, when reached + other-process memory exceeds physical RAM, and when MySQL would allocate more than 2 GiB on a 32-bit system. Supports extended reporting via `--lengthy`.
 
 **Important Notes:**
 

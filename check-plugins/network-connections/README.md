@@ -3,7 +3,9 @@
 
 ## Overview
 
-Counts system-wide socket connections by type (TCP, TCP6, UDP, UDP6) and state. Output is grouped by connection type and status, ordered by the number of connections (descending). Useful for detecting connection leaks or applications that do not properly close sockets.
+Counts system-wide socket connections by type (TCP, TCP6, UDP, UDP6) and state. Alerts when the total number of connections in a specific state exceeds the configured thresholds. Useful for detecting connection leaks or applications that do not properly close sockets.
+
+Output is grouped by connection type and status, ordered by the number of connections (descending).
 
 **Important Notes:**
 

@@ -3,7 +3,7 @@
 
 ## Overview
 
-Monitors NodeBB user statistics via the admin API, including total user count, admins, and banned users.
+Monitors NodeBB user statistics via the admin API, including total user count, admins, and banned users. Alerts when a user is banned, at the level `--severity` sets.
 
 **Important Notes:**
 

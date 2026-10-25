@@ -3,7 +3,7 @@
 
 ## Overview
 
-Monitors NodeBB group statistics via the admin API, including group count and membership numbers. This is an informational check only.
+Monitors NodeBB group statistics via the admin API, including group count and membership numbers. The figures are reported for trending and never alert on their own.
 
 **Important Notes:**
 

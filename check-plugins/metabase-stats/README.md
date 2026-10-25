@@ -3,7 +3,7 @@
 
 ## Overview
 
-Retrieves recent activity and usage statistics from a Metabase instance via its API. Reports active users, executed queries, dashboards, and other operational metrics. Credentials are cached to reduce API calls.
+Retrieves recent activity and usage statistics from a Metabase instance via its API. Reports active users, executed queries, dashboards, and other operational metrics. Credentials are cached to reduce API calls. The figures are reported for trending and never alert on their own.
 
 **Important Notes:**
 

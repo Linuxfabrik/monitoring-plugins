@@ -3,7 +3,9 @@
 
 ## Overview
 
-Checks the hit rate of the MySQL/MariaDB open table cache. A low hit rate means `table_open_cache` is too small for the workload and threads have to keep reopening tables. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner.
+Checks the hit rate of the MySQL/MariaDB open table cache (`Table_open_cache_hits` divided by (`Table_open_cache_hits` + `Table_open_cache_misses`); on servers without `Table_open_cache_hits` it falls back to `Open_tables` / `Opened_tables`). A low hit rate means `table_open_cache` is too small for the workload and threads have to keep reopening tables. Alerts when the rate drops below `--warning` / `--critical`. On freshly-booted servers (uptime < 1 hour) the hit-rate alert is suppressed because the cache has not had time to warm up.
+
+Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner.
 
 **Important Notes:**
 

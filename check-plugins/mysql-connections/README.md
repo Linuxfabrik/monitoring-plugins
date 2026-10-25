@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the connection usage rate, the rate of aborted connections, and whether name resolution is active for new connections on MySQL/MariaDB. Provides recommendations when thresholds are exceeded. The percentage of aborted connections is a lifetime average, so it is only evaluated once the server has accepted at least `--min-connections` connections (default 100); before that it is reported without raising WARN.
+Checks the connection usage rate and the rate of aborted connections in MySQL/MariaDB. Also verifies whether name resolution is enabled for new connections, which can impact performance. Alerts when connection usage or abort rates exceed acceptable levels. The abort rate is only evaluated once the server has accepted at least `--min-connections` connections (default 100), because a handful of aborted connections out of a few dozen is no rate.
 
 **Important Notes:**
 
