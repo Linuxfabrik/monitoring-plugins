@@ -3,7 +3,7 @@
 
 ## Overview
 
-Lists all clients currently connected to an OpenVPN server by parsing the status log file in any of the formats OpenVPN writes (`status-version` 1, 2 or 3). Reports client name, external and internal address, and connection time. Optionally checks the number of connected clients against thresholds.
+Lists all clients currently connected to an OpenVPN server by parsing the status log file in any of the formats OpenVPN writes (`status-version` 1, 2 or 3). Reports client name, external and internal address, and connection time. Alerts when the number of connected clients is outside the `--warning` or `--critical` range; without thresholds the check only lists the clients. Requires root or sudo.
 
 **Important Notes:**
 
@@ -27,8 +27,9 @@ Lists all clients currently connected to an OpenVPN server by parsing the status
 | Nagios/Icinga Check Name              | `check_openvpn_client_list` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
-| Runs on                               | Cross-platform |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No (runs with Python interpreter) |
+| Requirements                          | User with higher permissions |
 
 
 ## Help
@@ -40,8 +41,9 @@ usage: openvpn-client-list [-h] [-V] [--always-ok] [-c CRIT]
 Lists all clients currently connected to an OpenVPN server by parsing the
 status log file in any of the formats OpenVPN writes (`status-version` 1, 2 or
 3). Reports client name, external and internal address, and connection time.
-Alerts when the number of connected clients reaches `--warning` or
-`--critical`. Requires root or sudo.
+Alerts when the number of connected clients is outside the `--warning` or
+`--critical` range; without thresholds the check only lists the clients.
+Requires root or sudo.
 
 options:
   -h, --help           show this help message and exit
@@ -73,21 +75,24 @@ Output:
 ```text
 5 users connected to OpenVPN Server.
 
-Common Name      External IP  Internal    IP Connected since
------------      -----------  ----------- ------------------
-a@linuxfabrik.ch 1.2.3.4      10.123.11.4 Mon Jun  7 07:59:53 2021
-b@linuxfabrik.ch 2.3.4.5      10.123.11.5 Mon Jun  7 08:05:56 2021
-c@linuxfabrik.ch 3.4.5.6      10.123.11.3 Mon May 31 23:08:47 2021
-d@linuxfabrik.ch 4.5.6.7      10.123.11.6 Mon Jun  7 09:29:07 2021
-e@linuxfabrik.ch 5.6.7.8      10.123.11.2 Mon May 31 23:08:38 2021
+Common Name          ! External IP  ! Internal IP ! Connected since
+---------------------+--------------+-------------+-------------------------
+user1@linuxfabrik.ch ! 192.0.2.1    ! 10.8.0.135  ! Tue Jan  1 12:56:08 2020
+user2@linuxfabrik.ch ! 192.0.2.2    ! 10.8.0.6    ! Tue Jan  1 09:56:59 2020
+user3@linuxfabrik.ch ! 198.51.100.3 ! 10.8.0.2    ! Tue Jan  1 08:34:21 2020
+user4@linuxfabrik.ch ! 203.0.113.4  ! 10.8.0.3    ! Tue Jan  1 08:38:10 2020
+user4@linuxfabrik.ch ! 203.0.113.4  ! 10.8.0.4    ! Tue Jan  1 08:38:20 2020
 ```
 
 
 ## States
 
-* OK if the number of connected clients is below the thresholds.
+* OK if the number of connected clients is inside the thresholds, or if no thresholds are given.
+* OK with "0 users connected" on an empty status file, since OpenVPN truncates the file before it rewrites it.
 * WARN if the number of connected clients is outside the `--warning` range.
 * CRIT if the number of connected clients is outside the `--critical` range.
+* UNKNOWN if the file is not an OpenVPN status file, cannot be read, or resolves outside `/var/log`.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -105,7 +110,7 @@ The file named by `--filename` is not an OpenVPN status file. Check the `status`
 
 ### Status log file cannot be read
 
-`Failed to read file /var/log/openvpn-status.log.`
+`I/O error "No such file or directory" while opening or reading /var/log/openvpn-status.log`
 
 The status log file does not exist or is not readable. Verify that the OpenVPN server is configured with `status /var/log/openvpn-status.log` and that the check has sufficient permissions (root or sudo).
 

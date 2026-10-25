@@ -335,7 +335,7 @@ Recommendations:
 * UNKNOWN if no log file could be determined at all, or if `error_log` is set to `syslog`, which is not a file the check can open.
 * OK if the log file is empty, which is what a log looks like right after logrotate ran.
 * OK with `--no-match-severity` at its default when `--match` dropped every line; set it to `warn`, `crit` or `unknown` to have a filter that matches nothing reported instead.
-* The size of the log file is reported and trended but never alerted on. PHP-FPM defines no cutoff of its own, and an unrotated log is the business of `logrotate` and of the [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage.md) check.
+* The size of the log file is reported and trended but never alerted on. PHP-FPM defines no cutoff of its own, and an unrotated log is the business of `logrotate` and of the [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/) check.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -375,7 +375,7 @@ Only PHP's fatal errors are counted, and only from the `error_log` file a pool n
 
 ### Every counter reads zero right after the nightly logrotate
 
-The distributions rotate this log daily, and PHP-FPM writes a single `error log file re-opened` line into the fresh file. The check reads the rotated predecessor along with it, so the window normally reaches back beyond that point and the last section names every file it read, one per line with its size. A window that really is one line means the predecessor is gone or unreadable, not that PHP-FPM is silent. Use [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit.md) to know whether PHP-FPM is running at all; this check reports on what the log says.
+The distributions rotate this log daily, and PHP-FPM writes a single `error log file re-opened` line into the fresh file. The check reads the rotated predecessor along with it, so the window normally reaches back beyond that point and the last section names every file it read, one per line with its size. A window that really is one line means the predecessor is gone or unreadable, not that PHP-FPM is silent. Use [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit/) to know whether PHP-FPM is running at all; this check reports on what the log says.
 
 ### `does not look like a PHP-FPM error log`
 
@@ -415,7 +415,7 @@ Every request that arrives while all workers are busy waits in the listen queue,
 
 1. Look at what the check lists next to the saturation. Request timeouts or hung workers at the same time mean the workers were stuck, on a stalled database, a hung NFS mount or a remote API, and more workers would only get stuck the same way.
 2. Read the web server access log for the minute the check names. A few hundred requests from one address within a few seconds, walking a list of configuration file names and collecting 404s, is a scanner and not a pool that is too small. Where the application renders its own 404 page through PHP, every one of those occupies a worker for as long as a real request does. Rate-limit it at the reverse proxy: raising the limit here would only hand the next burst more workers, and the memory to run them.
-3. Look at [php-fpm-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-status.md) for how saturated the pool runs on an ordinary day. A quiet status page does not contradict the log. Saturation lasting seconds is over before the next poll, the `max children reached` counter of the status page resets whenever PHP-FPM restarts, and on a `dynamic` pool the reported total is the live worker count rather than `pm.max_children`.
+3. Look at [php-fpm-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-status/) for how saturated the pool runs on an ordinary day. A quiet status page does not contradict the log. Saturation lasting seconds is over before the next poll, the `max children reached` counter of the status page resets whenever PHP-FPM restarts, and on a `dynamic` pool the reported total is the live worker count rather than `pm.max_children`.
 4. Raise `pm.max_children` only as far as the memory of the host allows: multiply the value by the resident size of a worker and keep the result well below the memory available.
 5. Where the requests themselves are slow, raising the limit only buys time. The slow requests in the pool `slowlog` name the scripts to profile.
 

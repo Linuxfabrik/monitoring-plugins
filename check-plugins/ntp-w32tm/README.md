@@ -153,7 +153,7 @@ Time since Last Good Sync Time: 7.8834592s
 
 `Access denied while querying the Windows Time service.`
 
-The Windows Time service answers administrators, services and interactive sessions, but not a standard user who logged in remotely, for example over SSH or WinRM. The check works as it is when the Icinga 2 agent runs it, whatever account the agent uses. To try the check by hand as a standard user, log in to the desktop instead of over the network.
+The Windows Time service answers administrators, services and interactive sessions, but not a standard user who logged in remotely, for example over SSH or WinRM. The check works as it is when the local monitoring agent runs it as a service, whatever account the agent uses. To try the check by hand as a standard user, log in to the desktop instead of over the network.
 
 
 ## Credits, License

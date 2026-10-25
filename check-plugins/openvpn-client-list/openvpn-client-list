@@ -22,13 +22,13 @@ import lib.txt
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Lists all clients currently connected to an OpenVPN server by parsing the status
 log file in any of the formats OpenVPN writes (`status-version` 1, 2 or 3). Reports client
 name, external and internal address, and connection time. Alerts when the number of
-connected clients reaches `--warning` or `--critical`.
-Requires root or sudo."""
+connected clients is outside the `--warning` or `--critical` range; without thresholds the
+check only lists the clients. Requires root or sudo."""
 
 DEFAULT_FILENAME = '/var/log/openvpn-status.log'
 
@@ -260,8 +260,10 @@ def main():
             }
         )
     counter = len(table)
-
     state = lib.base.get_state(counter, args.WARN, args.CRIT, _operator='range')
+
+    # build the message
+    msg = f'{counter} {lib.txt.pluralize("user", counter)} connected to OpenVPN Server.\n\n'
     perfdata = lib.base.get_perfdata(
         'clients',
         counter,
@@ -269,9 +271,6 @@ def main():
         crit=args.CRIT,
         _min=0,
     )
-
-    # build the message
-    msg = f'{counter} {lib.txt.pluralize("user", counter)} connected to OpenVPN Server.\n\n'
 
     msg += lib.base.get_table(
         table,
