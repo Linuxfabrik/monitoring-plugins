@@ -20,10 +20,10 @@ import lib.human
 import lib.lftest
 import lib.shell
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026102501'
 
 DESCRIPTION = """Checks for available APT package updates on Debian, Ubuntu, and compatible
 systems. Reports the number of pending updates and how many of them come from a security
@@ -192,6 +192,24 @@ def package_name(line):
     return line.split('/', 1)[0]
 
 
+def run_command(cmd, args):
+    """Run `cmd` and return its `(stdout, stderr, retc)`.
+
+    A command that outlives `--timeout` ends the check with a WARNING naming the
+    command, not with an UNKNOWN. The check itself worked, it is the package
+    repository or the package database lock that did not answer in time, which
+    is a problem on the host the admin has to look at.
+    """
+    success, result = lib.shell.shell_exec(cmd, timeout=args.TIMEOUT)
+    if not success and result.startswith('Timeout after'):
+        lib.base.oao(
+            f'Timeout after {args.TIMEOUT}s while running `{" ".join(cmd)}`.',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
+    return lib.base.coe((success, result))
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -212,10 +230,8 @@ def main():
             )
         if not args.NO_UPDATE:
             # try to update the package cache first
-            _, stderr, retc = lib.base.coe(
-                lib.shell.shell_exec(
-                    ['sudo', 'apt-get', 'update', '--quiet', '2'], timeout=args.TIMEOUT
-                ),
+            _, stderr, retc = run_command(
+                ['sudo', 'apt-get', 'update', '--quiet', '2'], args
             )
             if retc or stderr:
                 # Not printing stderr as it is quite verbose
@@ -224,9 +240,7 @@ def main():
                     'Check the sudo permissions, or use --no-update to evaluate the '
                     'package cache without refreshing it.'
                 )
-        stdout, _, retc = lib.base.coe(
-            lib.shell.shell_exec(['apt', 'list', '--upgradable'], timeout=args.TIMEOUT),
-        )
+        stdout, _, retc = run_command(['apt', 'list', '--upgradable'], args)
     else:
         # skip the apt-get update refresh in test mode and read the
         # `apt list --upgradable` output from a fixture file

@@ -21,10 +21,10 @@ import lib.human
 import lib.lftest
 import lib.shell
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026102501'
 
 DESCRIPTION = """Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 systems. Reports the number and type of available advisories (bugfix, enhancement,
@@ -179,7 +179,8 @@ def get_updates(args):
 
     Notes
     -----
-    - The function assumes that `lib.base.coe` will exit the program on a shell command failure.
+    - A timeout ends the check with a WARNING (see `run_command()`), any other shell
+      command failure exits it via `lib.base.coe`.
     - Any errors from listing installed packages are logged but do not stop execution.
     - If there are no updates, the function notifies the user and still returns a pair of values;
       in that case, `yum_upgrades` will be empty or falsy.
@@ -187,10 +188,8 @@ def get_updates(args):
     """
     # get the list of updates (--assumeyes so command can import GPG keys)
     if args.TEST is None:
-        yum_upgrades, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                ['yum', 'list', '--assumeyes', '--upgrades'], timeout=args.TIMEOUT
-            ),
+        yum_upgrades, stderr, retc = run_command(
+            ['yum', 'list', '--assumeyes', '--upgrades'], args
         )
     else:
         yum_upgrades, stderr, retc = lib.lftest.test(
@@ -204,9 +203,7 @@ def get_updates(args):
 
     # get the list of installed software
     if args.TEST is None:
-        yum_installed, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['yum', 'list', '--installed'], timeout=args.TIMEOUT),
-        )
+        yum_installed, stderr, retc = run_command(['yum', 'list', '--installed'], args)
     else:
         yum_installed, stderr, retc = lib.lftest.test(
             [args.TEST[0] + '-installed', args.TEST[1], args.TEST[2]],
@@ -243,9 +240,9 @@ def get_updateinfo(args):
 
     Notes
     -----
-    - The function wraps `lib.shell.shell_exec(['yum', 'updateinfo', 'list', '--available'])`
-      with `lib.base.coe()`. If the shell command itself fails (e.g., cannot run YUM), `coe` will
-      exit the script after printing a sanitized error.
+    - The function runs `yum updateinfo list --available` through `run_command()`. A
+      timeout ends the check with a WARNING; if the shell command itself fails otherwise
+      (e.g., cannot run YUM), `coe` exits the script after printing a sanitized error.
     - After unwrapping with `coe`, the function destructures into `(yum_info, stderr, retc)`.
       - If `retc` is nonzero (indicating a YUM-level error), it logs the error via `lib.base.cu()`
         but does **not** exit.
@@ -274,10 +271,8 @@ def get_updateinfo(args):
     #   FEDORA-2025-09f40d bugfix   Low      python3-boto3-1.38.23-1.fc42.noarch 2025-05-30 01:14:13
     #   FEDORA-2025-34e9b9 security Critical firefox-139.0-1.fc42.x86_64         2025-05-30 02:21:33
     if args.TEST is None:
-        yum_info, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                ['yum', 'updateinfo', 'list', '--available'], timeout=args.TIMEOUT
-            ),
+        yum_info, stderr, retc = run_command(
+            ['yum', 'updateinfo', 'list', '--available'], args
         )
     else:
         yum_info, stderr, retc = lib.lftest.test(
@@ -383,6 +378,24 @@ def join_packages_updates(yum_installed, yum_upgrades):
         )
 
     return packages
+
+
+def run_command(cmd, args):
+    """Run `cmd` and return its `(stdout, stderr, retc)`.
+
+    A command that outlives `--timeout` ends the check with a WARNING naming the
+    command, not with an UNKNOWN. The check itself worked, it is the package
+    repository or the package database lock that did not answer in time, which
+    is a problem on the host the admin has to look at.
+    """
+    success, result = lib.shell.shell_exec(cmd, timeout=args.TIMEOUT)
+    if not success and result.startswith('Timeout after'):
+        lib.base.oao(
+            f'Timeout after {args.TIMEOUT}s while running `{" ".join(cmd)}`.',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
+    return lib.base.coe((success, result))
 
 
 def store_updateinfo(conn, yum_info):
