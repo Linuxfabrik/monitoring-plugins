@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Highlights:** Mainly a bug-fix release: every plugin was tested again against all available Linux and Windows versions. New are `aide-logfile` for the AIDE file integrity check, `lynis-logfile` for the daily lynis audit, `ntp-offset` for the offset of the system clock and `windows-version` for the end of life of Windows. On RHEL, Debian and Ubuntu, the version checks follow the distribution's life cycle for the software it ships.
+**Highlights:** Mainly a bug-fix release: every plugin was tested again against all available Linux and Windows versions. New are `aide-logfile` for the AIDE file integrity check, `lynis-logfile` for the daily lynis audit, `ntp-offset` for the offset of the system clock and `windows-version` for the end of life of Windows. On RHEL, Debian and Ubuntu, the version checks follow the distribution's life cycle for the software it ships. Re-import all Grafana dashboards and the Director basket; hosts on Windows 10 or later and Server 2016 or later move to the per-version Basic Service Sets by their tag.
 
 ### Added
 
@@ -37,7 +37,6 @@ Assets:
 Monitoring Plugins:
 
 * end of life follows the distribution's life cycle, on most \*-version checks
-* fewer false alarms after a restart or on shared hosts, on mysql-connections, mysql-health, mysql-joins, mysql-memory, mysql-table-cache, mysql-temp-tables
 * spare, standby and offline components are evaluated, on all redfish-\* checks
 * the monitoring user needs its privileges on `*.*`, on all mysql-\* checks
 * the version perfdata changes its scale, on all \*-version checks
@@ -45,12 +44,12 @@ Monitoring Plugins:
 * apache-httpd-logfile: more detail, far fewer false alarms
 * cpu-vulnerabilities: fewer false alarms in virtual machines
 * crypto-policy: compares only the base policy by default, and named subpolicies in any order
-* disk-usage: returns on time despite a hung NFS mount
 * gitlab-version: CRIT on a pending security update
-* journald-usage, openvpn-client-list: the thresholds take Nagios ranges, a plain number alerts above it instead of at it
+* journald-usage: the thresholds take Nagios ranges, a plain number alerts above it instead of at it
 * lynis: lists every finding per host, refuses to run as root
 * memory-paging: swap-out no longer alerts by default
-* mysql-health: MariaDB no longer drops to 0/30 Security points
+* mysql-connections, mysql-joins, mysql-memory, mysql-table-cache, mysql-temp-tables: fewer false alarms after a restart or on shared hosts
+* mysql-health: fewer false alarms after a restart or on shared hosts, MariaDB no longer drops to 0/30 Security points
 * mysql-index-health: unused indexes alert only with `--warning-unused`
 * nextcloud-enterprise: shows how old the subscription data is
 * ntp-chronyd: alerts on the real clock offset and on a silent NTP server
@@ -92,35 +91,42 @@ Monitoring Plugins:
 * HTTPS works with root certificates Windows has not cached yet, on all plugins
 * no journal warning without systemd, on the \*-logfile checks ([#1544](https://github.com/Linuxfabrik/monitoring-plugins/issues/1544))
 * non-ASCII arguments are no longer garbled, on all Windows plugins
-* return on time despite a hung NFS mount, on nfs-exports, nfs-mounts, path-rw-test
 * the acknowledgement is read from the right service, on all plugins with `--icinga-callback`
 * borgbackup: a running backup is no longer UNKNOWN
 * by-ssh: `--warning-regex` and `--critical-regex` ignore case, as documented
 * by-winrm: works with JEA endpoints and with pywinrm only, regexes ignore case
 * cert: `--source=file` works on RHEL 8
 * cpu-usage: no alert on idle CPUs waiting for I/O
+* csv-values, json-values: a clear UNKNOWN instead of a traceback without `--filename` or `--url`, or on invalid JSON
 * dhcp-scope-usage: works again, also locally on Windows
 * disk-io: learns the bandwidth for a week before it warns
+* disk-usage, nfs-exports, nfs-mounts, path-rw-test: return on time despite a hung NFS mount
 * dmesg: fewer false alarms on Debian 13 and Ubuntu 26.04 VMs
-* dns: honours `--timeout`, also on Windows
+* dns: honours `--timeout`, also on Windows, names the lookup time when it alerts
 * docker-image, podman-image: no false CRIT for images dated 1970
 * fedora-version, rhel-version: no false end of life on other distributions
-* feed: respects the time zone of an entry
-* file-age, file-count, file-growth, file-size: more robust on SMB shares, file-growth also when files come and go
+* feed: respects the time zone of an entry, acknowledging an entry without an ID no longer silences the next one
+* file-age, file-count, file-growth, file-size: more robust on SMB shares, file-growth also when files come and go or two shares hold the same file name
 * file-ownership: no false warning for unbound on Fedora 44
 * fs-inodes: checks every logical volume
-* fs-ro: `--extend-ignore` keeps the defaults ([#1566](https://github.com/Linuxfabrik/monitoring-plugins/issues/1566)), no missed read-only mount
+* fs-ro: no missed read-only mount
 * grafana-version: reads the version more reliably
+* grassfish-screens: two Grassfish servers checked from the same host no longer share their screen data
+* graylog-version: a removed package that left its configuration behind on Debian no longer counts as installed
 * haproxy-status, starface-\*, ups-nut: no garbled non-ASCII text
+* huawei-pacific-quota: warns instead of returning OK when an incomplete quota listing found nothing
 * infomaniak-swiss-backup-devices: works behind a mandatory proxy
-* journald-\*: UNKNOWN without journal rights or when journalctl fails, journald-query reads binary messages
+* journald-\*: UNKNOWN without journal rights or when journalctl fails or reports no size, journald-query reads binary messages
 * mediawiki-version: reads MediaWiki before 1.31.7
 * moodle-version: finds Moodle 5.1 and newer
 * network-errors: one state file for all interfaces, also cleans up after interfaces that went away
+* nextcloud-version: no longer hangs when `occ` does not answer
 * ntp-systemd-timesyncd: warns when the NTP server stops answering, `--stratum` applies to this host
 * openjdk-redhat-version: no wrong version with quoted Java options
+* php-status: reports a missing module whose name is part of another one, such as `xml` next to `libxml`
 * podman-stats: no false CRIT for rootless containers on cgroups v1
 * postfix-logfile: reads the journal on Debian and Ubuntu
+* qts-cpu-usage: keeps a separate history per appliance
 * qts-disk-smart: works with one disk and on QTS 4.2, keeps CRIT on overheating
 * qts-temperatures: works on models without CPU temperature
 * qts-version: reports updates again ([#1547](https://github.com/Linuxfabrik/monitoring-plugins/issues/1547))
@@ -128,7 +134,7 @@ Monitoring Plugins:
 * redis-version, valkey-version: no longer confuse Redis and Valkey
 * snmp: works with the default `--device` and on Debian and Ubuntu
 * sshd-logfile: detects MaxStartups rate limiting again
-* systemd-units-failed: no longer names an ignored unit
+* systemd-units-failed: no longer names an ignored unit, also one with escaped characters in its name, no longer waits on a slow journal
 * tuned-profile: accepts post-loaded and System Roles profiles
 * updates: warns on a disabled Windows Update service, no longer hangs ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
 * wildfly-version: honours `--proxy` and `--timeout` for the GitHub lookup
@@ -142,7 +148,10 @@ Icinga Director:
 
 * Active Directory Lightweight Directory Service Set: checks the AD LDS instances
 * apache-httpd-security, deb-updates, rpm-updates, snmp: re-import the basket
+* by-ssh, by-winrm: re-import the basket, so that a hanging command returns WARN
 * ClamAV Service Set: works on Debian and Ubuntu
+* FortiOS 6 Service Set: `FortiOS Sensor` gets the host address
+* IPMI, kdump and all OS Basic Service Sets: ipmi-sel, ipmi-sensor, kdump and dmesg run via sudo
 * Mastodon and Rocket.Chat Service Sets: check the rootless containers
 * Nextcloud Service Set: no warning for an enabled `nextcloud-app-update.timer`
 * ntp-chronyd, ntp-ntpd, ntp-systemd-timesyncd, ntp-w32tm: re-import the basket
@@ -164,12 +173,14 @@ Monitoring Plugins:
 * fail2ban: `--socket` must be root-owned
 * icinga-topflap-services: never shows the password file, ignores downtimes ([#1564](https://github.com/Linuxfabrik/monitoring-plugins/issues/1564))
 * logfile: cannot escape `/var/log`, works on Windows again ([#1587](https://github.com/Linuxfabrik/monitoring-plugins/issues/1587))
+* lynis: `--lynis-option` no longer passes options that point lynis at files or programs on the audited hosts
 * mastodon-version: `--path` no longer follows symlinks out of the installation
 * metabase-stats: no session token for another instance, works again
 * mysql-logfile: `--defaults-file` has to belong to the account calling sudo
 * mysql-user-security: no longer prints a weak password it found
 * nextcloud-\*: `--path` runs `occ` only from a root-controlled installation
-* openvpn-client-list: confined to `/var/log`, supports OpenVPN 2.7 and IPv6
+* nextcloud-security-scan: accepts only a well-formed scan ID from the scanner
+* openvpn-client-list: confined to `/var/log`, supports OpenVPN 2.7 and IPv6, a plain threshold alerts above it instead of at it
 * php-status: reads only root-owned pool configs, compares a `--config` value that holds `=`
 * podman-\*: `--user` needs a subordinate UID range
 * postgresql-version: `--path` runs only a `psql` that nobody but root can change
