@@ -21,7 +21,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102501'
 
 DESCRIPTION = """Counts the number of currently logged-in users by session type: tty (console) and pts
 (SSH on Linux, RDP on Windows). On Windows, also counts disconnected sessions (closed
@@ -182,12 +182,6 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # init some vars
-    msg = ''
-    perfdata = ''
-    state = STATE_OK
-    count_tty, count_pts, count_disc = 0, 0, 0
-
     try:
         WARN_TTY = lib.args.int_or_none(args.WARN[0])
         WARN_PTS = lib.args.int_or_none(args.WARN[1])
@@ -235,7 +229,12 @@ def main():
         else:
             lines, count_tty, count_pts = parse_linux_output(stdout)
 
-    # analyze data and build the message
+    # init some vars
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+
+    # analyze data
     # both parsers keep the header, so a header alone is nobody
     if len(lines) <= 1:
         msg = 'No one is logged in.'

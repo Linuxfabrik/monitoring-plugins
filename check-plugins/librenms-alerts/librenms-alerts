@@ -155,6 +155,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -163,13 +164,6 @@ def main():
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_privileges(conn))
 
-    # init some vars
-    msg = ''
-    perfdata = ''
-    state = STATE_OK
-    alert_count = 0
-
-    # fetch data
     sql = """
         SELECT
             d.hardware,
@@ -213,7 +207,13 @@ def main():
     lib.db_mysql.close(conn)
     device_count = len(devices)
 
-    # enrich and analyse data
+    # init some vars
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+    alert_count = 0
+
+    # analyze data
     for i, device in enumerate(devices):
         if device['uptime']:
             devices[i]['uptime'] = lib.human.seconds2human(device['uptime'])

@@ -89,6 +89,7 @@ Sys: 59°C (Thresholds: 60/70°C), CPU: 82°C (Thresholds: 80/85°C) [WARNING]
 * OK if both system and CPU temperatures are below the QTS-configured thresholds.
 * WARN if the system or CPU temperature reaches the warning threshold configured in QTS.
 * CRIT if the system or CPU temperature reaches the error threshold configured in QTS.
+* UNKNOWN if the appliance reports no temperature at all.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

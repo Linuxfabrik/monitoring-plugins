@@ -22,8 +22,18 @@ import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
+# Optional: without it, the expiry of the local certificate files is skipped with a
+# note instead of failing the whole check.
+try:
+    from cryptography import x509
+
+    HAVE_CRYPTOGRAPHY = True
+except ImportError:
+    HAVE_CRYPTOGRAPHY = False
+
+
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100901'
+__version__ = '2026102501'
 
 DESCRIPTION = """Checks MySQL/MariaDB TLS/SSL posture: the current connection itself, the server's TLS
 capability (`have_ssl`), enforcement (`require_secure_transport`), enabled TLS versions
@@ -194,9 +204,7 @@ def cert_days_until_expiry(path):
         return None, f'file not found: {path}'
     if not os.access(path, os.R_OK):
         return None, f'file not readable: {path}'
-    try:
-        from cryptography import x509
-    except ImportError:
+    if not HAVE_CRYPTOGRAPHY:
         return None, 'python module "cryptography" not installed'
     success, data = lib.disk.read_file(path, binary=True)
     if not success:

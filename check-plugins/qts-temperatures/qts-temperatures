@@ -190,7 +190,7 @@ def main():
         sensor_state = lib.base.get_state(value, warn, crit, _operator='ge')
         state = lib.base.get_worst(state, sensor_state)
 
-        # build the message
+        # the per-sensor part of the message
         msg += (
             f'{label}: {value}°C (Thresholds: {warn}/{crit}°C)'
             f'{lib.base.state2str(sensor_state, prefix=" ")}, '
@@ -198,6 +198,8 @@ def main():
         perfdata += lib.base.get_perfdata(
             perf_label, value, warn=warn, crit=crit, _min=0
         )
+
+    # build the message
     if not msg:
         lib.base.cu('The appliance does not report any temperature.')
     msg = msg[:-2]

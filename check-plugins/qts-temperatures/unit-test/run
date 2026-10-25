@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # Where the fixtures come from:
 #
@@ -136,6 +136,14 @@ TESTS = [
         'assert-in': [
             'Sys: 72°C (Thresholds: 60/70°C) [CRITICAL]',
         ],
+    },
+    {
+        # the TS-410 answer with its only temperature removed
+        'id': 'unknown-no-temperature-reported',
+        'test': 'stdout/no-temperature-sensors-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['The appliance does not report any temperature.'],
     },
 ]
 
