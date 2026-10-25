@@ -45,8 +45,7 @@ Monitoring Plugins:
 * cpu-vulnerabilities: fewer false alarms in virtual machines
 * crypto-policy: compares only the base policy by default, and named subpolicies in any order
 * gitlab-version: CRIT on a pending security update
-* journald-usage: the thresholds take Nagios ranges, a plain number alerts above it instead of at it
-* lynis: lists every finding per host, refuses to run as root
+* journald-usage: the thresholds take Nagios ranges, a plain number alerts only above it, UNKNOWN when journalctl fails
 * memory-paging: swap-out no longer alerts by default
 * mysql-connections, mysql-joins, mysql-memory, mysql-table-cache, mysql-temp-tables: fewer false alarms after a restart or on shared hosts
 * mysql-health: fewer false alarms after a restart or on shared hosts, MariaDB no longer drops to 0/30 Security points
@@ -54,6 +53,7 @@ Monitoring Plugins:
 * nextcloud-enterprise: shows how old the subscription data is
 * ntp-chronyd: alerts on the real clock offset and on a silent NTP server
 * ntp-ntpd: alerts on the real clock offset and on a silent NTP server, `--stratum` applies to this host
+* ntp-systemd-timesyncd: alerts on a silent NTP server, `--stratum` applies to this host
 * ntp-w32tm: `--warning` and `--critical` check the clock offset, renamed or dropped metrics, works on German Windows
 * php-fpm-logfile: reports fatal errors and hung workers, fewer false alarms
 * php-fpm-ping: an unreachable ping page follows `--severity`, perfdata `response_time` replaces `ping`
@@ -85,19 +85,19 @@ Grafana:
 
 Monitoring Plugins:
 
-* a clear message instead of a Python or OS error, on many plugins
 * a hanging command returns WARN after `--timeout`, on many plugins
-* compressed logs are no longer reported again on every run, on logfile and all \*-logfile checks
+* clear messages, no Python tracebacks or raw OS errors, on many plugins
+* compressed logs are no longer reported again on every run, on logfile, apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile and sshd-logfile
 * HTTPS works with root certificates Windows has not cached yet, on all plugins
-* no journal warning without systemd, on the \*-logfile checks ([#1544](https://github.com/Linuxfabrik/monitoring-plugins/issues/1544))
 * non-ASCII arguments are no longer garbled, on all Windows plugins
 * the acknowledgement is read from the right service, on all plugins with `--icinga-callback`
+* apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: no journal warning without systemd ([#1544](https://github.com/Linuxfabrik/monitoring-plugins/issues/1544))
 * borgbackup: a running backup is no longer UNKNOWN
 * by-ssh: `--warning-regex` and `--critical-regex` ignore case, as documented
 * by-winrm: works with JEA endpoints and with pywinrm only, regexes ignore case
 * cert: `--source=file` works on RHEL 8
 * cpu-usage: no alert on idle CPUs waiting for I/O
-* csv-values, json-values: a clear UNKNOWN instead of a traceback without `--filename` or `--url`, or on invalid JSON
+* csv-values, json-values: a clear UNKNOWN without `--filename` or `--url`, or on invalid JSON
 * dhcp-scope-usage: works again, also locally on Windows
 * disk-io: learns the bandwidth for a week before it warns
 * disk-usage, nfs-exports, nfs-mounts, path-rw-test: return on time despite a hung NFS mount
@@ -106,7 +106,7 @@ Monitoring Plugins:
 * docker-image, podman-image: no false CRIT for images dated 1970
 * fedora-version, rhel-version: no false end of life on other distributions
 * feed: respects the time zone of an entry, acknowledging an entry without an ID no longer silences the next one
-* file-age, file-count, file-growth, file-size: more robust on SMB shares, file-growth also when files come and go or two shares hold the same file name
+* file-age, file-count, file-growth, file-size: more robust on SMB shares and with files that come and go
 * file-ownership: no false warning for unbound on Fedora 44
 * fs-inodes: checks every logical volume
 * fs-ro: no missed read-only mount
@@ -114,16 +114,14 @@ Monitoring Plugins:
 * grassfish-screens: two Grassfish servers checked from the same host no longer share their screen data
 * graylog-version: a removed package that left its configuration behind on Debian no longer counts as installed
 * haproxy-status, starface-\*, ups-nut: no garbled non-ASCII text
-* huawei-pacific-quota: warns instead of returning OK when an incomplete quota listing found nothing
+* huawei-pacific-quota: warns on an incomplete quota listing
 * infomaniak-swiss-backup-devices: works behind a mandatory proxy
-* journald-\*: UNKNOWN without journal rights or when journalctl fails or reports no size, journald-query reads binary messages
+* journald-query: UNKNOWN without journal rights or when journalctl fails, reads binary messages
 * mediawiki-version: reads MediaWiki before 1.31.7
 * moodle-version: finds Moodle 5.1 and newer
 * network-errors: one state file for all interfaces, also cleans up after interfaces that went away
 * nextcloud-version: no longer hangs when `occ` does not answer
-* ntp-systemd-timesyncd: warns when the NTP server stops answering, `--stratum` applies to this host
 * openjdk-redhat-version: no wrong version with quoted Java options
-* php-status: reports a missing module whose name is part of another one, such as `xml` next to `libxml`
 * podman-stats: no false CRIT for rootless containers on cgroups v1
 * postfix-logfile: reads the journal on Debian and Ubuntu
 * qts-cpu-usage: keeps a separate history per appliance
@@ -131,10 +129,10 @@ Monitoring Plugins:
 * qts-temperatures: works on models without CPU temperature
 * qts-version: reports updates again ([#1547](https://github.com/Linuxfabrik/monitoring-plugins/issues/1547))
 * redfish-logservices: reads the SEL of HPE, names an unreadable log
+* redfish-storage: no UNKNOWN on controllers that send empty drive or volume lists
 * redis-version, valkey-version: no longer confuse Redis and Valkey
-* snmp: works with the default `--device` and on Debian and Ubuntu
 * sshd-logfile: detects MaxStartups rate limiting again
-* systemd-units-failed: no longer names an ignored unit, also one with escaped characters in its name, no longer waits on a slow journal
+* systemd-units-failed: no longer names an ignored unit, no longer waits on a slow journal
 * tuned-profile: accepts post-loaded and System Roles profiles
 * updates: warns on a disabled Windows Update service, no longer hangs ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
 * wildfly-version: honours `--proxy` and `--timeout` for the GitHub lookup
@@ -147,8 +145,8 @@ Notification Plugins:
 Icinga Director:
 
 * Active Directory Lightweight Directory Service Set: checks the AD LDS instances
-* apache-httpd-security, deb-updates, rpm-updates, snmp: re-import the basket
-* by-ssh, by-winrm: re-import the basket, so that a hanging command returns WARN
+* apache-httpd-security, deb-updates, redfish-storage, rpm-updates, snmp: re-import the basket
+* by-ssh, by-winrm, dhcp-scope-usage: re-import the basket, so that a hanging command returns WARN
 * ClamAV Service Set: works on Debian and Ubuntu
 * FortiOS 6 Service Set: `FortiOS Sensor` gets the host address
 * IPMI, kdump and all OS Basic Service Sets: ipmi-sel, ipmi-sensor, kdump and dmesg run via sudo
@@ -156,6 +154,7 @@ Icinga Director:
 * Nextcloud Service Set: no warning for an enabled `nextcloud-app-update.timer`
 * ntp-chronyd, ntp-ntpd, ntp-systemd-timesyncd, ntp-w32tm: re-import the basket
 * PHP-FPM Service Set: no false alert on Debian and Ubuntu
+* sap-open-concur-com: re-import the basket, so the times follow daylight saving time
 * Windows service sets: a stopped service is no longer hidden
 
 Build, CI/CD:
@@ -167,25 +166,26 @@ Build, CI/CD:
 Monitoring Plugins:
 
 * other local users can no longer plant state files on Windows, on all plugins
-* \*-logfile: a swapped file or directory reveals nothing outside `/var/log`
 * acmesh-status, docker-service, docker-swarm: no longer reveal which files exist
+* apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: a swapped file, directory or symlink reveals nothing outside `/var/log`
 * apache-httpd-security, nginx-security: `--command` runs only root-owned system binaries
 * fail2ban: `--socket` must be root-owned
 * icinga-topflap-services: never shows the password file, ignores downtimes ([#1564](https://github.com/Linuxfabrik/monitoring-plugins/issues/1564))
 * logfile: cannot escape `/var/log`, works on Windows again ([#1587](https://github.com/Linuxfabrik/monitoring-plugins/issues/1587))
-* lynis: `--lynis-option` no longer passes options that point lynis at files or programs on the audited hosts
-* mastodon-version: `--path` no longer follows symlinks out of the installation
+* lynis: `--lynis-option` cannot point lynis at files or programs, lists every finding, refuses to run as root
+* mastodon-version: `--path` no longer follows symlinks out of the installation, no false CRIT when Podman fails
 * metabase-stats: no session token for another instance, works again
 * mysql-logfile: `--defaults-file` has to belong to the account calling sudo
 * mysql-user-security: no longer prints a weak password it found
 * nextcloud-\*: `--path` runs `occ` only from a root-controlled installation
 * nextcloud-security-scan: accepts only a well-formed scan ID from the scanner
-* openvpn-client-list: confined to `/var/log`, supports OpenVPN 2.7 and IPv6, a plain threshold alerts above it instead of at it
-* php-status: reads only root-owned pool configs, compares a `--config` value that holds `=`
+* openvpn-client-list: confined to `/var/log`, supports OpenVPN 2.7 and IPv6, a plain threshold alerts only above it
+* php-status: reads only root-owned pool configs, `--config` compares the whole value, finds every missing module
 * podman-\*: `--user` needs a subordinate UID range
 * postgresql-version: `--path` runs only a `psql` that nobody but root can change
 * restic-\*: `--repo` can no longer run programs or write files as root, works with restic 0.18
 * scanrootkit: no longer reveals which files exist, detects 23 more rootkits and those named by a pattern
+* snmp: a device answer is never run as code, works with the default `--device` and on Debian and Ubuntu
 * strongswan-connections: `--socket` must be root-owned ([GHSA-cw8h-7h72-79v8](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-cw8h-7h72-79v8))
 * systemd-unit: `--machine` takes only a container name
 
