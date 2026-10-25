@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026101201'
+__version__ = '2026102501'
 
 DESCRIPTION = """Checks the state of all physical drives, volumes and their storage controllers in a
 Redfish-compatible server via the Redfish API. Alerts when any drive, volume or storage controller
@@ -392,10 +392,11 @@ def main():
             )
 
             # get drives attached to the storage member. fetch_members fills in
-            # any drives the controller left as bare references above.
+            # any drives the controller left as bare references above. A controller
+            # without drives may send `null` where the schema expects a list.
             drive_members = lib.base.coe(
                 lib.redfish.fetch_members(
-                    storage_data.get('Drives', []),
+                    storage_data.get('Drives') or [],
                     args.URL,
                     header=header,
                     insecure=args.INSECURE,
@@ -469,7 +470,10 @@ def main():
                 table_data_drive.append(drive_data)
 
             # get volumes (logical drives) defined on the storage member
-            volumes_link = storage_data.get('Volumes', {}).get('@odata.id')
+            volumes_link = storage_data.get('Volumes')
+            volumes_link = (
+                volumes_link.get('@odata.id') if isinstance(volumes_link, dict) else ''
+            )
             if volumes_link:
                 # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1/Volumes".
                 # fetch_collection inlines the volume members in one request;

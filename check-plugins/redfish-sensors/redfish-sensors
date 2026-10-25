@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026101201'
+__version__ = '2026102501'
 
 DESCRIPTION = """Checks hardware sensor readings (temperature, voltage, fan speed, power) from the
 Redfish Chassis collection via the Redfish API. Reads the modern Sensors collection where
@@ -207,6 +207,19 @@ def parse_args():
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def get_legacy_items(resource, key):
+    """Return the objects a legacy Thermal or Power resource lists under `key`.
+
+    Firmware that does not conform to the schema sends `null` where an array belongs,
+    or entries that are no objects. Both give nothing to evaluate instead of ending
+    the check.
+    """
+    items = resource.get(key)
+    if not isinstance(items, list):
+        return []
+    return [item for item in items if isinstance(item, dict)]
 
 
 def main():
@@ -492,9 +505,7 @@ def main():
         # endpoints add the fans if it lists none (iLO 6 lists temperatures
         # only), and the power supplies it does not name, whose health the
         # Sensors collection does not carry.
-        power_supplies = power.get('PowerSupplies', [])
-        if not isinstance(power_supplies, list):
-            power_supplies = []
+        power_supplies = get_legacy_items(power, 'PowerSupplies')
         # power control reports the chassis-wide power consumption. Cisco
         # returns a single object where the schema expects a list, so
         # normalize it before iterating.
@@ -503,10 +514,11 @@ def main():
             power_control = [power_control]
         if not isinstance(power_control, list):
             power_control = []
+        power_control = [pc for pc in power_control if isinstance(pc, dict)]
         # (parsed item, key holding the reading, display unit)
         legacy = [
             (lib.redfish.get_chassis_thermal_fans(f), 'Reading', '')
-            for f in thermal.get('Fans', [])
+            for f in get_legacy_items(thermal, 'Fans')
         ]
         if sensor_names:
             if sensors_have_fans:
@@ -519,11 +531,11 @@ def main():
                     'ReadingCelsius',
                     'Cel',
                 )
-                for t in thermal.get('Temperatures', [])
+                for t in get_legacy_items(thermal, 'Temperatures')
             ] + legacy
             legacy += [
                 (lib.redfish.get_chassis_power_voltages(v), 'ReadingVolts', 'V')
-                for v in power.get('Voltages', [])
+                for v in get_legacy_items(power, 'Voltages')
             ]
         for item, reading_key, units in legacy:
             if item['Status_State'] in lib.redfish.UNMONITORED_STATES:
@@ -639,7 +651,7 @@ def main():
 
         # redundancy
         table_data = []
-        for redundancy in thermal.get('Redundancy', []):
+        for redundancy in get_legacy_items(thermal, 'Redundancy'):
             redundancy = lib.redfish.get_chassis_thermal_redundancy(redundancy)
             if redundancy['Status_State'] in lib.redfish.UNMONITORED_STATES:
                 continue

@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the event log entries exposed under the LogServices of a Redfish-compatible server (the System Event Log, SEL) via the Redfish API. Alerts when a log entry has the severity "Warning" or "Critical".
+Checks the event log entries exposed under the LogServices of a Redfish-compatible server via the Redfish API. Alerts when a log entry has the severity "Warning" or "Critical". By default it reads the System Event Log (SEL); `--log-type` selects the management controller log (MEL) or both. Entries can be filtered by regular expression (`--match`, `--ignore`), and entries older than `--max-age` days can be aged out so a long-since resolved event does not keep the check in a non-OK state forever.
 
 **Important Notes:**
 

@@ -91,6 +91,20 @@ TESTS = [
         'assert-not-in': ['[WARNING]', '[CRITICAL]'],
     },
     {
+        # Firmware that does not conform to the schema sends `null` where the legacy
+        # Thermal and Power resources list their fans, voltages and redundancy groups.
+        # The temperatures and power supplies they do list are still evaluated.
+        'id': 'ok-legacy-lists-null',
+        'test': 'stdout/legacy-lists-null,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. Checked sensors on 1 member.',
+            "'CPU_CPU1_Temp'=41;42;48",
+            "'PowerSupply_Power_Supply_0_499253-B21'=325",
+        ],
+    },
+    {
         # --inventory emits the parsed components as JSON (one object keyed by
         # component type) and exits OK, so several Redfish checks can be merged
         # with `jq --slurp`.

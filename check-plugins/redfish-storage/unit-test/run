@@ -72,6 +72,20 @@ TESTS = [
         'assert-not-in': ['[WARNING]', '[CRITICAL]'],
     },
     {
+        # Firmware that does not conform to the schema sends `null` where a storage
+        # controller without disks lists its drives and volumes. The controller itself
+        # is still evaluated.
+        'id': 'ok-controller-lists-null',
+        'test': 'stdout/controller-lists-null,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. Checked storage on 1 member.',
+            "'drives'=0;;;0",
+            "'storage_controllers'=1;;;0",
+        ],
+    },
+    {
         # A volume (logical drive) reports Health=Critical while drives and
         # controllers are OK. redfish-storage must escalate to CRITICAL.
         'id': 'crit-one-volume-fault',
