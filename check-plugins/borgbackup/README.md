@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the status of the last borgbackup run by parsing the borg logfile. Alerts on non-zero return codes from the create or prune steps, and warns if the last successful backup is older than a configurable threshold (default: 24 hours). Also detects active borg mounts in /proc/mounts. Requires root or sudo.
+Checks the status of the last borgbackup run by parsing the borg logfile. Alerts on return codes of 2 or higher from the create or prune steps, and if the last backup started longer ago than a configurable threshold (default: 24 hours), also while it is still running. Also detects active borg mounts in /proc/mounts. Requires root or sudo.
 
 **Important Notes:**
 
@@ -37,10 +37,10 @@ Checks the status of the last borgbackup run by parsing the borg logfile. Alerts
 usage: borgbackup [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata] [-w WARN]
 
 Checks the status of the last borgbackup run by parsing the borg logfile.
-Alerts on non-zero return codes from the create or prune steps, and warns if
-the last successful backup is older than a configurable threshold (default: 24
-hours). Also detects active borg mounts in /proc/mounts. Requires root or
-sudo.
+Alerts on return codes of 2 or higher from the create or prune steps, and if
+the last backup started longer ago than a configurable threshold (default: 24
+hours), also while it is still running. Also detects active borg mounts in
+/proc/mounts. Requires root or sudo.
 
 options:
   -h, --help           show this help message and exit

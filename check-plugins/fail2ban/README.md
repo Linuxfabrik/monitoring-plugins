@@ -89,6 +89,7 @@ portscan ! 1974   ! [OK]
 * OK if the number of banned IPs in every checked jail is within `--warning` (default: 2500).
 * WARN if the number of banned IPs in any jail exceeds `--warning` (default: 2500).
 * CRIT if the number of banned IPs in any jail exceeds `--critical` (default: 10000).
+* WARN if a `fail2ban-client` call does not return within `--timeout` (default: 8 seconds), typically because the fail2ban server hangs.
 * UNKNOWN if `fail2ban-client ping` fails or `fail2ban-client status` returns an error.
 * UNKNOWN if `--socket` resolves outside `/run` or `/var/run`, or if anybody but root could replace the socket or a directory above it.
 * `--warning` and `--critical` accept Nagios range expressions.

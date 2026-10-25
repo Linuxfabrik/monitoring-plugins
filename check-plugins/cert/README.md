@@ -118,8 +118,8 @@ options:
                         `--exclude=192.0.2.1 --exclude=192.0.2.254`
   --extend-ports EXTEND_PORTS
                         TCP port to probe on every scanned target, appended to
-                        the default or the `--ports` list. A range is written
-                        `start-end`. Only applies to --source=scan. Can be
+                        the default or the `--ports` list. Only applies to
+                        --source=scan. A range is written `start-end`. Can be
                         specified multiple times. Example: `--extend-
                         ports=8443`.
   --filename FILENAME   Path to a certificate file or a glob pattern matching
@@ -169,10 +169,10 @@ options:
                         dropped.
   --no-proxy            Do not use a proxy, not even one the environment
                         names. Overrides `--proxy`.
-  --ports PORTS         TCP port to probe on every scanned target. A range is
-                        written `start-end`. Only applies to --source=scan.
-                        Replaces the default list, use `--extend-ports` to
-                        append to it. Can be specified multiple times.
+  --ports PORTS         TCP port to probe on every scanned target. Only
+                        applies to --source=scan. Replaces the default list,
+                        use `--extend-ports` to append to it. A range is
+                        written `start-end`. Can be specified multiple times.
                         Example: `--ports=443 --ports=993 --ports=8000-8100`.
                         Default: 443, 465, 636, 990, 993, 995, 3269, 5671,
                         5986, 6443, 8006, 8200, 8443, 8883, 9090, 9443, 10000.

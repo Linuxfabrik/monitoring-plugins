@@ -85,8 +85,8 @@ options:
                        to every user on the host. Example:
                        `--proxy=http://proxy.example.com:3128`.
   --pwfile PWFILE      Path to a password file containing "url", "user" and
-                       "password" for Icinga Web 2. Example: `--pwfile
-                       /var/spool/icinga2/.icingaweb`. Default:
+                       "password" for Icinga Web 2. Example:
+                       `--pwfile=/var/spool/icinga2/.icingaweb`. Default:
                        /var/spool/icinga2/.icingaweb
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
   --url URL            Icinga DB event history URL including filter
@@ -110,7 +110,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/icinga-topflap-se
 ./icinga-topflap-services \
     --username=alice \
     --password=linuxfabrik \
-    --url='https://icinga/icingaweb2/icingadb/history?limit=250' \
+    --url='https://icinga.example.com/icingaweb2/icingadb/history?limit=250' \
     --lookback=86400
 ```
 

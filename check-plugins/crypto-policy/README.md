@@ -47,8 +47,9 @@ options:
   --policy CRYPTO_POLICY
                         Expected crypto policy name. Only the base policy is
                         compared, unless this names subpolicies itself. Case-
-                        insensitive. Example: `FUTURE`, or `DEFAULT:NO-SHA1`
-                        to require that subpolicy. Default: DEFAULT
+                        insensitive. Example: `--policy=FUTURE`, or
+                        `--policy=DEFAULT:NO-SHA1` to require that subpolicy.
+                        Default: DEFAULT
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
 
 Documentation:

@@ -20,7 +20,7 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 **Important Notes:**
 
 * The reported `cpu-usage` and the value the thresholds are checked against are not the same number. `cpu-usage` is the plain total of everything the CPUs did except idle, niced work included, because that is what a utilization graph should show. The thresholds leave niced work out, because a process that was asked to stand back is not a reason to alert. A host running nothing but `nice`d batch jobs therefore graphs at 100% and stays OK. `iowait` counts as idle, so a host that mostly waits for its disks does not graph as busy.
-* Steal alerts at 10% by default. On a virtual machine whose hypervisor has always been oversubscribed, this reports a WARN that was not reported before. Set `--warning-steal=""` to switch it off, or raise it to the level the platform is expected to deliver.
+* Steal alerts at 10% by default. On a virtual machine whose hypervisor has always been oversubscribed, this raises a WARN although nothing on the machine changed. Set `--warning-steal=""` to switch it off, or raise it to the level the platform is expected to deliver.
 * `--per-cpu` reports no per-core metrics until a second run with `--per-cpu` has a snapshot to measure against. That is the case on the first run, after a reboot, after a core was added to the machine, and after the check ran without `--per-cpu` in between. Only a run given the option records the per-core snapshot, and an older one would cover a different period than the overall percentages printed next to it.
 
 **Data Collection:**

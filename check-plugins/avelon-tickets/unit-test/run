@@ -177,6 +177,27 @@ TESTS = [
         'assert-not-in': ['20000001', '20000011'],
     },
     {
+        # appended to the default statuses, which keep alerting
+        'id': 'warn-all-statuses-extend-warning',
+        'test': 'stdout/all-statuses,,0',
+        'params': CREDENTIALS + ' --extend-warning=SUPPRESSED',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '6 tickets need attention (1 ACKNOWLEDGED, 1 ACKNOWLEDGED_AND_GONE, '
+            '1 GONE, 1 OPEN, 1 REOPENED, 1 SUPPRESSED).',
+            'SUPPRESSED [WARNING]',
+        ],
+    },
+    {
+        # appended to the default type, so the alarms stay listed
+        'id': 'warn-all-statuses-extend-type',
+        'test': 'stdout/all-statuses,,0',
+        'params': CREDENTIALS + ' --extend-type=SYSTEM_MONITOR',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 OPEN', '20000001', 'Gerät 10149 antwortet nicht'],
+        'assert-not-in': ['20000010'],
+    },
+    {
         'id': 'warn-all-statuses-system-monitor-type',
         'test': 'stdout/all-statuses,,0',
         'params': CREDENTIALS + ' --type=SYSTEM_MONITOR',

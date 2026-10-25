@@ -13,7 +13,7 @@ Scans the Postfix mail log for the events an administrator has to act on, on bot
 * **The rate thresholds assume an intrusion prevention system in front of this check.** A server reachable from the internet collects failed logins and rejected recipients around the clock. The defaults report what gets past the blocking: five failures from one source within ten minutes is what such a system commonly allows, six is the first number above it. Without one, raise `--auth-failures-warning`, `--rejects-warning` and `--aborted-connections-warning`; a busy MX wants them in the hundreds.
 * **A rate is counted per source address, not as a total.** Six failed logins from one address within the window is somebody working on this host; six from six addresses is the internet going past. `--no-per-source` goes back to the total. A delivery of ours names the host we handed the message to rather than a peer, so deferrals and bounces are always judged by the total.
 * **A deferral is not a bounce.** A deferred message is still in the queue and will be tried again; a bounced one was given up on and is gone. On a host that only sends its own mail, every bounce is a message nobody will read, which is why both are counted separately.
-* **The queue itself is not what this check reads.** How much mail is waiting is what [mailq](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mailq.md) answers. This check reads why it is waiting.
+* **The queue itself is not what this check reads.** How much mail is waiting is what [mailq](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mailq/) answers. This check reads why it is waiting.
 * **A mail system that never started is invisible in the mail log, which is why the journal is read too.** `postfix start` writes what it refuses to its standard error, and under systemd that lands in the journal. The check therefore reads the file and the unit by default and counts once what it finds in both.
 * **The mail log holds more than Postfix.** A Dovecot, an OpenDKIM, an amavisd and a spam filter all write to the same syslog facility. A line another program wrote is recognized by its syslog identifier and left out of every count.
 * **A start is one event even though Postfix logs two lines.** `postfix-script: starting the Postfix mail system` and `master: daemon started -- version 3.5.25` are one start, and the second of the pair is collapsed rather than counted.
@@ -394,7 +394,7 @@ Recommendations:
 * UNKNOWN if no log could be determined at all.
 * OK if the log file is empty, which is what a log looks like right after logrotate ran.
 * OK with `--no-match-severity` at its default when `--match` dropped every line; set it to `warn`, `crit` or `unknown` to have a filter that matches nothing reported instead.
-* The size of the log file is reported and trended but never alerted on. An unrotated log is the business of `logrotate` and of the [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage.md) check.
+* The size of the log file is reported and trended but never alerted on. An unrotated log is the business of `logrotate` and of the [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/) check.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

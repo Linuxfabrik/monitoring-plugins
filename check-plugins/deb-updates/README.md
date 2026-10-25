@@ -187,7 +187,7 @@ Output:
 * OK if no updates are available (or both counts stay below their thresholds).
 * WARN if the number of pending updates is >= `--warning` (default: 1).
 * CRIT if the number of security updates is >= `--critical`. Unset by default, so security updates raise a WARNING like any other update until a threshold is given.
-* UNKNOWN if `apt-get update` or `apt list --upgradable` fails, or if `--critical-pattern` is not a valid regular expression.
+* UNKNOWN if APT is not installed, if `apt-get update` or `apt list --upgradable` fails, or if `--critical-pattern` is not a valid regular expression.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
