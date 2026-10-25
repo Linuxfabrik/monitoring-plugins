@@ -317,7 +317,7 @@ parser.add_argument(
 * "Supports Nagios ranges." when the value goes through `lib.base.get_state()`.
 * Always state "Case-insensitive." or "Case-sensitive."
 * "Uses Python regular expressions." when the parameter accepts a regex.
-* End every help text with a period; a closing `Default: %(default)s` needs none.
+* End every help text with a period; a closing `Default: %(default)s` needs none, and neither does a closing code example (`` Example: `--warning=80` ``), where a copied period would end up in the value.
 * Identical parameters across plugins get identical help texts.
 * The developer-only `--test` is mapped to `argparse.SUPPRESS` in `lib.args` (accepted, but hidden from `--help`, READMEs and baskets). Declare it with `help=lib.args.help('--test')`, never inline.
 

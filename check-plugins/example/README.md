@@ -58,7 +58,7 @@ options:
                         "modulename" to check (startswith), appended to the
                         default or the `--module` list. Case-sensitive. Can be
                         specified multiple times. Example: `--extend-
-                        module=json`.
+                        module=json`
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
