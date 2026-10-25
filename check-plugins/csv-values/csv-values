@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026102401'
 
 DESCRIPTION = """Imports a CSV file (local, remote via URL, or from an SMB share) into a temporary
 SQLite database and runs configurable SQL queries against it. Separate queries can be
@@ -265,6 +265,9 @@ def main():
 
     if args.WARNING_QUERY == '' and args.CRITICAL_QUERY == '':
         lib.base.cu('Nothing to check, no queries provided.')
+
+    if not args.FILENAME and not args.URL:
+        lib.base.cu('Provide the CSV file via --filename or --url.')
 
     # fetch data in various ways (file, url, smb)
     if args.FILENAME and args.URL:

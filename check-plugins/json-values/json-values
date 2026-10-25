@@ -23,7 +23,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Parses a JSON object from a file, URL, or SMB share and extracts message, state,
 and perfdata values from configurable keys. Useful for integrating custom applications or
@@ -338,6 +338,19 @@ def build_request_headers(token, header_args):
     return headers
 
 
+def parse_json(text):
+    """Return the parsed JSON document, or exit UNKNOWN with the same message
+    `lib.url.fetch_json()` gives for a body that is not JSON.
+    """
+    try:
+        return json.loads(text)
+    except ValueError as e:
+        error = e
+    # outside the `except` block, which would make cu() attach a traceback
+    lib.base.cu(f'{error}. No JSON object could be decoded.')
+    return None
+
+
 def load_source(args):
     """Load the JSON document from whichever source the caller picked.
 
@@ -348,7 +361,7 @@ def load_source(args):
     function instead of inflating the main control flow.
     """
     if args.FILENAME:
-        return json.loads(lib.base.coe(lib.disk.read_file(args.FILENAME)))
+        return parse_json(lib.base.coe(lib.disk.read_file(args.FILENAME)))
 
     if not args.URL:
         return None
@@ -373,10 +386,7 @@ def load_source(args):
         with lib.base.coe(
             lib.smb.open_file(url, args.USERNAME, args.PASSWORD, args.TIMEOUT)
         ) as fd:
-            try:
-                return json.loads(lib.txt.to_text(fd.read(), errors='strict_or_latin1'))
-            except Exception:
-                lib.base.cu('ValueError: No JSON object could be decoded')
+            return parse_json(lib.txt.to_text(fd.read(), errors='strict_or_latin1'))
     lib.base.cu(f'The protocol "{proto}" is not supported.')
     return None
 
@@ -390,6 +400,8 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    if not args.FILENAME and not args.URL:
+        lib.base.cu('Provide the JSON source via --filename or --url.')
     if args.FILENAME and args.URL:
         lib.base.cu(
             'The --filename and -u / --url parameter are mutually exclusive. Please only use one.'

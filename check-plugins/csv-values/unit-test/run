@@ -10,255 +10,157 @@
 
 import sys
 
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-import lib.base
-import lib.shell
+import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The plugin reads the CSV file named by --filename, so the fixtures live in
+# `fixtures/`. It has no --test hook; the `--test=` that lib.lftest.run() appends
+# is tolerated as an unknown parameter.
+UPDATES_COLUMNS = (
+    "'--columns-query=date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER'"
+)
+UPDATES = f'--filename=fixtures/network-waiting-updates {UPDATES_COLUMNS} --skip-header'
+WARN_QUERY_A = (
+    '"--warning-query=select * from data where network = \'A\' and WaitingUpdates > 3"'
+)
+CRIT_QUERY_NOT_A = (
+    '"--critical-query=select * from data'
+    " where network <> 'A' and WaitingUpdates > 4\""
+)
+
+TESTS = [
+    {
+        'id': 'unknown-no-query-and-missing-file',
+        'test': '',
+        'params': (
+            f'--filename=fixtures/nonexistent-file {UPDATES_COLUMNS} --skip-header'
+        ),
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Nothing to check, no queries provided'],
+    },
+    {
+        'id': 'unknown-no-query',
+        'test': '',
+        'params': UPDATES,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Nothing to check, no queries provided'],
+    },
+    {
+        'id': 'unknown-no-source',
+        'test': '',
+        'params': f'{UPDATES_COLUMNS} --warning-query=test',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Provide the CSV file via --filename or --url.'],
+        'assert-not-in': ['Traceback'],
+    },
+    {
+        'id': 'unknown-missing-file',
+        'test': '',
+        'params': (
+            f'--filename=fixtures/nonexistent-file {UPDATES_COLUMNS}'
+            ' --warning-query=test --skip-header'
+        ),
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'I/O error "No such file or directory" while opening or reading'
+            ' fixtures/nonexistent-file',
+        ],
+    },
+    {
+        'id': 'unknown-invalid-query',
+        'test': '',
+        'params': f'{UPDATES} --warning-query=test',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Operational Error: near "test": syntax error, Query: test, Data: {}',
+        ],
+    },
+    {
+        'id': 'ok-all-rows',
+        'test': '',
+        'params': f'{UPDATES} "--warning-query=select * from data where 1"',
+        'assert-retc': STATE_OK,
+        'assert-in': ['24 results from warning query'],
+    },
+    {
+        'id': 'unknown-no-such-table',
+        'test': '',
+        'params': f'{UPDATES} "--warning-query=select * from x where 1"',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Operational Error: no such table: x,'
+            ' Query: select * from x where 1, Data: {}',
+        ],
+    },
+    {
+        'id': 'ok-filtered-rows-without-threshold',
+        'test': '',
+        'params': f'{UPDATES} {WARN_QUERY_A}',
+        'assert-retc': STATE_OK,
+        'assert-in': ['7 results from warning query'],
+    },
+    {
+        'id': 'ok-filtered-rows-within-warn',
+        'test': '',
+        'params': f'{UPDATES} {WARN_QUERY_A} --warning=7',
+        'assert-retc': STATE_OK,
+        'assert-in': ['7 results from warning query'],
+    },
+    {
+        'id': 'warn-filtered-rows-above-warn',
+        'test': '',
+        'params': f'{UPDATES} {WARN_QUERY_A} --warning=6',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'7 results from warning query .*\[WARNING\]',
+    },
+    {
+        'id': 'warn-crit-query-within-crit',
+        'test': '',
+        'params': f'{UPDATES} {WARN_QUERY_A} --warning=6 {CRIT_QUERY_NOT_A} --critical=4',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['7 results from warning query'],
+    },
+    {
+        'id': 'crit-crit-query-above-crit',
+        'test': '',
+        'params': f'{UPDATES} {WARN_QUERY_A} --warning=6 {CRIT_QUERY_NOT_A} --critical=2',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'from critical query .*\[CRITICAL\]',
+    },
+    {
+        'id': 'ok-failed-logins-within-thresholds',
+        'test': '',
+        'params': (
+            '--filename=fixtures/failed-logins-by-user'
+            ' --chunksize=1000'
+            " '--columns-query=username TEXT, failedlogin INTEGER'"
+            ' --critical=1'
+            " '--critical-query=SELECT * FROM data WHERE failedlogin > 10;'"
+            ' --delimiter=,'
+            ' --skip-header'
+            ' --timeout=3'
+            ' --warning=1'
+            " '--warning-query=SELECT * FROM data"
+            " WHERE failedlogin > 5 and failedlogin <= 10;'"
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '0 results from warning query',
+            'and 1 result from critical query',
+        ],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
     check = '../csv-values'
 
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
 
-    def test_if_check_runs_EXAMPLE01_01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                [
-                    sys.executable,
-                    self.check,
-                    '--filename=stdout/nonexistent-file',
-                    '--columns-query=date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER',
-                    '--skip-header',
-                ]
-            )
-        )
-        self.assertIn('Nothing to check, no queries provided', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
-
-    def test_if_check_runs_EXAMPLE01_02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                [
-                    sys.executable,
-                    self.check,
-                    '--filename=stdout/network-waiting-updates',
-                    '--columns-query=date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER',
-                    '--skip-header',
-                ]
-            )
-        )
-        self.assertIn('Nothing to check, no queries provided', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
-
-    def test_if_check_runs_EXAMPLE01_03(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                [
-                    sys.executable,
-                    self.check,
-                    '--filename=stdout/nonexistent-file',
-                    '--columns-query=date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER',
-                    '--warning-query=test',
-                    '--skip-header',
-                ]
-            )
-        )
-        self.assertIn(
-            'I/O error "No such file or directory" while opening or reading stdout/nonexistent-file',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
-
-    def test_if_check_runs_EXAMPLE01_04(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                [
-                    sys.executable,
-                    self.check,
-                    '--filename=stdout/network-waiting-updates',
-                    '--columns-query=date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER',
-                    '--warning-query=test',
-                    '--skip-header',
-                ]
-            )
-        )
-        self.assertIn(
-            'Operational Error: near "test": syntax error, Query: test, Data: {}',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
-
-    def test_if_check_runs_EXAMPLE01_05(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                [
-                    sys.executable,
-                    self.check,
-                    '--filename=stdout/network-waiting-updates',
-                    '--columns-query=date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER',
-                    '--warning-query=select * from data where 1',
-                    '--skip-header',
-                ]
-            )
-        )
-        self.assertIn('24 results from warning query', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE01_06(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                [
-                    sys.executable,
-                    self.check,
-                    '--filename=stdout/network-waiting-updates',
-                    '--columns-query=date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER',
-                    '--warning-query=select * from x where 1',
-                    '--skip-header',
-                ]
-            )
-        )
-        self.assertIn(
-            'Operational Error: no such table: x, Query: select * from x where 1, Data: {}',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
-
-    def test_if_check_runs_EXAMPLE01_07(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                [
-                    sys.executable,
-                    self.check,
-                    '--filename=stdout/network-waiting-updates',
-                    '--columns-query=date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER',
-                    "--warning-query=select * from data where network = 'A' and WaitingUpdates > 3",
-                    '--skip-header',
-                ]
-            )
-        )
-        self.assertIn('7 results from warning query', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE01_08(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                [
-                    sys.executable,
-                    self.check,
-                    '--filename=stdout/network-waiting-updates',
-                    '--columns-query=date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER',
-                    "--warning-query=select * from data where network = 'A' and WaitingUpdates > 3",
-                    '--warning=7',
-                    '--skip-header',
-                ]
-            )
-        )
-        self.assertIn('7 results from warning query', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE01_09(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                [
-                    sys.executable,
-                    self.check,
-                    '--filename=stdout/network-waiting-updates',
-                    '--columns-query=date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER',
-                    "--warning-query=select * from data where network = 'A' and WaitingUpdates > 3",
-                    '--warning=6',
-                    '--skip-header',
-                ]
-            )
-        )
-        self.assertIn('7 results from warning query', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE01_10(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                [
-                    sys.executable,
-                    self.check,
-                    '--filename=stdout/network-waiting-updates',
-                    '--columns-query=date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER',
-                    "--warning-query=select * from data where network = 'A' and WaitingUpdates > 3",
-                    '--warning=6',
-                    "--critical-query=select * from data where network <> 'A' and WaitingUpdates > 4",
-                    '--critical=4',
-                    '--skip-header',
-                ]
-            )
-        )
-        self.assertIn('7 results from warning query', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE01_11(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                [
-                    sys.executable,
-                    self.check,
-                    '--filename=stdout/network-waiting-updates',
-                    '--columns-query=date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER',
-                    "--warning-query=select * from data where network = 'A' and WaitingUpdates > 3",
-                    '--warning=6',
-                    "--critical-query=select * from data where network <> 'A' and WaitingUpdates > 4",
-                    '--critical=2',
-                    '--skip-header',
-                ]
-            )
-        )
-        self.assertIn('7 results from warning query', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_EXAMPLE02_01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                [
-                    sys.executable,
-                    self.check,
-                    '--filename=stdout/failed-logins-by-user',
-                    '--chunksize',
-                    '1000',
-                    '--columns-query=username TEXT, failedlogin INTEGER',
-                    '--critical',
-                    '1',
-                    '--critical-query',
-                    'SELECT * FROM data WHERE failedlogin > 10;',
-                    '--delimiter',
-                    ',',
-                    '--skip-header',
-                    '--timeout',
-                    '3',
-                    '--warning',
-                    '1',
-                    '--warning-query',
-                    'SELECT * FROM data WHERE failedlogin > 5 and failedlogin <= 10;',
-                ]
-            )
-        )
-        self.assertIn('0 results from warning query', stdout)
-        self.assertIn('and 1 result from critical query', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
+lib.lftest.attach_tests(TestCheck, TESTS)
 
 
 if __name__ == '__main__':
