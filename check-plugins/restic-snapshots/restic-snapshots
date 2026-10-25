@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102501'
 
 DESCRIPTION = """Checks the age of the newest snapshot in a restic repository. Alerts when the most
 recent backup is older than the configured thresholds. Useful for detecting failed or
@@ -323,11 +323,27 @@ def main():
     perfdata = ''
     table_data = []
 
+    # `restic snapshots --json` prints `[]` both for a repository without any
+    # snapshot and for filters that drop every snapshot, with or without
+    # `--group-by` (verified against the restic 0.19 source, cmd_snapshots.go).
+    # Either way there is no backup to rely on, which is exactly what this check
+    # is there to report, so it is a WARNING and not a plugin problem. The two
+    # cases differ only in whether a filter was given.
     if not snapshots:
-        lib.base.oao(
-            'No snapshots match your filter criteria.',
-            STATE_UNKNOWN,
-        )
+        filters = [
+            *(f'--host={host}' for host in args.HOST or []),
+            *(f'--path={path}' for path in args.PATH or []),
+            *(f'--tag={tag}' for tag in args.TAG or []),
+        ]
+        if filters:
+            msg = (
+                f'No snapshot matches {" ".join(filters)}. Either no backup has run'
+                ' for this selection yet, or the filters do not fit the snapshots in'
+                ' the repository (compare with `restic snapshots`).'
+            )
+        else:
+            msg = 'The repository has no snapshot at all. No backup has run yet.'
+        lib.base.oao(msg, STATE_WARN, always_ok=args.ALWAYS_OK)
 
     # analyze data
     snapshot_count = 0

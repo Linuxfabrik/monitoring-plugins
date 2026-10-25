@@ -19,12 +19,35 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 BASE_PARAMS = '--warn=1 --repo=test --password-file=test'
 
 
 TESTS = [
+    {
+        # `restic snapshots --json` prints `[]` for a repository without snapshots
+        'id': 'warn-empty-repository',
+        'test': 'stdout/no-snapshots,,',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['The repository has no snapshot at all.'],
+    },
+    {
+        # ... and the same `[]` for filters that drop every snapshot
+        'id': 'warn-filters-match-no-snapshot',
+        'test': 'stdout/no-snapshots,,',
+        'params': BASE_PARAMS + ' --host=web01 --tag=daily',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No snapshot matches --host=web01 --tag=daily.'],
+    },
+    {
+        'id': 'ok-empty-repository-always-ok',
+        'test': 'stdout/no-snapshots,,',
+        'params': BASE_PARAMS + ' --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['The repository has no snapshot at all.'],
+    },
     {
         'id': 'warn-snapshots-v1',
         'test': 'stdout/snapshots-v1,,',
