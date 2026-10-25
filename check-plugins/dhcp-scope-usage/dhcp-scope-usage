@@ -22,7 +22,7 @@ import lib.powershell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102402'
+__version__ = '2026102403'
 
 DESCRIPTION = """Monitors IPv4 DHCP scope usage on a Windows DHCP server. Runs locally on the
 DHCP server or connects via WinRM, and queries scope statistics using PowerShell. On
@@ -185,8 +185,9 @@ def main():
     # --hostname ends up in the PowerShell script that runs on the WinRM host, so only
     # the characters of a DNS name or an IP address are let through; a quote or a
     # `$(...)` would otherwise turn the rest of the value into code. Checked before the
-    # test branch so the unit tests cover it.
-    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.:_-]*', args.HOSTNAME):
+    # test branch so the unit tests cover it. A compressed IPv6 address may start with
+    # "::", a leading "-" stays refused.
+    if not re.fullmatch(r'[A-Za-z0-9:][A-Za-z0-9.:_-]*', args.HOSTNAME):
         lib.base.cu(
             '--hostname accepts a DNS name, an IPv4 or an IPv6 address only.',
             traceback=False,

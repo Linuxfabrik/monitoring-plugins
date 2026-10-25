@@ -3,7 +3,7 @@
 
 ## Overview
 
-Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queries the name servers configured on the local machine (e.g. those listed in /etc/resolv.conf). Measures and alerts on the lookup response time. Works with both IPv4 and IPv6.
+Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queries the name servers configured on the local machine (e.g. those listed in /etc/resolv.conf) and measures the lookup response time. Works with both IPv4 and IPv6. Alerts when the name does not resolve, the lookup returns no address or times out, or the lookup time exceeds the warning or critical threshold.
 
 **Data Collection:**
 
@@ -36,8 +36,9 @@ usage: dns [-h] [-V] [--always-ok] [-c CRIT] [-H HOSTNAME] [--no-perfdata]
 
 Performs a DNS lookup and resolves a hostname to one or more IP addresses.
 Queries the name servers configured on the local machine (e.g. those listed in
-/etc/resolv.conf). Measures and alerts on the lookup response time. Works with
-both IPv4 and IPv6.
+/etc/resolv.conf) and measures the lookup response time. Works with both IPv4
+and IPv6. Alerts when the name does not resolve, the lookup returns no address
+or times out, or the lookup time exceeds the warning or critical threshold.
 
 options:
   -h, --help            show this help message and exit
@@ -76,7 +77,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dns/
 Output:
 
 ```text
-Lookup for webserver.example.com returns 192.0.2.43 (ip4:53)
+Lookup for webserver.example.com returns 192.0.2.43 (ip4:53) in 2.4ms
 ```
 
 

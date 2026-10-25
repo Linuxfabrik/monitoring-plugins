@@ -35,7 +35,8 @@ TESTS = [
         'test': 'stdout/rocky9-localhost,,0',
         'assert-retc': STATE_OK,
         'assert-regex': (
-            r'^Lookup for localhost returns ::1 \(ip6:53\), 127\.0\.0\.1 \(ip4:53\)\|'
+            r'^Lookup for localhost returns ::1 \(ip6:53\), 127\.0\.0\.1 \(ip4:53\)'
+            r' in 2\.4ms\|'
         ),
     },
     {
@@ -43,14 +44,15 @@ TESTS = [
         'test': 'stdout/winsrv2016-localhost,,0',
         'assert-retc': STATE_OK,
         'assert-regex': (
-            r'^Lookup for localhost returns ::1 \(ip6:53\), 127\.0\.0\.1 \(ip4:53\)\|'
+            r'^Lookup for localhost returns ::1 \(ip6:53\), 127\.0\.0\.1 \(ip4:53\)'
+            r' in 36\.7ms\|'
         ),
     },
     {
         'id': 'ok-ubuntu2604-localhost-ipv4-only',
         'test': 'stdout/ubuntu2604-localhost-ipv4-only,,0',
         'assert-retc': STATE_OK,
-        'assert-regex': r'^Lookup for localhost returns 127\.0\.0\.1 \(ip4:53\)\|',
+        'assert-regex': r'^Lookup for localhost returns 127\.0\.0\.1 \(ip4:53\) in [\d.]+ms\|',
     },
     {
         'id': 'ok-rocky9-example-com-four-addresses',
@@ -76,14 +78,14 @@ TESTS = [
         'test': 'stdout/debian13-localhost-tcp6,,0',
         'params': '--type=tcp6',
         'assert-retc': STATE_OK,
-        'assert-regex': r'^Lookup for localhost returns ::1 \(tcp6:53\)\|',
+        'assert-regex': r'^Lookup for localhost returns ::1 \(tcp6:53\) in [\d.]+ms\|',
     },
     {
         'id': 'ok-fedora44-ipv6-literal',
         'test': 'stdout/fedora44-ipv6-literal,,0',
         'params': '--hostname=::1',
         'assert-retc': STATE_OK,
-        'assert-regex': r'^Lookup for ::1 returns ::1 \(ip6:53\)\|',
+        'assert-regex': r'^Lookup for ::1 returns ::1 \(ip6:53\) in [\d.]+ms\|',
     },
     {
         'id': 'warn-rocky8-name-not-known',
@@ -176,13 +178,14 @@ TESTS = [
         'test': 'stdout/winsrv2016-localhost,,0',
         'params': '--warning=30 --critical=100',
         'assert-retc': STATE_WARN,
-        'assert-in': ["'time'=36.667ms;30.0;100.0;0"],
+        'assert-in': ['in 36.7ms [WARNING]|', "'time'=36.667ms;30.0;100.0;0"],
     },
     {
         'id': 'crit-lookup-time-above-critical',
         'test': 'stdout/winsrv2016-localhost,,0',
         'params': '--warning=10 --critical=30',
         'assert-retc': STATE_CRIT,
+        'assert-in': ['in 36.7ms [CRITICAL]|'],
     },
     {
         'id': 'ok-always-ok-masks-failure',

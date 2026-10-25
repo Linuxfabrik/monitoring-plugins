@@ -23,11 +23,13 @@ import lib.net
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102402'
+__version__ = '2026102403'
 
-DESCRIPTION = """Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queries the
-name servers configured on the local machine (e.g. those listed in /etc/resolv.conf).
-Measures and alerts on the lookup response time. Works with both IPv4 and IPv6."""
+DESCRIPTION = """Performs a DNS lookup and resolves a hostname to one or more IP addresses.
+Queries the name servers configured on the local machine (e.g. those listed in
+/etc/resolv.conf) and measures the lookup response time. Works with both IPv4 and IPv6.
+Alerts when the name does not resolve, the lookup returns no address or times out, or
+the lookup time exceeds the warning or critical threshold."""
 
 DEFAULT_HOSTNAME = 'localhost'
 DEFAULT_PORT = 53
@@ -294,7 +296,11 @@ def main():
         address = f'{sa[0]} ({lib.net.PROTOSTR[proto]}{lib.net.FAMILIYSTR[af]}:{sa[1]})'
         if address not in addresses:
             addresses.append(address)
-    msg = f'Lookup for {args.HOSTNAME} returns {", ".join(addresses)}'
+    # the lookup time is what the thresholds judge, so it goes next to the verdict
+    msg = (
+        f'Lookup for {args.HOSTNAME} returns {", ".join(addresses)}'
+        f' in {round(runtime, 1)}ms{lib.base.state2str(state, prefix=" ")}'
+    )
     perfdata = lib.base.get_perfdata(
         'time',
         round(runtime, 3),

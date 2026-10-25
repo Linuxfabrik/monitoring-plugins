@@ -24,7 +24,7 @@ import lib.base
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Tests if a DHCP server can offer IPv4 addresses by emulating a DHCP client. Sends a
 DHCPDISCOVER packet and verifies that the server responds with a valid DHCPOFFER. Only
@@ -339,7 +339,8 @@ def main():
         )
     except OSError as e:
         dhcps.close()
-        if e.errno == errno.EADDRINUSE:
+        # Windows reports the Winsock code (10048) instead of the POSIX one
+        if e.errno in (errno.EADDRINUSE, getattr(errno, 'WSAEADDRINUSE', None)):
             # a DHCP client of the host itself (systemd-networkd, dhclient, NetworkManager)
             # holds the port, which is the usual cause on a machine that is not statically
             # addressed

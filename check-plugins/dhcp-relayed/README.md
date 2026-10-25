@@ -109,6 +109,15 @@ DHCPDISCOVER: MAC=52540024b33a Host=192.168.122.1 Network=192.168.122.0/255.255.
 There is no perfdata.
 
 
+## Troubleshooting
+
+### Port 68/udp already in use
+
+`Port 68/udp on 0.0.0.0 is already in use, usually by a DHCP client of this host.`
+
+The check sends its DHCPDISCOVER from the DHCP client port 68, which a DHCP client running on the same host (systemd-networkd, dhclient, NetworkManager) already holds. Run the check on a host with a statically configured address.
+
+
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)

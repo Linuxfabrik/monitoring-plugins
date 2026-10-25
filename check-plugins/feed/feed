@@ -23,7 +23,7 @@ import lib.time
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Monitors an RSS or Atom feed for new entries and alerts when new items appear within
 a configurable time window (default: 3 days). With the callback enabled, the alert is
@@ -322,7 +322,13 @@ def main():
     delta = abs(now - feed_item.get('updated_parsed', now))
     delta = delta.total_seconds()  # this is the age of the newest feed item, in seconds
 
-    state = get_feed_state(feed_item['id'], delta, args)
+    # The acknowledgement is remembered per entry. An RSS item without a <guid> has
+    # no ID ("n/a"), and all of them would share one, so an acknowledged entry would
+    # silence the next one; such an item is told apart by its title and date.
+    feed_id = feed_item.get('id', 'n/a')
+    if feed_id == 'n/a':
+        feed_id = f'{feed_item.get("title", "")}-{feed_item.get("updated", "")}'
+    state = get_feed_state(feed_id, delta, args)
 
     # build the message
     if args.NO_SUMMARY:
