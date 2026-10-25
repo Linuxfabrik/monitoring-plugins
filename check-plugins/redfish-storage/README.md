@@ -176,7 +176,6 @@ The per-drive metrics depend on your hardware: a drive is only reported when it 
 | Name | Type | Description |
 |----|----|----|
 | \<drive\>_media_life_left | Percentage | Predicted remaining life of a drive's media (0-100%). Example: `SSD_0_media_life_left` |
-| \<drive\>_power_on_hours | Number | Hours a drive has been powered on. Example: `SSD_0_power_on_hours` |
 | \<drive\>_temperature | Temperature | Drive temperature in degrees Celsius. Example: `SSD_0_temperature` |
 | drives | Number | Number of drives checked. |
 | drives_not_ok | Number | Number of drives whose health is not OK. |

@@ -100,19 +100,19 @@ TESTS = [
     },
     {
         # A drive that exposes PredictedMediaLifeLeftPercent, PowerOnHours and a
-        # temperature must emit them as perfdata: the media life as a 0-100%
-        # gauge, the power-on hours as a (counter) value and the temperature as
-        # a degrees-Celsius gauge. All are keyed by the drive name.
-        'id': 'ok-drive-power-on-hours',
+        # temperature: the media life is emitted as a 0-100% gauge and the
+        # temperature as a degrees-Celsius gauge, both keyed by the drive name.
+        # PowerOnHours only ever grows, so it is no perfdata.
+        'id': 'ok-drive-wear-and-temperature',
         'test': 'stdout/drive-power-on-hours,,0',
         'params': COMMON,
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok. Checked storage on 1 member.',
             "'SSD_0_media_life_left'=87%;;;0;100",
-            "'SSD_0_power_on_hours'=17532;;;0",
             "'SSD_0_temperature'=34Cel",
         ],
+        'assert-not-in': ['power_on_hours'],
     },
     {
         # --ignore drops the only faulty drive (SSD 0) by regex, so the check

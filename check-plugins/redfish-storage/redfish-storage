@@ -448,16 +448,8 @@ def main():
                         _min=0,
                         _max=100,
                     )
-                # power-on hours is a monotonic counter, but there is no
-                # meaningful gauge alternative for drive age, so it is exposed
-                # as perfdata anyway.
-                power_on_hours = drive_data.get('PowerOnHours')
-                if isinstance(power_on_hours, (int, float)):
-                    perfdata += lib.base.get_perfdata(
-                        f'{drive_id}_power_on_hours',
-                        power_on_hours,
-                        _min=0,
-                    )
+                # PowerOnHours is left out: a counter that only ever grows is no
+                # gauge, and a graph of it says nothing a trend would act on.
                 # drive temperature (degrees Celsius) is a gauge. Not every
                 # vendor reports it, so it is only emitted when present.
                 temperature = drive_data.get('Temperature')
