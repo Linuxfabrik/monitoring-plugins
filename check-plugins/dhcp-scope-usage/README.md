@@ -7,7 +7,7 @@ Monitors IPv4 DHCP scope usage on a Windows DHCP server. Runs locally on the DHC
 
 **Important Notes:**
 
-* Set the plugin timeout to 30 seconds, as WinRM connections can be slow
+* Give the check command a timeout of at least 30 seconds (the Director basket does). On Windows Server 2025, loading the DHCP Server module alone takes up to 20 seconds per run, which is why `--timeout` defaults to 25 seconds.
 * The `--hostname` parameter specifies which DHCP server to query (can differ from the WinRM target)
 * Without `--winrm-hostname`, the check runs locally on a Windows host with the DHCP Server tools, typically the DHCP server itself
 * Running directly on Linux without `--winrm-hostname` is not supported
@@ -67,7 +67,7 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 25 (seconds)
   -w, --warning WARN    WARN threshold in percent. Default: >= 80
   --winrm-domain WINRM_DOMAIN
                         AD domain name for NTLM authentication. When set, the
