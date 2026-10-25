@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102501'
 
 DESCRIPTION = """Checks how far the system clock is off from the time of an NTP server,
 in milliseconds, measured by the check itself and not taken from the local time service.
@@ -364,10 +364,11 @@ def _from_w32time(args, deadline):
     The NTP server W32Time uses, from `w32tm /query /source`, else from its
     configuration.
 
-    Only an administrator may ask W32Time; any other account gets "access denied"
-    (0x80070005), but may read the configuration in the registry. Verified on Windows
-    Server 2025 and Windows 11 with a standard user. The error codes are the same in
-    every display language, the text around them is not.
+    W32Time answers administrators, services and interactive sessions. A standard user
+    who logged in remotely (SSH, WinRM) gets "access denied" (0x80070005), but may read
+    the configuration in the registry. Verified on Windows Server 2025 and Windows 11
+    with a standard user over SSH; the DACL of W32Time admits IU and SU. The error
+    codes are the same in every display language, the text around them is not.
 
     Returns
     -------
@@ -423,8 +424,9 @@ def _from_w32time(args, deadline):
         return (
             False,
             'No NTP server to compare the system clock with: W32Time follows the'
-            ' domain hierarchy, and only an administrator may ask it which domain'
-            ' controller it uses. Set --hostname to a domain controller.',
+            ' domain hierarchy, and the account the check runs as may not ask it which'
+            ' domain controller it uses from a remote login such as SSH or WinRM. Set'
+            ' --hostname to a domain controller.',
         )
     return (
         False,

@@ -69,9 +69,9 @@ options:
   --critical-mem CRIT_MEM
                         CRIT threshold for memory usage, in percent. Supports
                         Nagios ranges. Default: 95
-  --full-name           Use the full container name instead of shortening it
-                        after the replica number. Example:
-                        `traefik_traefik.2.1idw12p2yqp`
+  --full-name           Use the full container name, for example
+                        `traefik_traefik.2.1idw12p2yqp`. Without this flag,
+                        the name is shortened after the replica number.
   --ignore IGNORE       Ignore containers whose name matches this Python
                         regular expression. Matched against the full container
                         name, even when the displayed name is shortened (see

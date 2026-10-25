@@ -68,11 +68,11 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --argument ARGUMENT   Filter by command line arguments using a regular
-                        expression (case-insensitive). Example: `--argument="
+  --argument ARGUMENT   Filter by command line arguments. Uses Python regular
+                        expressions. Case-insensitive. Example: `--argument="
                         --config.*production"`
-  --command COMMAND     Filter by process name using a regular expression
-                        (case-insensitive). Example:
+  --command COMMAND     Filter by process name. Uses Python regular
+                        expressions. Case-insensitive. Example:
                         `--command="^(apache|httpd)"`
   -c, --critical CRIT   CRIT threshold for the number of matching processes.
                         Default: None
@@ -101,8 +101,8 @@ options:
   --top TOP             Number of top processes by CPU time to display.
                         Processes with zero CPU time are excluded. Use
                         `--top=0` to disable. Default: 5
-  --username USERNAME   Filter by user name using a regular expression (case-
-                        insensitive). Example: `--username="^(apache|www-
+  --username USERNAME   Filter by user name. Uses Python regular expressions.
+                        Case-insensitive. Example: `--username="^(apache|www-
                         data)$"`
   -w, --warning WARN    WARN threshold for the number of matching processes.
                         Default: None

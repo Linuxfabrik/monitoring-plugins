@@ -16,7 +16,7 @@ Checks how far the system clock is off from the time of an NTP server, in millis
 
 **Data Collection:**
 
-* With `--hostname=auto`, asks the running time service for its NTP server: `w32tm /query /source` on Windows (an account without administrator rights may not ask W32Time and reads its configured NTP server from the registry instead), otherwise `chronyc -n sources` (the selected source, else the first configured one), `ntpq --numeric --command='rv 0 peeradr'` (the system peer) and, only if systemd-timesyncd is active, `timedatectl show-timesync --all`
+* With `--hostname=auto`, asks the running time service for its NTP server: `w32tm /query /source` on Windows (a standard user logged in remotely, over SSH or WinRM, may not ask W32Time and reads its configured NTP server from the registry instead), otherwise `chronyc -n sources` (the selected source, else the first configured one), `ntpq --numeric --command='rv 0 peeradr'` (the system peer) and, only if systemd-timesyncd is active, `timedatectl show-timesync --all`
 * Resolves the server and sends an SNTP client request (NTP version 4, mode 3) to each address in turn until one answers, then three more to that address, one second apart. The answer with the smallest round-trip delay counts, because waiting times on one of the two network paths skew the others. Finding the server and asking it share `--timeout`; a run takes about three seconds.
 * Accepts the answer only if it belongs to the request, comes from a synchronized server (stratum 1 to 15) and has a root distance of at most 1.5 seconds. A Kiss-o'-Death answer (`DENY`, `RATE`, `RSTR`) is reported as such.
 * Computes offset and round-trip delay from the four timestamps as described in RFC 5905
