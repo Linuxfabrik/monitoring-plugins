@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100801'
+__version__ = '2026102401'
 
 DESCRIPTION = """Checks how full the quotas of a Huawei OceanStor Pacific storage system are via the
 REST API (/file_service/fs_quota endpoint). Walks all file systems and their dtrees and reports the
@@ -574,13 +574,14 @@ def main():
             ' the list below is incomplete.\n\n'
         )
         state = lib.base.get_worst(state, STATE_WARN)
-    if not table_data:
+    # a truncated walk is reported below even when it yielded no row
+    if not table_data and not truncated:
         # An appliance whose shares simply carry no hard quota is a healthy appliance.
         # Only a filter that excluded everything is worth the configured severity.
         filtered = (
             bool(args.MATCH)
             or bool(args.IGNORE)
-            or args.QUOTA_TYPE != DEFAULT_QUOTA_TYPE
+            or set(args.QUOTA_TYPE) != set(DEFAULT_QUOTA_TYPE)
         )
         lib.base.oao(
             'No quota matched the filters.'

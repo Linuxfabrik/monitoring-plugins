@@ -60,16 +60,16 @@ options:
   --api-version API_VERSION
                         Grassfish API version. Default: 1.12
   --box-id BOX_ID       Filter by box ID. Supports Python regular expressions
-                        (case-insensitive). Example: `--box-id
-                        "^player-0[1-3]$"`.
+                        (case-insensitive). Example: `--box-
+                        id='^player-0[1-3]$'`.
   --box-state {activated,deleted,new,reserved,undefined}
                         Filter by box state. Replaces the default list, use
                         `--extend-box-state` to append to it. Can be specified
                         multiple times. Default: activated.
   --custom-id CUSTOM_ID
                         Filter by custom ID. Supports Python regular
-                        expressions (case-insensitive). Example: `--custom-id
-                        "(?i)lobby"`.
+                        expressions (case-insensitive). Example: `--custom-
+                        id='lobby'`.
   --extend-box-state {activated,deleted,new,reserved,undefined}
                         Filter by box state, appended to the default or the
                         `--box-state` list. Can be specified multiple times.
@@ -119,7 +119,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/grassfish-players
 ## Usage Examples
 
 ```bash
-./grassfish-players --hostname=ds.example.com --token=TOKEN --box-id=gp11
+./grassfish-players --hostname=ds.example.com --token=linuxfabrik --box-id=gp11
 ```
 
 Output:

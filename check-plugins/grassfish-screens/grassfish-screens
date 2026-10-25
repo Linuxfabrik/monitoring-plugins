@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Checks if screens attached to Grassfish digital signage players are on or off via
 the Grassfish API. The player list can be filtered by box state, customer ID, or
@@ -83,7 +83,7 @@ def parse_args():
         '--box-id',
         help='Filter by box ID. '
         'Supports Python regular expressions (case-insensitive). '
-        'Example: `--box-id "^player-0[1-3]$"`.',
+        "Example: `--box-id='^player-0[1-3]$'`.",
         dest='BOX_ID',
     )
     parser.add_argument(
@@ -108,7 +108,7 @@ def parse_args():
         '--custom-id',
         help='Filter by custom ID. '
         'Supports Python regular expressions (case-insensitive). '
-        'Example: `--custom-id "(?i)lobby"`.',
+        "Example: `--custom-id='lobby'`.",
         dest='CUSTOM_ID',
     )
     parser.add_argument(
@@ -362,8 +362,12 @@ def main():
                 player_id = str(int(player['Id']))
             except (KeyError, TypeError, ValueError):
                 continue
+            # Player IDs are only unique per Grassfish server, so the server is part
+            # of the key; otherwise two servers checked from the same host would be
+            # answered with each other's screens.
+            cache_key = f'{args.HOSTNAME}:{args.PORT}:{player_id}'
             screens = lib.cache.get(
-                player_id,
+                cache_key,
                 filename='linuxfabrik-monitoring-plugins-grassfish-screens.db',
             )
             if not screens:
@@ -382,7 +386,7 @@ def main():
                     )
                 )
                 lib.cache.set(
-                    player_id,
+                    cache_key,
                     json.dumps(screens),
                     lib.time.now() + args.CACHE_EXPIRE * 60 * 60,
                     filename='linuxfabrik-monitoring-plugins-grassfish-screens.db',
