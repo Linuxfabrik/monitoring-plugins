@@ -46,7 +46,8 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Threshold for swap usage, in percent. Default: 90
+  -c, --critical CRIT   CRIT threshold for swap usage in percent. Supports
+                        Nagios ranges. Default: 90
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -56,7 +57,8 @@ options:
                         Default: ok
   --top TOP             Number of top processes consuming the most swap space
                         to list (not available on Windows). Default: 5
-  -w, --warning WARN    Threshold for swap usage, in percent. Default: 70
+  -w, --warning WARN    WARN threshold for swap usage in percent. Supports
+                        Nagios ranges. Default: 70
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/swap-usage/
@@ -84,8 +86,8 @@ Top 3 processes that use the most swap space:
 ## States
 
 * OK if swap usage is below the warning threshold.
-* WARN if swap usage is >= `--warning` (default: 70%).
-* CRIT if swap usage is >= `--critical` (default: 90%).
+* WARN if swap usage is outside the `--warning` range (default: `70`, a plain number alerts above it).
+* CRIT if swap usage is outside the `--critical` range (default: `90`, a plain number alerts above it).
 * If no swap is configured at all (total swap is 0 bytes), reports `No swap configured.` and returns the state given by `--severity-no-swap` (default: OK, since a swapless host is a valid, fully-checked state). Set `--severity-no-swap=warn` or `=crit` to flag a missing swap partition on a host that is expected to have swap.
 * `--always-ok` suppresses all alerts and always returns OK.
 

@@ -31,7 +31,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102501'
 
 DESCRIPTION = """Monitors swap space usage as a percentage of total swap. Optionally lists the top
 processes consuming the most swap to help identify the source of high usage. Alerts
@@ -39,10 +39,10 @@ when usage exceeds the configured thresholds. A host without any swap is reporte
 raise --severity-no-swap to warn or crit to flag a missing swap partition where one is
 expected."""
 
-DEFAULT_CRIT = 90  # %
+DEFAULT_CRIT = '90'  # %
 DEFAULT_NO_SWAP = 'ok'
 DEFAULT_TOP = 5
-DEFAULT_WARN = 70  # %
+DEFAULT_WARN = '70'  # %
 
 
 def parse_args():
@@ -71,8 +71,9 @@ def parse_args():
         '--critical',
         default=DEFAULT_CRIT,
         dest='CRIT',
-        help='Threshold for swap usage, in percent. Default: %(default)s',
-        type=int,
+        help='CRIT threshold for swap usage in percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
     )
     parser.add_argument(
         '--no-perfdata',
@@ -107,8 +108,9 @@ def parse_args():
         '--warning',
         default=DEFAULT_WARN,
         dest='WARN',
-        help='Threshold for swap usage, in percent. Default: %(default)s',
-        type=int,
+        help='WARN threshold for swap usage in percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
     )
 
     args, _ = parser.parse_known_args()
@@ -212,7 +214,9 @@ def main():
     msg_body = ''
 
     # analyze data
-    state = lib.base.get_state(swap_usage_percent, args.WARN, args.CRIT)
+    state = lib.base.get_state(
+        swap_usage_percent, args.WARN, args.CRIT, _operator='range'
+    )
 
     # build the message
     msg_header = (

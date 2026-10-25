@@ -44,8 +44,9 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   CRIT threshold for DNS lookup time in milliseconds.
-                        Default: None
+  -c, --critical CRIT   CRIT threshold for the DNS lookup time in
+                        milliseconds. Supports Nagios ranges. Example:
+                        `--critical=500` alerts above 500 ms. Default: None
   -H, --hostname HOSTNAME
                         Hostname or IP address to resolve. Default: localhost
   --no-perfdata         Suppress the performance data section from the output.
@@ -59,8 +60,9 @@ options:
   --type {udp,udp6,tcp,tcp6}
                         Connection type to narrow the list of returned
                         addresses.
-  -w, --warning WARN    WARN threshold for DNS lookup time in milliseconds.
-                        Default: None
+  -w, --warning WARN    WARN threshold for the DNS lookup time in
+                        milliseconds. Supports Nagios ranges. Example:
+                        `--warning=100` alerts above 100 ms. Default: None
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dns/
@@ -85,8 +87,8 @@ Lookup for webserver.example.com returns 192.0.2.43 (ip4:53) in 2.4ms
 
 * OK if the hostname resolves successfully and the lookup time is below the thresholds.
 * WARN if the name does not resolve, if the lookup returns no address, on socket errors, or if the lookup takes longer than `--timeout`.
-* WARN if the DNS lookup time is >= `--warning`.
-* CRIT if the DNS lookup time is >= `--critical`.
+* WARN if the DNS lookup time is outside the `--warning` range (a plain number alerts above it). No threshold by default.
+* CRIT if the DNS lookup time is outside the `--critical` range (a plain number alerts above it). No threshold by default.
 * UNKNOWN if `--hostname` is not a valid host name, and on other invalid parameters.
 * `--always-ok` suppresses all alerts and always returns OK.
 

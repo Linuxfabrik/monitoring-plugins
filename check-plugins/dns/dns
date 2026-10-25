@@ -23,7 +23,7 @@ import lib.net
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102403'
+__version__ = '2026102501'
 
 DESCRIPTION = """Performs a DNS lookup and resolves a hostname to one or more IP addresses.
 Queries the name servers configured on the local machine (e.g. those listed in
@@ -62,9 +62,11 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for DNS lookup time in milliseconds. Default: %(default)s',
+        help='CRIT threshold for the DNS lookup time in milliseconds. '
+        'Supports Nagios ranges. '
+        'Example: `--critical=500` alerts above 500 ms. '
+        'Default: %(default)s',
         dest='CRIT',
-        type=float,
         default=None,
     )
 
@@ -120,9 +122,11 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for DNS lookup time in milliseconds. Default: %(default)s',
+        help='WARN threshold for the DNS lookup time in milliseconds. '
+        'Supports Nagios ranges. '
+        'Example: `--warning=100` alerts above 100 ms. '
+        'Default: %(default)s',
         dest='WARN',
-        type=float,
         default=None,
     )
 
@@ -285,7 +289,7 @@ def main():
             STATE_WARN,
             always_ok=args.ALWAYS_OK,
         )
-    state = lib.base.get_state(runtime, args.WARN, args.CRIT, _operator='ge')
+    state = lib.base.get_state(runtime, args.WARN, args.CRIT, _operator='range')
 
     # build the message
     # Without --type, Linux returns every address three times (TCP, UDP, raw) and

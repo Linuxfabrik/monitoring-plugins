@@ -178,7 +178,35 @@ TESTS = [
         'test': 'stdout/winsrv2016-localhost,,0',
         'params': '--warning=30 --critical=100',
         'assert-retc': STATE_WARN,
-        'assert-in': ['in 36.7ms [WARNING]|', "'time'=36.667ms;30.0;100.0;0"],
+        'assert-in': ['in 36.7ms [WARNING]|', "'time'=36.667ms;30;100;0"],
+    },
+    {
+        # a plain number alerts above it, the lookup time equal to it is fine
+        'id': 'ok-lookup-time-equal-to-warning',
+        'test': 'stdout/winsrv2016-localhost,,0',
+        'params': '--warning=36.667',
+        'assert-retc': STATE_OK,
+        'assert-in': ['in 36.7ms|'],
+    },
+    {
+        'id': 'warn-lookup-time-outside-range',
+        'test': 'stdout/winsrv2016-localhost,,0',
+        'params': '--warning=50:100',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['in 36.7ms [WARNING]|', "'time'=36.667ms;50:100;;0"],
+    },
+    {
+        'id': 'unknown-invalid-range',
+        'test': 'stdout/winsrv2016-localhost,,0',
+        'params': '--warning=abc',
+        'assert-retc': STATE_UNKNOWN,
+    },
+    {
+        'id': 'ok-no-threshold',
+        'test': 'stdout/winsrv2016-localhost,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'time'=36.667ms;;;0"],
     },
     {
         'id': 'crit-lookup-time-above-critical',

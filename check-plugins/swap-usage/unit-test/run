@@ -62,11 +62,26 @@ TESTS = [
         'assert-in': ['95.0%'],
     },
     {
-        'id': 'ok-custom-thresholds-half-is-crit',
+        'id': 'crit-custom-thresholds-half-used',
         'test': 'stdout/half-used,,0',
         'params': '--warning=30 --critical=40',
         'assert-retc': STATE_CRIT,
         'assert-in': ['50.0%'],
+    },
+    {
+        # a plain number alerts above it, a usage equal to it is fine
+        'id': 'ok-usage-equal-to-warning',
+        'test': 'stdout/half-used,,0',
+        'params': '--warning=50 --critical=90',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'usage_percent'=50.0%;50;90;0;100"],
+    },
+    {
+        'id': 'warn-usage-outside-range',
+        'test': 'stdout/half-used,,0',
+        'params': '--warning=60:80',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'usage_percent'=50.0%;60:80;90;0;100"],
     },
     # No swap configured at all: OK by default, overridable per --severity-no-swap.
     {
