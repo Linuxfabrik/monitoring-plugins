@@ -130,6 +130,7 @@ echo "$(cut -d ' ' -f 1 lfmp-${release}.source.noarch.zip.sha256)  lfmp-${releas
 unzip -q lfmp-${release}.source.noarch.zip
 src=linuxfabrik-monitoring-plugins
 libsrc=${src}/lib
+snmpsrc=${src}
 find ${src} -maxdepth 1 -type f ! -name '*.md' > plugins.txt
 find ${src}/assets -maxdepth 1 -type f > assets.txt
 ```
@@ -143,6 +144,7 @@ unzip -q monitoring-plugins.zip && mv monitoring-plugins-*/ monitoring-plugins
 unzip -q lib.zip && mv lib-*/ lib
 src=monitoring-plugins
 libsrc=lib
+snmpsrc=${src}/check-plugins/snmp
 for dir in ${src}/check-plugins/*/ ${src}/event-plugins/*/ ${src}/notification-plugins/*/; do
     name=$(basename "${dir}")
     [ -f "${dir}${name}" ] && echo "${dir}${name}"
@@ -151,7 +153,7 @@ find ${src}/check-plugins ${src}/event-plugins ${src}/notification-plugins \
     -mindepth 3 -type f -path '*/assets/*' -not -path '*/example/assets/*' > assets.txt
 ```
 
-**Step 2: Install plugins, plugin assets and library.** Some plugins read data files from `assets/` next to them, for example the rootkit signatures of `scanrootkit`.
+**Step 2: Install plugins, plugin assets and library.** Some plugins read data files next to them: the rootkit signatures of `scanrootkit` from `assets/`, the OID lists and MIBs of `snmp` from `device-oids/` and `device-mibs/`.
 
 ```bash
 sudo mkdir -p /usr/lib64/nagios/plugins/assets /usr/lib64/nagios/plugins/lib
@@ -162,6 +164,7 @@ while read -r f; do
     sudo install -m 0644 "${f}" /usr/lib64/nagios/plugins/assets/
 done < assets.txt
 sudo install -m 0644 ${libsrc}/*.py ${libsrc}/LICENSE /usr/lib64/nagios/plugins/lib/
+sudo cp --recursive ${snmpsrc}/device-mibs ${snmpsrc}/device-oids /usr/lib64/nagios/plugins/
 ```
 
 **Step 3: Install the Python dependencies.** Pick the lockfile that matches the host Python:
@@ -211,6 +214,7 @@ Some plugins need root privileges (reading `dmesg`, running `smartctl`, reading 
 
 * [Debian.sudoers](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/sudoers/Debian.sudoers): Debian, Raspbian, Ubuntu.
 * [RedHat.sudoers](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/sudoers/RedHat.sudoers): Alma, Amazon, CentOS, CloudLinux, Fedora, Oracle Linux, RedHat, Rocky, Scientific.
+* [Suse.sudoers](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/sudoers/Suse.sudoers): openSUSE, SLES. A symbolic link to `RedHat.sudoers`.
 
 ```bash
 sudo install -m 0440 ${src}/assets/sudoers/RedHat.sudoers /etc/sudoers.d/linuxfabrik-monitoring-plugins
@@ -397,4 +401,4 @@ ansible-navigator run linuxfabrik.lfops.monitoring_plugins \
 
 * Icinga integration and Director Basket import: see [ICINGA.md](ICINGA.md).
 * Grafana dashboards and panels: see [GRAFANA.md](GRAFANA.md).
-* Plugin groups with shared setup (Keycloak, MySQL, Rocket.Chat, WildFly): see the corresponding `PLUGINS-*.md` files at the repository root.
+* Plugin groups with shared setup (File, Keycloak, MySQL, QNAP, Rocket.Chat, Version, WildFly, Windows): see the corresponding `PLUGINS-*.md` files at the repository root.

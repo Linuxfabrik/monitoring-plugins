@@ -133,8 +133,7 @@ Shared across all MySQL plugins (run `<plugin> --help` for the full list):
 * `--defaults-group`: option-file group to read. Default `client`.
 * `--timeout`: network/query timeout.
 
-Thresholds (`--warning` / `--critical`) and plugin-specific selectors are per
-plugin — check the individual READMEs.
+Thresholds (`--warning` / `--critical`) and plugin-specific selectors are per plugin, see the individual READMEs.
 
 
 ## Required database privileges

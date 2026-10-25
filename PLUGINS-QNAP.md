@@ -27,8 +27,8 @@ The user used for monitoring must be a member of the "administrators" group. Mem
 
 The QuTScloud image for KVM serves the same API and does not need a license key for it:
 
-1. Download `https://download.qnap.com/Storage/QuTScloud/TS-KVM-CLD/QuTScloud_<version>.qcow2`, for example [QuTScloud_c5.2.9.3468.qcow2](https://download.qnap.com/Storage/QuTScloud/TS-KVM-CLD/QuTScloud_c5.2.9.3468.qcow2). The available versions are listed in the [QuTScloud release notes](https://www.qnap.com/en/release-notes/overview?os=qutscloud).
-2. Import the image into KVM, for example with `virt-install --import --osinfo=ubuntu18.04 --memory=2048 --disk=path=QuTScloud_c5.2.9.3468.qcow2,bus=virtio --network=network=default,model=virtio`. The console shows the IP address once the boot has finished.
+1. Download `https://download.qnap.com/Storage/QuTScloud/TS-KVM-CLD/QuTScloud_<version>.qcow2`. The available versions are listed in the [QuTScloud release notes](https://www.qnap.com/en/release-notes/overview?os=qutscloud).
+2. Import the image into KVM, for example with `virt-install --import --osinfo=ubuntu18.04 --memory=2048 --disk=path=QuTScloud_<version>.qcow2,bus=virtio --network=network=default,model=virtio`. The console shows the IP address once the boot has finished.
 3. Do not run the Smart Installation in the browser, it asks for a license key. Instead, call the plugins right away with `--url=http://<ip>:8080`, `--username=admin` and the MAC address of the VM as password, in uppercase letters and without colons (`--password=00005E005301` for `00:00:5e:00:53:01`).
 
 QuTScloud has no sensors: it reports its temperatures as 0°C and its disks without temperature.

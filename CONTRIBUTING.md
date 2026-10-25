@@ -102,6 +102,7 @@ Within a subsection, entries are grouped by the part of the project they belong 
 * `Grafana:`
 * `Assets:`
 * `Tools:`
+* `Build, CI/CD:`
 
 Omit a group that has no entries, and do not invent new ones.
 
@@ -159,7 +160,7 @@ git clone git@github.com:Linuxfabrik/monitoring-plugins.git
 
 ### Directory Layout
 
-Each plugin directory `plugin-name/` contains the plugin `plugin-name` and, as needed, `assets/` (helper scripts like `monitoring.php`), `grafana/` (dashboard), `icingaweb2-module-director/` (basket), `icingaweb2-module-grafana/` (panel for Icinga's Grafana module), `icon/` (SVG icon), `lib` (link to the Linuxfabrik Python libraries) and `unit-test/` (`run` plus `retc/`, `stdin/`, `stdout/` fixtures).
+Each plugin directory `plugin-name/` contains the plugin `plugin-name` and, as needed, `assets/` (helper scripts like `monitoring.php`), `grafana/` (dashboard), `icingaweb2-module-director/` (basket), `icingaweb2-module-grafana/` (panel for Icinga's Grafana module), `icon/` (SVG icon), `lib` (link to the Linuxfabrik Python libraries) and `unit-test/` (`run` plus fixtures, see [Test directory structure](#test-directory-structure)).
 
 
 ### Deliverables
@@ -625,7 +626,7 @@ The canonical distro matrix is the cpu-usage `CONTAINERFILES` list; new tests of
 
 ### sudoers File
 
-If the plugin requires `sudo`, add it to the `sudoers` files of all supported operating systems in `assets/sudoers/`. File names match `ansible_facts['distribution'] + ansible_facts['distribution_major_version']` (e.g. `CentOS7`); use symbolic links to prevent duplicates.
+If the plugin requires `sudo`, add it to the `sudoers` files of all supported operating systems in `assets/sudoers/`. File names match `ansible_facts['os_family']` (`Debian`, `RedHat`, `Suse`), each with a `-logging` companion; use symbolic links to prevent duplicates (`Suse.sudoers` links to `RedHat.sudoers`).
 
 > **Attention:** The newline at the end is required!
 

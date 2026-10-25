@@ -145,9 +145,9 @@ if [ "$1" -eq "0" ]; then
     rm -f %{sudoers_logging_dest}
 fi
 
-# The scriptlets never fail the transaction, but they no longer hide why they did
-# not do their job: a module that cannot be loaded used to leave behind a package
-# that looks installed and does nothing at all. `nagios_run_sudo` and the file
+# The scriptlets never fail the transaction, but they say why they did not do their
+# job: a module that cannot be loaded silently would leave behind a package that
+# looks installed and does nothing at all. `nagios_run_sudo` and the file
 # contexts below `%{_libdir}/nagios/plugins` come from the distribution's nagios
 # policy, which EL10 does not carry, so both calls are allowed to do nothing.
 %post selinux
