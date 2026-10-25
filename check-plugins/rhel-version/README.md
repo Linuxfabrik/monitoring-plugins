@@ -112,7 +112,7 @@ Rocky Linux 8.9 (Green Obsidian) (full support ended on 2024-05-31; EOL 2029-05-
 
 The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
 
-UNKNOWN on a distribution outside the Red Hat family, and on Fedora, whose releases do not follow this lifecycle.
+UNKNOWN on every distribution that does not carry the version of the Red Hat Enterprise Linux release it is built from. Accepted are Red Hat Enterprise Linux, AlmaLinux, CentOS (Stream), CloudLinux, EuroLinux, MIRACLE LINUX, Oracle Linux, Rocky Linux and Scientific Linux. Fedora, Amazon Linux, openEuler, EulerOS and other distributions with a numbering of their own get UNKNOWN, as does everything outside the Red Hat family.
 
 
 ## Perfdata / Metrics

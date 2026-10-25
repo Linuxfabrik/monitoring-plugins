@@ -20,11 +20,12 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026102401'
 
-DESCRIPTION = """Checks the installed Red Hat Enterprise Linux version against the endoflife.date API and alerts if
-the version is end-of-life or if newer major, minor, or patch releases are available.
-By default, alerts 30 days before the official EOL date. The offset is configurable."""
+DESCRIPTION = """Checks the installed Red Hat Enterprise Linux version against the
+endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or
+patch releases are available. By default, alerts 30 days before the official EOL date.
+The offset is configurable."""
 
 DEFAULT_CHECK_MAJOR = False
 DEFAULT_CHECK_MINOR = False
@@ -34,6 +35,24 @@ DEFAULT_NO_PROXY = False
 DEFAULT_OFFSET_EOL = -30  # days
 DEFAULT_TIMEOUT = 8
 DEFAULT_UNREACHABLE_SEVERITY = 'ok'
+
+# The distributions (as named by lib.distro) that carry the major and minor version of
+# the Red Hat Enterprise Linux release they are built from.
+RHEL_VERSIONED = [
+    'AlmaLinux',
+    'Ascendos',
+    'CentOS',
+    'CloudLinux',
+    'EuroLinux',
+    'MIRACLE',
+    'OEL',
+    'OracleLinux',
+    'RHEL',
+    'RedHat',
+    'Rocky',
+    'SLC',
+    'Scientific',
+]
 
 
 def parse_args():
@@ -173,21 +192,18 @@ def main():
             f'{installed_version} does not follow the Red Hat Enterprise Linux'
             ' lifecycle. Use the fedora-version check on this host.'
         )
-    # Outside the family the lifecycle data would be compared with an unrelated
-    # version number, Debian 12 against RHEL 12 for example.
-    if facts.get('os_family') != 'RedHat':
+    # Only the rebuilds of Red Hat Enterprise Linux share its version numbers. The
+    # family in lib.distro also holds distributions with a numbering of their own,
+    # Amazon Linux 2023 or openEuler 24.03 for example, and Debian 12 is not in the
+    # family at all; compared with the RHEL lifecycle, each would get a made-up result.
+    if facts.get('distribution') not in RHEL_VERSIONED:
         lib.base.cu(
-            f'{installed_version} is not a Red Hat Enterprise Linux family'
-            ' distribution, so its lifecycle is not the one this check knows.'
+            f'{installed_version} does not follow the Red Hat Enterprise Linux'
+            ' lifecycle, so this check cannot judge it.'
         )
 
     # init some vars
-    perfdata = lib.base.get_perfdata(
-        'rhel-version',
-        lib.version.version2float(installed_version),
-        uom=None,
-        _min=0,
-    )
+    perfdata = ''
 
     # analyze data
     state, eol = lib.version.check_eol(
@@ -207,6 +223,13 @@ def main():
 
     # build the message
     msg = f'{installed_version} ({eol})'
+
+    perfdata += lib.base.get_perfdata(
+        'rhel-version',
+        lib.version.version2float(installed_version),
+        uom=None,
+        _min=0,
+    )
 
     # over and out
     lib.base.oao(
