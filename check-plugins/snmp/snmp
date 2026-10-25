@@ -24,7 +24,7 @@ import lib.shell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102402'
+__version__ = '2026102501'
 
 DESCRIPTION = """Queries SNMP OIDs defined in a CSV file and checks the returned values
 against optional warning and critical thresholds. Supports SNMP v1, v2c, and v3 with
@@ -417,6 +417,19 @@ def read_device_oids(args):
             snmp_objects = lib.base.coe(
                 lib.disk.read_csv(test_csvfile, as_dict=False, skip_empty_rows=True)
             )
+    # Bring every row to the width of the header. The value fetched for a row is appended
+    # to it and read back from the column after the header's last one. A row that leaves
+    # out its trailing columns (`OID,Name`) would otherwise get the value in its Re-Calc,
+    # WARN or CRIT column, and those are evaluated as Python expressions: whoever controls
+    # the answer of the device (a settable sysContact, a spoofed SNMPv1/v2c reply) would
+    # run code as the monitoring user. Rows with a single column stay as they are, they
+    # are skipped as invalid later on.
+    if snmp_objects:
+        width = len(snmp_objects[0])
+        for idx in range(1, len(snmp_objects)):
+            row = snmp_objects[idx]
+            if len(row) > 1:
+                snmp_objects[idx] = row[:width] + [''] * (width - len(row))
     return snmp_objects
 
 

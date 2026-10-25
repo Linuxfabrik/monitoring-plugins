@@ -193,7 +193,7 @@ TESTS = [
         # A string-indexed OID key contains spaces (`IF-MIB::ifName."eth 0"`), and its value
         # contains spaces too. Matching by known-OID prefix keeps both correct; the old
         # split-on-first-space parser mis-keyed the line and dropped the value.
-        'id': 'string-indexed-oid-key-with-spaces',
+        'id': 'ok-string-indexed-oid-key-with-spaces',
         'test': 'stdout/string-indexed-oid,,0',
         'params': (
             '--hostname 127.0.0.1 '
@@ -204,6 +204,22 @@ TESTS = [
             'Name        ! sw1         ! [OK]',
             'Uplink Name ! Uplink Port ! [OK]',
         ],
+    },
+    {
+        # A device CSV row may leave out its trailing columns. The value the device
+        # returns for it must stay a value and never land in the Re-Calc, WARN or CRIT
+        # column, which are evaluated as Python expressions.
+        'id': 'ok-short-csv-row-does-not-evaluate-the-device-answer',
+        'test': 'stdout/contact-with-expression,,0',
+        'params': (
+            '--hostname 127.0.0.1 --device=../unit-test/stdout/short-rows-device'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Name    ! sw1        ! [OK]',
+            'Contact ! str(6 * 7) ! [OK]',
+        ],
+        'assert-not-in': ['42'],
     },
 ]
 
