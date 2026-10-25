@@ -199,14 +199,9 @@ def main():
         )
 
     # init some vars
+    perfdata = ''
     # lib.version reads a suffix as version parts (4.5rc1 -> 4.51), use the core
     installed_core = re.match(r'\d+(?:\.\d+)*', installed_version).group()
-    perfdata = lib.base.get_perfdata(
-        'matomo-version',
-        lib.version.version2float(installed_core),
-        uom=None,
-        _min=0,
-    )
 
     # analyze data
     state, eol = lib.version.check_eol(
@@ -225,6 +220,13 @@ def main():
 
     # build the message
     msg = f'Matomo v{installed_version} ({eol})'
+
+    perfdata += lib.base.get_perfdata(
+        'matomo-version',
+        lib.version.version2float(installed_core),
+        uom=None,
+        _min=0,
+    )
 
     # over and out
     lib.base.oao(

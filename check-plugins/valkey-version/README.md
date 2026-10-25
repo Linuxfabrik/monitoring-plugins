@@ -110,7 +110,10 @@ Valkey v8.0.3 (EOL unknown, minor 8.1.1 available)
 
 ## States
 
-The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
+The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/). In addition:
+
+* WARN if `valkey-server --version` takes longer than `--timeout` (default: 8 seconds).
+* UNKNOWN if `--path` points at a Redis server instead of Valkey, or at no Valkey server at all.
 
 
 ## Perfdata / Metrics

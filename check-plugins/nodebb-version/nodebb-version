@@ -146,12 +146,6 @@ def main():
     # analyze data
     installed_version = result['version']
     latest_version = result['latestVersion']
-    perfdata = lib.base.get_perfdata(
-        'nodebb-version',
-        lib.version.version2float(installed_version),
-        uom=None,
-        _min=0,
-    )
 
     # build the message
     if not result['upgradeAvailable']:
@@ -178,6 +172,13 @@ def main():
             f' <{restart_user["email"]}>'
             f' ({ago} ago)'
         )
+
+    perfdata += lib.base.get_perfdata(
+        'nodebb-version',
+        lib.version.version2float(installed_version),
+        uom=None,
+        _min=0,
+    )
 
     # over and out
     lib.base.oao(

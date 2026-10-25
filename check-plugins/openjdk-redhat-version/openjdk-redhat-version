@@ -219,18 +219,13 @@ def main():
         )
 
     # init some vars
+    perfdata = ''
     # lib.version reads a suffix as version parts (4.5rc1 -> 4.51), use the core
     # Java 8 writes its update number as `1.8.0_504`, which counts as a fourth
     # version part, so `8u504` and `8u472` stay apart in the perfdata
     installed_core = re.match(
         r'\d+(?:\.\d+)*', installed_version.replace('_', '.')
     ).group()
-    perfdata = lib.base.get_perfdata(
-        'openjdk-redhat-version',
-        lib.version.version2float(installed_core),
-        uom=None,
-        _min=0,
-    )
 
     # analyze data
     state, eol = lib.version.check_eol(
@@ -251,6 +246,13 @@ def main():
 
     # build the message
     msg = f'Java (Red Hat build of OpenJDK) v{installed_version} ({eol})'
+
+    perfdata += lib.base.get_perfdata(
+        'openjdk-redhat-version',
+        lib.version.version2float(installed_core),
+        uom=None,
+        _min=0,
+    )
 
     # over and out
     lib.base.oao(
