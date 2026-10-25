@@ -138,6 +138,7 @@ No reboot and no service restart pending.
 * OK while every pending restart is still within `--grace-wait`. The summary counts them and names the age of the oldest.
 * WARN if a reboot is pending and past its grace period. On the Red Hat family that is `needs-restarting --reboothint` returning non-zero, on the Debian family a kernel state of 2 or 3.
 * WARN if a running process needs a restart and is past its grace period.
+* WARN if the tool does not answer within `--timeout`.
 * UNKNOWN if the check does not run as root. Without it the tools answer with nothing at all, which is not the same as nothing being pending.
 * UNKNOWN if the tool is not installed, or cannot be run.
 * UNKNOWN if the OS family is neither Red Hat nor Debian.

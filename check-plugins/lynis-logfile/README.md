@@ -11,7 +11,7 @@ Evaluates the report of the lynis security audit that runs on the host once a da
 * lynis creates the report readable by root only (`umask 027`), so run the check via `sudo` (see the sudoers files in `assets/sudoers`). The `Lynis Service Set` in the Icinga Director does exactly that on every host tagged `lynis`, and also checks `lynis.service` and `lynis.timer`.
 * lynis rewrites the report while it audits and writes the hardening index and the end of the audit last. An audit takes 20 seconds to a minute (measured on Debian 12/13, Rocky 8/9/10 and Ubuntu 22.04/24.04/26.04). A check that runs during that time reports the result of the last finished audit (OK if none is known yet), and the next run reads the finished report.
 * Every audit that runs as root replaces the report, a partial one as well (`lynis audit system --tests ...`, `--tests-from-group ...`, or the `lynis` check with `--lynis-test`). The hardening index of such a report covers only the tests that ran, and if none of them awarded a hardening point, lynis reports a placeholder of 1. The check recognises a partial audit by the test groups recorded in the report and by fewer than 100 tests done (a full audit performs more than 200), and asks for a full audit instead of evaluating the report. `--tests-from-category security` counts as a full audit, since it runs all but a handful of tests.
-* `lynis show details <test>` on the host prints the details of a finding or suggestion from `/var/log/lynis.log`.
+* `sudo lynis show details <test>` on the host prints the details of a finding or suggestion from `/var/log/lynis.log`, the log of the last audit. Without `sudo`, lynis reads `~/lynis.log` of the calling user instead.
 * A security audit is posture drift, not a time-critical availability event, so by default only WARNING is raised. The default critical threshold is empty on purpose, to avoid paging someone at night for a hardening drop.
 
 **Data Collection:**
@@ -96,7 +96,7 @@ Suggestions:
 ...
 * USB-1000: Disable drivers like USB storage when not used, to prevent unauthorized storage or data theft.
 
-To look up an item, run `lynis show details PKGS-7392` on the host. To accept it, add `skip-test=PKGS-7392` to `/etc/lynis/custom.prf`.
+To look up an item, run `sudo lynis show details PKGS-7392` on the host. To accept it, add `skip-test=PKGS-7392` to `/etc/lynis/custom.prf`.
 ```
 
 Warn below a hardening index of 70, critical below 50, and accept a report of up to two days:
@@ -145,7 +145,7 @@ The last audit did not finish, so the report lacks the hardening index and the e
 
 ### `The lynis report /var/log/lynis-report.dat comes from a partial audit`
 
-Someone ran lynis as root with a selection of tests, for example `sudo lynis audit system --tests MAIL-8818` while looking into a finding, and this replaced the report of the full audit. The hardening index of such a report covers only the selected tests, which is why it looks absurdly low (often 1), and the findings and suggestions of all other tests are gone. Start a full audit with `sudo lynis audit system --cronjob`, or wait for the next daily one. To look into a single test without touching the report, use `lynis show details <test>`, which reads `/var/log/lynis.log` of the last full audit.
+Someone ran lynis as root with a selection of tests, for example `sudo lynis audit system --tests MAIL-8818` while looking into a finding, and this replaced the report of the full audit. The hardening index of such a report covers only the selected tests, which is why it looks absurdly low (often 1), and the findings and suggestions of all other tests are gone. Start a full audit with `sudo lynis audit system --cronjob`, or wait for the next daily one. Next time, look into a single test without replacing the report: `sudo lynis show details <test>` prints what the last full audit logged to `/var/log/lynis.log`. A partial audit replaces that log as well, so it only helps after the next full audit.
 
 ### The report is older than `--max-age`
 

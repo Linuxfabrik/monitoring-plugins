@@ -134,8 +134,8 @@ Component breakdown:
 
 ## States
 
-* WARN if the overall health score is at or below `--warning` (default: `70:`, alerts below 70), after at least one hour of uptime.
-* CRIT if the score is at or below `--critical` (default: `50:`, alerts below 50), after at least one hour of uptime.
+* WARN if the overall health score is outside `--warning` (default: `70:`, alerts below 70), after at least one hour of uptime.
+* CRIT if the score is outside `--critical` (default: `50:`, alerts below 50), after at least one hour of uptime.
 * Defaults match mysqltuner's colour-coding (yellow zone below 80, red zone below 50; we use 70 as WARN to surface degradation slightly earlier).
 * Both `--warning` and `--critical` accept Nagios range expressions, see [THRESHOLDS.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/THRESHOLDS.md).
 * `--always-ok` suppresses all alerts and always returns OK.

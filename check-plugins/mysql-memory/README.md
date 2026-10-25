@@ -102,11 +102,11 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-memory/
 Output (short, default):
 
 ```text
-Max used memory: 67.6% (21.1GiB of 31.3GiB physical) [WARNING]. Peak possible: 99.5% (31.1GiB) [CRITICAL]. Other process memory: 5.2GiB [WARNING].
+Max used memory: 67.6% (21.1GiB of 31.3GiB physical) [WARNING]. Peak possible: 99.5% (31.1GiB) [CRITICAL]. Other process memory: 11.2GiB [WARNING].
 
 Recommendations:
 * Reduce your overall MySQL memory footprint for system stability
-* Dedicate this server to MySQL/MariaDB: reached MySQL memory plus other-process memory exceeds physical RAM
+* Dedicate this server to MySQL/MariaDB: reached MySQL memory + other-process memory (21.1GiB + 11.2GiB = 32.3GiB) exceeds physical RAM (31.3GiB)
 * Top contributors to peak memory (largest first):
   - `max_allowed_packet` (16.0MiB) * `max_connections` (676) = 10.6GiB
   - `innodb_buffer_pool_size` (8.0GiB)
@@ -143,7 +143,7 @@ Memory breakdown (sorted by contribution to peak memory):
   max_peak_memory = 31.1GiB
   max_used_memory (currently reached) = 21.1GiB
   Physical RAM (host) = 31.3GiB
-  Other process memory (host) = 5.2GiB
+  Other process memory (host) = 11.2GiB
 ```
 
 

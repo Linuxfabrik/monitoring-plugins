@@ -94,7 +94,8 @@ Fatal: repository contains errors
 
 * OK if the repository has no errors.
 * WARN if `restic check` reports errors in the repository, fails (for example no repository at that location, or a wrong password), or does not finish within `--timeout`.
-* UNKNOWN if `--repo` names an `rclone:` repository or a `rest:` repository over a Unix socket, or if a local repository, `--repository-file` or `--password-file` can be changed by anybody but root.
+* UNKNOWN if not exactly one of `--repo` and `--repository-file` is given, if `--password-file` is missing, if `--repo` names an `rclone:` repository, a `rest:` repository over a Unix socket or an `sftp:` repository whose host is invalid or starts with `-`, or if the local repository, `--repository-file` or `--password-file` can be changed by anybody but root.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

@@ -11,7 +11,7 @@ Runs a lynis security audit across the hosts of a subnet or a host list from a s
 * The scan requires SSH access to every target host, with password-less public key authentication and password-less `sudo` on the targets by default. Host aliases from `~/.ssh/config` are honored. Run it as an unprivileged user: as root, its SSH parameters would hand root to whoever may run the check, so it refuses.
 * The scan requires `lynis` on the management host; a self-contained copy is assembled from it and pushed to the targets, so `lynis` does not need to be installed there. The management host's `lynis` must support the `--usecwd` option (lynis 2.7+).
 * The scan uses the first target partition that is writable and not mounted `noexec` (hardened hosts often mount `/var/tmp` and `/tmp` `noexec`), and pushes the copy with `rsync` when it is available on the management host, otherwise with `scp -r`.
-* The report stays at `/var/log/lynis-report.dat` and the log at `/var/log/lynis.log` on every audited host, for the admin to inspect. `lynis show details <test>` prints the details of a finding or suggestion from that log.
+* The report stays at `/var/log/lynis-report.dat` and the log at `/var/log/lynis.log` on every audited host, for the admin to inspect. `sudo lynis show details <test>` prints the details of a finding or suggestion from that log; without `sudo`, lynis reads `~/lynis.log` of the calling user instead.
 * Auto-discovery hands over every address of the subnet, so a /24 means 254 probed addresses and only a handful of hosts. The summary reports both numbers, and a scan that audited nothing raises WARNING instead of reporting an empty success (`--no-match-severity`).
 * The hardening index sums up a full audit. With `--lynis-test`, `--lynis-test-group` or `--lynis-test-category` only a part of the tests runs, and the index drops accordingly; set `--warning` to match or rely on the warnings alone. Such a run also replaces `/var/log/lynis-report.dat` on the target, so [lynis-logfile](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/lynis-logfile) on that host reports a partial audit until the next full one.
 * A security audit is posture drift, not a time-critical availability event, so by default only WARNING is raised. The default critical threshold is empty on purpose, to avoid paging someone at night for a hardening drop.
@@ -250,7 +250,7 @@ Suggestions:
 * myhost: BOOT-5264: Consider hardening system services. Run '/usr/bin/systemd-analyze security SERVICE' for each service.
 * myhost: KRNL-5820: If not required, consider explicit disabling of core dump.
 
-To look up an item, run `lynis show details MAIL-8818` on the host. To accept it, add `skip-test=MAIL-8818` to `/etc/lynis/custom.prf`.
+To look up an item, run `sudo lynis show details MAIL-8818` on the host. To accept it, add `skip-test=MAIL-8818` to `/etc/lynis/custom.prf`.
 ```
 
 An audit takes between 20 seconds and a minute per host (measured on Debian 12/13, Rocky 8/9/10 and Ubuntu 22.04/24.04/26.04). Because the scan audits hosts in parallel (`--max-workers`, default 10), a /24 with a few dozen hosts is done within minutes.

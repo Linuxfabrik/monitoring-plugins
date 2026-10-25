@@ -26,7 +26,7 @@ Checks which NTP server systemd-timesyncd synchronizes with, the stratum of this
 | Nagios/Icinga Check Name              | `check_ntp_systemd_timesyncd` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
-| Runs on                               | Cross-platform |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No (runs with Python interpreter) |
 
 

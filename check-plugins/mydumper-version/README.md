@@ -76,6 +76,8 @@ mydumper/myloader v0.10.5 is up to date
 
 * OK if the installed version is up to date.
 * WARN if a newer version is available.
+* WARN if `mydumper --version` does not answer within `--timeout`.
+* UNKNOWN if mydumper is not found at `--path`, or if the latest release cannot be fetched from GitHub.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

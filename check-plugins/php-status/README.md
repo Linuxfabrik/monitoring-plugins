@@ -407,7 +407,9 @@ Not an alert. When the buffer fills, OPcache stops deduplicating new strings but
 
 PHP has no time zone configured and falls back to a guess. Set `date.timezone` in the php.ini, for example `date.timezone = Europe/Zurich`. Run the plugin via sudo (as the basket does): a non-root run reads PHP's compiled defaults instead of the configured php.ini, so the check would report the wrong values.
 
-### `Config not as expected: <directive> = <value>`
+### A directive differs from `--config`
+
+`Config not as expected: <directive> = <value>`
 
 The local value of a directive given with `--config` differs from the expected one. The whole value is compared, so `--config=date.timezone=Europe` does not match `Europe/Zurich`; pass the full value.
 

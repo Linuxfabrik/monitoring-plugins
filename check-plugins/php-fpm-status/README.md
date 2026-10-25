@@ -315,7 +315,7 @@ For details, see <https://www.php.net/manual/en/fpm.status.php>.
 * OK if every pool is reachable, saturation is below `--warning` and the slow-request delta is below `--warning-slowreq`.
 * WARN if at least one pool's saturation is `>= --warning` (default: 80%).
 * WARN if at least one pool's slow-request delta is `>= --warning-slowreq` (default: 1 new slow request since the previous check).
-* WARN (default) or CRIT (with `--severity crit`) if at least one pool is unreachable or its status JSON cannot be parsed.
+* WARN (default) or CRIT (with `--severity=crit`) if at least one pool is unreachable or its status JSON cannot be parsed.
 * CRIT if at least one pool's saturation is `>= --critical` (default: 90%).
 * CRIT if at least one pool's slow-request delta is `>= --critical-slowreq` (default: 100).
 * In multi-pool mode the overall state is the worst state of all pools.
@@ -366,7 +366,7 @@ If a `--url` cannot be reached, the plugin reports that single pool with the sta
 1. **Web server misroute.** The web server location for the status URL points to the wrong FPM socket. Confirm `fastcgi_pass` / `ProxyPass` maps `/<pool>-fpm-status` to `/run/php-fpm/<pool>.sock`, not to the default `www.sock`.
 2. **Pool not running.** The pool config exists but the FPM master never started it (typo in the pool header, permission error on the socket directory, PHP extension error). Check `journalctl -u php-fpm` (RHEL) / `journalctl -u php<ver>-fpm` (Debian) and the pool's `error_log`.
 3. **ACL on the status URL.** Many deployments restrict the status URL to `127.0.0.1`/`::1`. The monitoring plugin must run on the same host, or the ACL must be extended to allow the monitoring host.
-4. **Basic auth.** If the status URL is behind HTTP basic auth, embed the credentials in the URL: `--url 'http://monitor:pw@localhost/fpm-status'`.
+4. **Basic auth.** If the status URL is behind HTTP basic auth, embed the credentials in the URL: `--url='http://monitor:linuxfabrik@localhost/fpm-status'`.
 
 ### First run reports "baseline captured"
 

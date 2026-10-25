@@ -74,6 +74,7 @@ Crypto policy is "DEFAULT" (as expected).
 
 * OK if the current base policy matches the expected one (case-insensitive), whatever subpolicies are applied on top. If `--policy` names subpolicies, the whole setting has to match.
 * WARN if the current crypto policy does not match the expected one.
+* WARN with "Timeout after ..." if `update-crypto-policies --show` has not finished after `--timeout` seconds (default: 8).
 * UNKNOWN if `update-crypto-policies` is not available on the system.
 * `--always-ok` suppresses all alerts and always returns OK.
 

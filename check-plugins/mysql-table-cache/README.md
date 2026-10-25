@@ -107,8 +107,8 @@ Recommendations:
 
 ## States
 
-* WARN if the table cache hit rate is at or below `--warning` (default: 20%), after at least one hour of uptime.
-* CRIT if the table cache hit rate is at or below `--critical` (default: 10%), after at least one hour of uptime.
+* WARN if the table cache hit rate is outside `--warning` (default: `20:`, alerts below 20%), after at least one hour of uptime.
+* CRIT if the table cache hit rate is outside `--critical` (default: `10:`, alerts below 10%), after at least one hour of uptime.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

@@ -122,6 +122,7 @@ Executed occ commands:
 * OK if no app update is available, or if every available update is still within the warning grace period.
 * WARN if an app update has been available for longer than `--warning` hours.
 * CRIT if an app update has been available for longer than `--critical` hours (no critical threshold by default).
+* WARN if `occ` does not answer within `--timeout`.
 * UNKNOWN if the Nextcloud `occ` command cannot be run.
 * `--no-match-severity` sets the state reported when the filters match no app and nothing is checked (default: `ok`); set it to `warn`, `crit`, or `unknown` to alert on an empty selection (for example a filter typo or a missing app) instead of silently returning OK.
 * `--always-ok` suppresses all alerts and always returns OK.

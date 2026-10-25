@@ -57,13 +57,13 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/tuned-profile/
 ## Usage Examples
 
 ```bash
-./tuned-profile --profile="virtual-guest kernel-settings"
+./tuned-profile --profile="virtual-guest kernel_settings"
 ```
 
 Output:
 
 ```text
-tuned profile is "virtual-guest kernel-settings" (as expected).
+tuned profile is "virtual-guest kernel_settings" (as expected).
 ```
 
 Output (mismatch):

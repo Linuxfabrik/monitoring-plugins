@@ -167,7 +167,7 @@ wget          ! 1.19.5-12.el8_10  ! 1.19.5-16.el8_10  !      ! due in 1W 18h
 * OK if no updates are available (or both counts stay below their thresholds).
 * WARN if the number of pending updates is >= `--warning` (default: 1).
 * CRIT if the number of security updates is >= `--critical`. Unset by default, so security updates raise a WARNING like any other update until a threshold is given.
-* UNKNOWN if one of the `yum` calls fails.
+* UNKNOWN if `yum` is not installed, or if one of the `yum` calls fails.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
