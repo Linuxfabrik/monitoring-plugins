@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Checks the event log entries exposed under the LogServices of a Redfish-compatible
 server via the Redfish API. Alerts when a log entry has the severity "Warning" or "Critical".
@@ -328,11 +328,15 @@ def main():
     # via the Redfish $expand query and cached by the lib fetch layer, so the sibling
     # Redfish checks on this host reuse them within the cache window.
     log_services = []  # (member path, log service)
+    collection_errors = []
     for collection in ('Managers', 'Systems'):
         success, result = lib.redfish.fetch_collection(
             f'{args.URL}{API_BASE}/{collection}', expand=expand, **fetch_args
         )
         if not success or not isinstance(result, dict):
+            collection_errors.append(
+                result if not success else f'Unexpected answer for {collection}.'
+            )
             continue
         success, members = lib.redfish.fetch_members(
             result.get('Members', []), args.URL, **fetch_args
@@ -394,6 +398,14 @@ def main():
         logs += [(label, member_path, service) for member_path, service in found]
         if not found:
             missing.append(label.upper())
+
+    # neither collection could be read, for example because the credentials are wrong:
+    # name that, instead of a controller that advertises no logs
+    if len(collection_errors) == 2:
+        msg = collection_errors[0]
+        if args.VERBOSE:
+            msg += '\n\n' + lib.redfish.format_responses()
+        lib.base.oao(msg, STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
 
     # a controller without the requested log must not pass as "no entries"
     if not logs:

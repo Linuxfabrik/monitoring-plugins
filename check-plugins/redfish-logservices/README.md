@@ -157,6 +157,7 @@ Checked SEL on 1 member. There are critical errors.
 * OK if no log entry has a severity above OK.
 * WARN if a log entry has severity "Warning".
 * CRIT if a log entry has severity "Critical".
+* UNKNOWN if neither the Managers nor the Systems collection can be read, for example because the controller refuses the credentials. The output names the failed request.
 * UNKNOWN if the controller advertises none of the requested logs. The output lists the logs it offers.
 * With `--log-type=both`, a log the controller does not advertise is named in the output; the state comes from the other log.
 * UNKNOWN if an advertised log cannot be read, unless another log is WARN or CRIT.

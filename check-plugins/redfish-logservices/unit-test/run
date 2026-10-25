@@ -162,6 +162,17 @@ TESTS = [
         'assert-in': ['Checked SEL and MEL on 2 members. There are critical errors.'],
     },
     {
+        # Neither Managers nor Systems can be read (here a 404, in the field mostly wrong
+        # credentials): the check names the failed request instead of claiming that the
+        # controller advertises no log.
+        'id': 'unknown-collections-not-readable',
+        'test': 'stdout/collections-not-readable,,0',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['while fetching /redfish/v1/Managers'],
+        'assert-not-in': ['advertises no'],
+    },
+    {
         # A controller that advertises no SEL must not pass as one without entries.
         'id': 'unknown-no-sel-advertised',
         'test': 'stdout/hpe-no-sel-advertised,,0',
