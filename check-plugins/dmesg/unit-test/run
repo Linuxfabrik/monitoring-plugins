@@ -164,6 +164,35 @@ TESTS = [
         'assert-retc': STATE_UNKNOWN,
         'assert-regex': r'unterminated character set',
     },
+    {
+        'id': 'unknown-invalid-extend-ignore-regex',
+        'test': 'stdout/errors-blk-update-request-two,,0',
+        'params': '--extend-ignore "["',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['(--extend-ignore)'],
+    },
+    {
+        # --extend-ignore adds to the bundled list instead of replacing it
+        'id': 'ok-extend-ignore-keeps-default-list',
+        'test': 'stdout/benign-ignored-messages-v1,,0',
+        'params': '--extend-ignore anything',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
+    {
+        'id': 'crit-extend-ignore-reduces-blk-errors-to-one',
+        'test': 'stdout/errors-blk-update-request-two,,0',
+        'params': '--extend-ignore 567760',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'1 error in Kernel Ring Buffer\.',
+    },
+    {
+        'id': 'ok-ignore-and-extend-ignore-suppress-all-blk-errors',
+        'test': 'stdout/errors-blk-update-request-two,,0',
+        'params': '--ignore 567760 --extend-ignore 2719104',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
 ]
 
 

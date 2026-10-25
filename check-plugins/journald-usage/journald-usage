@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102402'
+__version__ = '2026102403'
 
 DESCRIPTION = """Checks the current disk usage of all systemd journal files (archived and active
 combined). Alerts when journal disk usage exceeds the configured thresholds.
@@ -169,6 +169,15 @@ def main():
     value = lib.txt.extract_str(
         stdout, ' take up ', ' ', include_fromto=False, be_tolerant=False
     )
+    # journalctl prints the size with format_bytes() (src/basic/format-util.c in the
+    # systemd source): an integer or one decimal, an IEC suffix from K to E, and a
+    # trailing B below 1K. Anything else would end up as 0 bytes, which reads as an
+    # empty journal.
+    if not re.fullmatch(r'\d+(\.\d+)?[KMGTPE]?B?', value):
+        lib.base.cu(
+            f'Unable to read the journal disk usage from `{" ".join(cmd)}`: '
+            f'"{stdout.strip()}"'
+        )
     value = lib.human.human2bytes(value)
 
     # analyze data

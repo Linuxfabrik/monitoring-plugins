@@ -70,7 +70,7 @@ Output:
 
 * WARN if the total journal disk usage in GiB is outside the `--warning` range (default: `6`, alerts above 6 GiB).
 * UNKNOWN if the account running the check may not read the journal, or only the part of it that belongs to the account itself.
-* UNKNOWN if `journalctl --disk-usage` or `systemd-analyze cat-config` fails.
+* UNKNOWN if `journalctl --disk-usage` or `systemd-analyze cat-config` fails, or if `journalctl --disk-usage` prints no size.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

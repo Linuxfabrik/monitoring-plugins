@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert, crit, and err. Known false positives and hardware-specific noise are filtered out by default. Optionally integrates with Icinga: when the service is acknowledged, the reported messages are suppressed on following runs so they don't re-alert, which makes a login and "dmesg --clear" on the host unnecessary. Requires root or sudo.
+Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert, crit, and err. Known false positives and hardware-specific noise are filtered out by default. Alerts when at least one message remains after filtering. Optionally asks the monitoring server whether the service running this check is acknowledged: where it is, the reported messages are suppressed on following runs so they don't re-alert, which makes a login and "dmesg --clear" on the host unnecessary. Requires root or sudo.
 
 **Important Notes:**
 
@@ -59,14 +59,15 @@ usage: dmesg [-h] [-V] [--always-ok] [--extend-ignore EXTEND_IGNORE]
 
 Checks the kernel ring buffer (dmesg) for messages at severity levels emerg,
 alert, crit, and err. Known false positives and hardware-specific noise are
-filtered out by default; the filtered count is reported as the `errors`
-perfdata so trends can be graphed. Optionally asks the monitoring server
-whether the service running this check is acknowledged: where it is, the
-reported messages are suppressed on following runs so they don't re-alert,
-which makes a login and "dmesg --clear" on the host unnecessary. Note: the
-kernel ring buffer is a fixed-size circular buffer, so older messages are
-overwritten over time, and timestamps may drift across SUSPEND/RESUME because
-the time source is not updated on resume. Requires root or sudo.
+filtered out by default; the number of the remaining messages is reported as
+the `errors` perfdata so trends can be graphed. Alerts when at least one
+message remains after filtering. Optionally asks the monitoring server whether
+the service running this check is acknowledged: where it is, the reported
+messages are suppressed on following runs so they don't re-alert, which makes
+a login and "dmesg --clear" on the host unnecessary. Note: the kernel ring
+buffer is a fixed-size circular buffer, so older messages are overwritten over
+time, and timestamps may drift across SUSPEND/RESUME because the time source
+is not updated on resume. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit

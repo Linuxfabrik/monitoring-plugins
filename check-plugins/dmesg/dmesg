@@ -23,11 +23,12 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026102402'
 
 DESCRIPTION = """Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert,
 crit, and err. Known false positives and hardware-specific noise are filtered out by default; the
-filtered count is reported as the `errors` perfdata so trends can be graphed. Optionally asks
+number of the remaining messages is reported as the `errors` perfdata so trends can be graphed.
+Alerts when at least one message remains after filtering. Optionally asks
 the monitoring server whether the service running this check is acknowledged: where it is, the
 reported messages are suppressed on following runs so they don't re-alert, which makes a login
 and "dmesg --clear" on the host unnecessary.
@@ -363,8 +364,6 @@ def main():
         args.EXTEND_IGNORE = []
     if args.IGNORE is None:
         args.IGNORE = DEFAULT_IGNORE
-    # build a new list, `+=` would modify DEFAULT_IGNORE in place
-    args.IGNORE = args.IGNORE + args.EXTEND_IGNORE
     if args.MATCH is None:
         args.MATCH = []
 
@@ -380,10 +379,17 @@ def main():
             '`--icinga-callback` requires `--icinga-url`, `--icinga-password`, `--icinga-username` and `--icinga-service-name`.'
         )
 
-    # compile ignore patterns (one coe per item so we get a per-pattern error message)
+    # compile ignore patterns (one coe per item so we get a per-pattern error message),
+    # each list on its own, so an invalid pattern is named with the parameter it came
+    # from
     ignore_patterns = [
-        lib.base.coe(lib.txt.compile_regex(p, key='--ignore')) for p in args.IGNORE
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ] + [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(args.EXTEND_IGNORE, '--extend-ignore')
     ]
+    # build a new list, `+=` would modify DEFAULT_IGNORE in place
+    args.IGNORE = args.IGNORE + args.EXTEND_IGNORE
 
     # Persisted ack state is only needed when the Icinga callback is in use.
     # When it is, each ignore list gets its own state DB so two Icinga services
@@ -414,7 +420,7 @@ def main():
                     'Not allowed to read the kernel log. Run this plugin as root or '
                     'via sudo, or set `kernel.dmesg_restrict=0`.'
                 )
-            lib.base.cu(stderr)
+            lib.base.cu(stderr.strip() or f'`dmesg` failed (exit {retc}).')
     else:
         stdout, stderr, retc = lib.lftest.test(args.TEST)
 
@@ -507,8 +513,6 @@ def main():
         msg += f'Everything is ok.{suppressed_msg}'
     if msg_addendum:
         msg += '\n\n' + msg_addendum
-
-    # build perfdata
     perfdata += lib.base.get_perfdata('errors', cnt, uom=None, _min=0)
 
     # over and out
