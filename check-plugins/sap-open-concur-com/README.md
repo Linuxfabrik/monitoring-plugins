@@ -70,7 +70,9 @@ options:
                         available for which datacenter. Default: All
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --utc-offset UTC_OFFSET
-                        UTC offset for timestamp display. Default: +0200
+                        UTC offset for timestamp display. Example: `--utc-
+                        offset=+0100`. Default: the current offset of the
+                        local time zone
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/sap-open-concur-com/

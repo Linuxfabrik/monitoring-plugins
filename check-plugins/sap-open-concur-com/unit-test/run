@@ -20,14 +20,15 @@ from lib.globals import STATE_CRIT
 
 # The expected timestamps below are local times in Europe/Zurich, and the plugin
 # prints local time. Pin the zone so the result does not depend on the host the
-# tests run on; the plugin inherits it.
+# tests run on; the plugin inherits it. The default of `--utc-offset` is the offset
+# of the day the tests run (+0100 in winter, +0200 in summer), so the testcase pins it.
 os.environ['TZ'] = 'Europe/Zurich'
 
 TESTS = [
     {
         'id': 'crit-travel-disruption',
         'test': 'stdout/travel-disruption,,0',
-        'params': '--datacenter=eu',
+        'params': '--datacenter=eu --utc-offset=+0200',
         'assert-retc': STATE_CRIT,
         'assert-in': ['Travel: disruption [CRITICAL] (@eu, UTC+0200)'],
     },

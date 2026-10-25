@@ -23,7 +23,7 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
                 originally written by Dominik Riva, Universitätsspital Basel/Switzerland"""
-__version__ = '2026082501'
+__version__ = '2026102501'
 
 
 DESCRIPTION = """Monitors the SAP Concur Open status page (open.concur.com) for active service
@@ -34,7 +34,6 @@ DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_SERVICE = 'All'
 DEFAULT_TIMEOUT = 8
-DEFAULT_UTC_OFFSET = lib.time.utc_offset()
 
 services = [
     'Analysis/Intelligence',
@@ -139,9 +138,11 @@ def parse_args():
 
     parser.add_argument(
         '--utc-offset',
-        help='UTC offset for timestamp display. Default: %(default)s',
+        help='UTC offset for timestamp display. '
+        'Example: `--utc-offset=+0100`. '
+        'Default: the current offset of the local time zone',
         dest='UTC_OFFSET',
-        default=DEFAULT_UTC_OFFSET,
+        default=None,
     )
 
     args, _ = parser.parse_known_args()
@@ -167,6 +168,10 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+    # Taken at run time: a default fixed in the parser would be copied into the
+    # Director service template and keep the offset of the day it was built.
+    if args.UTC_OFFSET is None:
+        args.UTC_OFFSET = lib.time.utc_offset()
 
     # fetch data
     if args.TEST is None:
