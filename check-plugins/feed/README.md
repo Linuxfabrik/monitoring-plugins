@@ -94,7 +94,7 @@ options:
                         rather than here, because a command-line argument is
                         visible to every user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
-  --timeout TIMEOUT     Network timeout in seconds. Default: 5
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3
   --url FEED_URL        RSS or Atom feed URL. Default:
                         https://www.heise.de/security/rss/alert-news-atom.xml
   -w, --warning WARN    Time window in minutes during which new feed entries

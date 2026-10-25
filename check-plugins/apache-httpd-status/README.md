@@ -147,7 +147,7 @@ options:
                        than here, because a command-line argument is visible
                        to every user on the host. Example:
                        `--proxy=http://proxy.example.com:3128`.
-  --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
+  --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL        Apache Server Status URL. The plugin appends the "auto"
                        query parameter itself. Default:
                        http://localhost/server-status

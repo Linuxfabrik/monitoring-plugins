@@ -92,7 +92,7 @@ options:
                         visible to every user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
   --realm REALM         Keycloak API realm. Default: master
-  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --unreachable-severity {ok,warn,crit,unknown}
                         State to report when the online source is unreachable.
                         What is used instead - bundled offline data, a cached

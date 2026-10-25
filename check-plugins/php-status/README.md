@@ -211,7 +211,7 @@ options:
                         rather than here, because a command-line argument is
                         visible to every user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
-  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --top TOP             Number of largest OPcache scripts to list, sorted by
                         memory consumption (descending). Use `--top=0` to
                         disable. Default: 10

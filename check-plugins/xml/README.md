@@ -64,7 +64,7 @@ options:
                         rather than here, because a command-line argument is
                         visible to every user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
-  --timeout TIMEOUT     Network timeout in seconds. Default: 7 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --url URL             XML endpoint URL.
   --username USERNAME   HTTP Basic Auth username.
   --xpath XPATH         XPath expression to query. Must point to a single

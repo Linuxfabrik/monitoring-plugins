@@ -143,7 +143,7 @@ options:
                         only mean the files were tampered with. Default: warn
   --timeout TIMEOUT     Network timeout in seconds. Applies to a single
                         request. The run as a whole is bounded by --total-
-                        timeout. Default: 8 (seconds)
+                        timeout. Default: 3 (seconds)
   --total-timeout TOTAL_TIMEOUT
                         Seconds the run may spend asking wordpress.org, across
                         all requests. One request is made per component, so a

@@ -109,7 +109,7 @@ options:
                         dropped.
   --password PASSWORD   Password.
   --port PORT           Port number. Default: 3493
-  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --username USERNAME   Username.
   --warning-charge WARNING_CHARGE
                         WARN threshold for battery charge in percent. When

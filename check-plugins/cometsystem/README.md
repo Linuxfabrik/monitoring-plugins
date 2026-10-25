@@ -83,7 +83,7 @@ options:
                        for details. Can be specified multiple times. Example:
                        `--severity temp:high:crit --severity dew:low:crit
                        --severity humi:ok --severity warn`. Default: warn.
-  --timeout TIMEOUT    Network timeout in seconds. Default: 5 (seconds)
+  --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL        Comet System URL pointing to the JSON endpoint.
                        Example: `http://example.com/values.json`.
 

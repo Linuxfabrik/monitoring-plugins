@@ -59,7 +59,7 @@ options:
                      environment variable rather than here, because a command-
                      line argument is visible to every user on the host.
                      Example: `--proxy=http://proxy.example.com:3128`.
-  --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
+  --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL      URL of the mod_qos machine-readable status handler.
                      Default: http://localhost/qos-status
 

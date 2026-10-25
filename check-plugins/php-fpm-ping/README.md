@@ -79,7 +79,7 @@ options:
   --response RESPONSE   Expected PHP-FPM ping response string. Default: pong
   --severity {warn,crit}
                         Severity for alerting. Default: warn
-  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         PHP-FPM ping URL. Default: http://localhost/fpm-ping
 
 Documentation:

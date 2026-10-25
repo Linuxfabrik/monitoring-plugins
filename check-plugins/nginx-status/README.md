@@ -76,7 +76,7 @@ options:
                        than here, because a command-line argument is visible
                        to every user on the host. Example:
                        `--proxy=http://proxy.example.com:3128`.
-  --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
+  --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL        NGINX stub_status URL. Default:
                        http://localhost/server-status
   -w, --warning WARN   WARN threshold for the number of active connections.

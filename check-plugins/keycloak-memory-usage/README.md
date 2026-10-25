@@ -74,7 +74,7 @@ options:
                         visible to every user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
   --realm REALM         Keycloak API realm. Default: master
-  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --url URL             Keycloak API URL. Default: http://127.0.0.1:8080
   --username USERNAME   Keycloak API username. Default: admin
   --warning WARN        WARN threshold in percent. Default: >= 80

@@ -109,7 +109,7 @@ options:
                         visible to every user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
   --secret SECRET       WHMCS API secret.
-  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --url URL             Base URL of the WHMCS installation, without the
                         trailing `/includes/api.php`. Example:
                         `--url=https://whmcs.example.com`

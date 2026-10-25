@@ -78,7 +78,7 @@ options:
   --severity {warn,crit}
                         State to report for a server that discloses
                         information. One of `warn` or `crit`. Default: warn
-  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --url URL             Base URL of the Apache httpd server to inspect.
                         Example: `--url=https://www.example.com` Default:
                         http://localhost

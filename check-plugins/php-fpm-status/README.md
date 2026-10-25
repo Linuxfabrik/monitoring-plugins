@@ -175,7 +175,7 @@ options:
                         Default: warn
   --test TEST           ==SUPPRESS== Can be specified multiple times; each
                         entry maps to the URL at the same position.
-  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         PHP-FPM status page URL. Can be specified multiple
                         times to check several pools on the same host; each
                         URL is treated as an independent pool. Basic

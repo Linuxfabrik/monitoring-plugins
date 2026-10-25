@@ -51,7 +51,7 @@ options:
   --severity {warn,crit}
                         Severity for alerting. Default: warn
   -t, --timeout TIMEOUT
-                        Network timeout in seconds. Default: 2
+                        Network timeout in seconds. Default: 3
   --type {tcp,tcp6}     Connection type, "tcp" for IPv4 or "tcp6" for IPv6.
                         Default: tcp
 

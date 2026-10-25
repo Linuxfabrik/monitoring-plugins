@@ -196,7 +196,7 @@ options:
                         `--proxy=http://proxy.example.com:3128`.
   --suppress-lines      Suppress the found lines in the output and only report
                         the number of findings.
-  --timeout TIMEOUT     Network timeout in seconds. Default: 5 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARN    WARN threshold for the number of found warning
                         matches. Default: 1
   --warning-pattern WARN_PATTERN

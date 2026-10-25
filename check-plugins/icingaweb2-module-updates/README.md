@@ -158,7 +158,7 @@ options:
                         know, and overrides one it does. Can be specified
                         multiple times. Example: `--repo="mymodule,
                         ExampleOrg/icingaweb2-module-mymodule"`
-  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --token TOKEN         GitHub API token. Raises the API limit from 60
                         requests per hour and IP address to 5000. Passed here,
                         the token is visible to every user on this host for as
