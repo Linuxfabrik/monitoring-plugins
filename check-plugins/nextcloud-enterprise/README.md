@@ -18,8 +18,8 @@ Monitors an installed Nextcloud Enterprise subscription and the number of accoun
 
 **Data Collection:**
 
-* Requires sudo permissions for the UID under which the Nextcloud application runs
 * Reads `version.php` of the installation directly, which costs no Nextcloud process, for the Enterprise marker and the build date
+* Runs `occ` with PHP as the account that owns `config/config.php`. When the check runs as root through its [sudoers entry](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/assets/sudoers), it switches to that account with `sudo`, which therefore has to be installed. When it already runs as that account, for example as root with a `config.php` that belongs to root, it does without `sudo`
 * Reads the subscription data and the account counts through two Nextcloud `occ` commands. Each one pays for a full application bootstrap, which is what the check spends nearly all of its runtime on, so both read everything they are asked for in one go
 * Keeps a local SQLite database to remember since when the account count has been above its limit, which is what `--grace-wait` ages
 
@@ -202,7 +202,7 @@ Give each instance the share it is meant to carry, either as its locally configu
 
 `Refusing "/var/www/nextcloud": something below it can be changed by an account other than root and the trusted owners, or cannot be examined.`
 
-`occ` runs as the owner of `config/config.php` and loads code from the whole installation, `console.php`, `lib/`, `3rdparty/`, `config/*.config.php` and every app directory `apps_paths` names, including those outside the installation. Every file and directory there therefore has to belong to root or that account, and no other user or group may write to it. The message does not name the offending object, because the account running the check may not be allowed to see it. As root, list the candidates with (the data directory is skipped, adjust `apache` to the owner of `config.php`):
+`occ` runs as the owner of `config/config.php` and loads code from the whole installation, `console.php`, `lib/`, `3rdparty/`, `config/*.config.php` and every app directory `apps_paths` names, including those outside the installation. Every file and directory there therefore has to belong to root or that account, and no other user or group may write to it. The message does not name the offending object, because the account running the check may not be allowed to see it. Only `occ` and `config/config.php` themselves are named, for example `Refusing "/var/www/nextcloud/occ": "/var/www/nextcloud/occ" is writable by everyone.` Neither needs the execute bit, since the check runs `occ` through PHP; `0644` and `0755` both work, as long as no other user or group can write to the file. As root, list the candidates with (the data directory is skipped, adjust `apache` to the owner of `config.php`):
 
 ```bash
 find /var/www/nextcloud -path /var/www/nextcloud/data -prune -o \( \( ! -user root ! -user apache \) -o -perm -o+w -o \( -perm -g+w ! -group root ! -group apache \) \) -print

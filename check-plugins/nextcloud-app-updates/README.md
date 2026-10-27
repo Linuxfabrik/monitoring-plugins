@@ -13,9 +13,9 @@ Checks a Nextcloud installation for available app updates from the configured ap
 
 **Data Collection:**
 
-* Requires sudo permissions for the UID under which the Nextcloud application runs
-* Runs Nextcloud `occ app:update --showonly` via sudo to list apps with a pending update
-* Runs Nextcloud `occ app:list` via sudo to list every enabled app with its installed version
+* Runs Nextcloud `occ app:update --showonly` to list apps with a pending update
+* Runs Nextcloud `occ app:list` to list every enabled app with its installed version
+* Runs `occ` with PHP as the account that owns `config/config.php`. When the check runs as root through its [sudoers entry](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/assets/sudoers), it switches to that account with `sudo`, which therefore has to be installed. When it already runs as that account, for example as root with a `config.php` that belongs to root, it does without `sudo`
 * Stores the first-seen timestamp of each pending update in a local SQLite database to measure how long it has been available
 * Apps can be limited with `--match` and excluded with `--ignore`
 
@@ -139,18 +139,25 @@ Executed occ commands:
 
 ## Troubleshooting
 
-### `occ` command not found
+### `sudo` is not installed
 
-`Error running sudo -u \#48 /var/www/html/nextcloud/occ app:update --showonly: rc=1 sudo: /var/www/html/nextcloud/occ: command not found`
+`Command "sudo" not found (No such file or directory). Install it, or make sure it is in the PATH of the account running this.`
 
-Permission for `/var/www/html/nextcloud/occ` must be `0755`.
+`config/config.php` belongs to an account other than the one running the check, so the check switches to that account with `sudo`. Install it, for example with `dnf install sudo` or `apt install sudo`.
+
+
+### Could not read the configuration below the installation
+
+``Could not read the configuration below `/var/www/html/nextcloud`: PHP ended with rc=1. Run `php occ status` in `/var/www/html/nextcloud` as the owner of `config/config.php` to see why.``
+
+Most often the check runs neither as root nor as the owner of `config/config.php`, and `sudo` refuses to switch to that account because it has no rule for the monitoring user. The supplied check command calls the check with `/usr/bin/sudo` and needs the matching [sudoers entry](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/assets/sudoers); restore both if they were changed. If the check already runs as root, follow the message: `php occ status` as the owner of `config.php` shows what PHP complains about.
 
 
 ### Refusing an installation another account can change
 
 `Refusing "/var/www/nextcloud": something below it can be changed by an account other than root and the trusted owners, or cannot be examined.`
 
-`occ` runs as the owner of `config/config.php` and loads code from the whole installation, `console.php`, `lib/`, `3rdparty/`, `config/*.config.php` and every app directory `apps_paths` names, including those outside the installation. Every file and directory there therefore has to belong to root or that account, and no other user or group may write to it. The message does not name the offending object, because the account running the check may not be allowed to see it. As root, list the candidates with (the data directory is skipped, adjust `apache` to the owner of `config.php`):
+`occ` runs as the owner of `config/config.php` and loads code from the whole installation, `console.php`, `lib/`, `3rdparty/`, `config/*.config.php` and every app directory `apps_paths` names, including those outside the installation. Every file and directory there therefore has to belong to root or that account, and no other user or group may write to it. The message does not name the offending object, because the account running the check may not be allowed to see it. Only `occ` and `config/config.php` themselves are named, for example `Refusing "/var/www/nextcloud/occ": "/var/www/nextcloud/occ" is writable by everyone.` Neither needs the execute bit, since the check runs `occ` through PHP; `0644` and `0755` both work, as long as no other user or group can write to the file. As root, list the candidates with (the data directory is skipped, adjust `apache` to the owner of `config.php`):
 
 ```bash
 find /var/www/nextcloud -path /var/www/nextcloud/data -prune -o \( \( ! -user root ! -user apache \) -o -perm -o+w -o \( -perm -g+w ! -group root ! -group apache \) \) -print

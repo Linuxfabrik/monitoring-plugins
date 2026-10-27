@@ -8,11 +8,11 @@ Checks the installed Nextcloud version against the endoflife.date API and alerts
 **Important Notes:**
 
 * The check must run locally on the Nextcloud server because it reads the version from the installation directory.
-* It calls `occ` through sudo as the account the Nextcloud application runs under, so the monitoring user needs the matching sudoers entry.
 
 **Data Collection:**
 
-* Runs Nextcloud `occ config:list` through sudo to read the installed version (default: `/var/www/html/nextcloud`, configurable via `--path`)
+* Runs Nextcloud `occ config:list` to read the installed version (default: `/var/www/html/nextcloud`, configurable via `--path`)
+* Runs `occ` with PHP as the account that owns `config/config.php`. When the check runs as root through its [sudoers entry](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/assets/sudoers), it switches to that account with `sudo`, which therefore has to be installed. When it already runs as that account, for example as root with a `config.php` that belongs to root, it does without `sudo`
 * Compares against the [endoflife.date API](https://endoflife.date/api/nextcloud.json) to determine EOL status and available updates
 * Caches endoflife.date responses locally for 24 hours to reduce external requests
 
@@ -120,23 +120,30 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 
 | Name | Type | Description |
 |----|----|----|
-| nextcloud-version | Number | Installed Nextcloud version as float. For example, "23.0.12" becomes "23.000012". |
+| nextcloud-version | Number | Installed Nextcloud version as float. Each component is padded to three digits: "23.0.12" becomes "23.000012", the four-part "30.0.2.2" becomes "30.000002002". |
 
 
 ## Troubleshooting
 
-### `occ` command not found
+### `sudo` is not installed
 
-`Error running sudo -u \#48 /var/www/html/nextcloud/occ config:list: rc=1 sudo: /var/www/html/nextcloud/occ: command not found`
+`Command "sudo" not found (No such file or directory). Install it, or make sure it is in the PATH of the account running this.`
 
-Permission for `/var/www/html/nextcloud/occ` must be `0755`.
+`config/config.php` belongs to an account other than the one running the check, so the check switches to that account with `sudo`. Install it, for example with `dnf install sudo` or `apt install sudo`.
+
+
+### Could not read the configuration below the installation
+
+``Could not read the configuration below `/var/www/html/nextcloud`: PHP ended with rc=1. Run `php occ status` in `/var/www/html/nextcloud` as the owner of `config/config.php` to see why.``
+
+Most often the check runs neither as root nor as the owner of `config/config.php`, and `sudo` refuses to switch to that account because it has no rule for the monitoring user. The supplied check command calls the check with `/usr/bin/sudo` and needs the matching [sudoers entry](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/assets/sudoers); restore both if they were changed. If the check already runs as root, follow the message: `php occ status` as the owner of `config.php` shows what PHP complains about.
 
 
 ### Refusing an installation another account can change
 
 `Refusing "/var/www/nextcloud": something below it can be changed by an account other than root and the trusted owners, or cannot be examined.`
 
-`occ` runs as the owner of `config/config.php` and loads code from the whole installation, `console.php`, `lib/`, `3rdparty/`, `config/*.config.php` and every app directory `apps_paths` names, including those outside the installation. Every file and directory there therefore has to belong to root or that account, and no other user or group may write to it. The message does not name the offending object, because the account running the check may not be allowed to see it. As root, list the candidates with (the data directory is skipped, adjust `apache` to the owner of `config.php`):
+`occ` runs as the owner of `config/config.php` and loads code from the whole installation, `console.php`, `lib/`, `3rdparty/`, `config/*.config.php` and every app directory `apps_paths` names, including those outside the installation. Every file and directory there therefore has to belong to root or that account, and no other user or group may write to it. The message does not name the offending object, because the account running the check may not be allowed to see it. Only `occ` and `config/config.php` themselves are named, for example `Refusing "/var/www/nextcloud/occ": "/var/www/nextcloud/occ" is writable by everyone.` Neither needs the execute bit, since the check runs `occ` through PHP; `0644` and `0755` both work, as long as no other user or group can write to the file. As root, list the candidates with (the data directory is skipped, adjust `apache` to the owner of `config.php`):
 
 ```bash
 find /var/www/nextcloud -path /var/www/nextcloud/data -prune -o \( \( ! -user root ! -user apache \) -o -perm -o+w -o \( -perm -g+w ! -group root ! -group apache \) \) -print
