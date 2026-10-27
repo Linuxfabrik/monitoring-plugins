@@ -146,6 +146,7 @@ Monitoring Plugins:
 * systemd-units-failed: no longer names an ignored unit, no longer waits on a slow journal
 * tuned-profile: accepts post-loaded and System Roles profiles
 * updates: warns on a disabled Windows Update service, no longer hangs ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
+* users: no longer counts the per-user systemd service manager as an SSH session on RHEL 10
 * wildfly-version: honours `--proxy` and `--timeout` for the GitHub lookup
 * xca-cert: works without `--prefix`
 

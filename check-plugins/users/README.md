@@ -3,10 +3,13 @@
 
 ## Overview
 
-Counts the number of currently logged-in users by session type: tty (console) and pts (SSH on Linux, RDP on Windows). On Windows, also counts disconnected sessions (closed connections without logging out).
+Counts the sessions that `w` (Linux) or `query user` (Windows) lists, by type: tty (console) and pts (SSH on Linux, RDP on Windows). On Windows, also counts disconnected sessions (closed connections without logging out). Alerts when the number of sessions of a type reaches its threshold; by default, every console session warns.
 
 **Important Notes:**
 
+* The defaults are `--warning=1,20,1` and no `--critical`: any console session (tty) warns, 20 or more pts sessions warn, and on Windows any disconnected session warns
+* The plugin counts sessions, not users: a user logged in twice counts twice. On RHEL 10, `w` also lists the per-user service manager (`systemd --user`) as a session without a terminal; the plugin leaves that line out of the count
+* `--warning` and `--critical` need both values, `tty,pts`. `None` leaves a threshold out (`--critical=None,50`), an empty value is not accepted
 * If running on physical hardware, consider using `--critical 1,20` (Linux) or `--critical 1,50,3` (Windows) as a starting point
 
 **Data Collection:**
@@ -34,28 +37,33 @@ Counts the number of currently logged-in users by session type: tty (console) an
 ```text
 usage: users [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata] [-w WARN]
 
-Counts the number of currently logged-in users by session type: tty (console)
-and pts (SSH on Linux, RDP on Windows). On Windows, also counts disconnected
-sessions (closed connections without logging out). Alerts when the total user
-count exceeds the configured thresholds.
+Counts the sessions that `w` (Linux) or `query user` (Windows) lists, by type:
+tty (console) and pts (SSH on Linux, RDP on Windows). On Windows, also counts
+disconnected sessions (closed connections without logging out). Alerts when
+the number of sessions of a type reaches its threshold; by default, every
+console session warns.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Threshold for logged-in tty/pts users, in the format
-                       "tty,pts". On Windows, you can additionally specify a
-                       threshold for disconnected users in the format
-                       "tty,pts,disc". Example: `--critical=3,10`. Default:
-                       [None, None, None]
+  -c, --critical CRIT  Threshold for the number of tty and pts sessions, in
+                       the format "tty,pts". Both values are required, `None`
+                       leaves a threshold out. On Windows, you can
+                       additionally specify a threshold for disconnected
+                       sessions in the format "tty,pts,disc". Alerts when the
+                       number reaches the threshold. Example:
+                       `--critical=3,10`. Default: [None, None, None]
   --no-perfdata        Suppress the performance data section from the output.
                        The status message and the exit code are unaffected, so
                        alerting keeps working while trending data is dropped.
-  -w, --warning WARN   Threshold for logged-in tty/pts users, in the format
-                       "tty,pts". On Windows, you can additionally specify a
-                       threshold for disconnected users in the format
-                       "tty,pts,disc". Example: `--warning=1,5`. Default: [1,
-                       20, 1]
+  -w, --warning WARN   Threshold for the number of tty and pts sessions, in
+                       the format "tty,pts". Both values are required, `None`
+                       leaves a threshold out. On Windows, you can
+                       additionally specify a threshold for disconnected
+                       sessions in the format "tty,pts,disc". Alerts when the
+                       number reaches the threshold. Example: `--warning=1,5`.
+                       Default: [1, 20, 1]
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/users/
@@ -112,18 +120,20 @@ administrator         rdp-tcp#11          1  Active          .  24.08.2022 17:42
 
 ## States
 
-* OK if the number of users is below all warning thresholds.
-* WARN if the number of tty, pts, or disconnected users exceeds `--warning`.
-* CRIT if the number of tty, pts, or disconnected users exceeds `--critical`.
+* OK if the number of sessions of each type is below its warning threshold.
+* WARN if the number of tty, pts, or disconnected sessions is >= `--warning` (default: `1,20,1`, so any console session warns).
+* CRIT if the number of tty, pts, or disconnected sessions is >= `--critical` (default: none).
+* UNKNOWN if `--warning` or `--critical` does not have the format `tty,pts` (Windows: `tty,pts,disc`), or `w` fails.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| disc | Number | Number of disconnected users (Windows only) |
-| pts | Number | Number of PTS users (SSH on Linux, RDP on Windows) |
-| tty | Number | Number of TTY users (console on Linux, console on Windows) |
+| disc | Number | Number of disconnected sessions (Windows only) |
+| pts | Number | Number of pts sessions (SSH on Linux, RDP on Windows) |
+| tty | Number | Number of tty sessions (console on Linux, console on Windows) |
 
 
 ## Credits, License

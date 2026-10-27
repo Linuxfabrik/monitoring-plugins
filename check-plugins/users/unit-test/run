@@ -46,7 +46,7 @@ import unittest
 sys.path.insert(0, '..')
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LIB_DIR = os.path.realpath(os.path.join(HERE, '..', 'lib'))
@@ -70,11 +70,12 @@ CONTAINERFILES = [
 
 TESTS = [
     {
-        'id': 'warn-linux-one-tty-one-pts',
+        # the second line is the per-user service manager, not a login
+        'id': 'warn-linux-one-tty-manager-session-skipped',
         'test': 'stdout/linux-one-tty-one-pts,,0',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'TTY: 1 [WARNING], PTS: 1',
+            'TTY: 1 [WARNING], PTS: 0',
             'USER     TTY        LOGIN@   IDLE   JCPU   PCPU WHAT',
             'linuxfab tty2      29Jul25  6days  1:01m 26.32s /opt/paloaltonetworks/globalprotect/PanGPA start',
             'linuxfab           29Jul25 19:04   0.00s 18.60s /usr/lib/systemd/systemd --user',
@@ -242,16 +243,52 @@ TESTS = [
     # line is the LOGIN@ time `HH:MM`. The pre-#989 parser counted any
     # token containing ":" as a TTY (`:0` X-display heuristic) and so
     # reported `TTY: 2, PTS: 0` for these lines. The header-position
-    # parser must classify both lines as PTS.
+    # parser must classify both lines as PTS. The `systemd --user` line is
+    # the per-user service manager, not a login, and is left out of the count.
     {
         'id': 'ok-linux-rhel10-sshd-session-only',
         'test': 'stdout/linux-rhel10-sshd-session-only,,0',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'TTY: 0, PTS: 2',
+            'TTY: 0, PTS: 1',
             'USER     TTY        LOGIN@   IDLE   JCPU   PCPU WHAT',
             'linuxfab           15:15   45:28   0.00s  0.02s sshd-session: linuxfabrik [priv]',
         ],
+    },
+    # Captured on Rocky 10 (procps-ng 4.0.4, systemd 257) with one SSH login
+    # holding a pty and one running `w`: logind sessions of class `user` show
+    # no TTY there, the `manager` session of the shared user is skipped.
+    {
+        'id': 'warn-linux-rocky10-two-ssh-and-manager',
+        'test': 'stdout/linux-rocky10-two-ssh-and-manager,,0',
+        'params': '--warning=1,2',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['TTY: 0, PTS: 2 [WARNING]', 'systemd --user'],
+    },
+    # Both thresholds need the "tty,pts" pair; a single value or an empty one is
+    # a usage error, reported without a traceback.
+    {
+        'id': 'unknown-warning-single-value',
+        'test': 'stdout/linux-one-pts,,0',
+        'params': '--warning=5',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['take two integers, "tty,pts"'],
+        'assert-not-in': ['Traceback'],
+    },
+    {
+        'id': 'unknown-critical-empty-value',
+        'test': 'stdout/linux-one-pts,,0',
+        'params': '--critical=1,',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['take two integers, "tty,pts"'],
+        'assert-not-in': ['Traceback'],
+    },
+    {
+        'id': 'ok-critical-none-skips-tty',
+        'test': 'stdout/linux-one-tty-one-pts,,0',
+        'params': '--warning=None,20 --critical=None,50',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'tty'=1;;;0", "'pts'=0;20;50;0"],
     },
 ]
 

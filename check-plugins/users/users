@@ -21,12 +21,12 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102501'
+__version__ = '2026102701'
 
-DESCRIPTION = """Counts the number of currently logged-in users by session type: tty (console) and pts
-(SSH on Linux, RDP on Windows). On Windows, also counts disconnected sessions (closed
-connections without logging out). Alerts when the total user count exceeds the
-configured thresholds."""
+DESCRIPTION = """Counts the sessions that `w` (Linux) or `query user` (Windows) lists,
+by type: tty (console) and pts (SSH on Linux, RDP on Windows). On Windows, also counts
+disconnected sessions (closed connections without logging out). Alerts when the number
+of sessions of a type reaches its threshold; by default, every console session warns."""
 
 DEFAULT_WARN_PTS = 20
 DEFAULT_WARN_DISC = 1
@@ -34,6 +34,9 @@ DEFAULT_WARN_TTY = 1
 DEFAULT_CRIT_PTS = None
 DEFAULT_CRIT_DISC = None
 DEFAULT_CRIT_TTY = None
+
+# the WHAT column of the `manager` session, e.g. `/usr/lib/systemd/systemd --user`
+SYSTEMD_USER_MANAGER = re.compile(r'(?:^|[\s/])systemd --user$')
 
 
 def parse_args():
@@ -64,9 +67,12 @@ def parse_args():
         '--critical',
         default=[DEFAULT_CRIT_TTY, DEFAULT_CRIT_PTS, DEFAULT_CRIT_DISC],
         dest='CRIT',
-        help='Threshold for logged-in tty/pts users, in the format "tty,pts". '
-        'On Windows, you can additionally specify a threshold for disconnected users '
-        'in the format "tty,pts,disc". '
+        help='Threshold for the number of tty and pts sessions, '
+        'in the format "tty,pts". '
+        'Both values are required, `None` leaves a threshold out. '
+        'On Windows, you can additionally specify a threshold for disconnected '
+        'sessions in the format "tty,pts,disc". '
+        'Alerts when the number reaches the threshold. '
         'Example: `--critical=3,10`. '
         'Default: %(default)s',
         type=lib.args.csv,
@@ -92,9 +98,12 @@ def parse_args():
         '--warning',
         default=[DEFAULT_WARN_TTY, DEFAULT_WARN_PTS, DEFAULT_WARN_DISC],
         dest='WARN',
-        help='Threshold for logged-in tty/pts users, in the format "tty,pts". '
-        'On Windows, you can additionally specify a threshold for disconnected users '
-        'in the format "tty,pts,disc". '
+        help='Threshold for the number of tty and pts sessions, '
+        'in the format "tty,pts". '
+        'Both values are required, `None` leaves a threshold out. '
+        'On Windows, you can additionally specify a threshold for disconnected '
+        'sessions in the format "tty,pts,disc". '
+        'Alerts when the number reaches the threshold. '
         'Example: `--warning=1,5`. '
         'Default: %(default)s',
         type=lib.args.csv,
@@ -110,6 +119,16 @@ def parse_linux_output(s):
     Uses the header line to determine the TTY column position, so it works
     regardless of whether FROM is present, and regardless of column widths
     (which vary across distros and versions).
+
+    procps-ng before 4.0.5, built against logind, lists every logind session,
+    including the `manager` session systemd 256 and newer opens for the per-user
+    `systemd --user`. That line has no TTY and is nobody logging in, so it is
+    left out of the count; it would make one SSH login read `PTS: 2`. procps-ng
+    4.0.5 (commit 734930e4) shows only sessions of class `user*`. The WHAT column
+    is only that long when `COLUMNS` is unset, see `main()`. Verified against
+    procps-ng 4.0.4 / systemd 257 on Rocky 10 (lists it), Debian 13 and Ubuntu
+    26.04 (procps 4.0.4 reading utmp, do not list it) and procps-ng 4.0.6 /
+    systemd 259 on Fedora 44 (does not list it).
     """
     # replace pipes in output, otherwise we will get problems with perfdata,
     # and ignore the first line of w's output
@@ -132,6 +151,13 @@ def parse_linux_output(s):
         if tty_value.startswith('tty') or tty_value.startswith(':'):
             # tty = local terminal, ":0" = local X display
             count_tty += 1
+        elif not tty_value.startswith('pts/') and SYSTEMD_USER_MANAGER.search(
+            line.rstrip()
+        ):
+            # The per-user service manager, not a login. Its TTY column is empty,
+            # but the cut can catch the first digit of LOGIN@, which `w` on Rocky 10
+            # prints one position left of its header.
+            continue
         else:
             # pts, empty (SSH without TTY) or anything else
             count_pts += 1
@@ -187,8 +213,13 @@ def main():
         WARN_PTS = lib.args.int_or_none(args.WARN[1])
         CRIT_TTY = lib.args.int_or_none(args.CRIT[0])
         CRIT_PTS = lib.args.int_or_none(args.CRIT[1])
-    except Exception:
-        lib.base.cu('Unexpected parameter values for --warning and/or --critical.')
+    except (IndexError, ValueError):
+        lib.base.cu(
+            '--warning and --critical take two integers, "tty,pts" (on Windows'
+            ' optionally three, "tty,pts,disc"). Use `None` to leave a threshold out,'
+            ' for example `--critical=None,50`',
+            traceback=False,
+        )
 
     # A Windows fixture is read like the output of a Windows host, thresholds and
     # message included, so the tests reach the disconnected sessions too.
@@ -217,7 +248,11 @@ def main():
             lines, count_tty, count_pts, count_disc = parse_windows_output(stdout)
         else:
             cmd = ['/usr/bin/w']
-            stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+            # Without a terminal, `w` cuts the WHAT column to `COLUMNS` if that is
+            # set, else to 512 characters. Unset, `systemd --user` stays readable.
+            stdout, stderr, retc = lib.base.coe(
+                lib.shell.shell_exec(cmd, env={'COLUMNS': None})
+            )
             if stderr or retc != 0:
                 lib.base.cu(stderr)
             lines, count_tty, count_pts = parse_linux_output(stdout)
