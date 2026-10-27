@@ -103,7 +103,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openjdk-redhat-ve
 Output:
 
 ```text
-Java (Red Hat build of OpenJDK) v17.0.8 (EOL 2027-10-30 -30d, patch 17.0.9.0.9-1 available)
+Java (Red Hat build of OpenJDK) v17.0.20.1 (RHEL 9 Application Stream OpenJDK 17, EOL 2027-12-31 -30d, major 25.0.0 available)
 ```
 
 
