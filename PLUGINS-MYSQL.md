@@ -81,6 +81,8 @@ python3 -m pip install pymysql
    `/var/spool/icinga2/.my.cnf` (Icinga), `/var/lib/nagios/.my.cnf` (Nagios).
 2. `/etc/my.cnf.d/icinga.cnf` for a site-wide Icinga-only secret. Use a file
    name that names its consumer, not `client.cnf`.
+3. Encrypted on disk as a systemd credential, decrypted by systemd for the
+   monitoring service only, see [Credentials](CREDENTIALS.md).
 
 Avoid these, they leak credentials to every MySQL client on the host:
 

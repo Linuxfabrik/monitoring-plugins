@@ -198,7 +198,7 @@ What moves to the global zone in that layout are the templates and the apply rul
 
 Never put a credential on a template or on a Service Set. A template applies to every object that imports it, and a Service Set's variables are copied onto every service it generates. Secrets belong on the concrete host or service object.
 
-While a check runs, its command line is visible in the process list of the node that executes it. Plugins that accept `--password-file` read the secret from a file on that node instead, which keeps it out of both the Icinga configuration and the process list.
+While a check runs, its command line is visible in the process list of the node that executes it. Plugins that accept `--password-file` read the secret from a file on that node instead, which keeps it out of both the Icinga configuration and the process list. To keep that file encrypted on disk, see [CREDENTIALS.md](CREDENTIALS.md).
 
 The underlying problem is not ours. Icinga rejects a `command_endpoint` two tiers below the checkable by design, and the Director resolves a single zone per template chain. All the basket can do is place its templates so that your topology satisfies both.
 

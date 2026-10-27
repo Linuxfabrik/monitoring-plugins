@@ -108,6 +108,7 @@ Other Linux distributions run the plugins fine as long as Python 3.9 or newer is
 ## Icinga, Grafana, Nagios
 
 * **Icinga Director**: import the shipped basket (Host Templates, Service Templates, ~150 Service Sets, Time Periods, Notifications). See [ICINGA.md](https://linuxfabrik.github.io/monitoring-plugins/icinga/).
+* **Credentials**: pass secrets to the plugins in files instead of on the command line, optionally encrypted on disk with systemd credentials. See [CREDENTIALS.md](https://linuxfabrik.github.io/monitoring-plugins/credentials/).
 * **Grafana**: per-plugin dashboards under `check-plugins/<plugin>/grafana/`, provisioned with Grizzly today. See [GRAFANA.md](https://linuxfabrik.github.io/monitoring-plugins/grafana/).
 * **Plain Nagios, Naemon, Shinken, Sensu**: plugins emit standard Nagios plugin output and perfdata. Drop them into `/usr/lib64/nagios/plugins/` and reference them from your `command` definitions. Hosts, services and notifications stay in your existing configuration.
 
