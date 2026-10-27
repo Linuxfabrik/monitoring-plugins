@@ -134,6 +134,9 @@ jobs:
           artifact-configuration-slug: 'compiled'
           github-artifact-id: '${{ steps.upload-unsigned-compiled.outputs.artifact-id }}'
           wait-for-completion: true
+          # The release-signing policy waits for a manual approval in SignPath. The action's
+          # default of 600 seconds fails the build when nobody approves within 10 minutes.
+          wait-for-completion-timeout-in-seconds: 7200
           # note: the path is always relative to GITHUB_WORKSPACE (hardcoded in the signpath action)
           # and will be created if it does not exist
           output-artifact-directory: 'signed-compiled/'
@@ -187,6 +190,9 @@ jobs:
           artifact-configuration-slug: 'packaged'
           github-artifact-id: '${{ steps.upload-unsigned-packaged.outputs.artifact-id }}'
           wait-for-completion: true
+          # The release-signing policy waits for a manual approval in SignPath. The action's
+          # default of 600 seconds fails the build when nobody approves within 10 minutes.
+          wait-for-completion-timeout-in-seconds: 7200
           # note: the path is always relative to GITHUB_WORKSPACE (hardcoded in the signpath action)
           # and will be created if it does not exist
           output-artifact-directory: 'signed-packaged/'
