@@ -10,7 +10,7 @@ The plugins need Python 3.9 or newer. The packages bring their own venv built ag
 
 ### One-Liner: Package Repository (recommended)
 
-For most hosts, with access to the internet or to a mirror server. Registers the signed Linuxfabrik package repository and installs the package. Upgrades then come with `dnf upgrade`, `zypper update` or `apt upgrade`. Supported: Debian 11-13, RHEL 8-10 and compatibles, SLE 15 SP5+ and 16, openSUSE Leap, Ubuntu 22.04-26.04.
+For most hosts, with access to the internet or to a mirror server. Sets up the signed Linuxfabrik package repository with the `linuxfabrik-release` package, unless the host has it already (from the package or from LFOps), and installs the package. On RHEL, it also installs the `-selinux` sub-package. A repository file of the former repo.linuxfabrik.ch/monitoring-plugins/ is removed, so a host set up with it switches over by running the one-liner again. Upgrades then come with `dnf upgrade`, `zypper update` or `apt upgrade`. Supported: Debian 11-13, RHEL 8-10 and compatibles, SLE 15 SP5+ and 16, openSUSE Leap, Ubuntu 22.04-26.04.
 
 ```bash
 curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash
@@ -45,7 +45,8 @@ curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s
 * `--plugin-dir=DIR`: installs somewhere other than `/usr/lib64/nagios/plugins`.
 * `--python=python3.12`: interpreter for the `--source` and `--zip` venv. Needed where the system `python3` is older than 3.9 (RHEL 8, SLE 15) and no newer one is found automatically.
 * `--ref=<branch-or-tag>`: picks what `--source` installs. A release tag such as `v8.0.0` comes with the library release it was tested with, a branch with the library's `main`.
-* `--uninstall`: reverses any of the installs above.
+* `--testing`: with the package install, also enables the `testing` channel of the Linuxfabrik repository, where new versions wait for 7 days before they reach `release`. On a host whose repository LFOps manages, set `repo_linuxfabrik__testing_repo_enabled: true` instead, the next LFOps run would disable it again.
+* `--uninstall`: reverses any of the installs above. The Linuxfabrik repository stays, other packages may come from it.
 
 To read the script before running it as root:
 

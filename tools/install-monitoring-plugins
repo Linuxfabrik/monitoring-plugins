@@ -9,9 +9,12 @@
 #
 # Three install paths plus an uninstaller:
 #
-#   --package (default)  Detect the OS family from /etc/os-release, register the signed
-#                        Linuxfabrik repository and install the package with the system
-#                        package manager. Recommended, upgradeable.
+#   --package (default)  Detect the distribution from /etc/os-release, set up the signed
+#                        Linuxfabrik repository with the linuxfabrik-release package and install
+#                        the package with the system package manager. Recommended, upgradeable.
+#                        --testing enables the testing channel of the repository as well. A
+#                        repository file of the former repo.linuxfabrik.ch/monitoring-plugins/
+#                        is removed.
 #   --source             Install the latest source straight from GitHub (no git client, no
 #                        package manager) into a self-contained venv. Because the
 #                        monitoring-plugins repo pulls in the shared `lib` from a SEPARATE
@@ -76,11 +79,16 @@ BASH_COMPLETION_DEST='/etc/bash_completion.d/linuxfabrik-monitoring-plugins'
 # They are removed on install and on uninstall so a host never carries the LF_NAGIOS Cmnd_Alias
 # twice, which makes sudo warn about a duplicate Cmnd_Alias on every invocation.
 LEGACY_SUDOERS_DESTS='/etc/sudoers.d/monitoring-plugins /etc/sudoers.d/icinga2-plugins'
-# The dnf repository file, under the name the LFOps role uses as well. Both carry the same repo
-# IDs, so a host holding the file under two names would see every repository twice. The name
-# this installer used before is removed on install and on uninstall.
-YUM_REPO_DEST="/etc/yum.repos.d/${PKG_NAME}.repo"
-LEGACY_YUM_REPO_DEST="/etc/yum.repos.d/${PKG_NAME}-release.repo"
+# The package that sets up the Linuxfabrik repository, and the files it ships. The LFOps role
+# repo_linuxfabrik writes the same files under the same names, so either one counts as set up.
+RELEASE_PKG='linuxfabrik-release'
+RELEASE_REPO_FILES='/etc/yum.repos.d/linuxfabrik.repo /etc/zypp/repos.d/linuxfabrik.repo /etc/apt/sources.list.d/linuxfabrik.sources'
+# The former repository below repo.linuxfabrik.ch/monitoring-plugins/, which the Linuxfabrik
+# repository replaces. Its files match this prefix in /etc/yum.repos.d, /etc/zypp/repos.d and
+# /etc/apt/sources.list.d (written by earlier versions of this installer, INSTALL.md and LFOps,
+# including the backups LFOps left), and its apt key lives in /etc/apt/keyrings/linuxfabrik.asc.
+FORMER_REPO_PREFIX="${PKG_NAME}"
+FORMER_APT_KEY='/etc/apt/keyrings/linuxfabrik.asc'
 # The SELinux policy module the -selinux sub-package loads. Source and zip installs load the
 # same file from the tree they install.
 SELINUX_MODULE='linuxfabrik-monitoring-plugins'
@@ -89,6 +97,7 @@ SELINUX_MODULE='linuxfabrik-monitoring-plugins'
 
 MODE='package'                    # 'package', 'source' or 'zip'
 ACTION='install'                  # 'install' or 'uninstall'
+TESTING=0                         # 1: enable the testing channel (package path only)
 SOURCE_REF='main'                 # branch or tag for the --source path
 ZIP_VERSION="${LFMP_VERSION:-}"   # <version>-<iteration> for the --zip path
 PLUGIN_DIR="${DEFAULT_PLUGIN_DIR}"
@@ -169,17 +178,22 @@ Usage:
   install-monitoring-plugins [OPTIONS]
 
 Modes (mutually exclusive; --package is the default):
-  --package            Register the signed package repository and install the package
-                       with the system package manager. Recommended, upgradeable.
+  --package            Set up the signed Linuxfabrik repository with linuxfabrik-release and
+                       install the package with the system package manager. Recommended,
+                       upgradeable. Removes a repository file of the former
+                       repo.linuxfabrik.ch/monitoring-plugins/.
   --source             Install the latest source from GitHub into a venv (no git client,
                        no package manager), instead of the package repository.
                        (--git is accepted as an alias.)
   --zip                Install the signed source zip from download.linuxfabrik.ch
                        (sha256 + GPG verified) into a venv. Defaults to the latest release;
                        pin with --version. Releases only, unlike --source.
-  --uninstall          Reverse a previous package, source or zip install.
+  --uninstall          Reverse a previous package, source or zip install. The Linuxfabrik
+                       repository (linuxfabrik-release) stays, other packages may come from it.
 
 Options:
+  --testing            With the package install: also enable the testing channel, where new
+                       versions wait for 7 days before they reach the release channel.
   --ref=REF            Branch or tag to install with --source (default: main).
   --version=VER        Release for --zip (or set LFMP_VERSION): 'latest' (default) for the
                        newest release, or a pinned <version>-<iteration>, e.g. 2.2.1-1.
@@ -195,6 +209,7 @@ Environment:
 
 Examples:
   install-monitoring-plugins
+  install-monitoring-plugins --testing
   install-monitoring-plugins --source
   install-monitoring-plugins --zip
   install-monitoring-plugins --zip --version=2.2.1-1
@@ -205,12 +220,14 @@ EOF
 
 # --- OS detection ------------------------------------------------------------------------
 
-# Sets OS_FAMILY (rhel|sle|debian|ubuntu), OS_ID and VERSION_CODENAME from os-release.
+# Sets OS_FAMILY (rhel|sle|debian|ubuntu), OS_ID, OS_VERSION_ID and VERSION_CODENAME from
+# os-release.
 detect_os() {
     [ -r /etc/os-release ] || die '/etc/os-release not found; unsupported system'
     # shellcheck disable=SC1091
     . /etc/os-release
     OS_ID="${ID:-}"
+    OS_VERSION_ID="${VERSION_ID:-}"
     VERSION_CODENAME="${VERSION_CODENAME:-}"
     local like="${ID_LIKE:-}"
 
@@ -256,68 +273,146 @@ download() {
 
 # --- path: package repository ------------------------------------------------------------
 
-setup_repo_apt() {
-    # $1 = repo path segment: 'debian' or 'ubuntu'
-    local variant="$1"
-    [ -n "${VERSION_CODENAME}" ] || die 'VERSION_CODENAME missing in /etc/os-release'
-    run mkdir -p /etc/apt/keyrings
-    download "${KEY_URL}" /etc/apt/keyrings/linuxfabrik.asc
-    local list='/etc/apt/sources.list.d/linuxfabrik-monitoring-plugins.list'
-    local line="deb [signed-by=/etc/apt/keyrings/linuxfabrik.asc] \
-${REPO_BASE_URL}/monitoring-plugins/${variant}/ ${VERSION_CODENAME}-release main"
-    if [ "${DRY_RUN}" = '1' ]; then
-        printf '    [dry-run] write %s:\n        %s\n' "${list}" "${line}" >&2
-    else
-        printf '%s\n' "${line}" > "${list}"
+# Remove the repository files of the former repo.linuxfabrik.ch/monitoring-plugins/, which the
+# Linuxfabrik repository replaces. Left in place, the host would see the plugins from two
+# repositories, and from 2026-12-31 on the former one is switched off. The rpm key stays: it
+# signs the Linuxfabrik repository as well.
+remove_former_repo() {
+    local dir f alias
+    for dir in /etc/yum.repos.d /etc/zypp/repos.d /etc/apt/sources.list.d; do
+        [ -d "${dir}" ] || continue
+        for f in "${dir}/${FORMER_REPO_PREFIX}"*; do
+            [ -e "${f}" ] || continue
+            # zypper keeps the repositories it knows in its own cache, so it is told first
+            if [ "${dir}" = '/etc/zypp/repos.d' ] && command -v zypper >/dev/null 2>&1; then
+                sed -n 's/^\[\(.*\)\]$/\1/p' "${f}" | while IFS= read -r alias; do
+                    run zypper --non-interactive removerepo "${alias}" >/dev/null 2>&1 || true
+                done
+            fi
+            log "removing ${f} (former repository, replaced by the Linuxfabrik repository)"
+            run rm -f "${f}"
+        done
+    done
+    # The apt key goes once no apt source refers to it any more.
+    if [ -e "${FORMER_APT_KEY}" ] \
+        && ! grep -rqs --fixed-strings "${FORMER_APT_KEY}" /etc/apt/sources.list /etc/apt/sources.list.d/; then
+        log "removing ${FORMER_APT_KEY} (key of the former repository)"
+        run rm -f "${FORMER_APT_KEY}"
     fi
-    apt_get update
-    apt_get install --yes "${PKG_NAME}"
-    warn_conffile_leftovers
 }
 
-setup_repo_rhel() {
-    run rpm --import "${KEY_URL}"
-    # An existing file is kept: the LFOps role writes it with mirror and credential settings of
-    # its own, which a plain download would throw away.
-    if [ -f "${YUM_REPO_DEST}" ]; then
-        log "keeping the existing ${YUM_REPO_DEST}"
-    else
-        download \
-            "${REPO_BASE_URL}/monitoring-plugins/rhel/${PKG_NAME}-release.repo" \
-            "${YUM_REPO_DEST}"
-    fi
-    run rm -f "${LEGACY_YUM_REPO_DEST}"
-    # The -selinux sub-package pulls in the base package via Recommends.
-    run dnf install --assumeyes "${PKG_NAME_SELINUX}"
+# Prints the repository file of the Linuxfabrik repository on this host, if there is one.
+release_repo_file() {
+    local f
+    for f in ${RELEASE_REPO_FILES}; do
+        [ -e "${f}" ] && { printf '%s\n' "${f}"; return 0; }
+    done
+    return 1
 }
 
-setup_repo_sle() {
-    # Import the signing key into the rpm keyring first, so zypper can verify the repo metadata.
-    # Without it the implicit refresh on addrepo fails with "Signature verification failed".
-    run rpm --import "${KEY_URL}"
-    run zypper --non-interactive addrepo \
-        "${REPO_BASE_URL}/monitoring-plugins/sle/${PKG_NAME}-release.repo"
-    run zypper --non-interactive --gpg-auto-import-keys refresh
-    run zypper --non-interactive install "${PKG_NAME}"
+# The tag in the name of the linuxfabrik-release bootstrap link on repo.linuxfabrik.ch, e.g.
+# el9, sle16, debian13, ubuntu24.04.
+release_tag() {
+    case "${OS_FAMILY}" in
+        rhel)   printf 'el%s' "${OS_VERSION_ID%%.*}" ;;
+        sle)    printf 'sle%s' "${OS_VERSION_ID%%.*}" ;;
+        debian) printf 'debian%s' "${OS_VERSION_ID%%.*}" ;;
+        ubuntu) printf 'ubuntu%s' "${OS_VERSION_ID}" ;;
+    esac
+}
+
+# Set up the Linuxfabrik repository with linuxfabrik-release, unless it is set up already, by the
+# package or by the LFOps role repo_linuxfabrik, which writes the same files. The package comes
+# from its stable bootstrap link, which points to the newest build in the release channel.
+setup_release_repo() {
+    local existing tag url deb
+    if existing="$(release_repo_file)"; then
+        log "keeping the existing Linuxfabrik repository (${existing})"
+        return 0
+    fi
+    tag="$(release_tag)"
+    case "${OS_FAMILY}" in
+        rhel)
+            url="${REPO_BASE_URL}/${RELEASE_PKG}-latest-${tag}.noarch.rpm"
+            # imported first, so dnf checks the signature of linuxfabrik-release as well
+            run rpm --import "${KEY_URL}"
+            run dnf install --assumeyes "${url}" \
+                || die "could not install ${RELEASE_PKG} from ${url}; is ${OS_ID} ${OS_VERSION_ID} supported?"
+            ;;
+        sle)
+            url="${REPO_BASE_URL}/${RELEASE_PKG}-latest-${tag}.noarch.rpm"
+            run rpm --import "${KEY_URL}"
+            run zypper --non-interactive install "${url}" \
+                || die "could not install ${RELEASE_PKG} from ${url}; is ${OS_ID} ${OS_VERSION_ID} supported?"
+            ;;
+        debian|ubuntu)
+            url="${REPO_BASE_URL}/${RELEASE_PKG}-latest-${tag}.deb"
+            deb="$(mktemp --suffix=.deb)"
+            download "${url}" "${deb}" \
+                || die "could not download ${url}; is ${OS_ID} ${OS_VERSION_ID} supported?"
+            # apt-get reads a local file only with a path, and its sandbox user needs read access
+            run chmod 0644 "${deb}"
+            apt_get install --yes "${deb}"
+            run rm -f "${deb}"
+            ;;
+    esac
+}
+
+# Enable the testing channel in the repository file. linuxfabrik-release ships it as a
+# conffile, so the change survives its updates. LFOps resets a file it manages on its next run.
+enable_testing() {
+    local f
+    f="$(release_repo_file)" || { [ "${DRY_RUN}" = '1' ] && return 0; die 'no Linuxfabrik repository file found'; }
+    if grep -qs 'managed by Ansible' "${f}"; then
+        warn "${f} is managed by Ansible: the next LFOps run disables the testing channel again."
+        warn 'To keep it, set repo_linuxfabrik__testing_repo_enabled: true in the inventory.'
+    fi
+    log 'enabling the testing channel (linuxfabrik-testing)'
+    case "${f}" in
+        *.repo)
+            run sed --in-place '/^\[linuxfabrik-testing\]/,/^\[/ s/^enabled=0$/enabled=1/' "${f}"
+            ;;
+        *.sources)
+            # the testing stanza is the only one that carries an Enabled field
+            run sed --in-place 's/^Enabled: no$/Enabled: yes/' "${f}"
+            ;;
+    esac
 }
 
 install_via_package() {
     require_root
     detect_os
-    # The package repository serves enterprise releases only (RHEL 8/9/10, SLE, Debian,
-    # Ubuntu). Fedora is detected as the rhel family for the source path, but has no repo
-    # build, so reject it early instead of failing on a 404 deep inside dnf.
+    # The Linuxfabrik repository serves the Monitoring Plugins for RHEL 8/9/10, SLE, Debian and
+    # Ubuntu. Fedora is detected as the rhel family for the source path, but has no build, so
+    # reject it early instead of failing on a missing package deep inside dnf.
     if [ "${OS_ID}" = 'fedora' ]; then
-        die 'Fedora has no package repository build (supported: RHEL 8/9/10, SLE, Debian, Ubuntu). Install from source instead with --source.'
+        die 'The Monitoring Plugins are not packaged for Fedora (supported: RHEL 8/9/10, SLE, Debian, Ubuntu). Install from source instead with --source.'
     fi
+    # The Linuxfabrik repository first: if it cannot be set up, the former one keeps working.
+    setup_release_repo
+    remove_former_repo
+    [ "${TESTING}" = '1' ] && enable_testing
     case "${OS_FAMILY}" in
-        debian) setup_repo_apt debian ;;
-        ubuntu) setup_repo_apt ubuntu ;;
-        rhel)   setup_repo_rhel ;;
-        sle)    setup_repo_sle ;;
-        *)      die "no repository path for family: ${OS_FAMILY}" ;;
+        debian|ubuntu)
+            apt_get update
+            # install also upgrades a package from the former repository
+            apt_get install --yes "${PKG_NAME}"
+            warn_conffile_leftovers
+            ;;
+        rhel)
+            # The -selinux sub-package pulls in the base package via Recommends. Both are named,
+            # so a base package from the former repository is upgraded along.
+            run dnf install --assumeyes "${PKG_NAME}" "${PKG_NAME_SELINUX}"
+            ;;
+        sle)
+            run zypper --non-interactive --gpg-auto-import-keys refresh
+            run zypper --non-interactive install "${PKG_NAME}"
+            ;;
+        *)
+            die "no repository path for family: ${OS_FAMILY}"
+            ;;
     esac
-    log "installed ${PKG_NAME} from ${REPO_BASE_URL}"
+    log "installed ${PKG_NAME} from the Linuxfabrik repository at ${REPO_BASE_URL}"
     log 'keep current with your usual package manager (dnf/zypper/apt upgrade).'
 }
 
@@ -1135,15 +1230,14 @@ uninstall() {
     detect_os
     local did_something=0
 
-    # Package install: let the package manager reverse it, then drop the repo registration.
+    # Package install: let the package manager reverse it. The Linuxfabrik repository stays,
+    # other packages may come from it; a leftover of the former repository goes.
     if command -v rpm >/dev/null 2>&1 && rpm -q "${PKG_NAME}" >/dev/null 2>&1; then
         did_something=1
         if command -v dnf >/dev/null 2>&1; then
             run dnf remove --assumeyes "${PKG_NAME}" "${PKG_NAME_SELINUX}"
-            run rm -f "${YUM_REPO_DEST}" "${LEGACY_YUM_REPO_DEST}"
         elif command -v zypper >/dev/null 2>&1; then
             run zypper --non-interactive remove "${PKG_NAME}"
-            run zypper --non-interactive removerepo "${PKG_NAME}-release" || true
         fi
     fi
     if command -v dpkg >/dev/null 2>&1 && dpkg -s "${PKG_NAME}" >/dev/null 2>&1; then
@@ -1151,9 +1245,8 @@ uninstall() {
         # Purge rather than remove: a plain remove keeps the package in dpkg's `rc` state and
         # leaves its conffiles in place, the sudoers drop-in among them.
         apt_get purge --yes "${PKG_NAME}"
-        run rm -f "/etc/apt/sources.list.d/${PKG_NAME}.list" \
-                  /etc/apt/keyrings/linuxfabrik.asc
     fi
+    remove_former_repo
 
     # Source/zip install: remove exactly what the manifest recorded, plus the venv state dir.
     if [ -f "${MANIFEST}" ]; then
@@ -1205,6 +1298,7 @@ parse_args() {
             --source|--git)  MODE='source' ;;
             --zip)           MODE='zip' ;;
             --uninstall)     ACTION='uninstall' ;;
+            --testing)       TESTING=1 ;;
             --ref=*)         SOURCE_REF="${1#*=}" ;;
             --version=*)     ZIP_VERSION="${1#*=}" ;;
             --plugin-dir=*)  PLUGIN_DIR="${1#*=}" ;;
@@ -1225,6 +1319,9 @@ main() {
     if [ "${ACTION}" = 'uninstall' ]; then
         uninstall
         return 0
+    fi
+    if [ "${TESTING}" = '1' ] && [ "${MODE}" != 'package' ]; then
+        die '--testing only works with the package install'
     fi
     case "${MODE}" in
         package) install_via_package ;;

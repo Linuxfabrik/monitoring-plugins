@@ -8,7 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-tbd
+### Added
+
+Tools:
+
+* install-monitoring-plugins: `--testing` also enables the testing channel of the Linuxfabrik repository
+
+### Changed
+
+Tools:
+
+* install-monitoring-plugins: sets up the Linuxfabrik repository with `linuxfabrik-release` and removes the former repo.linuxfabrik.ch/monitoring-plugins/, so running the one-liner again switches a host over; `--uninstall` keeps the Linuxfabrik repository
 
 
 ## [v8.1.0] - 2026-10-27
