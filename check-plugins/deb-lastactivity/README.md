@@ -9,7 +9,9 @@ Checks how long ago the last APT package manager activity occurred (install, upd
 
 * Debian, Ubuntu, and other dpkg-based distributions
 * If one or more packages have a missing "Last-Modified" timestamp (for example due to deleted files), the check returns WARN with a hint to reinstall the affected packages
-* If dpkg-query returns no data at all (for example if an update has never been performed), the check returns UNKNOWN
+* If `dpkg-query` lists no package with a "Last-Modified" timestamp at all, the host does not install its packages with APT, and the check returns UNKNOWN
+* If `dpkg-query` itself fails, for example on a damaged `/var/lib/dpkg/status`, the check returns WARN with the error `dpkg-query` reports
+* The check only tells how long ago packages were last changed, not whether updates are pending. For that, use [deb-updates](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/deb-updates/)
 
 **Data Collection:**
 
@@ -71,8 +73,10 @@ Last package manager activity is 5M 2W ago [WARNING] (thresholds 90D/365D).
 * OK if the last package manager activity is within the warning threshold.
 * WARN if the last activity is more than `--warning` days ago (default: 90).
 * WARN if "Last-Modified" timestamp for one or more packages is not found.
+* WARN if `dpkg-query` fails, for example on a damaged dpkg database.
 * CRIT if the last activity is more than `--critical` days ago (default: 365).
-* UNKNOWN if dpkg-query fails or no activity data is available.
+* UNKNOWN if `dpkg-query` is not installed, or lists no package with a "Last-Modified" timestamp.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

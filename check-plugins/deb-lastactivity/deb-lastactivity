@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026102701'
 
 DESCRIPTION = """Checks how long ago the last APT package manager activity occurred (install, update, or
 remove). Alerts if no package management activity has happened within the configured
@@ -98,23 +98,27 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
+    cmd = [
+        'dpkg-query',
+        '--show',
+        '--showformat=${db-fsys:Last-Modified} ${Package}\n',
+    ]
     if args.TEST is None:
         # execute the shell command and return its result and exit code
-        cmd = [
-            'dpkg-query',
-            '--show',
-            '--showformat=${db-fsys:Last-Modified} ${Package}\n',
-        ]
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
-        if retc != 0:
-            lib.base.oao(
-                f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
-                STATE_WARN,
-                always_ok=args.ALWAYS_OK,
-            )
     else:
         # do not call the command, put in test data
-        stdout, _, _ = lib.lftest.test(args.TEST)
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
+    if retc != 0:
+        # a damaged dpkg database is the host's problem, not the plugin's. The `\n`
+        # of the format is shown as such, a real line break would end the first line
+        # of the output, the one notifications carry, before the reason.
+        cmd_display = ' '.join(cmd).replace('\n', '\\n')
+        lib.base.oao(
+            f'`{cmd_display}` failed (exit {retc}): {stderr.strip()}',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
 
     # stdout: 1680072089 adduser\n1680072121 apparmor\n1680072091 apt\n
     try:

@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
@@ -31,6 +31,22 @@ TESTS = [
         'assert-in': [
             'Missing "Last-Modified" timestamp for one or more packages. '
             'Check the output of ',
+        ],
+    },
+    {
+        # A damaged dpkg database is a problem of the host, so WARN, and the reason
+        # has to be on the first line, the one notifications carry.
+        'id': 'warn-dpkg-query-fails',
+        'test': 'stdout/no-packages,stderr/status-file-corrupt,2',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'^`dpkg-query .*\\n` failed \(exit 2\): dpkg-query: error: parsing file',
+    },
+    {
+        'id': 'unknown-no-package-activity',
+        'test': 'stdout/no-packages,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'This check belongs on a host that installs its packages with APT.'
         ],
     },
 ]

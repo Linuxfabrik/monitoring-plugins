@@ -5,6 +5,10 @@
 
 Checks how long ago the last RPM package manager activity occurred (install, update, or remove via yum/dnf). Useful for detecting servers that have not been patched in a long time.
 
+**Important Notes:**
+
+* The check only tells how long ago packages were last changed, not whether updates are pending. For that, use [rpm-updates](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rpm-updates/)
+
 **Data Collection:**
 
 * Executes `rpm --query --all --queryformat "%{INSTALLTIME} %{NAME}\n"` to determine the timestamp of the most recently installed or updated package
@@ -63,7 +67,9 @@ Last package manager activity is 5M 2W ago [WARNING] (thresholds 90D/365D).
 
 * OK if last activity is within the warning threshold.
 * WARN if last activity is older than `--warning` (default: 90 days).
+* WARN if `rpm --query` fails, for example on a damaged RPM database.
 * CRIT if last activity is older than `--critical` (default: 365 days).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

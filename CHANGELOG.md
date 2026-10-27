@@ -109,6 +109,7 @@ Monitoring Plugins:
 * cert: `--source=file` works on RHEL 8
 * cpu-usage: no alert on idle CPUs waiting for I/O
 * csv-values, json-values: a clear UNKNOWN without `--filename` or `--url`, or on invalid JSON
+* deb-lastactivity, rpm-lastactivity: the notification for a failing package database names the reason
 * dhcp-scope-usage: works again, also locally on Windows
 * disk-io: learns the bandwidth for a week before it warns
 * disk-usage, nfs-exports, nfs-mounts, path-rw-test: return on time despite a hung NFS mount
