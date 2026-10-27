@@ -204,8 +204,10 @@ TESTS = [
         'id': 'warn-stale-report',
         'test': 'stdout/generated-30h-old,,0',
         'assert-retc': STATE_WARN,
+        # 1D 7h when the report end falls into the hour that the end of DST repeats:
+        # the report carries no offset, so the plugin reads the first occurrence
+        'assert-regex': r'audited 1D [67]h ago \[WARNING\]',
         'assert-in': [
-            'audited 1D 6h ago [WARNING]',
             'which is more than 26h ago',
             '`systemctl list-timers lynis.timer`',
         ],
