@@ -8,7 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Highlights:** Mainly a bug-fix release: every plugin was tested again against all available Linux and Windows versions. New are `aide-logfile` for the AIDE file integrity check, `lynis-logfile` for the daily lynis audit, `ntp-offset` for the offset of the system clock and `windows-version` for the end of life of Windows. On RHEL, Debian and Ubuntu, the version checks follow the distribution's life cycle for the software it ships. Re-import all Grafana dashboards and the Director basket; hosts on Windows 10 or later and Server 2016 or later move to the per-version Basic Service Sets by their tag.
+tbd
+
+
+## [v8.1.0] - 2026-10-27
+
+**Highlights:** Mainly a bug-fix release: every plugin was tested again against all available Linux and Windows versions. New are `aide-logfile` for the AIDE file integrity check, `lynis-logfile` for the daily lynis audit, `ntp-offset` for the offset of the system clock and `windows-version` for the end of life of Windows. On RHEL, Debian and Ubuntu, the version checks follow the distribution's life cycle for the software it ships. Re-import all Grafana dashboards and the Director basket; hosts on Windows 10 or later and Server 2016 or later move to the per-version Basic Service Sets by their tag. The RPM and DEB packages move to the Linuxfabrik repository: install `linuxfabrik-release` once per host, or deploy it with the `repo_linuxfabrik` role of LFOps; the former repository at repo.linuxfabrik.ch/monitoring-plugins/ keeps receiving updates until 2026-12-31.
 
 ### Added
 
@@ -84,6 +89,10 @@ Icinga Director:
 Grafana:
 
 * re-import all dashboards and re-deploy the `icingaweb2-module-grafana` assets
+
+Build, CI/CD:
+
+* RPM, DEB: the packages come from the Linuxfabrik repository, which the `linuxfabrik-release` package sets up; repo.linuxfabrik.ch/monitoring-plugins/ receives the updates until 2026-12-31 and is switched off then
 
 ### Removed
 
@@ -1821,7 +1830,8 @@ Monitoring Plugins:
 Initial release for the general public.
 
 
-[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v8.0.0...HEAD
+[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v8.1.0...HEAD
+[v8.1.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v8.0.0...v8.1.0
 [v8.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v7.0.0...v8.0.0
 [v7.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v6.0.0...v7.0.0
 [v6.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.2.0...v6.0.0
