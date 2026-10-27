@@ -728,7 +728,7 @@ Each plugin README follows a fixed structure. Use [check-plugins/example/README.
 
 ### Grafana Dashboards
 
-Dashboards live in `check-plugins/<plugin>/grafana/<plugin>.yml`. The title is capitalized, file name and `uid` match the plugin directory. Spaces in a panel-name component become `-`, `/` is dropped (`Network I/O` → `network-io`). Define only properties that differ from Grafana defaults. Sibling dashboards (memory-usage, cpu-usage) line up time ranges, thresholds and labels for side-by-side comparison. Provisioning and the Grizzly → grafanactl migration are in [GRAFANA.md](GRAFANA.md).
+Dashboards live in `check-plugins/<plugin>/grafana/<plugin>.yml`. The title is capitalized, file name and `uid` match the plugin directory. Spaces in a panel-name component become `-`, `/` is dropped (`Network I/O` → `network-io`). Define only properties that differ from Grafana defaults. Queries group with `fill(null)`, panels set `spanNulls` to three times the basket's `check_interval` in milliseconds and the legend uses `firstNotNull` / `lastNotNull`, so periods without data stay empty instead of being bridged. Sibling dashboards (memory-usage, cpu-usage) line up time ranges, thresholds and labels for side-by-side comparison. Provisioning and the Grizzly → grafanactl migration are in [GRAFANA.md](GRAFANA.md).
 
 
 ### Plugins and Capabilities
