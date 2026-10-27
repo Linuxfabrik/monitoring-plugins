@@ -59,52 +59,35 @@ sudo bash install-monitoring-plugins
 
 ### Package Repository, Manual Setup
 
-For hosts whose repositories are managed by hand or by other tooling. What the one-liner does in its default mode. If you run Icinga Director, pin the package version before upgrading, so the Director configuration and the plugins stay in sync.
+For hosts whose repositories are managed by hand or by other tooling. The `linuxfabrik-release` package sets up the signed Linuxfabrik package repository, which serves the Monitoring Plugins along with the other Linuxfabrik packages. If you run Icinga Director, pin the package version before upgrading, so the Director configuration and the plugins stay in sync.
 
-Debian 11, 12, 13:
-
-```bash
-sudo mkdir -p /etc/apt/keyrings
-sudo curl -fsSL https://repo.linuxfabrik.ch/linuxfabrik.key --output /etc/apt/keyrings/linuxfabrik.asc
-source /etc/os-release
-echo "deb [signed-by=/etc/apt/keyrings/linuxfabrik.asc] \
-https://repo.linuxfabrik.ch/monitoring-plugins/debian/ $VERSION_CODENAME-release main" \
-    | sudo tee /etc/apt/sources.list.d/linuxfabrik-monitoring-plugins.list
-sudo apt update
-sudo apt install linuxfabrik-monitoring-plugins
-```
-
-RHEL 8, 9, 10 (Rocky, AlmaLinux, CentOS Stream, Oracle Linux):
+RHEL 8, 9, 10 (Rocky, AlmaLinux, CentOS Stream, Oracle Linux; replace `el10` with `el8` or `el9`):
 
 ```bash
-sudo rpm --import https://repo.linuxfabrik.ch/linuxfabrik.key
-sudo curl -fsSL https://repo.linuxfabrik.ch/monitoring-plugins/rhel/linuxfabrik-monitoring-plugins-release.repo \
-    --output /etc/yum.repos.d/linuxfabrik-monitoring-plugins.repo
+sudo dnf install https://repo.linuxfabrik.ch/linuxfabrik-release-latest-el10.noarch.rpm
 sudo dnf install linuxfabrik-monitoring-plugins-selinux
 ```
 
 The `-selinux` sub-package pulls in the base package and loads the SELinux policy module (see [SELinux](#selinux)). Install `linuxfabrik-monitoring-plugins` instead if SELinux is permissive or disabled.
 
-SLE 15 SP5+, SLE 16, openSUSE Leap:
+SLE 15 SP5+, SLE 16, openSUSE Leap (replace `sle16` with `sle15`):
 
 ```bash
 sudo rpm --import https://repo.linuxfabrik.ch/linuxfabrik.key
-sudo zypper addrepo https://repo.linuxfabrik.ch/monitoring-plugins/sle/linuxfabrik-monitoring-plugins-release.repo
+sudo zypper install https://repo.linuxfabrik.ch/linuxfabrik-release-latest-sle16.noarch.rpm
 sudo zypper install linuxfabrik-monitoring-plugins
 ```
 
-Ubuntu 22.04, 24.04, 26.04:
+Debian 11, 12, 13, Ubuntu 22.04, 24.04, 26.04 (replace `debian13` with `debian11`, `debian12`, `ubuntu22.04`, `ubuntu24.04` or `ubuntu26.04`):
 
 ```bash
-sudo mkdir -p /etc/apt/keyrings
-sudo curl -fsSL https://repo.linuxfabrik.ch/linuxfabrik.key --output /etc/apt/keyrings/linuxfabrik.asc
-source /etc/os-release
-echo "deb [signed-by=/etc/apt/keyrings/linuxfabrik.asc] \
-https://repo.linuxfabrik.ch/monitoring-plugins/ubuntu/ $VERSION_CODENAME-release main" \
-    | sudo tee /etc/apt/sources.list.d/linuxfabrik-monitoring-plugins.list
+curl --fail --location --remote-name https://repo.linuxfabrik.ch/linuxfabrik-release-latest-debian13.deb
+sudo apt install ./linuxfabrik-release-latest-debian13.deb
 sudo apt update
 sudo apt install linuxfabrik-monitoring-plugins
 ```
+
+A host that was set up with the former repository at repo.linuxfabrik.ch/monitoring-plugins/ switches over by installing `linuxfabrik-release` and removing `/etc/yum.repos.d/linuxfabrik-monitoring-plugins*.repo`, the `linuxfabrik-monitoring-plugins-release` zypper repository (`sudo zypper removerepo linuxfabrik-monitoring-plugins-release`), or `/etc/apt/sources.list.d/linuxfabrik-monitoring-plugins.list` and `/etc/apt/keyrings/linuxfabrik.asc`.
 
 
 ### Source, Manual Setup
