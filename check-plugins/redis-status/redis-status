@@ -28,7 +28,7 @@ from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 __author__ = """
 Linuxfabrik GmbH, Zurich/Switzerland;
 """
-__version__ = '2026102502'
+__version__ = '2026102701'
 
 DESCRIPTION = """Monitors a Redis server via the INFO command. Reports memory usage, fragmentation ratio,
 keyspace hit rate, connected clients, replication status, and persistence state. Alerts
@@ -332,11 +332,8 @@ def main():
     if not stdout.startswith('# Server'):
         lib.base.oao(stdout, STATE_WARN, always_ok=args.ALWAYS_OK)
 
-    # Debug output
-    if args.VERBOSE:
-        print(stdout)
-
-    # parse the output
+    # parse the output, keeping the raw INFO answer for --verbose
+    info = stdout
     lines = stdout.splitlines()
     result = {}
     for line in lines:
@@ -426,9 +423,14 @@ def main():
     for key, value in result.items():
         try:
             if value.startswith('keys='):
-                # we found a database section
-                keys, expires, avg_ttl = value.split(',')
-                keys = int(keys.replace('keys=', ''))
+                # we found a database section. Read it as key=value pairs: Redis 7.4
+                # appends `subexpiry=`, Valkey `keys_with_volatile_items=`, and a fixed
+                # split into three dropped the whole database (Redis src/server.c,
+                # Valkey src/server.c, genRedisInfoString()/genValkeyInfoString()).
+                fields = dict(item.split('=', 1) for item in value.split(','))
+                keys = int(fields['keys'])
+                expires = fields['expires']
+                avg_ttl = fields['avg_ttl']
                 db_count += 1
                 db_names += key + ' '
                 key_count += keys
@@ -443,7 +445,7 @@ def main():
                 )
                 perfdata += lib.base.get_perfdata(
                     f'keyspace_{key}_expires',
-                    expires.replace('expires=', ''),
+                    expires,
                     uom=None,
                     warn=None,
                     crit=None,
@@ -452,7 +454,7 @@ def main():
                 )
                 perfdata += lib.base.get_perfdata(
                     f'keyspace_{key}_avg_ttl',
-                    float(avg_ttl.replace('avg_ttl=', '')) / 1000,
+                    float(avg_ttl) / 1000,
                     uom='s',
                     warn=None,
                     crit=None,
@@ -724,52 +726,17 @@ def main():
         _max=None,
     )
     perfdata += lib.base.get_perfdata(
-        'persistance_aof_current_rewrite_time_sec',
-        result['aof_current_rewrite_time_sec'],
+        'persistence_aof_current_rewrite_time_sec',
+        # -1 while none is running
+        max(0, result['aof_current_rewrite_time_sec']),
         uom='s',
         warn=None,
         crit=None,
-        _min=-1,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'persistance_aof_rewrite_in_progress',
-        result['aof_rewrite_in_progress'],
-        uom=None,
-        warn=None,
-        crit=None,
         _min=0,
         _max=None,
     )
     perfdata += lib.base.get_perfdata(
-        'persistance_aof_rewrite_scheduled',
-        result['aof_rewrite_scheduled'],
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'persistance_loading',
-        result['loading'],
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'persistance_rdb_bgsave_in_progress',
-        result['rdb_bgsave_in_progress'],
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'persistance_rdb_changes_since_last_save',
+        'persistence_rdb_changes_since_last_save',
         result['rdb_changes_since_last_save'],
         uom=None,
         warn=None,
@@ -779,12 +746,13 @@ def main():
     )
 
     perfdata += lib.base.get_perfdata(
-        'persistance_rdb_current_bgsave_time_sec',
-        result['rdb_current_bgsave_time_sec'],
+        'persistence_rdb_current_bgsave_time_sec',
+        # -1 while none is running
+        max(0, result['rdb_current_bgsave_time_sec']),
         uom='s',
         warn=None,
         crit=None,
-        _min=-1,
+        _min=0,
         _max=None,
     )
 
@@ -827,72 +795,9 @@ def main():
     )
 
     perfdata += lib.base.get_perfdata(
-        'stats_instantaneous_input',
-        int(float(result['instantaneous_input_kbps']) / 8000),
-        uom='B',
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )  # Bytes/sec
-    perfdata += lib.base.get_perfdata(
-        'stats_instantaneous_ops_per_sec',
-        result['instantaneous_ops_per_sec'],
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'stats_instantaneous_output',
-        int(float(result['instantaneous_output_kbps']) / 8000),
-        uom='B',  # Bytes/sec
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
         'stats_latest_fork_usec',
         result['latest_fork_usec'],
         uom='us',
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'stats_rejected_connections',
-        result['rejected_connections'],
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'stats_sync_full',
-        result['sync_full'],
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'stats_sync_partial_err',
-        result['sync_partial_err'],
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'stats_sync_partial_ok',
-        result['sync_partial_ok'],
-        uom=None,
         warn=None,
         crit=None,
         _min=0,
@@ -909,6 +814,10 @@ def main():
         'expired_keys': int(result['expired_keys']),
         'keyspace_hits': int(result['keyspace_hits']),
         'keyspace_misses': int(result['keyspace_misses']),
+        'rejected_connections': int(result['rejected_connections']),
+        'sync_full': int(result['sync_full']),
+        'sync_partial_err': int(result['sync_partial_err']),
+        'sync_partial_ok': int(result['sync_partial_ok']),
         'total_commands_processed': int(result['total_commands_processed']),
         'total_connections_received': int(result['total_connections_received']),
         'total_net_input_bytes': int(result['total_net_input_bytes']),
@@ -924,11 +833,16 @@ def main():
             float(result['used_cpu_user_children']) * 1_000_000
         ),
     }
-    rates = lib.db_sqlite.per_second_deltas(
-        'linuxfabrik-monitoring-plugins-redis-status.db',
-        'redis-status',
-        {**stats_counters, **cpu_counters},
-    )
+    # One baseline per server: two instances on the same host would otherwise compute
+    # their rates from each other's counters. In test mode, no state is kept, so the
+    # tests do not depend on the order they run in.
+    rates = None
+    if args.TEST is None:
+        rates = lib.db_sqlite.per_second_deltas(
+            'linuxfabrik-monitoring-plugins-redis-status.db',
+            args.SOCKET or f'{args.HOSTNAME}:{args.PORT}',
+            {**stats_counters, **cpu_counters},
+        )
     if rates is not None:
         bytes_rates = ('total_net_input_bytes', 'total_net_output_bytes')
         for key in stats_counters:
@@ -953,9 +867,22 @@ def main():
                 _max=None,
             )
 
+    # with --verbose, the INFO answer follows the result instead of
+    # preceding it, one line per field and one blank line between its sections.
+    # INFO ends its lines with `\r\n`, and a carriage return left in the output shows
+    # up as an empty line in some web interfaces.
+    msg = msg[:-2]
+    if args.VERBOSE:
+        for line in info.splitlines():
+            line = line.strip()
+            if line.startswith('#'):
+                msg += '\n'
+            if line:
+                msg += f'\n{line}'
+
     # over and out
     lib.base.oao(
-        msg[:-2],
+        msg,
         state,
         perfdata,
         always_ok=args.ALWAYS_OK,

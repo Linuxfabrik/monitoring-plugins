@@ -109,6 +109,45 @@ TESTS = [
         ],
         'assert-not-in': ['linuxfabrik'],
     },
+    # --verbose: the result stays the first line, the INFO answer follows it,
+    # without the carriage returns of the protocol (this fixture keeps them).
+    {
+        'id': 'parses-redis-3.0-verbose-follows-result',
+        'test': 'stdout/redis-3.0-standalone-v2,,0',
+        'params': '--verbose',
+        'assert-regex': r'^Redis v3\.0\.[^\n]*\n\n# Server\nredis_version:',
+        'assert-not-in': ['\r', '\n\n\n'],
+    },
+    # Durations idle at -1 are reported as 0s. In-progress flags and the raw
+    # cumulative counters are not perfdata, the counters are rates instead.
+    {
+        'id': 'parses-redis-6.0-perfdata',
+        'test': 'stdout/redis-6.0-standalone,,0',
+        'assert-in': [
+            "'persistence_aof_current_rewrite_time_sec'=0s;;;0",
+            "'persistence_rdb_changes_since_last_save'=692.0;;;0",
+        ],
+        'assert-not-in': [
+            'persistance',
+            'stats_instantaneous',
+            '_in_progress',
+            'persistence_loading',
+            "'stats_rejected_connections'",
+            "'stats_sync_full'",
+        ],
+    },
+    # Redis 7.4 appends `subexpiry=` to every database line of the keyspace
+    # section; both databases have to be counted and reported.
+    {
+        'id': 'parses-redis-7.4-two-dbs-with-subexpiry',
+        'test': 'stdout/redis-7.4-two-dbs,,0',
+        'assert-in': [
+            '2 DBs (db0 db1) with 200 keys',
+            "'keyspace_db0_expires'=100;;;0",
+            "'keyspace_db1_keys'=100;;;0",
+            "'key_count'=200;;;0",
+        ],
+    },
 ]
 
 

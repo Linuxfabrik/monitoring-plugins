@@ -77,6 +77,37 @@ TESTS = [
         ],
         'assert-not-in': ['linuxfabrik'],
     },
+    # --verbose: the result stays the first line, the INFO answer follows it,
+    # without the carriage returns of the protocol (this fixture keeps them).
+    {
+        'id': 'parses-valkey-8.1-verbose-follows-result',
+        'test': 'stdout/valkey-8.1-standalone,,0',
+        'params': '--verbose',
+        'assert-regex': r'^Valkey v8\.1\.[^\n]*\n\n# Server\nredis_version:',
+        'assert-not-in': ['\r', '\n\n\n'],
+    },
+    {
+        'id': 'parses-valkey-8.1-perfdata',
+        'test': 'stdout/valkey-8.1-standalone,,0',
+        'assert-in': ["'persistence_rdb_current_bgsave_time_sec'=0s;;;0"],
+        'assert-not-in': [
+            'persistance',
+            'stats_instantaneous',
+            '_in_progress',
+            'persistence_loading',
+            "'stats_rejected_connections'",
+            "'stats_sync_full'",
+        ],
+    },
+    {
+        'id': 'parses-valkey-8.1-two-dbs',
+        'test': 'stdout/valkey-8.1-two-dbs,,0',
+        'assert-in': [
+            '2 DBs (db0 db1) with 200 keys',
+            "'keyspace_db0_expires'=100;;;0",
+            "'keyspace_db1_keys'=100;;;0",
+        ],
+    },
 ]
 
 

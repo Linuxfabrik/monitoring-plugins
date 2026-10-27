@@ -7,7 +7,9 @@ Monitors a Valkey server via the `INFO` command and the `MEMORY DOCTOR` subcomma
 
 **Important Notes:**
 
-* Tested with Valkey 7.2 and 8.0
+* Tested with Valkey 7.2, 8.0 and 8.1
+* The `*_per_second` and `cpu_*` metrics are rates between two check runs, kept per server, so they appear from the second run on and are missing for one run after a restart of Valkey
+* `--verbose` appends the `INFO` answer below the result, one field per line
 * "I'm here to keep you safe, Sam. I want to help you." comes from the character GERTY in the movie "Moon" (2009).
 
 **Data Collection:**
@@ -141,45 +143,38 @@ Latest info can be found [here](https://valkey.io/commands/info/).
 |----|----|----|
 | clients_blocked_clients | Number | Number of clients pending on a blocking call. |
 | clients_connected_clients | Number | Number of client connections (excluding connections from replicas). |
-| cpu_used_cpu_sys_percent | Percentage | System (kernel) CPU consumed by the server, in percent. |
 | cpu_used_cpu_sys_children_percent | Percentage | System CPU consumed by child processes, in percent. |
-| cpu_used_cpu_user_percent | Percentage | User CPU consumed by the server, in percent. |
+| cpu_used_cpu_sys_percent | Percentage | System (kernel) CPU consumed by the server, in percent. |
 | cpu_used_cpu_user_children_percent | Percentage | User CPU consumed by child processes, in percent. |
-| db_count | Number | Number of Valkey databases. |
+| cpu_used_cpu_user_percent | Percentage | User CPU consumed by the server, in percent. |
+| db_count | Number | Number of Valkey databases holding keys. |
 | key_count | Number | Sum of all keys across all databases. |
 | keyspace_DBNAME_avg_ttl | Seconds | Average TTL for keys in this database. |
 | keyspace_DBNAME_expires | Number | Number of keys with an expiration in this database. |
 | keyspace_DBNAME_keys | Number | Number of keys in this database. |
-| keyspace_hit_rate | Percentage | Percentage of key lookups successfully returned. A higher value indicates better cache efficiency. |
+| keyspace_hit_rate | Percentage | Percentage of key lookups successfully returned since the server start. |
 | mem_usage | Percentage | Memory usage relative to `maxmemory` (or total system memory if `maxmemory` is 0). |
-| memory_maxmemory | Bytes | Configured maximum memory limit. |
+| memory_maxmemory | Bytes | Configured maximum memory limit, 0 if unlimited. |
 | memory_mem_fragmentation_ratio | Number | Ratio between `used_memory_rss` and `used_memory`. |
 | memory_used_memory | Bytes | Total bytes allocated by Valkey using its allocator. |
 | memory_used_memory_lua | Bytes | Bytes used by the Lua engine. |
 | memory_used_memory_rss | Bytes | Bytes allocated as seen by the OS (resident set size). |
-| persistance_aof_current_rewrite_time_sec | Seconds | Duration of the on-going AOF rewrite operation if any. |
-| persistance_aof_rewrite_in_progress | Number | Flag indicating an AOF rewrite operation is on-going. |
-| persistance_aof_rewrite_scheduled | Number | Flag indicating an AOF rewrite will be scheduled once the on-going RDB save is complete. |
-| persistance_loading | Number | Flag indicating if the load of a dump file is on-going. |
-| persistance_rdb_bgsave_in_progress | Number | Flag indicating a RDB save is on-going. |
-| persistance_rdb_changes_since_last_save | Number | Number of changes since the last dump. |
-| persistance_rdb_current_bgsave_time_sec | Seconds | Duration of the on-going RDB save operation if any. |
+| persistence_aof_current_rewrite_time_sec | Seconds | Duration of the on-going AOF rewrite, 0 if none is running. |
+| persistence_rdb_changes_since_last_save | Number | Number of changes since the last dump. |
+| persistence_rdb_current_bgsave_time_sec | Seconds | Duration of the on-going RDB save, 0 if none is running. |
 | replication_connected_slaves | Number | Number of connected replicas. |
 | replication_repl_backlog_histlen | Bytes | Size of the data in the replication backlog buffer. |
 | replication_repl_backlog_size | Bytes | Total size of the replication backlog buffer. |
 | server_uptime_in_seconds | Seconds | Number of seconds since Valkey server start. |
-| stats_evicted_keys_per_second | Number | Evicted keys per second (due to maxmemory limit). |
+| stats_evicted_keys_per_second | Number | Keys evicted per second because of the `maxmemory` limit. |
 | stats_expired_keys_per_second | Number | Key expiration events per second. |
-| stats_instantaneous_input | Bytes | Network read rate per second. |
-| stats_instantaneous_ops_per_sec | Number | Number of commands processed per second. |
-| stats_instantaneous_output | Bytes | Network write rate per second. |
 | stats_keyspace_hits_per_second | Number | Successful key lookups per second. |
 | stats_keyspace_misses_per_second | Number | Failed key lookups per second. |
 | stats_latest_fork_usec | Microseconds | Duration of the latest fork operation. |
-| stats_rejected_connections | Number | Number of connections rejected because of maxclients limit. |
-| stats_sync_full | Number | Number of full resyncs with replicas. |
-| stats_sync_partial_err | Number | Number of denied partial resync requests. |
-| stats_sync_partial_ok | Number | Number of accepted partial resync requests. |
+| stats_rejected_connections_per_second | Number | Connections rejected per second because of the `maxclients` limit. |
+| stats_sync_full_per_second | Number | Full resyncs with replicas per second. |
+| stats_sync_partial_err_per_second | Number | Denied partial resync requests per second. |
+| stats_sync_partial_ok_per_second | Number | Accepted partial resync requests per second. |
 | stats_total_commands_processed_per_second | Number | Commands processed per second. |
 | stats_total_connections_received_per_second | Number | Connections accepted per second. |
 | stats_total_net_input_bytes_per_second | Bytes | Bytes read from the network per second. |
