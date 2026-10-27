@@ -146,11 +146,18 @@ Executed occ commands:
 `config/config.php` belongs to an account other than the one running the check, so the check switches to that account with `sudo`. Install it, for example with `dnf install sudo` or `apt install sudo`.
 
 
+### `sudo` refuses to switch to the owner of `config.php`
+
+``Could not run PHP as uid 48, the owner of `config/config.php`: sudo answered "a password is required". Allow the account running this to run commands as that uid with sudo, or run it as root.``
+
+The check runs neither as root nor as the owner of `config/config.php`, and `sudo` has no rule for the monitoring user. The supplied check command calls the check with `/usr/bin/sudo` and needs the matching [sudoers entry](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/assets/sudoers); restore both if they were changed.
+
+
 ### Could not read the configuration below the installation
 
-``Could not read the configuration below `/var/www/html/nextcloud`: PHP ended with rc=1. Run `php occ status` in `/var/www/html/nextcloud` as the owner of `config/config.php` to see why.``
+``Could not read the configuration below `/var/www/html/nextcloud`: PHP ended with rc=255. Run `php occ status` in `/var/www/html/nextcloud` as the owner of `config/config.php` to see why.``
 
-Most often the check runs neither as root nor as the owner of `config/config.php`, and `sudo` refuses to switch to that account because it has no rule for the monitoring user. The supplied check command calls the check with `/usr/bin/sudo` and needs the matching [sudoers entry](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/assets/sudoers); restore both if they were changed. If the check already runs as root, follow the message: `php occ status` as the owner of `config.php` shows what PHP complains about.
+PHP could not evaluate the configuration, most often because of a syntax error in `config/config.php` or one of the `config/*.config.php` files. The message leaves PHP's own output out, because it can quote the configuration, passwords included. Run `php occ status` as the owner of `config.php` to see it.
 
 
 ### Refusing an installation another account can change
