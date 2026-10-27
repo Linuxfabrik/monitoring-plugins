@@ -28,7 +28,7 @@ __author__ = """
 Linuxfabrik GmbH, Zurich/Switzerland;
 enhanced by Claudio Kuenzler
 """
-__version__ = '2026102701'
+__version__ = '2026102702'
 
 DESCRIPTION = """Monitors a Valkey server via the INFO command. Reports memory usage, fragmentation
 ratio, keyspace hit rate, connected clients, replication status, and persistence state.
@@ -126,9 +126,8 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-sync-partial-err',
-        help='Suppress the warning about partial sync errors. '
-        'Useful for asynchronous replication setups where a small number of '
-        '"denied partial resync requests" is expected.',
+        help='Suppress the warning when replicas were denied a partial resync since '
+        'the last check and fell back to a full sync.',
         dest='IGNORE_SYNCPARTIALERR',
         default=DEFAULT_IGNORE_SYNCPARTIALERR,
         action='store_true',
@@ -341,6 +340,46 @@ def main():
         if not stdout.startswith('ERR '):
             result['memory_doctor'] = stdout.strip()
 
+    # Convert the cumulative INFO counters to per-second rates against the
+    # previous run, stored in this plugin's own SQLite cache, instead of
+    # emitting them as continuous counters (issue #320). CPU times are
+    # cumulative seconds; they are stored as microseconds so the integer cache
+    # keeps sub-second precision, then turned into a CPU percentage.
+    stats_counters = {
+        'evicted_keys': int(result['evicted_keys']),
+        'expired_keys': int(result['expired_keys']),
+        'keyspace_hits': int(result['keyspace_hits']),
+        'keyspace_misses': int(result['keyspace_misses']),
+        'rejected_connections': int(result['rejected_connections']),
+        'sync_full': int(result['sync_full']),
+        'sync_partial_err': int(result['sync_partial_err']),
+        'sync_partial_ok': int(result['sync_partial_ok']),
+        'total_commands_processed': int(result['total_commands_processed']),
+        'total_connections_received': int(result['total_connections_received']),
+        'total_net_input_bytes': int(result['total_net_input_bytes']),
+        'total_net_output_bytes': int(result['total_net_output_bytes']),
+    }
+    cpu_counters = {
+        'used_cpu_sys': int(float(result['used_cpu_sys']) * 1_000_000),
+        'used_cpu_sys_children': int(
+            float(result['used_cpu_sys_children']) * 1_000_000
+        ),
+        'used_cpu_user': int(float(result['used_cpu_user']) * 1_000_000),
+        'used_cpu_user_children': int(
+            float(result['used_cpu_user_children']) * 1_000_000
+        ),
+    }
+    # One baseline per server: two instances on the same host would otherwise compute
+    # their rates from each other's counters. In test mode, no state is kept, so the
+    # tests do not depend on the order they run in.
+    rates = None
+    if args.TEST is None:
+        rates = lib.db_sqlite.per_second_deltas(
+            'linuxfabrik-monitoring-plugins-valkey-status.db',
+            args.SOCKET or f'{args.HOSTNAME}:{args.PORT}',
+            {**stats_counters, **cpu_counters},
+        )
+
     # init some vars
     msg = ''
     state = STATE_OK
@@ -530,8 +569,19 @@ def main():
             state = lib.base.get_worst(state, STATE_WARN)
         msg += ', '
 
-    if result['sync_partial_err'] > 0:
-        msg += f'{result["sync_partial_err"]} denied partial resync requests'
+    # A replica that lost its connection asks to continue where it left off. Refused,
+    # because the replication backlog no longer holds what it missed or because the
+    # replication ID changed, it has to fetch a full copy, which forks and transfers a
+    # complete dump. The counter covers the time since the server start, so only a
+    # rise since the previous run says that it happened now; a single, recovered event
+    # would otherwise warn until the next restart. Verified against
+    # masterTryPartialResynchronization() in src/replication.c of Redis and Valkey.
+    if rates is not None and rates['sync_partial_err'] > 0:
+        msg += (
+            'replicas were denied a partial resync since the last check and fell back'
+            ' to a full sync (if the log says "lack of backlog", raise'
+            ' `repl-backlog-size`)'
+        )
         if not args.IGNORE_SYNCPARTIALERR:
             msg += lib.base.state2str(STATE_WARN, prefix=' ')
             state = lib.base.get_worst(state, STATE_WARN)
@@ -788,45 +838,6 @@ def main():
         _max=None,
     )
 
-    # Convert the cumulative INFO counters to per-second rates against the
-    # previous run, stored in this plugin's own SQLite cache, instead of
-    # emitting them as continuous counters (issue #320). CPU times are
-    # cumulative seconds; they are stored as microseconds so the integer cache
-    # keeps sub-second precision, then turned into a CPU percentage.
-    stats_counters = {
-        'evicted_keys': int(result['evicted_keys']),
-        'expired_keys': int(result['expired_keys']),
-        'keyspace_hits': int(result['keyspace_hits']),
-        'keyspace_misses': int(result['keyspace_misses']),
-        'rejected_connections': int(result['rejected_connections']),
-        'sync_full': int(result['sync_full']),
-        'sync_partial_err': int(result['sync_partial_err']),
-        'sync_partial_ok': int(result['sync_partial_ok']),
-        'total_commands_processed': int(result['total_commands_processed']),
-        'total_connections_received': int(result['total_connections_received']),
-        'total_net_input_bytes': int(result['total_net_input_bytes']),
-        'total_net_output_bytes': int(result['total_net_output_bytes']),
-    }
-    cpu_counters = {
-        'used_cpu_sys': int(float(result['used_cpu_sys']) * 1_000_000),
-        'used_cpu_sys_children': int(
-            float(result['used_cpu_sys_children']) * 1_000_000
-        ),
-        'used_cpu_user': int(float(result['used_cpu_user']) * 1_000_000),
-        'used_cpu_user_children': int(
-            float(result['used_cpu_user_children']) * 1_000_000
-        ),
-    }
-    # One baseline per server: two instances on the same host would otherwise compute
-    # their rates from each other's counters. In test mode, no state is kept, so the
-    # tests do not depend on the order they run in.
-    rates = None
-    if args.TEST is None:
-        rates = lib.db_sqlite.per_second_deltas(
-            'linuxfabrik-monitoring-plugins-valkey-status.db',
-            args.SOCKET or f'{args.HOSTNAME}:{args.PORT}',
-            {**stats_counters, **cpu_counters},
-        )
     if rates is not None:
         bytes_rates = ('total_net_input_bytes', 'total_net_output_bytes')
         for key in stats_counters:

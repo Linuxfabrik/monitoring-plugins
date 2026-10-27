@@ -69,10 +69,9 @@ options:
   --ignore-somaxconn    Suppress the warning when net.core.somaxconn is lower
                         than net.ipv4.tcp_max_syn_backlog.
   --ignore-sync-partial-err
-                        Suppress the warning about partial sync errors. Useful
-                        for asynchronous replication setups where a small
-                        number of "denied partial resync requests" is
-                        expected.
+                        Suppress the warning when replicas were denied a
+                        partial resync since the last check and fell back to a
+                        full sync.
   --ignore-thp          Suppress the warning about transparent huge pages
                         being set to "always".
   --no-perfdata         Suppress the performance data section from the output.
@@ -128,7 +127,7 @@ is not set to "madvise" or "never"
 * WARN or CRIT if memory usage exceeds `--warning` (default: 90) or `--critical` (default: None).
 * WARN when `maxmemory` is 0 (unless `--ignore-maxmemory0`).
 * WARN on OS misconfigurations: `vm.overcommit_memory`, `transparent_hugepage`, `somaxconn` (each suppressible via the corresponding `--ignore-*` flag).
-* WARN on partial sync errors (unless `--ignore-sync-partial-err`).
+* WARN if replicas were denied a partial resync since the previous check and had to fall back to a full sync, unless suppressed via `--ignore-sync-partial-err`. A denial before the previous check, still counted by the server until its restart, does not warn again.
 * WARN on memory doctor findings (peak-memory-only and jemalloc-related high-RSS are auto-suppressed).
 * WARN if `valkey-cli` cannot reach the server, or gets no answer within `--timeout`.
 * UNKNOWN if the login fails, because `--password` is missing or Valkey rejects the username or password.
@@ -199,6 +198,16 @@ Run `echo madvise > /sys/kernel/mm/transparent_hugepage/enabled`.
 
 `tcp_max_syn_backlog` represents the maximal number of connections in `SYN_RECV` queue. `somaxconn` represents the maximal size of `ESTABLISHED` queue and should be greater than `tcp_max_syn_backlog`, so do something like this: `sysctl -w net.core.somaxconn=1024; sysctl -w net.ipv4.tcp_max_syn_backlog=512`
 
+
+### Replicas were denied a partial resync
+
+`replicas were denied a partial resync since the last check and fell back to a full sync`
+
+A replica lost its connection to this primary, asked to continue where it left off, and was refused. It then fetched a complete copy, which makes the primary fork and transfer a full dump. A single event after a network outage or a restart is harmless, the replication has recovered by the time the check reports it, and the next check is OK again. If it keeps coming back:
+
+1. Look for the reason in the Valkey log of the primary: `for lack of backlog` or `Replication ID mismatch`.
+2. On `for lack of backlog`, the replication backlog is too small to cover the time a replica is away. Raise `repl-backlog-size` in `valkey.conf` (the default is 10 MB), or at runtime with `valkey-cli config set repl-backlog-size 64mb`.
+3. On `Replication ID mismatch`, the primary changed its replication history, for example after a restart without persistence. Check why the primary restarted or lost its data.
 
 ## Credits, License
 

@@ -195,7 +195,7 @@ Monitoring Plugins:
 * php-status: reads only root-owned pool configs, `--config` compares the whole value, finds every missing module
 * podman-\*: `--user` needs a subordinate UID range
 * postgresql-version: `--path` runs only a `psql` that nobody but root can change
-* redis-status, valkey-status: the password stays out of the process list, a refused login is UNKNOWN
+* redis-status, valkey-status: the password stays out of the process list, a refused login is UNKNOWN, a recovered replica resync no longer warns until the next restart
 * restic-\*: `--repo` can no longer run programs or write files as root, works with restic 0.18
 * scanrootkit: no longer reveals which files exist, detects 23 more rootkits and those named by a pattern
 * snmp: a device answer is never run as code, works with the default `--device` and on Debian and Ubuntu
