@@ -107,12 +107,14 @@ jobs:
 
       # The JEA endpoint setup ships with the plugins, in a folder of its own, so the ZIP
       # and the MSI (which takes check-plugins/** with its subfolders) both carry it.
-      # See PLUGINS-WINDOWS.md.
+      # See PLUGINS-WINDOWS.md. Quoted and without a glob: the paths are Windows paths with
+      # backslashes, which Git Bash reads as escapes when it expands an unquoted `*`, so the
+      # pattern matched nothing (verified with Git Bash 2.56 on Windows Server 2025).
       - name: 'Add the JEA endpoint setup'
         shell: 'bash'
         run: >
-          mkdir -p $LFMP_DIR_COMPILED/check-plugins/jea &&
-          cp $LFMP_DIR_REPOS/monitoring-plugins/assets/windows-jea/* $LFMP_DIR_COMPILED/check-plugins/jea/
+          mkdir -p "$LFMP_DIR_COMPILED/check-plugins/jea" &&
+          cp -r "$LFMP_DIR_REPOS/monitoring-plugins/assets/windows-jea/." "$LFMP_DIR_COMPILED/check-plugins/jea/"
 
       - name: 'Upload the unsigned compiled plugins'
         uses: 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9' # v7.0.2
