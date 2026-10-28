@@ -27,7 +27,7 @@ import importlib.util
 import json
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
 import tempfile
 import unittest
@@ -465,7 +465,7 @@ class TestTotalTimeout(unittest.TestCase):
     def test_a_spent_budget_asks_for_nothing_and_says_so(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             env = dict(os.environ, TMPDIR=tmpdir)
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603 - argv list, no shell
                 [
                     sys.executable,
                     '../wordpress-checksums',
@@ -798,7 +798,7 @@ class TestUnreadableFile(unittest.TestCase):
             site = os.path.join(tmpdir, 'site')
             shutil.copytree('wordpress/site', site)
             os.chmod(os.path.join(site, 'wp-includes', 'functions.php'), 0)
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603 - argv list, no shell
                 [
                     sys.executable,
                     '../wordpress-checksums',

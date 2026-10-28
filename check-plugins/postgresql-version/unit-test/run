@@ -30,7 +30,7 @@ import sys
 
 sys.path.insert(0, '..')
 
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import unittest
 
 import lib.lftest
@@ -125,7 +125,7 @@ class TestPath(unittest.TestCase):
     """
 
     def test_unknown_psql_not_root_owned(self):
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - argv list, no shell
             ['../postgresql-version', '--path=fixtures/hang', '--timeout=1'],
             capture_output=True,
             text=True,

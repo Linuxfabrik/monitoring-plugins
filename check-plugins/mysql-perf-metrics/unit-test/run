@@ -46,7 +46,7 @@ Requirements:
 """
 
 import os
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
 import unittest
 
@@ -86,7 +86,7 @@ def _check_image(test, containerfile):
             '--storage-type=skip',
         ]
         print(f'Run plugin: {" ".join(cmd)}', flush=True)
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - argv list, no shell
             cmd,
             cwd=HERE,
             capture_output=True,
@@ -102,7 +102,7 @@ def _check_image(test, containerfile):
         # network-backed storage. The reported value differs per release
         # (MariaDB and MySQL 8.0 default to 200, MySQL 8.4 to 10000), so the
         # assertion only checks that the check ran, not the exact number.
-        ssd = subprocess.run(
+        ssd = subprocess.run(  # nosec B603, B607 - test tool from PATH; argv list, no shell
             [
                 'python3',
                 '../mysql-perf-metrics',
@@ -114,7 +114,7 @@ def _check_image(test, containerfile):
             text=True,
         )
         test.assertIn('`innodb_io_capacity` is', ssd.stdout + ssd.stderr)
-        auto = subprocess.run(
+        auto = subprocess.run(  # nosec B603, B607 - test tool from PATH; argv list, no shell
             [
                 'python3',
                 '../mysql-perf-metrics',
@@ -154,7 +154,7 @@ def _check_image(test, containerfile):
             # An admin whose application cannot retry a transaction that
             # was rolled back with error 1020 has no way to turn the
             # variable on, so the check has to be switchable.
-            ignored = subprocess.run(
+            ignored = subprocess.run(  # nosec B603, B607 - test tool from PATH; argv list, no shell
                 [
                     'python3',
                     '../mysql-perf-metrics',

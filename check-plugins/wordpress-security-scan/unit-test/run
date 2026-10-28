@@ -16,7 +16,7 @@ import argparse
 import importlib.machinery
 import importlib.util
 import os
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import unittest
 from unittest import mock
 
@@ -1235,7 +1235,7 @@ class TestTokenEnvironment(unittest.TestCase):
     def setUpClass(cls):
         cls.check = load_check()
 
-    def _env_of_a_run(self, token, enterprise_token=''):
+    def _env_of_a_run(self, token, enterprise_token=''):  # nosec B107 - empty token for the test
         with mock.patch.object(
             self.check.lib.shell, 'shell_exec', return_value=(True, ('', '', 0))
         ) as fake:
@@ -1303,7 +1303,7 @@ class TestEnterpriseDbToken(unittest.TestCase):
             )
             token = self.check.resolve_api_token(args)
         if enterprise_token and token:
-            token = ''
+            token = ''  # nosec B105 - empty token for the test
         return token, enterprise_token, args.WPSCAN_OPTION
 
     def _refresh_env(self, token, enterprise_token):
@@ -1389,7 +1389,7 @@ def run_without_test_mode(params, path=None):
     # change which branch the check takes.
     env.pop('WPSCAN_API_TOKEN', None)
     env.pop('WPSCAN_ENTERPRISE_DB_TOKEN', None)
-    result = subprocess.run(
+    result = subprocess.run(  # nosec B603 - argv list, no shell
         [sys.executable, '../wordpress-security-scan', *params],
         capture_output=True,
         text=True,
@@ -1547,7 +1547,7 @@ def _run_union_scenario(test, scenario):
         HOME=WPSCAN_DB_FIXTURE_HOME,
         XDG_CACHE_HOME=WPSCAN_DB_FIXTURE,
     )
-    result = subprocess.run(
+    result = subprocess.run(  # nosec B603, B607 - test tool from PATH; argv list, no shell
         [
             'python3',
             '../wordpress-security-scan',
@@ -1577,7 +1577,7 @@ def _no_leftover_temp_directory(test, scenario):
         HOME=WPSCAN_DB_FIXTURE_HOME,
         XDG_CACHE_HOME=WPSCAN_DB_FIXTURE,
     )
-    result = subprocess.run(
+    result = subprocess.run(  # nosec B603, B607 - test tool from PATH; argv list, no shell
         [
             'python3',
             '../wordpress-security-scan',

@@ -10,7 +10,7 @@
 
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
 import tempfile
 
@@ -60,7 +60,7 @@ class TestRepositorySafety(unittest.TestCase):
     check = '../restic-stats'
 
     def run_check(self, *params):
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - argv list, no shell
             [sys.executable, self.check, '--password-file=/etc/hostname', *params],
             capture_output=True,
             text=True,

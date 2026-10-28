@@ -25,7 +25,7 @@ import os
 import resource
 import socket
 import ssl
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
 import tempfile
 import threading
@@ -347,7 +347,7 @@ def run_plugin(*args, timeout=10, nofile=None, env=None):
         }
         child_env.update(env)
 
-    return subprocess.run(
+    return subprocess.run(  # nosec B603 - argv list, no shell
         [PLUGIN, *args],
         capture_output=True,
         text=True,
@@ -864,7 +864,7 @@ class TestFileSource(unittest.TestCase):
             '--source',
             'file',
             '--filename',
-            '/tmp/lfmp-cert-no-such-file-*.pem',
+            '/tmp/lfmp-cert-no-such-file-*.pem',  # nosec B108 - a path that does not exist
         )
         self.assertEqual(result.returncode, STATE_UNKNOWN, result.stdout)
         self.assertIn('No files match', result.stdout)

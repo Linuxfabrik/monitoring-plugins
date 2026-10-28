@@ -12,7 +12,7 @@ import concurrent.futures
 import importlib.machinery
 import importlib.util
 import os
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
 import tempfile
 
@@ -231,7 +231,7 @@ class TestNothingAudited(unittest.TestCase):
             # probe fails long before the copy would be pushed.
             with open(os.path.join(source, 'lynis'), 'w') as file:
                 file.write('#!/bin/sh\n')
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603 - argv list, no shell
                 [
                     '../lynis',
                     '--host=192.0.2.1',
@@ -355,8 +355,8 @@ def _audit_in_container(containerfile):
         # into "Permission denied".
         container = (
             DockerContainer(str(image.tag))
-            .with_volume_mapping(LIB_DIR, '/tmp/lib', mode='ro,z')
-            .with_volume_mapping(PLUGIN, '/tmp/lynis', mode='ro,z')
+            .with_volume_mapping(LIB_DIR, '/tmp/lib', mode='ro,z')  # nosec B108 - path inside the test container
+            .with_volume_mapping(PLUGIN, '/tmp/lynis', mode='ro,z')  # nosec B108 - path inside the test container
         )
         with container:
             container.exec(['sh', '-c', SSHD_START])

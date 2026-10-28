@@ -30,7 +30,7 @@ import sys
 
 sys.path.insert(0, '..')
 
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import unittest
 
 import lib.lftest
@@ -151,7 +151,7 @@ class TestTimeout(unittest.TestCase):
     """
 
     def test_warn_redis_hangs(self):
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - argv list, no shell
             ['../redis-version', '--path=fixtures/hang', '--timeout=1'],
             capture_output=True,
             text=True,

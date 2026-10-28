@@ -11,7 +11,7 @@ import importlib.util
 import os
 import re
 import shutil
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
 import tempfile
 
@@ -229,7 +229,7 @@ class TestCheckNames(unittest.TestCase):
     they are pinned here rather than left to whoever adds the next check."""
 
     def setUp(self):
-        completed = subprocess.run(
+        completed = subprocess.run(  # nosec B603 - argv list, no shell
             [sys.executable, '../nginx-security', '--test=stdout/stock'],
             capture_output=True,
             text=True,
@@ -275,8 +275,8 @@ class TestSecurity(unittest.TestCase):
             evil = os.path.join(base, 'nginx')
             with open(evil, 'w') as handle:
                 handle.write('#!/bin/sh\necho fake\n')
-            os.chmod(evil, 0o755)
-            result = subprocess.run(
+            os.chmod(evil, 0o755)  # nosec B103 - the fake binary has to be executable
+            result = subprocess.run(  # nosec B603 - argv list, no shell
                 [sys.executable, self.check, f'--command={evil}'],
                 capture_output=True,
                 text=True,

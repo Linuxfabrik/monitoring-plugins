@@ -39,7 +39,7 @@ Requirements:
 """
 
 import os
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
 import unittest
 
@@ -75,7 +75,7 @@ def _check_image(test, containerfile):
             f'--defaults-file={defaults_file}',
         ]
         print(f'Run plugin: {" ".join(cmd)}', flush=True)
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - argv list, no shell
             cmd,
             cwd=os.path.dirname(os.path.abspath(__file__)),
             capture_output=True,
@@ -90,7 +90,7 @@ def _check_image(test, containerfile):
         # 40 temporary tables with a `TEXT` column
         select_sql = 'SELECT DISTINCT txt FROM test.temp_tables; '
         sql = (
-            'CREATE TABLE test.temp_tables (id INT, txt TEXT); '
+            'CREATE TABLE test.temp_tables (id INT, txt TEXT); '  # nosec B608 - constant test SQL
             "INSERT INTO test.temp_tables VALUES (1, 'a'), (2, 'b'), (3, 'c'); "
             f'{select_sql * 40}'
         )
@@ -104,7 +104,7 @@ def _check_image(test, containerfile):
                 f'|| "$C" -uroot -ptest -e "{sql}" >/dev/null',
             ]
         )
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - argv list, no shell
             cmd,
             cwd=os.path.dirname(os.path.abspath(__file__)),
             capture_output=True,

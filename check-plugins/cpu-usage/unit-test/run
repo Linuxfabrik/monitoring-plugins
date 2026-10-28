@@ -124,8 +124,8 @@ def _check_containerfile(test, containerfile):
         # the container can actually read the bind-mounted files.
         container = (
             DockerContainer(str(image.tag))
-            .with_volume_mapping(LIB_DIR, '/tmp/lib', mode='ro,Z')
-            .with_volume_mapping(PLUGIN, '/tmp/cpu-usage', mode='ro,Z')
+            .with_volume_mapping(LIB_DIR, '/tmp/lib', mode='ro,Z')  # nosec B108 - path inside the test container
+            .with_volume_mapping(PLUGIN, '/tmp/cpu-usage', mode='ro,Z')  # nosec B108 - path inside the test container
         )
         with container:
             # Some containerfiles install dependencies into a venv at
@@ -193,7 +193,7 @@ def _check_containerfile(test, containerfile):
                 container.exec(
                     ['sh', '-c', 'rm -f /tmp/fake-cpu-times /tmp/*cpu-usage*.db']
                 )
-                python = '/tmp/venv/bin/python3' if use_venv else 'python3'
+                python = '/tmp/venv/bin/python3' if use_venv else 'python3'  # nosec B108 - path inside the test container
                 res = None
                 for _ in range(7):
                     res = container.exec(

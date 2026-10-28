@@ -40,7 +40,7 @@ Requirements:
 
 import os
 import re
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
 import unittest
 
@@ -102,7 +102,7 @@ def _check_image(test, containerfile):
             f'--defaults-file={defaults_file}',
         ]
         print(f'Run plugin: {" ".join(cmd)}', flush=True)
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - argv list, no shell
             cmd,
             cwd=os.path.dirname(os.path.abspath(__file__)),
             capture_output=True,
@@ -124,7 +124,7 @@ def _check_image(test, containerfile):
         issues_before = _security_issues(combined)
 
         # no score reaches 101, but a cold server is not judged yet
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - argv list, no shell
             [*cmd, '--warning=101:'],
             cwd=os.path.dirname(os.path.abspath(__file__)),
             capture_output=True,
@@ -161,7 +161,7 @@ def _check_image(test, containerfile):
                     '|| "$C" -uroot -ptest -e "$SQL"',
                 ]
             )
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - argv list, no shell
             cmd,
             cwd=os.path.dirname(os.path.abspath(__file__)),
             capture_output=True,

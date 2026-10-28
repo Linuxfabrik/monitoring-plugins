@@ -39,7 +39,7 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 # setUp/tearDown make sure the per-test artifacts are always removed, even if an
 # assertion fails mid-test, so a failed test never poisons the next one.
 
-LOCK_FILE = '/tmp/.scanrootkit-utest.lock'
+LOCK_FILE = '/tmp/.scanrootkit-utest.lock'  # nosec B108 - lock shared by every run on the host, see above
 
 
 class TestCheck(unittest.TestCase):
@@ -129,7 +129,7 @@ class TestCheck(unittest.TestCase):
         # /tmp/.cinik matches both the CiNIK Worm and Slapper Worm rkhunter
         # signatures shipped in assets/, so a single trigger file produces
         # two distinct rootkit findings.
-        self._touch('/tmp/.cinik')
+        self._touch('/tmp/.cinik')  # nosec B108 - the rootkit file the signature looks for
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
         self.assertIn(
             'Found 2 rootkits. 0 possible rootkits found. [CRITICAL]',
@@ -138,12 +138,12 @@ class TestCheck(unittest.TestCase):
         self.assertIn('Rootkits:', stdout)
         self.assertIn('CiNIK Worm (Slapper.B variant)', stdout)
         self.assertIn('Slapper Worm', stdout)
-        self.assertIn('/tmp/.cinik (File)', stdout)
+        self.assertIn('/tmp/.cinik (File)', stdout)  # nosec B108 - the rootkit file the signature looks for
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 
     def test_real_cinik_signature_with_warn_severity(self):
-        self._touch('/tmp/.cinik')
+        self._touch('/tmp/.cinik')  # nosec B108 - the rootkit file the signature looks for
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec([self.check, '--severity=warn'])
         )
@@ -153,7 +153,7 @@ class TestCheck(unittest.TestCase):
         )
         self.assertIn('Rootkits:', stdout)
         self.assertIn('CiNIK Worm (Slapper.B variant)', stdout)
-        self.assertIn('/tmp/.cinik (File)', stdout)
+        self.assertIn('/tmp/.cinik (File)', stdout)  # nosec B108 - the rootkit file the signature looks for
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 

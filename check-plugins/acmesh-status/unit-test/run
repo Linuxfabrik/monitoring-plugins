@@ -11,7 +11,7 @@
 import datetime
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
 import tempfile
 import unittest
@@ -592,7 +592,7 @@ class TestSecurity(unittest.TestCase):
             os.makedirs(store)
             open(os.path.join(path, 'account.conf'), 'w').close()
             os.symlink(secret, os.path.join(store, 'example.com.conf'))
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603 - argv list, no shell
                 [sys.executable, self.check, f'--path={path}'],
                 capture_output=True,
                 text=True,
@@ -622,7 +622,7 @@ class TestSecurity(unittest.TestCase):
         self.assertEqual(answers[0], answers[1])
 
     def run_check(self, path):
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - argv list, no shell
             [sys.executable, self.check, f'--path={path}'],
             capture_output=True,
             text=True,

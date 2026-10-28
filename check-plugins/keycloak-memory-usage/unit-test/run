@@ -15,7 +15,7 @@ testcontainers-python pattern that this test mirrors.
 """
 
 import os
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
 import unittest
 
@@ -99,7 +99,7 @@ def _check_image(test, image_pair):
         image,
         env={
             'KEYCLOAK_ADMIN': 'admin',
-            'KEYCLOAK_ADMIN_PASSWORD': 'admin',
+            'KEYCLOAK_ADMIN_PASSWORD': 'admin',  # nosec B105 - throwaway test container
         },
         ports=[8080],
         command='start-dev',
@@ -115,7 +115,7 @@ def _check_image(test, image_pair):
             '--password=admin',
         ]
         print(f'Run plugin: {" ".join(cmd)}', flush=True)
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - argv list, no shell
             cmd,
             cwd=os.path.dirname(os.path.abspath(__file__)),
             capture_output=True,

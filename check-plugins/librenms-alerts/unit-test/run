@@ -25,7 +25,7 @@ consistent with the other mysql-* plugin tests.
 
 import os
 import socket
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
 import tempfile
 import time
@@ -90,14 +90,14 @@ def _start_stack():
     # schema against the DB. Returns (network_name, db_container_id,
     # app_container_id, host_port).
     network = f'librenms-alerts-test-{os.getpid()}'
-    subprocess.run(
+    subprocess.run(  # nosec B603, B607 - test tool from PATH; argv list, no shell
         ['podman', 'network', 'create', network],
         check=True,
         capture_output=True,
     )
 
     port = _free_port()
-    db = subprocess.run(
+    db = subprocess.run(  # nosec B603, B607 - test tool from PATH; argv list, no shell
         [
             'podman',
             'run',
@@ -127,7 +127,7 @@ def _start_stack():
 
     # Wait for the DB to accept connections.
     for _ in range(60):
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603, B607 - test tool from PATH; argv list, no shell
             [
                 'podman',
                 'exec',
@@ -147,7 +147,7 @@ def _start_stack():
     else:
         raise RuntimeError('MariaDB did not become ready in 60s')
 
-    app = subprocess.run(
+    app = subprocess.run(  # nosec B603, B607 - test tool from PATH; argv list, no shell
         [
             'podman',
             'run',
@@ -181,7 +181,7 @@ def _start_stack():
     # succeeded, so we can be sure the schema matches the plugin's
     # expectations once we see it.
     for _ in range(180):
-        logs = subprocess.run(
+        logs = subprocess.run(  # nosec B603, B607 - test tool from PATH; argv list, no shell
             ['podman', 'logs', app],
             capture_output=True,
             text=True,
@@ -198,16 +198,16 @@ def _start_stack():
 def _cleanup_stack(network, db, app):
     for cid in (app, db):
         if cid:
-            subprocess.run(['podman', 'rm', '-f', cid], capture_output=True)
+            subprocess.run(['podman', 'rm', '-f', cid], capture_output=True)  # nosec B603, B607 - test tool from PATH; argv list, no shell
     if network:
-        subprocess.run(['podman', 'network', 'rm', network], capture_output=True)
+        subprocess.run(['podman', 'network', 'rm', network], capture_output=True)  # nosec B603, B607 - test tool from PATH; argv list, no shell
 
 
 def _load_seed(db_container, fixture):
     path = os.path.join(FIXTURE_DIR, fixture)
     with open(path) as f:
         seed_sql = f.read()
-    result = subprocess.run(
+    result = subprocess.run(  # nosec B603, B607 - test tool from PATH; argv list, no shell
         [
             'podman',
             'exec',
@@ -275,7 +275,7 @@ class TestCheck(unittest.TestCase):
 def _run_scenario(test, scenario):
     cmd = [test.check, f'--defaults-file={test.defaults_file}']
     cmd += scenario['params']
-    result = subprocess.run(
+    result = subprocess.run(  # nosec B603 - argv list, no shell
         cmd,
         capture_output=True,
         text=True,

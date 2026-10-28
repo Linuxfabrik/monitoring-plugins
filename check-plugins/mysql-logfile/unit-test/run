@@ -22,7 +22,7 @@ import importlib.machinery
 import importlib.util
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
 import tempfile
 import unittest
@@ -259,7 +259,7 @@ class TestCheck(unittest.TestCase):
 def _make_test(case):
     def _test(self):
         cmd = [PLUGIN, f'--server-log={fixture(case["fixture"])}', *case['extra']]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603 - argv list, no shell
         combined = result.stdout + result.stderr
         self.assertEqual(
             result.returncode,
@@ -290,7 +290,7 @@ class TestAbortedConnections(unittest.TestCase):
         # connection fall out of scope produces them all day. Counting them by
         # their level would leave the check yellow on a healthy host forever.
         cmd = [PLUGIN, f'--server-log={fixture("mariadb-aborted-connections.txt")}']
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603 - argv list, no shell
         combined = result.stdout + result.stderr
         self.assertEqual(result.returncode, STATE_OK, combined)
         self.assertIn('No errors or warnings found', combined)
@@ -307,7 +307,7 @@ class TestAbortedConnections(unittest.TestCase):
             '--lookback=31536000',
             '--aborted-connections-warning=2',
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603 - argv list, no shell
         combined = result.stdout + result.stderr
         self.assertEqual(result.returncode, STATE_WARN, combined)
         self.assertIn('from localhost', combined)
@@ -323,7 +323,7 @@ class TestSeveralSources(unittest.TestCase):
             f'--server-log={fixture("sample-ok.txt")}',
             f'--server-log={fixture("sample-error.txt")}',
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603 - argv list, no shell
         combined = result.stdout + result.stderr
         self.assertEqual(result.returncode, STATE_CRIT, combined)
         self.assertIn('from 2 sources', combined)
@@ -333,8 +333,8 @@ class TestSeveralSources(unittest.TestCase):
     def test_the_same_log_named_twice_is_read_once(self):
         # Counting every line twice would double every count built on it.
         cmd = [PLUGIN, f'--server-log={fixture("sample-error.txt")}']
-        once = subprocess.run(cmd, capture_output=True, text=True, check=False)
-        twice = subprocess.run(
+        once = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603 - argv list, no shell
+        twice = subprocess.run(  # nosec B603 - argv list, no shell
             [*cmd, f'--server-log={fixture("sample-error.txt")}'],
             capture_output=True,
             text=True,
@@ -350,7 +350,7 @@ class TestSeveralSources(unittest.TestCase):
             f'--server-log={fixture("sample-ok.txt")}',
             '--server-log=/var/log/there-is-no-such-file.log',
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603 - argv list, no shell
         combined = result.stdout + result.stderr
         self.assertEqual(result.returncode, STATE_WARN, combined)
         self.assertIn('there-is-no-such-file.log', combined)
@@ -366,7 +366,7 @@ class TestIcingaCallback(unittest.TestCase):
             f'--server-log={fixture("sample-error.txt")}',
             '--icinga-callback',
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603 - argv list, no shell
         combined = result.stdout + result.stderr
         self.assertEqual(result.returncode, STATE_UNKNOWN, combined)
         self.assertIn('`--icinga-callback` requires', combined)
@@ -384,7 +384,7 @@ class TestIcingaCallback(unittest.TestCase):
             '--icinga-service-name=host!service',
             '--timeout=1',
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603 - argv list, no shell
         combined = result.stdout + result.stderr
         self.assertEqual(result.returncode, STATE_OK, combined)
         self.assertNotIn('acknowledgement', combined)
@@ -406,7 +406,7 @@ class TestPathConfinement(unittest.TestCase):
 
     def test_server_log_outside_allowed_roots_is_refused(self):
         cmd = [PLUGIN, f'--server-log={self.scratch_file}']
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603 - argv list, no shell
         combined = result.stdout + result.stderr
         self.assertEqual(result.returncode, STATE_UNKNOWN, combined)
         self.assertIn('Refusing to read', combined)
@@ -423,7 +423,7 @@ class TestPathConfinement(unittest.TestCase):
             os.path.join(self.scratch_dir, 'missing'),
             self.scratch_dir,
         ):
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603 - argv list, no shell
                 [PLUGIN, f'--server-log={path}'],
                 capture_output=True,
                 text=True,
@@ -445,7 +445,7 @@ class TestDefaultsFile(unittest.TestCase):
             fifo = os.path.join(scratch, 'my.cnf')
             os.mkfifo(fifo)
             try:
-                subprocess.run(
+                subprocess.run(  # nosec B603 - argv list, no shell
                     [PLUGIN, f'--defaults-file={fifo}'],
                     capture_output=True,
                     text=True,

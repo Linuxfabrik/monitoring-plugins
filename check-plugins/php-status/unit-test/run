@@ -28,7 +28,7 @@ import importlib.machinery
 import importlib.util
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
 import tempfile
 
@@ -187,7 +187,7 @@ class TestGetConfigErrors(unittest.TestCase):
 
 class TestInvalidConfig(unittest.TestCase):
     def test_a_pair_without_equals_sign_is_refused(self):
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - argv list, no shell
             ['../php-status', '--config=memory_limit'],
             capture_output=True,
             text=True,

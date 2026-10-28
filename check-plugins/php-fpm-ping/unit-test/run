@@ -12,7 +12,7 @@ import sys
 
 sys.path.insert(0, '..')
 
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import unittest
 
 import lib.lftest
@@ -53,7 +53,7 @@ class TestUnreachable(unittest.TestCase):
     """
 
     def test_warn_ping_cannot_be_fetched(self):
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - argv list, no shell
             ['../php-fpm-ping', '--url=http://127.0.0.1:9/fpm-ping', '--timeout=2'],
             capture_output=True,
             text=True,

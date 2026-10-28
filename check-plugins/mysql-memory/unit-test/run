@@ -39,7 +39,7 @@ Requirements:
 """
 
 import os
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
 import unittest
 
@@ -105,7 +105,7 @@ def _check_image(test, containerfile):
             f'--defaults-file={defaults_file}',
         ]
         print(f'Run plugin: {" ".join(cmd)}', flush=True)
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - argv list, no shell
             cmd,
             cwd=os.path.dirname(os.path.abspath(__file__)),
             capture_output=True,
@@ -119,7 +119,7 @@ def _check_image(test, containerfile):
 
         # Overcommit: reached usage + other processes fit into the fake 4 GiB.
         def run_wrapped(other_bytes):
-            res = subprocess.run(
+            res = subprocess.run(  # nosec B603, B607 - test tool from PATH; argv list, no shell
                 ['python3', '-c', WRAPPER, str(other_bytes), *cmd[2:]],
                 cwd=os.path.dirname(os.path.abspath(__file__)),
                 capture_output=True,

@@ -368,8 +368,8 @@ def _check_containerfile(test, containerfile):
         # the container can actually read the bind-mounted files.
         container = (
             DockerContainer(str(image.tag))
-            .with_volume_mapping(LIB_DIR, '/tmp/lib', mode='ro,Z')
-            .with_volume_mapping(PLUGIN, '/tmp/users', mode='ro,Z')
+            .with_volume_mapping(LIB_DIR, '/tmp/lib', mode='ro,Z')  # nosec B108 - path inside the test container
+            .with_volume_mapping(PLUGIN, '/tmp/users', mode='ro,Z')  # nosec B108 - path inside the test container
         )
         with container:
             python_cmd = _python_invocation(container)

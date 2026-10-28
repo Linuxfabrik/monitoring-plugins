@@ -11,7 +11,7 @@
 import os
 import shutil
 import socket
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
 import tempfile
 
@@ -121,7 +121,7 @@ class TestSecurity(unittest.TestCase):
     def test_unknown_socket_outside_run_is_refused(self):
         with tempfile.TemporaryDirectory() as base:
             evil = os.path.join(base, 'evil.sock')
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603 - argv list, no shell
                 [sys.executable, self.check, f'--socket={evil}'],
                 capture_output=True,
                 text=True,
@@ -144,7 +144,7 @@ class TestSecurity(unittest.TestCase):
             server.bind(path)
             server.listen(1)
             try:
-                result = subprocess.run(
+                result = subprocess.run(  # nosec B603 - argv list, no shell
                     [sys.executable, self.check, f'--socket={path}'],
                     capture_output=True,
                     text=True,
@@ -170,7 +170,7 @@ class TestTimeout(unittest.TestCase):
             + os.pathsep
             + env.get('PATH', '')
         )
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - argv list, no shell
             ['../fail2ban', '--timeout=1'],
             capture_output=True,
             text=True,

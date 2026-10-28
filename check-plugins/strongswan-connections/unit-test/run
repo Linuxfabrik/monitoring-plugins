@@ -11,7 +11,7 @@
 import os
 import shutil
 import socket
-import subprocess
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
 import tempfile
 import time
@@ -235,7 +235,7 @@ class TestSecurity(unittest.TestCase):
             server.bind(path)
             server.listen(1)
             try:
-                result = subprocess.run(
+                result = subprocess.run(  # nosec B603 - argv list, no shell
                     [sys.executable, self.check, f'--socket={path}'],
                     capture_output=True,
                     text=True,
@@ -264,7 +264,7 @@ class TestSecurity(unittest.TestCase):
             server.bind(path)
             server.listen(1)
             try:
-                result = subprocess.run(
+                result = subprocess.run(  # nosec B603 - argv list, no shell
                     [sys.executable, self.check, f'--socket={path}'],
                     capture_output=True,
                     text=True,
@@ -282,7 +282,7 @@ class TestSecurity(unittest.TestCase):
         # An existing file elsewhere must not answer differently from a missing
         # one, or --test becomes a probe for which files exist.
         results = [
-            subprocess.run(
+            subprocess.run(  # nosec B603 - argv list, no shell
                 [sys.executable, self.check, f'--test={path}'],
                 capture_output=True,
                 text=True,
@@ -386,8 +386,8 @@ def _check_containerfile(test, containerfile):
         # the container can actually read the bind-mounted files.
         container = (
             DockerContainer(str(image.tag))
-            .with_volume_mapping(LIB_DIR, '/tmp/lib', mode='ro,Z')
-            .with_volume_mapping(PLUGIN, '/tmp/strongswan-connections', mode='ro,Z')
+            .with_volume_mapping(LIB_DIR, '/tmp/lib', mode='ro,Z')  # nosec B108 - path inside the test container
+            .with_volume_mapping(PLUGIN, '/tmp/strongswan-connections', mode='ro,Z')  # nosec B108 - path inside the test container
             .with_kwargs(cap_add=['NET_ADMIN'])
         )
         with container:
