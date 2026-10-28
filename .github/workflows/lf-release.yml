@@ -1,0 +1,97 @@
+name: 'Linuxfabrik: Release'
+
+# Runs when a release is published:
+#
+# * builds the source zip for download.linuxfabrik.ch and attaches it to the
+#   release, with a build provenance attestation; the repository server pulls it
+#   from there, verifies, signs and publishes it (build/publish-downloads.sh)
+# * tells Linuxfabrik/packaging, which builds the RPM and DEB packages, so the
+#   bump does not wait for its hourly upstream check
+#
+# The Windows build starts from the same event, see lf-build-windows-x86_64.yml.
+# A manual run rebuilds the source zip of an existing release under a further
+# iteration.
+
+on:
+  release:
+    types:
+      - 'published'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version without the leading `v` (e.g. 8.1.0)'
+        required: true
+        type: 'string'
+      package-iteration:
+        description: 'Iteration of the source zip; `1` is taken by the release itself'
+        required: true
+        default: '2'
+        type: 'string'
+
+permissions:
+  contents: 'read'
+
+jobs:
+  source-zip:
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      attestations: 'write'
+      contents: 'write'
+      id-token: 'write'
+    env:
+      ITERATION: "${{ github.event_name == 'release' && '1' || inputs.package-iteration }}"
+      VERSION: "${{ github.event_name == 'release' && github.event.release.tag_name || inputs.version }}"
+    steps:
+      - name: 'Harden the runner (Audit all outbound calls)'
+        uses: 'step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2' # v2.22.2
+        with:
+          egress-policy: 'audit'
+
+      - name: 'Validate the version'
+        run: |
+          VERSION="${VERSION#v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$ITERATION" =~ ^[0-9]+$ ]]; then
+            echo "::error::Not a release version and iteration: '$VERSION' '$ITERATION'"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: 'Checkout v${{ env.VERSION }}'
+        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        with:
+          ref: 'v${{ env.VERSION }}'
+
+      - name: 'Build the source zip'
+        run: |
+          mkdir "$RUNNER_TEMP/assets"
+          cd "$RUNNER_TEMP/assets"
+          bash "$GITHUB_WORKSPACE/build/create-source-zip.sh" "$VERSION" "$ITERATION"
+
+      - name: 'Attest the build provenance'
+        uses: 'actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8' # v4.2.2
+        with:
+          subject-path: '${{ runner.temp }}/assets/*'
+
+      # No --clobber: an asset that exists already was published under that name,
+      # and a rebuild takes the next iteration instead.
+      - name: 'Attach the source zip to the release'
+        env:
+          GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+        run: 'gh release upload "v$VERSION" "$RUNNER_TEMP"/assets/*.zip --repo "$GITHUB_REPOSITORY"'
+
+  packaging:
+    if: "github.event_name == 'release'"
+    runs-on: 'ubuntu-24.04'
+    steps:
+      - name: 'Generate app token'
+        id: 'app-token'
+        uses: 'actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510' # v3.3.0
+        with:
+          client-id: '${{ vars.LF_AUTOMATION_CLIENT_ID }}'
+          private-key: '${{ secrets.LF_AUTOMATION_APP_PRIVATE_KEY }}'
+          repositories: 'packaging'
+
+      - name: 'Dispatch upstream-release to Linuxfabrik/packaging'
+        env:
+          GH_TOKEN: '${{ steps.app-token.outputs.token }}'
+        run: 'gh api repos/Linuxfabrik/packaging/dispatches --raw-field event_type=upstream-release'

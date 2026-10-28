@@ -1,6 +1,15 @@
 name: 'Linuxfabrik: Build Windows (x86_64)'
 
+# Builds on every published release and attaches the signed ZIP and MSI to it,
+# from where the repository server publishes them to download.linuxfabrik.ch
+# (build/publish-downloads.sh). Both SignPath signing requests wait for a manual
+# approval. A manual run builds `main`, or with `publish` the tag of an existing
+# release under a further iteration.
+
 on:
+  release:
+    types:
+      - 'published'
   workflow_dispatch:
     inputs:
       compile-plugins:
@@ -18,6 +27,10 @@ on:
         description: 'Build iteration of this release version. Always `1` on the first build. Increment to `2`, `3`, ... only when re-building the same `X.Y.Z`, e.g. after fixing a packaging bug during the internal pre-release test.'
         required: true
         default: '1'
+      publish:
+        description: 'Build the tag `v<version>` instead of `main` and attach the signed ZIP and MSI to that release. Use an iteration the release does not have yet.'
+        type: 'boolean'
+        default: false
 
 # modify the default permissions granted to the GITHUB_TOKEN
 permissions:
@@ -36,19 +49,24 @@ jobs:
         with:
           egress-policy: audit
 
+      # A release builds all plugins as iteration 1 of the version in its tag.
       - name: 'Set environment variables for the build scripts'
         shell: 'bash'
+        env:
+          COMPILE_PLUGINS: '${{ inputs.compile-plugins }}'
+          ITERATION: "${{ github.event_name == 'release' && '1' || inputs.package-iteration }}"
+          VERSION: "${{ github.event_name == 'release' && github.event.release.tag_name || inputs.version }}"
         run: |
+          VERSION="${VERSION#v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$ITERATION" =~ ^[0-9]+$ ]]; then
+            echo "::error::Not a release version and iteration: '$VERSION' '$ITERATION'"
+            exit 1
+          fi
           echo "LFMP_ARCH=x86_64" >> $GITHUB_ENV
-          PLUGS="${{ github.event.inputs.compile-plugins }}"
           # accept either "a b c" or "a,b,c"
-          PLUGS="${PLUGS//,/ }"
-          echo "LFMP_COMPILE_PLUGINS=$PLUGS" >> $GITHUB_ENV
-          echo "LFMP_PACKAGE_ITERATION=${{ github.event.inputs.package-iteration }}" >> $GITHUB_ENV
-          echo "LFMP_VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
-          # echo "LFMP_TARGET_DISTROS=${{ github.event.inputs.target-distros }}" >> $GITHUB_ENV
-
-          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+          echo "LFMP_COMPILE_PLUGINS=${COMPILE_PLUGINS//,/ }" >> $GITHUB_ENV
+          echo "LFMP_PACKAGE_ITERATION=$ITERATION" >> $GITHUB_ENV
+          echo "LFMP_VERSION=$VERSION" >> $GITHUB_ENV
 
           echo "LFMP_DIR_REPOS=$GITHUB_WORKSPACE/repos" >> $GITHUB_ENV
           echo "LFMP_DIR_COMPILED=$RUNNER_TEMP/lfmp/compiled" >> $GITHUB_ENV
@@ -65,6 +83,8 @@ jobs:
         uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
         with:
           path: '${{ env.LFMP_DIR_REPOS }}/monitoring-plugins'
+          # a release checks out its tag anyway, the default ref of the event
+          ref: "${{ inputs.publish && format('v{0}', env.LFMP_VERSION) || '' }}"
           # Full history and tags are required so build/verify-version.sh can
           # confirm the checkout contains the code tagged vLFMP_VERSION (#1406).
           fetch-depth: 0
@@ -204,3 +224,55 @@ jobs:
         with:
           path: '${{ github.workspace }}/signed-packaged/*'
           name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.signed-packaged.windows.${{ env.LFMP_ARCH }}"
+
+  # Zips the two signed artifacts as download.linuxfabrik.ch serves them (the
+  # SignPath output at the root of each zip, without the WiX debug symbols, which
+  # do not belong on a public server), attests them and attaches them to the
+  # release.
+  publish:
+    if: "github.event_name == 'release' || inputs.publish"
+    needs: 'build-windows-x86_64'
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      attestations: 'write'
+      contents: 'write'
+      id-token: 'write'
+    env:
+      # the same as in the build job; validated there
+      ITERATION: "${{ github.event_name == 'release' && '1' || inputs.package-iteration }}"
+      VERSION: "${{ github.event_name == 'release' && github.event.release.tag_name || inputs.version }}"
+    steps:
+      - name: 'Harden the runner (Audit all outbound calls)'
+        uses: 'step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2' # v2.22.2
+        with:
+          egress-policy: 'audit'
+
+      - name: 'Download the signed artifacts'
+        uses: 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333' # v8.0.2
+        with:
+          path: '${{ runner.temp }}/artifacts'
+          pattern: 'lfmp-*.signed-*.windows.x86_64'
+
+      - name: 'Zip the signed artifacts'
+        run: |
+          VERSION="${VERSION#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          mkdir "$RUNNER_TEMP/assets"
+          for kind in compiled packaged; do
+            name="lfmp-$VERSION-$ITERATION.signed-$kind.windows.x86_64"
+            rm -f "$RUNNER_TEMP/artifacts/$name/linuxfabrik-monitoring-plugins.wixpdb"
+            (cd "$RUNNER_TEMP/artifacts/$name" && zip --quiet --recurse-paths "$RUNNER_TEMP/assets/$name.zip" .)
+          done
+          ls -l "$RUNNER_TEMP/assets"
+
+      - name: 'Attest the build provenance'
+        uses: 'actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8' # v4.2.2
+        with:
+          subject-path: '${{ runner.temp }}/assets/*'
+
+      # No --clobber: an asset that exists already was published under that name,
+      # and a rebuild takes the next iteration instead.
+      - name: 'Attach the zips to the release'
+        env:
+          GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+        run: 'gh release upload "v$VERSION" "$RUNNER_TEMP"/assets/*.zip --repo "$GITHUB_REPOSITORY"'

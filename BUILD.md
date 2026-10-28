@@ -15,8 +15,56 @@ The RPM and DEB packages for Linux are built in
 published to the Linuxfabrik repository at <https://repo.linuxfabrik.ch/>.
 Their build recipes and the supported distributions are documented there.
 
-The Windows build is manually triggered via GitHub Actions
-`workflow_dispatch`. There is no automatic build on push or tag.
+Publishing a GitHub release starts every build. There is no build on push.
+
+
+## Release Flow
+
+Publishing the GitHub release `vX.Y.Z` (see the release checklist) is the
+only manual step besides the two SignPath approvals:
+
+```text
+GitHub release vX.Y.Z published
+├── lf-release.yml
+│   ├── create-source-zip.sh             # lfmp-X.Y.Z-1.source.noarch.zip
+│   └── dispatch upstream-release        # to Linuxfabrik/packaging
+└── lf-build-windows-x86_64.yml          # lfmp-X.Y.Z-1.signed-{compiled,packaged}.windows.x86_64.zip
+
+Linuxfabrik/packaging                    # RPM and DEB, `testing` channel, then `release`
+001-p-repo51: publish-downloads.sh       # every 15 minutes, to download.linuxfabrik.ch
+```
+
+* `lf-release.yml` builds the source zip from the tag and attaches it to the
+  release, together with a build provenance attestation. It also sends
+  `upstream-release` to Linuxfabrik/packaging, which opens the version bump
+  right away instead of at its next hourly check, builds the packages and
+  publishes them to the `testing` channel of the Linuxfabrik repository. They
+  are promoted to `release` there, after seven days by default.
+* `lf-build-windows-x86_64.yml` compiles the Windows plugins and builds the
+  MSI. Each of the two SignPath signing requests waits up to two hours for an
+  approval; SignPath mails `info@` when one is pending. The signed ZIP and MSI
+  are attached to the release, with an attestation each.
+* On the repository server, `build/publish-downloads.sh` runs from a systemd
+  timer. It picks up new zips from the releases, checks each against its
+  attestation, adds the `.sha256` and the detached GPG signature `.asc`, and
+  points the `lfmp-latest.*` links at the latest release. A prerelease never
+  becomes latest, and nothing is deleted there.
+
+A failed or broken build is repeated under the next iteration, with a manual
+run of the same workflow: `lf-release.yml` with `package-iteration`, and
+`lf-build-windows-x86_64.yml` with `package-iteration` and `publish`. Release
+assets are never replaced.
+
+
+### Patch Release for a Security Fix
+
+A security fix in a bundled dependency (a Dependabot security update of a
+lockfile, or a lib release) reaches the packages and the zips only with a
+release. It goes out as a patch release `vX.Y.(Z+1)` from `main`, at most once
+a week: every release builds the Windows plugins as well, which takes about an
+hour and two SignPath approvals. Only when `main` carries changes that must not
+go out yet, the patch release is cut from a branch off the last tag with the fix
+cherry-picked.
 
 
 ## Overview
@@ -52,8 +100,11 @@ lf-build-windows-x86_64.yml
 └── SignPath submit-signing-request      # signs the MSI
 ```
 
-Workflow inputs: `compile-plugins` (optional, space-separated allowlist;
-empty means all plugins), `version`, `package-iteration`.
+A published release builds all plugins of its tag as iteration 1. A manual
+run takes the inputs `compile-plugins` (optional, space-separated allowlist;
+empty means all plugins), `version`, `package-iteration` and `publish`: without
+`publish` it builds `main` and keeps the result as workflow artifacts, with
+`publish` it builds the tag `vX.Y.Z` and attaches the zips to that release.
 
 `compile-multiple.sh` runs `verify-version.sh` first, so a checkout that
 predates or diverges from the `vLFMP_VERSION` tag fails the build instead of
