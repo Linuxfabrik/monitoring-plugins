@@ -1,23 +1,19 @@
 #!/usr/bin/env bash
-# 2026072501
+# 2026102801
 
 # Guard against packaging a checkout whose code does not correspond to
 # LFMP_VERSION (fix #1406).
 #
-# create-src-tarball.sh archives whatever code is in the checkout and uses
-# LFMP_VERSION only to name the tarball, so a stale checkout silently ships
+# compile-multiple.sh compiles whatever code is in the checkout and uses
+# LFMP_VERSION only to label the result, so a stale checkout silently ships
 # outdated code under a newer version label. The only reliable link between the
 # code and the version is the vLFMP_VERSION git tag, so we verify it here.
 #
-# The build workflows check out "main" HEAD (no explicit ref) so that
+# The build workflow checks out "main" HEAD (no explicit ref) so that
 # re-running a failed build picks up a post-release fix on main. HEAD may
 # therefore sit ahead of the vLFMP_VERSION tag, and we must NOT require an exact
 # tag match. We only require that the tag is reachable from HEAD: a stale
 # checkout that predates or diverges from the tag fails here.
-#
-# git is not installed inside the build containers and the repo is bind-mounted
-# read-only there, so this runs on the host (the runner or the release
-# manager's machine), not inside create-src-tarball.sh.
 #
 # Set LFMP_SKIP_VERSION_CHECK to a non-empty value to bypass this guard for an
 # intentional build of an untagged development checkout.

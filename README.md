@@ -214,7 +214,7 @@ For vulnerabilities, follow the private disclosure process in [SECURITY.md](http
 
 See [CONTRIBUTING.md](https://linuxfabrik.github.io/monitoring-plugins/contributing/) for check-plugin developer guidelines, coding conventions, and the basket / Grafana deliverables. The [example plugin](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/example/example) is the reference skeleton.
 
-Compiling and packaging (RPM, DEB, Windows MSI, Code Signing) is documented in [BUILD.md](https://linuxfabrik.github.io/monitoring-plugins/build/). Helper scripts under `tools/` (basket generation, docs build, unit-test and linter runners) are described in [TOOLS.md](https://linuxfabrik.github.io/monitoring-plugins/tools/).
+Compiling for Windows (MSI, Code Signing) is documented in [BUILD.md](https://linuxfabrik.github.io/monitoring-plugins/build/). The RPM and DEB packages are built in [Linuxfabrik/packaging](https://github.com/Linuxfabrik/packaging). Helper scripts under `tools/` (basket generation, docs build, unit-test and linter runners) are described in [TOOLS.md](https://linuxfabrik.github.io/monitoring-plugins/tools/).
 
 
 ## Support the Project

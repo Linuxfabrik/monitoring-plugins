@@ -614,7 +614,7 @@ For host-local data sources (a fixture would hide whether the plugin runs cleanl
 
 **Containerfile naming**: `<distro>-v<version>`, lowercase, dash-separated, with a mandatory `v` as the separator (sorts naturally, fits `archlinux-vlatest` into the scheme): `archlinux-vlatest`, `debian-v12` / `v13`, `fedora-v43`, `rhel-v8` / `v9` / `v10`, `sles-v15` / `v16`, `ubuntu-v2204` / `v2404` / `v2604`. Image tags follow as `lfmp-<plugin>-<distro>-v<version>`.
 
-**SLE vs. SLES**: Containerfiles use `sles-v*` (the server product; BCI is SLES-derived), while `build/linuxfabrik-monitoring-plugins.sle.spec` and `repo.linuxfabrik.ch/monitoring-plugins/sle/<version>/` name the platform (SLES and SLED). The repo URL is a public contract with customer `/etc/zypp/repos.d/` files; never rename it without coordinated migration.
+**SLE vs. SLES**: Containerfiles use `sles-v*` (the server product; BCI is SLES-derived), while the RPM packages and the repository path `repo.linuxfabrik.ch/sle/<version>/` name the platform (SLES and SLED). The repo URL is a public contract with customer `/etc/zypp/repos.d/` files; never rename it without coordinated migration.
 
 The canonical distro matrix is the cpu-usage `CONTAINERFILES` list; new tests of this kind target the same platforms where possible.
 

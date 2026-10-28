@@ -5,14 +5,17 @@ Plugins release, and contributors who need to reproduce a build locally.
 
 Outputs per release:
 
-* Linux (RPM and DEB) for x86_64 and aarch64, unsigned. Published to
-  <https://repo.linuxfabrik.ch/monitoring-plugins/>.
 * Windows (ZIP of compiled plugins, and a signed MSI) for x86_64 only.
   Published to <https://download.linuxfabrik.ch/monitoring-plugins/>.
 * Source-only zip for all operating systems. Published to the download
   server as well.
 
-All three platform builds are manually triggered via GitHub Actions
+The RPM and DEB packages for Linux are built in
+[Linuxfabrik/packaging](https://github.com/Linuxfabrik/packaging) and
+published to the Linuxfabrik repository at <https://repo.linuxfabrik.ch/>.
+Their build recipes and the supported distributions are documented there.
+
+The Windows build is manually triggered via GitHub Actions
 `workflow_dispatch`. There is no automatic build on push or tag.
 
 
@@ -20,134 +23,9 @@ All three platform builds are manually triggered via GitHub Actions
 
 | Platform | Arch    | GitHub workflow                  | Runner             | Outputs                | Signed            |
 | -------- | ------- | -------------------------------- | ------------------ | ---------------------- | ----------------- |
-| Linux    | x86_64  | `lf-build-linux-x86_64.yml`      | `ubuntu-24.04`     | `.rpm`, `.deb`         | no                |
-| Linux    | aarch64 | `lf-build-linux-aarch64.yml`     | `ubuntu-24.04-arm` | `.rpm`, `.deb`         | no                |
 | Windows  | x86_64  | `lf-build-windows-x86_64.yml`    | `windows-2025`     | `.zip`, `.msi`         | yes (SignPath.io) |
 
 Windows aarch64 is not built today.
-
-
-## Linux Packages
-
-
-### How it is built on GitHub
-
-The two Linux workflows run the same build chain on different runner types.
-Each one loops over a matrix of target distributions and builds one podman
-container per distro, then produces the native `.rpm` or `.deb` inside that
-container:
-
-```text
-lf-build-linux-x86_64.yml  /  lf-build-linux-aarch64.yml
-├── debug.sh                            # env dump
-├── install-podman.sh                   # installs podman on the runner
-└── matrix-package.sh                   # one container per target distro
-    ├── verify-version.sh               # checkout must contain vLFMP_VERSION
-    ├── create-package.sh               # branches on $LFMP_TARGET_DISTRO
-    │   ├── create-src-tarball.sh       # upstream source archive
-    │   ├── create-vendor-tarball.sh    # pinned third-party deps
-    │   ├── create-deb.sh               # Debian/Ubuntu target
-    │   └── create-rpm.sh               # RHEL/SLE target
-    └── smoke-test-package.sh           # installs and starts the package
-        └── check-bytecode.py           # every .pyc loads and is used
-```
-
-Every workflow run takes three inputs: `target-distros` (space-separated list;
-default is every supported distribution), `version` (e.g. `2.2.1`),
-`package-iteration` (e.g. `1`).
-
-Before any container starts, `matrix-package.sh` runs `verify-version.sh` on the
-host to confirm the checkout actually contains the code tagged `vLFMP_VERSION`.
-The workflows build `main` HEAD (the checkout step has no `ref:`), so HEAD is
-allowed to sit ahead of the tag, but a checkout that predates or diverges from
-the tag fails the build instead of silently shipping outdated code under a newer
-version label. Set `LFMP_SKIP_VERSION_CHECK=1` to bypass this for an intentional
-build of an untagged development checkout.
-
-The shared `monitoring-plugins` source tarball and `vendor.tar.gz` (pip-downloaded,
-hash-pinned third-party wheels) are produced once per workflow run.
-`create-rpm.sh` and `create-deb.sh` then build a venv under
-`/usr/lib64/linuxfabrik-monitoring-plugins/venv/` inside the container and
-rewrite plugin shebangs to point at that venv's `python`, so the final
-package is self-contained.
-
-After each distro's build, `smoke-test-package.sh` installs the package into a
-fresh container of the plain distro image and, as the unprivileged user
-`nobody`, starts every plugin with `--version` and checks every `.pyc` in the
-venv with `check-bytecode.py`. A plugin that fails to start, or a `.pyc` that is
-corrupt or no longer matches its source, fails the build.
-
-
-### Reproducing a Release Build Locally
-
-For cutting a release by hand or for debugging a specific distro build, use
-an **Ubuntu 24.04 LTS** host. This matches the `ubuntu-24.04` GitHub runner
-one-to-one, which is the environment the build scripts are tested against.
-`build/install-podman.sh` uses `apt` to install podman, so other Linux
-families fail there without manual adjustments. Building the packages
-themselves is distro-agnostic (every package is produced inside its own
-target container), but the orchestrating host should match.
-
-Set the same environment variables the workflow uses and call
-`matrix-package.sh` directly:
-
-```bash
-cat > env-file << 'EOF'
-# User input on GitHub:
-export LFMP_ARCH=x86_64                                   # or "aarch64" on ARM64
-export LFMP_VERSION=2.2.1
-export LFMP_PACKAGE_ITERATION=1
-export LFMP_TARGET_DISTROS="debian-v13 rocky-v10"         # subset of the supported list
-
-# Constants (absolute paths):
-export LFMP_DIR_REPOS=/tmp/lfmp/repos
-export LFMP_DIR_REPO_MP=$LFMP_DIR_REPOS/monitoring-plugins
-export LFMP_DIR_PACKAGED=/tmp/lfmp/packaged
-mkdir -p $LFMP_DIR_REPOS $LFMP_DIR_PACKAGED
-EOF
-
-source env-file
-```
-
-Supported `LFMP_TARGET_DISTROS` values: `debian-v11 debian-v12 debian-v13
-rocky-v8 rocky-v9 rocky-v10 sles-v15 sles-v16 ubuntu-v2204 ubuntu-v2404
-ubuntu-v2604`. Each value is the name of a file in `build/containerfiles/`.
-
-Clone the repository and run the build:
-
-```bash
-git clone https://github.com/Linuxfabrik/monitoring-plugins.git $LFMP_DIR_REPO_MP
-bash $LFMP_DIR_REPO_MP/build/install-podman.sh
-bash $LFMP_DIR_REPO_MP/build/matrix-package.sh
-```
-
-From each container's perspective, the Python source code is at
-`/repos/monitoring-plugins`.
-
-`matrix-package.sh` first runs `verify-version.sh`, which requires the
-`vLFMP_VERSION` tag to be reachable from the checkout's HEAD. A fresh `git
-clone` fetches all tags, so the recipe above works as long as that tag exists.
-To cut a real release from an exact tree, `git checkout v$LFMP_VERSION` after
-cloning. To package an untagged development checkout under a placeholder
-version, prefix the build with `LFMP_SKIP_VERSION_CHECK=1`.
-
-After the build, the packages directory looks like this:
-
-```text
-$LFMP_DIR_PACKAGED
-├── debian13/
-│   └── linuxfabrik-monitoring-plugins_2.2.1-1_amd64.deb
-├── rocky9/
-│   ├── linuxfabrik-monitoring-plugins-2.2.1-1.el9.x86_64.rpm
-│   └── linuxfabrik-monitoring-plugins-selinux-2.2.1-1.el9.x86_64.rpm
-└── rocky10/
-    ├── linuxfabrik-monitoring-plugins-2.2.1-1.el10.x86_64.rpm
-    └── linuxfabrik-monitoring-plugins-selinux-2.2.1-1.el10.x86_64.rpm
-```
-
-The `selinux` sub-package is built for every EL release. The one rule that needs
-the types of the distribution's nagios policy sits in an optional block, so the
-module also loads on EL10, which carries no such policy.
 
 
 ## Windows Binaries and MSI
@@ -177,9 +55,9 @@ lf-build-windows-x86_64.yml
 Workflow inputs: `compile-plugins` (optional, space-separated allowlist;
 empty means all plugins), `version`, `package-iteration`.
 
-Like the Linux build, `compile-multiple.sh` runs `verify-version.sh` first, so
-a checkout that predates or diverges from the `vLFMP_VERSION` tag fails the
-build instead of compiling outdated code under a newer version label. Set
+`compile-multiple.sh` runs `verify-version.sh` first, so a checkout that
+predates or diverges from the `vLFMP_VERSION` tag fails the build instead of
+compiling outdated code under a newer version label. Set
 `LFMP_SKIP_VERSION_CHECK=1` to bypass this for an intentional build of an
 untagged development checkout.
 
@@ -243,45 +121,6 @@ fallback, so stop there.
 
 
 ## Appendix: Packaging Decisions
-
-
-### Why Rocky Linux Instead of Red Hat UBI
-
-According to [Types of container images](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/building_running_and_managing_containers/assembly_types-of-container-images_building-running-and-managing-containers#assembly_types-of-container-images_building-running-and-managing-containers),
-Red Hat Universal Base Images (UBI) are built from a subset of RHEL content.
-EPEL is installable because a subset of the CRB repo ships with UBI. If we
-need anything outside that subset, we have to buy a subscription or run the
-container on a subscribed host. Rocky Linux avoids that constraint and
-matches upstream RHEL closely enough for our purposes.
-
-
-### Why `docker.io/rockylinux/rockylinux` Instead of `docker.io/library/rockylinux`
-
-`docker.io/library/rockylinux` is not updated regularly: the Docker Official
-Images program has technical constraints that prevent Rocky Linux from
-publishing there. The project-maintained repository at
-[docker.io/rockylinux/rockylinux](https://hub.docker.com/r/rockylinux/rockylinux)
-is the current source of truth.
-
-
-### Distro Build Targets
-
-| Target OS    | Build container                                |
-| ------------ | ---------------------------------------------- |
-| Debian 11    | `docker.io/library/debian:11`                  |
-| Debian 12    | `docker.io/library/debian:12`                  |
-| Debian 13    | `docker.io/library/debian:13`                  |
-| RHEL 8       | `docker.io/rockylinux/rockylinux:8`            |
-| RHEL 9       | `docker.io/rockylinux/rockylinux:9`            |
-| RHEL 10      | `docker.io/rockylinux/rockylinux:10`           |
-| SLE 15       | `registry.suse.com/suse/sle15:15.5`            |
-| SLE 16       | `registry.suse.com/bci/bci-base:16.0`          |
-| Ubuntu 22.04 | `docker.io/library/ubuntu:22.04`               |
-| Ubuntu 24.04 | `docker.io/library/ubuntu:24.04`               |
-| Ubuntu 26.04 | `docker.io/library/ubuntu:26.04`               |
-
-The SLE 15 package requires at least openSUSE Leap 15.5 or SLES 15 Service
-Pack 5 on the target host.
 
 
 ### Why Nuitka Instead of PyInstaller (Windows)
