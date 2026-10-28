@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
-# 2026102801
+# 2026102802
 
-# Build the source zip for download.linuxfabrik.ch from the checkout this script
-# lives in: lfmp-<version>-<iteration>.source.noarch.zip in the current
-# directory.
+# Build the source zip for download.linuxfabrik.ch from a checkout of the
+# release tag (default: the checkout this script lives in):
+# lfmp-<version>-<iteration>.source.noarch.zip in the current directory.
 #
 # The zip is a standalone source install for `install-monitoring-plugins --zip`:
 # every check and notification plugin flat in one directory, their assets, the
 # snmp OID lists and MIBs, the lockfiles, and the linuxfabrik-lib the lockfiles
 # pin, so nothing is fetched from PyPI at install time.
 #
-# Usage: build/create-source-zip.sh <version> <iteration>
+# Usage: build/create-source-zip.sh <version> <iteration> [<checkout>]
 
 set -e -o pipefail -u
 
 VERSION="$1"
 ITERATION="$2"
 
-REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_DIR="$(cd "${3:-$(dirname "$0")/..}" && pwd)"
 OUT_DIR="$PWD"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
