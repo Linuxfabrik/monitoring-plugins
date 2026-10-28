@@ -25,10 +25,10 @@ only manual step besides the two SignPath approvals:
 
 ```text
 GitHub release vX.Y.Z published
-├── lf-release.yml
-│   ├── create-source-zip.sh             # lfmp-X.Y.Z-1.source.noarch.zip
-│   └── dispatch upstream-release        # to Linuxfabrik/packaging
-└── lf-build-windows-x86_64.yml          # lfmp-X.Y.Z-1.signed-{compiled,packaged}.windows.x86_64.zip
+└── lf-release.yml
+    ├── create-source-zip.sh             # lfmp-X.Y.Z-1.source.noarch.zip
+    ├── dispatch upstream-release        # to Linuxfabrik/packaging
+    └── lf-build-windows-x86_64.yml      # on main, publish: lfmp-X.Y.Z-1.signed-{compiled,packaged}.windows.x86_64.zip
 
 Linuxfabrik/packaging                    # RPM and DEB, `testing` channel, then `release`
 001-p-repo51: publish-downloads.sh       # every 15 minutes, to download.linuxfabrik.ch
@@ -40,8 +40,11 @@ Linuxfabrik/packaging                    # RPM and DEB, `testing` channel, then 
   right away instead of at its next hourly check, builds the packages and
   publishes them to the `testing` channel of the Linuxfabrik repository. They
   are promoted to `release` there, after seven days by default.
-* `lf-build-windows-x86_64.yml` compiles the Windows plugins and builds the
-  MSI. Each of the two SignPath signing requests waits up to two hours for an
+* `lf-release.yml` then starts `lf-build-windows-x86_64.yml` as a run on
+  `main` with `publish`, which builds the tag: the origin verification of the
+  SignPath signing policy only accepts builds from the branch `main`, and
+  `verify-version.sh` makes sure the tag is reachable from there. The workflow
+  compiles the Windows plugins and builds the MSI. Each of the two SignPath signing requests waits up to two hours for an
   approval; SignPath mails `info@` when one is pending. The signed ZIP and MSI
   are attached to the release, with an attestation each.
 * On the repository server, `build/publish-downloads.sh` runs from a systemd
@@ -100,8 +103,8 @@ lf-build-windows-x86_64.yml
 └── SignPath submit-signing-request      # signs the MSI
 ```
 
-A published release builds all plugins of its tag as iteration 1. A manual
-run takes the inputs `compile-plugins` (optional, space-separated allowlist;
+For a published release, `lf-release.yml` starts it to build all plugins of
+the tag as iteration 1. A manual run takes the inputs `compile-plugins` (optional, space-separated allowlist;
 empty means all plugins), `version`, `package-iteration` and `publish`: without
 `publish` it builds `main` and keeps the result as workflow artifacts, with
 `publish` it builds the tag `vX.Y.Z` and attaches the zips to that release.

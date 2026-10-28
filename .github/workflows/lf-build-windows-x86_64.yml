@@ -1,15 +1,16 @@
 name: 'Linuxfabrik: Build Windows (x86_64)'
 
-# Builds on every published release and attaches the signed ZIP and MSI to it,
-# from where the repository server publishes them to download.linuxfabrik.ch
-# (build/publish-downloads.sh). Both SignPath signing requests wait for a manual
-# approval. A manual run builds `main`, or with `publish` the tag of an existing
-# release under a further iteration.
+# Started for every published release by lf-release.yml, with `publish`: builds the
+# tag and attaches the signed ZIP and MSI to the release, from where the
+# repository server publishes them to download.linuxfabrik.ch
+# (build/publish-downloads.sh). Without `publish`, a manual run builds `main`.
+#
+# Always a run on `main`, never on the tag: the origin verification of the
+# SignPath signing policy only accepts builds from the branch `main`.
+# verify-version.sh makes sure the tag is reachable from there. Both signing
+# requests wait for a manual approval.
 
 on:
-  release:
-    types:
-      - 'published'
   workflow_dispatch:
     inputs:
       compile-plugins:
@@ -49,15 +50,13 @@ jobs:
         with:
           egress-policy: audit
 
-      # A release builds all plugins as iteration 1 of the version in its tag.
       - name: 'Set environment variables for the build scripts'
         shell: 'bash'
         env:
           COMPILE_PLUGINS: '${{ inputs.compile-plugins }}'
-          ITERATION: "${{ github.event_name == 'release' && '1' || inputs.package-iteration }}"
-          VERSION: "${{ github.event_name == 'release' && github.event.release.tag_name || inputs.version }}"
+          ITERATION: '${{ inputs.package-iteration }}'
+          VERSION: '${{ inputs.version }}'
         run: |
-          VERSION="${VERSION#v}"
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$ITERATION" =~ ^[0-9]+$ ]]; then
             echo "::error::Not a release version and iteration: '$VERSION' '$ITERATION'"
             exit 1
@@ -83,7 +82,6 @@ jobs:
         uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
         with:
           path: '${{ env.LFMP_DIR_REPOS }}/monitoring-plugins'
-          # a release checks out its tag anyway, the default ref of the event
           ref: "${{ inputs.publish && format('v{0}', env.LFMP_VERSION) || '' }}"
           # Full history and tags are required so build/verify-version.sh can
           # confirm the checkout contains the code tagged vLFMP_VERSION (#1406).
@@ -230,7 +228,7 @@ jobs:
   # do not belong on a public server), attests them and attaches them to the
   # release.
   publish:
-    if: "github.event_name == 'release' || inputs.publish"
+    if: 'inputs.publish'
     needs: 'build-windows-x86_64'
     runs-on: 'ubuntu-24.04'
     permissions:
@@ -238,9 +236,9 @@ jobs:
       contents: 'write'
       id-token: 'write'
     env:
-      # the same as in the build job; validated there
-      ITERATION: "${{ github.event_name == 'release' && '1' || inputs.package-iteration }}"
-      VERSION: "${{ github.event_name == 'release' && github.event.release.tag_name || inputs.version }}"
+      # validated in the build job
+      ITERATION: '${{ inputs.package-iteration }}'
+      VERSION: '${{ inputs.version }}'
     steps:
       - name: 'Harden the runner (Audit all outbound calls)'
         uses: 'step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2' # v2.22.2
@@ -255,8 +253,6 @@ jobs:
 
       - name: 'Zip the signed artifacts'
         run: |
-          VERSION="${VERSION#v}"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           mkdir "$RUNNER_TEMP/assets"
           for kind in compiled packaged; do
             name="lfmp-$VERSION-$ITERATION.signed-$kind.windows.x86_64"

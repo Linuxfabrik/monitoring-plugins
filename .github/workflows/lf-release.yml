@@ -8,7 +8,10 @@ name: 'Linuxfabrik: Release'
 # * tells Linuxfabrik/packaging, which builds the RPM and DEB packages, so the
 #   bump does not wait for its hourly upstream check
 #
-# The Windows build starts from the same event, see lf-build-windows-x86_64.yml.
+# * starts lf-build-windows-x86_64.yml on `main` with `publish`, which builds the
+#   tag and attaches the signed Windows zips; on `main`, because the SignPath
+#   signing policy only accepts builds from there
+#
 # A manual run rebuilds the source zip of an existing release under a further
 # iteration.
 
@@ -101,3 +104,23 @@ jobs:
         env:
           GH_TOKEN: '${{ steps.app-token.outputs.token }}'
         run: 'gh api repos/Linuxfabrik/packaging/dispatches --raw-field event_type=upstream-release'
+
+  windows:
+    if: "github.event_name == 'release'"
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      actions: 'write'
+    steps:
+      # A dispatch with GITHUB_TOKEN does start the workflow, unlike most other
+      # events this token causes.
+      - name: 'Start the Windows build of ${{ github.event.release.tag_name }}'
+        env:
+          GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          TAG: '${{ github.event.release.tag_name }}'
+        run: |
+          gh workflow run lf-build-windows-x86_64.yml \
+              --field package-iteration=1 \
+              --field publish=true \
+              --field version="${TAG#v}" \
+              --ref main \
+              --repo "$GITHUB_REPOSITORY"
