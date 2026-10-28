@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+"""Checks that every lockfile under `lockfiles/` pins the same linuxfabrik-lib.
+
+The plugins are released and tested against one version of the library. A
+lockfile left behind on a bump would ship the plugins with a different
+library on some distributions, so this fails as soon as the pins differ or
+one of them is missing.
+
+Runs as a pre-commit hook. Run it from anywhere inside the repository.
+
+Usage:
+    tools/check-lockfiles
+"""
+
+import os
+import re
+import sys
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026102801'
+
+LIB_PIN = re.compile(r'^linuxfabrik-lib==(\S+)', re.MULTILINE)
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+LOCKFILES_DIR = os.path.join(REPO_ROOT, 'lockfiles')
+
+
+def main():
+    pins = {}
+    for name in sorted(os.listdir(LOCKFILES_DIR)):
+        path = os.path.join(LOCKFILES_DIR, name, 'requirements.txt')
+        if not os.path.isfile(path):
+            continue
+        with open(path, encoding='utf-8') as f:
+            match = LIB_PIN.search(f.read())
+        pins[name] = match.group(1) if match else None
+
+    if len(set(pins.values())) == 1 and None not in pins.values():
+        return 0
+
+    print('The lockfiles pin different versions of linuxfabrik-lib:')
+    for name, version in pins.items():
+        print(f'    lockfiles/{name}: {version or "not pinned"}')
+    print(
+        'Pin the same version everywhere, e.g. with '
+        '`tools/update-lockfiles --upgrade-package linuxfabrik-lib==<version>`.'
+    )
+    return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

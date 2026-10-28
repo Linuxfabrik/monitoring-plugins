@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+"""Regenerates the lockfiles under `lockfiles/` with pip-compile.
+
+Every lockfile is resolved by the interpreter it is meant for, since the
+result depends on the Python version: `lockfiles/py39` by `python3.9`,
+`lockfiles/py313-windows` by `python3.13`, and so on. Each one runs pip-tools
+from its own throwaway venv, installed from the hash-pinned
+`.github/pip-tools/requirements.txt`. A lockfile reads
+`requirements-<name>.in` if it exists, `requirements.in` otherwise.
+
+Without `--upgrade-package`, pip-compile keeps every pin it can, so the
+frozen py39 and py310 lockfiles only move where asked to.
+
+Run this tool from anywhere inside the repository. Every `python3.X` it
+needs has to be on PATH; it checks all of them before touching a lockfile.
+
+Usage:
+    tools/update-lockfiles --upgrade-package linuxfabrik-lib==8.3.0
+    tools/update-lockfiles --upgrade-package certifi py311 py312
+"""
+
+import argparse
+import os
+import re
+import shutil
+import subprocess  # nosec B404
+import sys
+import tempfile
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026102801'
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+LOCKFILES_DIR = os.path.join(REPO_ROOT, 'lockfiles')
+PIP_TOOLS_REQUIREMENTS = os.path.join(
+    REPO_ROOT, '.github', 'pip-tools', 'requirements.txt'
+)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description='Regenerate the lockfiles under lockfiles/ with pip-compile.',
+    )
+    parser.add_argument(
+        'names',
+        nargs='*',
+        help='Lockfiles to regenerate, by directory name (e.g. `py39`). '
+        'Default: all of them.',
+    )
+    parser.add_argument(
+        '--upgrade-package',
+        action='append',
+        default=[],
+        dest='upgrade_packages',
+        help='Passed on to pip-compile: upgrade this package, optionally to a '
+        'given version (`linuxfabrik-lib==8.3.0`). Can be given multiple times.',
+    )
+    return parser.parse_args()
+
+
+def interpreter(name):
+    """`py313-windows` -> `python3.13`."""
+    match = re.match(r'^py3(\d+)(-.+)?$', name)
+    if not match:
+        return None
+    return f'python3.{match.group(1)}'
+
+
+def input_file(name):
+    specific = f'requirements-{name}.in'
+    if os.path.isfile(os.path.join(REPO_ROOT, specific)):
+        return specific
+    return 'requirements.in'
+
+
+def main():
+    args = parse_args()
+
+    names = args.names or sorted(
+        d
+        for d in os.listdir(LOCKFILES_DIR)
+        if os.path.isfile(os.path.join(LOCKFILES_DIR, d, 'requirements.txt'))
+    )
+
+    # Resolve every interpreter first, so a missing one aborts before any
+    # lockfile has changed.
+    pythons = {}
+    for name in names:
+        exe = interpreter(name)
+        path = shutil.which(exe) if exe else None
+        if not path:
+            sys.exit(f'{name}: no interpreter found (expected `{exe}` on PATH)')
+        pythons[name] = path
+
+    upgrade_args = []
+    for package in args.upgrade_packages:
+        upgrade_args += ['--upgrade-package', package]
+
+    # Every subprocess below gets a fixed argument list without a shell; the
+    # only variable parts are the lockfile names and package specs the
+    # maintainer passed on the command line.
+    with tempfile.TemporaryDirectory() as tmp:
+        for name in names:
+            print(f'{name}: compiling with {pythons[name]}', flush=True)
+            env_dir = os.path.join(tmp, name)
+            subprocess.run([pythons[name], '-m', 'venv', env_dir], check=True)  # nosec B603
+            python = os.path.join(env_dir, 'bin', 'python')
+            subprocess.run(  # nosec B603
+                [
+                    python,
+                    '-m',
+                    'pip',
+                    'install',
+                    '--disable-pip-version-check',
+                    '--quiet',
+                    '--require-hashes',
+                    '--requirement',
+                    PIP_TOOLS_REQUIREMENTS,
+                ],
+                check=True,
+            )
+            # The arguments and their order match the command line pip-compile
+            # writes into the header of every lockfile, so the header stays as
+            # it is.
+            subprocess.run(  # nosec B603
+                [
+                    python,
+                    '-m',
+                    'piptools',
+                    'compile',
+                    '--allow-unsafe',
+                    '--generate-hashes',
+                    f'--output-file=lockfiles/{name}/requirements.txt',
+                    '--quiet',
+                    '--strip-extras',
+                    *upgrade_args,
+                    input_file(name),
+                ],
+                check=True,
+                cwd=REPO_ROOT,
+            )
+
+
+if __name__ == '__main__':
+    main()

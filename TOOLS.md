@@ -164,6 +164,33 @@ tools/run-unit-tests --no-container
 ```
 
 
+## Lockfiles
+
+### check-lockfiles
+
+Check that every lockfile under `lockfiles/` pins the same
+`linuxfabrik-lib`. Runs as a pre-commit hook and on every pull request
+that touches a lockfile.
+
+```bash
+tools/check-lockfiles
+```
+
+### update-lockfiles
+
+Regenerate the lockfiles under `lockfiles/` with `pip-compile`, each one
+with the Python it is meant for (`python3.9` for `py39`, and so on), so
+every `python3.X` has to be on PATH. Without `--upgrade-package`, every
+pin stays where it can. After a lib release,
+`.github/workflows/lf-update-lib.yml` runs it on its own and opens a
+pull request.
+
+```bash
+tools/update-lockfiles --upgrade-package linuxfabrik-lib==8.3.0
+tools/update-lockfiles --upgrade-package certifi py311 py312
+```
+
+
 ## Operations
 
 ### influxdb-remove-old-measurements

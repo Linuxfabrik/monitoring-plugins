@@ -1,0 +1,102 @@
+name: 'Linuxfabrik: Update linuxfabrik-lib'
+
+# Pins a released linuxfabrik-lib in every lockfile and opens a pull request.
+# The publish workflow of the lib repository dispatches `lib-release` once the
+# version is on PyPI; a manual run takes the version as input.
+#
+# Each lockfile is resolved by the Python it is meant for, which is why all of
+# them are set up below (`tools/update-lockfiles` picks `python3.X` from PATH).
+# Only linuxfabrik-lib and what the new version newly requires move; every
+# other pin stays, including in the frozen py39 and py310 lockfiles.
+#
+# The pull request is opened with the Linuxfabrik automation app instead of
+# GITHUB_TOKEN. Pull requests authored by GITHUB_TOKEN do not get their checks
+# run, so the required checks never report and the pull request stays blocked.
+
+on:
+  repository_dispatch:
+    types:
+      - 'lib-release'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'linuxfabrik-lib version to pin (e.g. 8.3.0)'
+        required: true
+        type: 'string'
+
+permissions:
+  contents: 'read'
+
+jobs:
+  update:
+    runs-on: 'ubuntu-24.04'
+    steps:
+      - name: 'Harden the runner (Audit all outbound calls)'
+        uses: 'step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2' # v2.22.2
+        with:
+          egress-policy: 'audit'
+
+      - name: 'Validate the version'
+        env:
+          LIB_VERSION: '${{ github.event.client_payload.version || inputs.version }}'
+        run: |
+          if ! [[ "$LIB_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Not a release version: '$LIB_VERSION'"
+            exit 1
+          fi
+          echo "LIB_VERSION=$LIB_VERSION" >> "$GITHUB_ENV"
+
+      - name: 'Generate app token'
+        id: 'app-token'
+        uses: 'actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510' # v3.3.0
+        with:
+          client-id: '${{ vars.LF_AUTOMATION_CLIENT_ID }}'
+          private-key: '${{ secrets.LF_AUTOMATION_APP_PRIVATE_KEY }}'
+
+      - name: 'Checkout repository'
+        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        with:
+          token: '${{ steps.app-token.outputs.token }}'
+
+      - name: 'Set up Python 3.9 to 3.14'
+        uses: 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97' # v7.0.0
+        with:
+          python-version: |
+            3.9
+            3.10
+            3.11
+            3.12
+            3.13
+            3.14
+
+      # The dispatch arrives right after the upload, and the PyPI index may take a
+      # few minutes to list the new version.
+      - name: 'Wait for linuxfabrik-lib ${{ env.LIB_VERSION }} on PyPI'
+        run: |
+          for _ in $(seq 30); do
+            if python3 -m pip download --disable-pip-version-check --quiet \
+                --no-deps --dest "$RUNNER_TEMP/lib" "linuxfabrik-lib==$LIB_VERSION"; then
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "::error::linuxfabrik-lib $LIB_VERSION did not show up on PyPI within 10 minutes."
+          exit 1
+
+      - name: 'Pin linuxfabrik-lib ${{ env.LIB_VERSION }} in every lockfile'
+        run: |
+          tools/update-lockfiles --upgrade-package "linuxfabrik-lib==$LIB_VERSION"
+          tools/check-lockfiles
+
+      - name: 'Create Pull Request'
+        uses: 'peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1' # v8
+        with:
+          token: '${{ steps.app-token.outputs.token }}'
+          commit-message: 'chore(deps): bump linuxfabrik-lib to ${{ env.LIB_VERSION }} in all lockfiles'
+          title: 'chore(deps): bump linuxfabrik-lib to ${{ env.LIB_VERSION }} in all lockfiles'
+          body: |
+            linuxfabrik-lib ${{ env.LIB_VERSION }} is on PyPI. Every lockfile now pins it, together with whatever the new version newly requires; all other pins are unchanged.
+
+            Check the diff for dependencies the lib added or dropped. Once merged, the RPM, DEB and source zip pick the lib up with the next Monitoring Plugins patch release.
+          branch: 'deps/linuxfabrik-lib-${{ env.LIB_VERSION }}'
+          delete-branch: true

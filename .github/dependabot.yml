@@ -28,13 +28,21 @@ updates:
   # >= 3.10 (RHEL 8 / Debian 11), on py310 bumps needing Python
   # >= 3.11 (Ubuntu 22.04, e.g. oslo-config 10.5.0). Both lockfiles
   # are regenerated manually via `pip-compile` on a matching Python
-  # host when an actual fix lands that still supports them.
+  # host when an actual fix lands that still supports them. The same
+  # goes for `/.github/pip-tools`: `tools/update-lockfiles` installs it
+  # into a venv of every Python from 3.9 on, so it is compiled on
+  # Python 3.9 and bumped by hand.
   #
   # A missing entry stops version bumps only. Dependabot security
   # updates scan every manifest in the repository regardless of this
   # file, so a security PR against a frozen lockfile still shows up.
   # `.github/workflows/auto-merge.yml` leaves it open for
   # a human.
+  #
+  # linuxfabrik-lib is ignored in every lockfile entry: a lib release pins
+  # the new version in all lockfiles at once via
+  # `.github/workflows/lf-update-lib.yml`, where Dependabot would bump each
+  # lockfile on its own.
   - package-ecosystem: 'pip'
     directory: '/lockfiles/py311'
     schedule:
@@ -44,6 +52,7 @@ updates:
       timezone: 'Etc/UTC'
     # soupsieve 3.0.2+ requires Python >= 3.11.5, Debian 12 ships 3.11.2.
     ignore:
+      - dependency-name: 'linuxfabrik-lib'
       - dependency-name: 'soupsieve'
         versions: ['>= 3']
 
@@ -54,6 +63,8 @@ updates:
       day: 'friday'
       time: '05:00'
       timezone: 'Etc/UTC'
+    ignore:
+      - dependency-name: 'linuxfabrik-lib'
 
   - package-ecosystem: 'pip'
     directory: '/lockfiles/py313'
@@ -62,6 +73,8 @@ updates:
       day: 'friday'
       time: '05:00'
       timezone: 'Etc/UTC'
+    ignore:
+      - dependency-name: 'linuxfabrik-lib'
 
   - package-ecosystem: 'pip'
     directory: '/lockfiles/py314'
@@ -70,6 +83,8 @@ updates:
       day: 'friday'
       time: '05:00'
       timezone: 'Etc/UTC'
+    ignore:
+      - dependency-name: 'linuxfabrik-lib'
 
   - package-ecosystem: 'pip'
     directory: '/lockfiles/py313-windows'
@@ -78,6 +93,8 @@ updates:
       day: 'friday'
       time: '05:00'
       timezone: 'Etc/UTC'
+    ignore:
+      - dependency-name: 'linuxfabrik-lib'
 
   - package-ecosystem: 'pip'
     directory: '/.github/container-tests'

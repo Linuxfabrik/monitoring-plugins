@@ -1,0 +1,33 @@
+name: 'Linuxfabrik: Check lockfiles'
+
+# Every lockfile has to pin the same linuxfabrik-lib (see tools/check-lockfiles).
+# The pre-commit hook covers local commits; this covers pull requests, above all
+# Dependabot security updates, which may touch a single lockfile.
+
+on:
+  pull_request:
+    paths:
+      - 'lockfiles/**'
+  push:
+    branches:
+      - 'main'
+    paths:
+      - 'lockfiles/**'
+
+permissions:
+  contents: 'read'
+
+jobs:
+  check:
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: 'Harden the runner (Audit all outbound calls)'
+        uses: 'step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2' # v2.22.2
+        with:
+          egress-policy: 'audit'
+
+      - name: 'Checkout repository'
+        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+
+      - name: 'All lockfiles pin the same linuxfabrik-lib'
+        run: 'tools/check-lockfiles'

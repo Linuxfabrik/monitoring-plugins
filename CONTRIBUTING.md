@@ -171,7 +171,7 @@ A new plugin delivers:
 * README file explaining "How?" and "Why?"
 * A free, monochrome, transparent SVG icon from <https://simpleicons.org> or <https://fontawesome.com/search?ic=free> in the `icon` directory.
 * Optional: `unit-test/run` (see [Unit Tests](#unit-tests)).
-* Optional: new Python deps in the repo-root `requirements.in`; the lockfiles under `lockfiles/pyXX/requirements.txt` are regenerated from it.
+* Optional: new Python deps in the repo-root `requirements.in`; regenerate the lockfiles under `lockfiles/pyXX/requirements.txt` with `tools/update-lockfiles`.
 * If providing performance data: Grafana dashboard (see [GRAFANA.md](GRAFANA.md)) and `.ini` file for the Icinga Web 2 Grafana Module.
 * Icinga Director Basket Config. Run `tools/build-basket --auto` before every commit (not just for new plugins), otherwise a stale basket surfaces as an unrelated diff in someone else's later run.
 * Icinga Service Set in `all-the-rest.json` if appropriate (see "Icinga Director: Service Set vs. Service Template").
