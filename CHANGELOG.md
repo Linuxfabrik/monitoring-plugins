@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-tbd
+### Changed
+
+Monitoring Plugins:
+
+* nextcloud-stats: The output says "enabled apps", since disabled apps are not part of the count.
 
 
 ## [v8.1.0] - 2026-10-27

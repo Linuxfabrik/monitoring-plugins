@@ -104,7 +104,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-stats/
 Output:
 
 ```text
-77 users (22/30/53 in the last 5min/1h/24h), 4.4M files, 75 apps (0 updates available), v27.1.3.2
+77 users (22/30/53 in the last 5min/1h/24h), 4.4M files, 75 enabled apps (0 updates available), v27.1.3.2
 * Shares: 557 (0 groups, 488 links [478 w/o password], 25 mails, 0 rooms, 23 users, 0 federated sent)
 * Federated Shares: 1 received
 * Storages: 144 (23 home, 120 other, 1 local)
