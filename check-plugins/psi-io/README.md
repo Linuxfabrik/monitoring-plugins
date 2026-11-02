@@ -72,7 +72,7 @@ options:
   -c, --critical CRIT   CRIT threshold for the storage pressure, in percent of
                         wall clock time, measured over the last minute.
                         Supports Nagios ranges. Example: `30` alerts where 30
-                        percent of the time is lost. Default: 30
+                        percent of the time is lost. Default: 60
   --critical-avg10 CRIT_AVG10
                         CRIT threshold for the storage pressure, in percent of
                         wall clock time, measured over the last ten seconds.
@@ -91,7 +91,7 @@ options:
   -w, --warning WARN    WARN threshold for the storage pressure, in percent of
                         wall clock time, measured over the last minute.
                         Supports Nagios ranges. Example: `15` alerts where 15
-                        percent of the time is lost. Default: 15
+                        percent of the time is lost. Default: 40
   --warning-avg10 WARN_AVG10
                         WARN threshold for the storage pressure, in percent of
                         wall clock time, measured over the last ten seconds.
@@ -173,8 +173,8 @@ avg300 ! 1.2%   ! 1.16%
 
 * OK if the `full` pressure over the last minute is within `--warning` and `--critical`.
 * OK with an explanation if the kernel keeps no pressure statistics, which is the Red Hat default. `--severity-no-psi` raises that to `warn`, `crit` or `unknown`.
-* WARN if the `full` pressure over the last minute leaves the `--warning` range, 15 % by default.
-* CRIT if it leaves the `--critical` range, 30 % by default.
+* WARN if the `full` pressure over the last minute leaves the `--warning` range, 40 % by default.
+* CRIT if it leaves the `--critical` range, 60 % by default.
 * WARN or CRIT if the `full` pressure over the last ten seconds leaves `--warning-avg10` or `--critical-avg10`. Neither is set by default, so that value does not alert until one of them is given. The worst of the two windows wins.
 * UNKNOWN if a value in `/proc/pressure/io` is not a number, or if the file exists but cannot be read.
 * UNKNOWN if the check does not run on Linux.
