@@ -47,7 +47,7 @@ spec:
 
   panels:
 
-  - title: MySQL System - Kernel fs - File handle ceilings
+  - title: MySQL System - Kernel fs.aio-max-nr
     type: timeseries
     gridPos:
       h: 8
@@ -63,12 +63,10 @@ spec:
           lineInterpolation: smooth
           lineWidth: 1
           pointSize: 3
-          scaleDistribution:
-            log: 10
-            type: log
           showPoints: always
           spanNulls: 900000
         decimals: 1
+        min: 0
         unit: short
       overrides:
       - matcher:
@@ -77,12 +75,6 @@ spec:
         properties:
         - id: displayName
           value: Kernel fs.aio-max-nr
-      - matcher:
-          id: byName
-          options: mysql_kernel_fs_nr_open
-        properties:
-        - id: displayName
-          value: Kernel fs.nr_open
     options:
       legend:
         calcs:
@@ -130,6 +122,52 @@ spec:
         operator: '='
         value: mysql_kernel_fs_aio_max_nr
 
+
+  - title: MySQL System - Kernel fs.nr_open
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: 900000
+        decimals: 1
+        min: 0
+        unit: short
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_kernel_fs_nr_open
+        properties:
+        - id: displayName
+          value: Kernel fs.nr_open
+    options:
+      legend:
+        calcs:
+        - firstNotNull
+        - min
+        - mean
+        - max
+        - lastNotNull
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
     - alias: mysql_kernel_fs_nr_open
       refId: mysql_kernel_fs_nr_open
       groupBy:
@@ -166,8 +204,8 @@ spec:
     gridPos:
       h: 8
       w: 12
-      x: 12
-      y: 0
+      x: 0
+      y: 8
     fieldConfig:
       defaults:
         color:
@@ -243,7 +281,7 @@ spec:
     gridPos:
       h: 8
       w: 12
-      x: 0
+      x: 12
       y: 8
     fieldConfig:
       defaults:
