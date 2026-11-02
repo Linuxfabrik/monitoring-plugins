@@ -30,16 +30,21 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102402'
+__version__ = '2026110201'
 
 DESCRIPTION = """Scans the system for numerous known rootkits by checking for their
 characteristic files, directories, and kernel symbols. Each finding includes the year
 the rootkit was first publicly disclosed when known. Additional rootkit definitions can
 be added by dropping YAML files into the assets folder.
-Alerts when rootkit indicators are found.
+Alerts when rootkit indicators are found. An indicator is evidence to investigate, not
+proof of an infection. Indicators of signatures below full confidence, paths that
+legitimate software might use and files a local user could have created count as weak;
+weak indicators only warn.
 Requires root or sudo."""
 
 DEFAULT_SEVERITY = 'crit'
+# Accounts that can place a file anywhere. The unit tests adjust this in their copy.
+TRUSTED_UIDS = (0,)
 
 
 def parse_args():
@@ -129,6 +134,35 @@ def get_file_type(path, want_dir=False):
     return None
 
 
+def is_forgeable(path):
+    """Return whether somebody other than root could have put `path` there: it or a
+    directory on the way to it is not root's, and sits in a directory that others can
+    write to. Owners and modes decide, not a list of locations, since the monitoring
+    user owns `/run/icinga2` and users own their home. A non-root file in a directory
+    only root can write stays conclusive: rootkit tarballs keep the UID of their
+    author. The whole way counts, because a user can link `/tmp/x` to a root-owned
+    directory to make `/tmp/x/file` look like root's own.
+
+    `lib.disk.resolve_trusted_path()` answers another question, who can change a path,
+    and never trusts `/tmp`. A root-owned file there is what this check wants to keep.
+    Hard links do not get around this, fs.protected_hardlinks is on by default.
+    """
+    try:
+        while path != os.sep:
+            parent = os.path.dirname(path)
+            parent_stat = os.lstat(parent)
+            writable_by_others = (
+                parent_stat.st_uid not in TRUSTED_UIDS
+                or parent_stat.st_mode & stat.S_IWOTH
+            )
+            if os.lstat(path).st_uid not in TRUSTED_UIDS and writable_by_others:
+                return True
+            path = parent
+    except (OSError, ValueError):
+        return True
+    return False
+
+
 def load_kernel_symbols():
     """Read `/proc/kallsyms` (or legacy `/proc/ksyms`) and return the set of
     exact kernel symbol names. Using a set gives us whole-symbol matching
@@ -179,9 +213,10 @@ def main():
     perfdata = ''
     rkscanned = 0  # number of rootkit signatures loaded (used as perfdata _max)
     rkfound = []  # detail lines per indicator hit (one line per file/dir/ksym match)
-    rkpossible = []  # detail lines per possible-only indicator hit (cl < 100)
-    rkfound_count = 0  # number of distinct rootkits with at least one confirmed hit
-    rkpossible_count = 0  # number of distinct rootkits with at least one possible hit
+    rkpossible = []  # detail lines per weak indicator hit (cl < 100, listed in
+    # weak_paths or forgeable)
+    rkfound_count = 0  # number of distinct rootkits with at least one strong hit
+    rkpossible_count = 0  # number of distinct rootkits with weak hits only
 
     # analyze data
     for rootkit in rootkits:
@@ -200,38 +235,51 @@ def main():
                 else rk['name']
             )
             confirmed = not ('cl' in rk and rk['cl'] < 100)
-            target = rkfound if confirmed else rkpossible
-            hit = False
+            weak_paths = rk.get('weak_paths', [])
+            hits = []
 
             # see if any of the known files, sockets or FIFOs exists
             for path in (path for item in rk['files'] for path in expand(item)):
                 file_type = get_file_type(path)
                 if file_type:
-                    target.append(f'* {label}: {path} ({file_type})')
-                    hit = True
+                    hits.append((path, file_type))
 
             # see if any of the directories exist
             for path in (path for item in rk['dirs'] for path in expand(item)):
                 file_type = get_file_type(path, want_dir=True)
                 if file_type:
-                    target.append(f'* {label}: {path} ({file_type})')
-                    hit = True
+                    hits.append((path, file_type))
+
+            # a path counts for itself, as a signature can mix a file anybody can
+            # create with paths only root can
+            strong = []
+            weak = []
+            for path, file_type in hits:
+                if is_forgeable(path):
+                    weak.append(f'* {label}: {path} ({file_type}, not owned by root)')
+                elif confirmed and path not in weak_paths:
+                    strong.append(f'* {label}: {path} ({file_type})')
+                else:
+                    weak.append(f'* {label}: {path} ({file_type})')
 
             # scan kernel symbols for signs of rootkits or other malicious software
             if ksyms:
                 for item in rk['ksyms']:
                     if item in ksyms:
-                        target.append(f'* {label}: {item} (Kernel Symbol)')
-                        hit = True
+                        (strong if confirmed else weak).append(
+                            f'* {label}: {item} (Kernel Symbol)'
+                        )
+
+            rkfound += strong
+            rkpossible += weak
 
             # count this rootkit once if any of its indicators triggered, so the
             # perfdata value reflects distinct rootkits found and not the total
             # number of indicator hits (one rootkit can trigger many indicators)
-            if hit:
-                if confirmed:
-                    rkfound_count += 1
-                else:
-                    rkpossible_count += 1
+            if strong:
+                rkfound_count += 1
+            elif weak:
+                rkpossible_count += 1
 
         except KeyError as e:
             # missing a yaml attribute like 'files' or 'dirs'
@@ -253,21 +301,30 @@ def main():
             state = lib.base.get_worst(state, STATE_WARN)
         if rkfound:
             state = lib.base.get_worst(state, lib.base.str2state(args.SEVERITY))
+        summary = []
+        if rkfound:
+            summary.append(
+                f'Found indicators of {rkfound_count}'
+                f' {lib.txt.pluralize("rootkit", rkfound_count)}.'
+            )
+        if rkpossible_count:
+            summary.append(
+                f'Found weak indicators of {rkpossible_count}'
+                f' {lib.txt.pluralize("rootkit", rkpossible_count)}.'
+            )
+        msg += f'{" ".join(summary)} {lib.base.state2str(state)}'
+        msg += '\n\nRootkit Indicators:\n' + '\n'.join(rkfound) if rkfound else ''
         msg += (
-            f'Found {rkfound_count}'
-            f' {lib.txt.pluralize("rootkit", rkfound_count)}.'
-            f' {rkpossible_count} possible'
-            f' {lib.txt.pluralize("rootkit", rkpossible_count)}'
-            f' found. {lib.base.state2str(state)}'
+            '\n\nWeak Rootkit Indicators:\n' + '\n'.join(rkpossible)
+            if rkpossible
+            else ''
         )
-        msg += '\n\nRootkits:\n' + '\n'.join(rkfound) if rkfound else ''
-        msg += '\n\nPossible Rootkits:\n' + '\n'.join(rkpossible) if rkpossible else ''
     msg += '\n\nScanfile Errors:\n' + '\n'.join(errors) if errors else ''
 
     # rootkit_items / rootkit_possible carry the count of distinct rootkits with
-    # at least one indicator match. _max is the total number of signatures loaded,
-    # so admins immediately see the upper bound and can graph signature-database
-    # growth via the perfdata max field.
+    # strong indicators, and with weak indicators only. _max is the total number of
+    # signatures loaded, so admins immediately see the upper bound and can graph
+    # signature-database growth via the perfdata max field.
     perfdata += lib.base.get_perfdata(
         'rootkit_items',
         rkfound_count,

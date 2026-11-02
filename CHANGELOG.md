@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Monitoring Plugins:
 
 * nextcloud-stats: The output says "enabled apps", since disabled apps are not part of the count.
+* scanrootkit: Reports indicators instead of rootkits, generic paths and files any user can create only warn, detects 3 more implants.
 
 
 ## [v8.1.0] - 2026-10-27

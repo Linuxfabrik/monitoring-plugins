@@ -31,6 +31,10 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 # example tox environments in parallel, then never see each other's signatures,
 # and a run never writes into the repository.
 #
+# The trigger files belong to the user running the tests, which is not root in most
+# runs, and they would count as forgeable. `check` therefore trusts that user too,
+# and `check_forged` trusts nobody, so every file counts as forgeable.
+#
 # The shipped CiNIK signature can only be triggered through the real
 # /tmp/.cinik, which every run on the host shares, and which would make the
 # baseline of a concurrent run report a rootkit. The whole class therefore holds
@@ -49,11 +53,23 @@ class TestCheck(unittest.TestCase):
         fcntl.flock(cls._lock, fcntl.LOCK_EX)
         cls.workdir = tempfile.mkdtemp(prefix='scanrootkit-utest-')
         cls.check = os.path.join(cls.workdir, 'scanrootkit')
-        shutil.copy2('../scanrootkit', cls.check)
+        cls.check_forged = os.path.join(cls.workdir, 'scanrootkit-forged')
+        cls._copy_plugin(cls.check, f'(0, {os.getuid()})')
+        cls._copy_plugin(cls.check_forged, '()')
         cls.assets_dir = os.path.join(cls.workdir, 'assets')
         shutil.copytree('../assets', cls.assets_dir)
         os.symlink(os.path.realpath('../lib'), os.path.join(cls.workdir, 'lib'))
         cls.trigger_prefix = os.path.join(cls.workdir, 'trigger-')
+
+    @classmethod
+    def _copy_plugin(cls, target, trusted_uids):
+        with open('../scanrootkit', encoding='utf-8') as fh:
+            source = fh.read()
+        marker = 'TRUSTED_UIDS = (0,)'
+        assert marker in source  # nosec B101 - the test must not pass by accident
+        with open(target, 'w', encoding='utf-8') as fh:
+            fh.write(source.replace(marker, f'TRUSTED_UIDS = {trusted_uids}'))
+        shutil.copymode('../scanrootkit', target)
 
     @classmethod
     def tearDownClass(cls):
@@ -132,10 +148,10 @@ class TestCheck(unittest.TestCase):
         self._touch('/tmp/.cinik')  # nosec B108 - the rootkit file the signature looks for
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
         self.assertIn(
-            'Found 2 rootkits. 0 possible rootkits found. [CRITICAL]',
+            'Found indicators of 2 rootkits. [CRITICAL]',
             stdout,
         )
-        self.assertIn('Rootkits:', stdout)
+        self.assertIn('Rootkit Indicators:', stdout)
         self.assertIn('CiNIK Worm (Slapper.B variant)', stdout)
         self.assertIn('Slapper Worm', stdout)
         self.assertIn('/tmp/.cinik (File)', stdout)  # nosec B108 - the rootkit file the signature looks for
@@ -148,10 +164,10 @@ class TestCheck(unittest.TestCase):
             lib.shell.shell_exec([self.check, '--severity=warn'])
         )
         self.assertIn(
-            'Found 2 rootkits. 0 possible rootkits found. [WARNING]',
+            'Found indicators of 2 rootkits. [WARNING]',
             stdout,
         )
-        self.assertIn('Rootkits:', stdout)
+        self.assertIn('Rootkit Indicators:', stdout)
         self.assertIn('CiNIK Worm (Slapper.B variant)', stdout)
         self.assertIn('/tmp/.cinik (File)', stdout)  # nosec B108 - the rootkit file the signature looks for
         self.assertEqual(stderr, '')
@@ -240,7 +256,7 @@ class TestCheck(unittest.TestCase):
             ),
         )
         stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
-        self.assertIn('Found 1 rootkit.', stdout)
+        self.assertIn('Found indicators of 1 rootkit.', stdout)
         self.assertIn(f'{socket_target} (Socket)', stdout)
         self.assertIn(f'{fifo_target} (FIFO)', stdout)
         self.assertEqual(retc, STATE_CRIT)
@@ -334,9 +350,103 @@ class TestCheck(unittest.TestCase):
         )
         # Even with --severity=crit (the default), a cl<100 hit is only WARN.
         stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
-        self.assertIn('Possible Rootkits:', stdout)
+        self.assertIn('Found weak indicators of 1 rootkit. [WARNING]', stdout)
+        self.assertIn('Weak Rootkit Indicators:', stdout)
         self.assertIn('Test Possible Rootkit', stdout)
         self.assertEqual(retc, STATE_WARN)
+
+    def _forgeable_signature(self, slug, *paths):
+        files = ''.join(f"  - '{path}'\n" for path in paths)
+        self._add_signature(
+            slug,
+            (
+                f"name: 'Test {slug} Rootkit'\n"
+                f'files:\n{files}'
+                'dirs: []\n'
+                'ksyms: []\n'
+                'cl: 100\n'
+            ),
+        )
+
+    def _world_writable_dir(self):
+        path = self._mkdir(self.trigger_prefix + 'world-writable')
+        os.chmod(path, 0o1777)  # nosec B103 - what the test is about
+        return path
+
+    def test_forgeable_file_is_weak_despite_full_confidence(self):
+        target = self._touch(self.trigger_prefix + 'forgeable')
+        self._forgeable_signature('forgeable', target)
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check_forged]))
+        self.assertIn('Found weak indicators of 1 rootkit. [WARNING]', stdout)
+        self.assertIn(f'{target} (File, not owned by root)', stdout)
+        self.assertEqual(retc, STATE_WARN)
+
+    @unittest.skipUnless(os.geteuid() == 0, 'needs files of different owners')
+    def test_strong_indicator_outweighs_forgeable_one_of_same_rootkit(self):
+        weak = self._touch(os.path.join(self._world_writable_dir(), 'mixed'))
+        os.chown(weak, 65534, 65534)
+        strong = self._touch(self.trigger_prefix + 'mixed')
+        self._forgeable_signature('mixed', weak, strong)
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
+        self.assertIn('Found indicators of 1 rootkit. [CRITICAL]', stdout)
+        self.assertNotIn('Found weak indicators', stdout)
+        self.assertIn(f'{weak} (File, not owned by root)', stdout)
+        self.assertIn(f'{strong} (File)', stdout)
+        self.assertIn("'rootkit_items'=1;", stdout)
+        self.assertIn("'rootkit_possible'=0;", stdout)
+        self.assertEqual(retc, STATE_CRIT)
+
+    @unittest.skipUnless(os.geteuid() == 0, 'needs a file owned by root')
+    def test_root_owned_file_in_world_writable_dir_stays_strong(self):
+        target = self._touch(os.path.join(self._world_writable_dir(), 'root-owned'))
+        self._forgeable_signature('root-owned', target)
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
+        self.assertIn('Found indicators of 1 rootkit. [CRITICAL]', stdout)
+        self.assertEqual(retc, STATE_CRIT)
+
+    @unittest.skipUnless(os.geteuid() == 0, 'needs to change the owner of a file')
+    def test_foreign_file_in_root_only_dir_stays_strong(self):
+        # as a rootkit tarball unpacked by root leaves it
+        target = self._touch(self.trigger_prefix + 'tarball')
+        os.chown(target, 65534, 65534)
+        self._forgeable_signature('tarball', target)
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
+        self.assertIn('Found indicators of 1 rootkit. [CRITICAL]', stdout)
+        self.assertEqual(retc, STATE_CRIT)
+
+    @unittest.skipUnless(os.geteuid() == 0, 'needs a file owned by root')
+    def test_root_owned_file_behind_user_symlink_is_weak(self):
+        # /tmp/x -> a root-owned directory: the file is root's, the way to it is not
+        real_dir = self._mkdir(self.trigger_prefix + 'symlink-target')
+        self._touch(os.path.join(real_dir, 'file'))
+        link = os.path.join(self._world_writable_dir(), 'link')
+        os.symlink(real_dir, link)
+        os.lchown(link, 65534, 65534)
+        self._tmp_paths.append(link)
+        self._forgeable_signature('symlinked', os.path.join(link, 'file'))
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
+        self.assertIn('Found weak indicators of 1 rootkit. [WARNING]', stdout)
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_weak_path_warns_while_rest_of_signature_stays_strong(self):
+        weak = self._touch(self.trigger_prefix + 'weak-path')
+        strong = self.trigger_prefix + 'strong-path'
+        signature = (
+            "name: 'Test Weak Path Rootkit'\n"
+            f"files:\n  - '{weak}'\n  - '{strong}'\n"
+            'dirs: []\n'
+            'ksyms: []\n'
+            f"weak_paths:\n  - '{weak}'\n"
+        )
+        self._add_signature('weak-path', signature)
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
+        self.assertIn('Found weak indicators of 1 rootkit. [WARNING]', stdout)
+        self.assertEqual(retc, STATE_WARN)
+
+        self._touch(strong)
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
+        self.assertIn('Found indicators of 1 rootkit. [CRITICAL]', stdout)
+        self.assertEqual(retc, STATE_CRIT)
 
     def test_discovered_field_renders_in_output(self):
         target = self.trigger_prefix + 'discovered'
@@ -438,10 +548,13 @@ class TestCheck(unittest.TestCase):
             ),
         )
         stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
-        self.assertIn('Found 1 rootkit.', stdout)
-        self.assertIn('1 possible rootkit found.', stdout)
-        self.assertIn('Rootkits:', stdout)
-        self.assertIn('Possible Rootkits:', stdout)
+        self.assertIn(
+            'Found indicators of 1 rootkit. Found weak indicators of 1 rootkit.'
+            ' [CRITICAL]',
+            stdout,
+        )
+        self.assertIn('\nRootkit Indicators:', stdout)
+        self.assertIn('Weak Rootkit Indicators:', stdout)
         # Confirmed wins over possible: state must be CRIT, not WARN.
         self.assertEqual(retc, STATE_CRIT)
 

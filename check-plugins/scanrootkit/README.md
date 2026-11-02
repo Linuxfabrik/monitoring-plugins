@@ -25,7 +25,8 @@ Scans the system for numerous known rootkits by checking for their characteristi
     cl: 100
     ```
 
-* `cl` is the confidence level in percent. Signatures with `cl < 100` are reported as "possible" rootkit items (state WARN) instead of confirmed findings. If `cl` is omitted, the signature is treated as 100% confident.
+* `weak_paths` is optional and lists those `files` or `dirs` that the source names, but legitimate software might use too. They are reported as weak indicators (state WARN), the rest of the signature keeps its `cl`.
+* `cl` is the confidence level in percent. Signatures with `cl < 100` are reported as weak indicators (state WARN). If `cl` is omitted, the signature is treated as 100% confident.
 * Kernel symbol matching is exact per symbol (using `/proc/kallsyms`), so a signature like `is_invisible` will not accidentally match an unrelated legitimate symbol named `is_invisible_helper`.
 * To test the whole alerting chain on a live host, create the harmless trigger file `/tmp/.cinik`. It matches two historic rkhunter signatures (CiNIK Worm and Slapper Worm), so the next check run reports CRIT (or WARN with `--severity=warn`). Remove the file afterwards. This does not work if the monitoring agent runs with systemd `PrivateTmp=yes`, because the agent then does not see the host's `/tmp`.
 
@@ -69,7 +70,7 @@ GitHub repositories complement the blogs: their commit history shows exactly wha
 * [milabs/awesome-linux-rootkits](https://github.com/milabs/awesome-linux-rootkits) - curated list of Linux rootkits and their capabilities; no indicators, but useful to discover rootkit names worth researching
 * [Neo23x0/signature-base](https://github.com/Neo23x0/signature-base) - YARA rules and `iocs/filename-iocs.txt` with file-name IoCs and their source; filter for Linux
 
-Signatures should be strong enough to avoid false positives on a clean system. Prefer uncommon, rootkit-specific file paths (e.g. `/usr/_h4x_/`) over generic ones (`/tmp/.X11-unix`) and exact kernel symbol names over substrings. If a signature is only partially reliable, set `cl` below 100 so the plugin reports it as "possible" instead of "confirmed".
+Signatures should be strong enough to avoid false positives on a clean system. Prefer uncommon, rootkit-specific file paths (e.g. `/usr/_h4x_/`) over generic ones (`/tmp/.X11-unix`) and exact kernel symbol names over substrings. If the source names a path that legitimate software could use, which matters most for `/tmp`, `/var/tmp` and `/dev/shm`, keep it and list it in `weak_paths`. If a signature as a whole is only partially reliable, set `cl` below 100 so the plugin reports it as a weak indicator.
 
 
 ## Fact Sheet
@@ -96,7 +97,11 @@ Scans the system for numerous known rootkits by checking for their
 characteristic files, directories, and kernel symbols. Each finding includes
 the year the rootkit was first publicly disclosed when known. Additional
 rootkit definitions can be added by dropping YAML files into the assets
-folder. Alerts when rootkit indicators are found. Requires root or sudo.
+folder. Alerts when rootkit indicators are found. An indicator is evidence to
+investigate, not proof of an infection. Indicators of signatures below full
+confidence, paths that legitimate software might use and files a local user
+could have created count as weak; weak indicators only warn. Requires root or
+sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -124,27 +129,29 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/scanrootkit/
 Output:
 
 ```text
-Found 4 rootkits. 2 possible rootkits found. [CRITICAL]
+Found indicators of 4 rootkits. Found weak indicators of 2 rootkits. [CRITICAL]
 
-Rootkits:
+Rootkit Indicators:
 * Diamorphine LKM (2013): hacked_kill (Kernel Symbol)
 * KBeast Rootkit (2012): /usr/_h4x_ (Dir)
 * PUMAKIT LKM rootkit with Kitsune userland component (2024): /usr/share/zov_f/zov_latest (File)
 * Reptile LKM rootkit (2018): /lib/udev/reptile (File)
 
-Possible Rootkits:
+Weak Rootkit Indicators:
 * Components for Backdoors: /usr/info/.clib (File)
 * Symbiote userland Linux rootkit (2022): /usr/include/certbot.h (File)
 ```
 
-Each finding lists the rootkit name followed by the year it was first publicly disclosed in parentheses (when known), the matched indicator, and the indicator type (`File`, `Socket`, `FIFO`, `Symlink`, `Dir`, or `Kernel Symbol`). The summary line counts distinct rootkits, so two indicator hits for the same rootkit count once. Possible findings (signatures with `cl < 100`, e.g. broad component groups or modern rootkits whose paths could collide with legitimate software) are listed in a separate section and produce a WARN state instead of CRIT, regardless of `--severity`.
+Each finding lists the rootkit name followed by the year it was first publicly disclosed in parentheses (when known), the matched indicator, and the indicator type (`File`, `Socket`, `FIFO`, `Symlink`, `Dir`, or `Kernel Symbol`). The summary line counts distinct rootkits, so two indicator hits for the same rootkit count once. An indicator is evidence to investigate, not proof of an infection: one match is enough, because signatures list the indicators of all known variants and attackers clean up after themselves.
+
+Weak indicators are listed in a separate section and produce a WARN state instead of CRIT, regardless of `--severity`. An indicator is weak if its signature has `cl < 100` (e.g. broad component groups or modern rootkits whose paths could collide with legitimate software), if the signature lists it in `weak_paths`, or if a local user could have created it: it does not belong to root and lies in a directory anybody can write to, such as `/tmp`, or in one that belongs to a user. These hits are marked `not owned by root`. A root-owned file at the same path keeps the confidence of its signature.
 
 
 ## States
 
 * OK if no rootkit indicators are found.
-* WARN or CRIT (depending on `--severity`, default: CRIT) if confirmed rootkit items are found.
-* WARN if only possible rootkit items are found (confidence level below 100%), regardless of the selected severity.
+* WARN or CRIT (depending on `--severity`, default: CRIT) if rootkit indicators are found.
+* WARN if only weak rootkit indicators are found (confidence level below 100%, a path that legitimate software might use, or a file a local user could have created), regardless of the selected severity.
 * UNKNOWN if no rootkit definition files are found in the `assets` directory.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -153,11 +160,20 @@ Each finding lists the rootkit name followed by the year it was first publicly d
 
 | Name | Type | Description |
 |----|----|----|
-| rootkit_items | Number | The number of distinct rootkits with at least one confirmed indicator hit (`cl: 100`). The `max` field carries the total number of rootkit signatures the plugin currently scans for, so admins see the upper bound and can graph signature-database growth via the max field. |
-| rootkit_possible | Number | The number of distinct rootkits with at least one possible indicator hit (`cl < 100`). Same `max` semantics as above. |
+| rootkit_items | Number | The number of distinct rootkits with at least one indicator hit that is not weak. The `max` field carries the total number of rootkit signatures the plugin currently scans for, so admins see the upper bound and can graph signature-database growth via the max field. |
+| rootkit_possible | Number | The number of distinct rootkits with weak indicator hits only. Same `max` semantics as above. |
 
 
 ## Troubleshooting
+
+### A rootkit indicator on a host that looks clean
+
+An indicator is a file with a known name, nothing more. Generic names such as `/tmp/.a` or `/tmp/update` are reported as weak indicators, because scripts use them as well.
+
+1. See who owns the file, when it was created and what it contains: `stat /tmp/.a` and `file /tmp/.a`.
+2. See if a process still has it open: `sudo lsof /tmp/.a`
+3. Check where it came from: `sudo ausearch --file /tmp/.a` if auditd runs, the crontabs and the scripts of the owner otherwise.
+4. Treat the host as compromised if the file is an executable you cannot explain, if a process you do not know holds it, or if the check reports further indicators of the same rootkit. Otherwise, remove the file, and fix the script that leaves it behind.
 
 ### `Python module "yaml" is not installed.`
 
