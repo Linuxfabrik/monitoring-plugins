@@ -20,7 +20,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026110201'
 
 DESCRIPTION = """Checks MySQL/MariaDB user security: anonymous accounts (empty user name),
 accounts with empty passwords, accounts whose password matches the username (the classic
@@ -29,7 +29,9 @@ common defaults (`password`, `admin`, `root`, `letmein`, ...), accounts that acc
 connections from any host (`'%'` wildcard), and accounts still on the legacy SHA1-based
 `mysql_native_password` (or `sha256_password` on MySQL 8.0+) authentication plugin. Each
 finding maps to a copy-pasteable SQL recommendation.
-Alerts on every account it finds insecure, at the level `--severity` sets."""
+Alerts on every account it finds insecure, at the level `--severity` sets. On MariaDB, a
+legacy authentication plugin is a hint without a state, as common clients cannot log in
+with its successors."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -489,15 +491,6 @@ def main():
             mariadb_auth_plugin = 'parsec'
         elif server_version >= (10, 4, 0):
             mariadb_auth_plugin = 'ed25519'
-    # MariaDB ships both plugins as shared objects but loads neither by
-    # default, so `ALTER USER ... IDENTIFIED VIA <plugin>` fails with
-    # ERROR 1396 until the plugin is installed once. Only advise the
-    # one-time INSTALL when the plugin is not active yet.
-    mariadb_auth_plugin_active = bool(mariadb_auth_plugin) and plugin_active(
-        conn,
-        mariadb_auth_plugin,
-    )
-
     anonymous_users = find_anonymous_users(conn, role_filter)
     empty_password_users = find_empty_password_users(conn)
     username_pw_users = (
@@ -599,13 +592,18 @@ def main():
         renamed = u['user'].replace("'%'", f"'{HOST_PLACEHOLDER}'")
         recommendations.append(f'`RENAME USER {u["user"]} TO {renamed};`')
 
+    # PHP's mysqlnd and PyMySQL cannot log in with `parsec` or (mysqlnd) `ed25519`
+    # (php-src master, PyMySQL 1.4.6), so on MariaDB, migrating an account can lock its
+    # application out. It stays a hint until the clients catch up.
     n_legacy = len(legacy_auth_users)
-    if n_legacy:
+    legacy_is_hint = bool(mariadb_auth_plugin)
+    legacy_marker = ''
+    if n_legacy and not legacy_is_hint:
         state = lib.base.get_worst(state, severity_state)
+        legacy_marker = lib.base.state2str(severity_state, prefix=' ')
     findings.append(
         f'{n_legacy} {lib.txt.pluralize("user", n_legacy)} '
-        f'on a legacy authentication plugin'
-        f'{lib.base.state2str(severity_state, prefix=" ") if n_legacy else ""}'
+        f'on a legacy authentication plugin{legacy_marker}'
     )
     # Version-aware modern plugin: caching_sha2_password on MySQL 8.0+,
     # parsec on MariaDB 11.6+, ed25519 on MariaDB 10.4+. Older
@@ -618,12 +616,10 @@ def main():
                 f"BY '{PASSWORD_PLACEHOLDER}';`"
             )
     elif mariadb_auth_plugin:
-        if legacy_auth_users and not mariadb_auth_plugin_active:
-            recommendations.append(f"`INSTALL SONAME 'auth_{mariadb_auth_plugin}';`")
-        for u in legacy_auth_users:
+        if legacy_auth_users:
             recommendations.append(
-                f'`ALTER USER {u["user"]} IDENTIFIED VIA {mariadb_auth_plugin} '
-                f"USING PASSWORD('{PASSWORD_PLACEHOLDER}');`"
+                f'Moving accounts to `{mariadb_auth_plugin}` is safer, but first check '
+                'that every client of the account supports it: PHP (mysqlnd) does not.'
             )
     else:
         for u in legacy_auth_users:

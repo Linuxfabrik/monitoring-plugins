@@ -65,16 +65,16 @@ CONTAINERFILES = sorted(
     if os.path.isfile(os.path.join(CONTAINERFILES_DIR, name))
 )
 
-# Modern authentication plugin the check must recommend for the legacy
-# accounts it finds: `parsec` on MariaDB 11.6+ (where it first ships),
-# `ed25519` on older MariaDB. The upstream MySQL images already create
+# Modern authentication plugin the hint names for the legacy accounts it
+# finds: `parsec` on MariaDB 11.6+ (where it first ships), `ed25519` on
+# older MariaDB. The upstream MySQL images already create
 # their accounts on `caching_sha2_password`, so they hold no legacy
 # account and the check must not emit an auth recommendation at all.
 EXPECTED_AUTH_RECOMMENDATION = {
-    'mariadb-v106': 'IDENTIFIED VIA ed25519',
-    'mariadb-v1011': 'IDENTIFIED VIA ed25519',
-    'mariadb-v114': 'IDENTIFIED VIA ed25519',
-    'mariadb-v118': 'IDENTIFIED VIA parsec',
+    'mariadb-v106': 'Moving accounts to `ed25519`',
+    'mariadb-v1011': 'Moving accounts to `ed25519`',
+    'mariadb-v114': 'Moving accounts to `ed25519`',
+    'mariadb-v118': 'Moving accounts to `parsec`',
     'mysql-v80': None,
     'mysql-v84': None,
 }
@@ -132,14 +132,13 @@ def _check_image(test, containerfile):
         test.assertIn('on a legacy authentication plugin', combined)
         test.assertIn('mysql_users_on_legacy_auth_plugin', combined)
 
-        # The legacy-auth finding must advise the plugin that the running
-        # server branch actually supports, not just any modern plugin.
-        # MariaDB loads neither parsec nor ed25519 by default, so the
-        # one-time INSTALL has to precede the ALTER USER statements.
+        # The hint names the plugin the running server branch supports, and
+        # hands out no statement, since it can lock an application out.
         expected = EXPECTED_AUTH_RECOMMENDATION[containerfile]
         if expected:
             test.assertIn(expected, combined)
-            test.assertIn("INSTALL SONAME 'auth_", combined)
+            test.assertNotIn('IDENTIFIED VIA', combined)
+            test.assertNotIn('legacy authentication plugin [WARNING]', combined)
         else:
             test.assertIn('0 users on a legacy authentication plugin', combined)
             test.assertNotIn('IDENTIFIED', combined)

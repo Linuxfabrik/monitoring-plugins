@@ -11,7 +11,7 @@ Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):security
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * The username-as-password check is skipped when MySQL's `validate_password` plugin is active, because `PASSWORD(user)` calls inside the comparison fail in that case ([MySQL Bug #80860](https://bugs.mysql.com/bug.php?id=80860)). mysqltuner does the same
-* The suggested replacement for a legacy authentication plugin depends on the server branch: `caching_sha2_password` on MySQL 8.0+, [`parsec`](https://mariadb.com/docs/server/reference/plugins/authentication-plugins/authentication-plugin-parsec) on MariaDB 11.6+, and `ed25519` on MariaDB 10.4 to 11.5. MariaDB ships both of its plugins but loads neither by default, so the plugin prefixes its advice with the required one-time `INSTALL SONAME` statement whenever the target plugin is not active yet
+* A legacy authentication plugin is a WARNING on MySQL 8.0+, with `caching_sha2_password` as the replacement. On MariaDB it is a hint without a state, and without `ALTER USER` statements: its replacements [`parsec`](https://mariadb.com/docs/server/reference/plugins/authentication-plugins/authentication-plugin-parsec) (11.6+) and `ed25519` (10.4+) lock out clients that do not support them, such as PHP (mysqlnd).
 * Roles (MariaDB 10.0.5+, `mysql.user.IS_ROLE = 'Y'`) are excluded from the anonymous-user and username-as-password checks because a role legitimately has no password and an empty `host`
 * The basic-password dictionary check that mysqltuner runs from a local word-list is intentionally not ported - it does not fit a recurring monitoring plugin
 * SQL recommendations show `<replace-with-strong-password>` as a placeholder. Substitute a strong password before running the statements; the literal placeholder is self-evidently not a usable value
@@ -54,7 +54,9 @@ matches a small dictionary of common defaults (`password`, `admin`, `root`,
 wildcard), and accounts still on the legacy SHA1-based `mysql_native_password`
 (or `sha256_password` on MySQL 8.0+) authentication plugin. Each finding maps
 to a copy-pasteable SQL recommendation. Alerts on every account it finds
-insecure, at the level `--severity` sets.
+insecure, at the level `--severity` sets. On MariaDB, a legacy authentication
+plugin is a hint without a state, as common clients cannot log in with its
+successors.
 
 options:
   -h, --help            show this help message and exit
@@ -108,21 +110,15 @@ Recommendations:
 * `ALTER USER 'test'@'%' IDENTIFIED WITH caching_sha2_password BY '<replace-with-strong-password>';`
 ```
 
-WARN output on MariaDB 11.6+, where `parsec` replaces the legacy plugin and has to be installed once before the `ALTER USER` statements run:
+WARN output on MariaDB 11.6+, where the legacy accounts only lead to a hint:
 
 ```text
-6 non-system user accounts, 0 roles. 0 anonymous accounts. 0 users without password. 0 users with username as password. 0 users with a weak default password. 2 accounts without hostname restriction [WARNING]. 6 users on a legacy authentication plugin [WARNING].
+6 non-system user accounts, 0 roles. 0 anonymous accounts. 0 users without password. 0 users with username as password. 0 users with a weak default password. 2 accounts without hostname restriction [WARNING]. 6 users on a legacy authentication plugin.
 
 Recommendations:
 * `RENAME USER 'appuser'@'%' TO 'appuser'@'LimitedIPRangeOrLocalhost';`
 * `RENAME USER 'root'@'%' TO 'root'@'LimitedIPRangeOrLocalhost';`
-* `INSTALL SONAME 'auth_parsec';`
-* `ALTER USER 'root'@'localhost' IDENTIFIED VIA parsec USING PASSWORD('<replace-with-strong-password>');`
-* `ALTER USER 'root'@'%' IDENTIFIED VIA parsec USING PASSWORD('<replace-with-strong-password>');`
-* `ALTER USER 'healthcheck'@'127.0.0.1' IDENTIFIED VIA parsec USING PASSWORD('<replace-with-strong-password>');`
-* `ALTER USER 'healthcheck'@'::1' IDENTIFIED VIA parsec USING PASSWORD('<replace-with-strong-password>');`
-* `ALTER USER 'healthcheck'@'localhost' IDENTIFIED VIA parsec USING PASSWORD('<replace-with-strong-password>');`
-* `ALTER USER 'appuser'@'%' IDENTIFIED VIA parsec USING PASSWORD('<replace-with-strong-password>');`
+* Moving accounts to `parsec` is safer, but first check that every client of the account supports it: PHP (mysqlnd) does not.
 ```
 
 
@@ -130,7 +126,7 @@ Recommendations:
 
 * OK if no insecure accounts are found.
 * `--severity warn` (default) or `--severity crit` controls the state returned for each of the five findings:
-    * accounts on a legacy authentication plugin (`mysql_native_password`, plus `sha256_password` on MySQL 8.0+)
+    * accounts on a legacy authentication plugin (`mysql_native_password`, plus `sha256_password` on MySQL 8.0+), except on MariaDB, where this is a hint without a state
     * accounts whose password equals the username (skipped when the `validate_password` plugin is active)
     * accounts with empty passwords
     * accounts with host `'%'` (no hostname restriction)
