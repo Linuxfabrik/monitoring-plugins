@@ -13,12 +13,13 @@ Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):ssl_tls_
 * The session-cipher check reflects the current connection only. To verify it, configure SSL in the monitoring `.my.cnf` (for example `ssl=true` or `ssl-ca=/etc/pki/tls/certs/ca.crt`) so `pymysql` negotiates TLS
 * The local certificate expiry check is silently skipped when the file path is empty. When the path is set but the file is missing or unreadable (typical for a remote monitoring host), the plugin reports "expiry check skipped" without raising an alert
 * The local certificate expiry check requires the Python `cryptography` module; if it is not installed the check is skipped with a clear reason and no alert
+* On a server that only listens on the loopback interface (`bind_address`, or `skip_networking`), `require_secure_transport = OFF` and a missing server certificate are reported without a state, since no connection leaves the host.
 * mysqltuner's local-cert audit only checks `ssl_cert` and `ssl_ca` (not `ssl_key`); we follow the same scope - no key match, no CN/SAN check
 * The remote-user check uses the same host filter as mysqltuner (`host NOT IN ('localhost', '127.0.0.1', '::1')`) and reads `mysql.global_priv` on MariaDB 10.4+ and `mysql.user.ssl_type` otherwise
 
 **Data Collection:**
 
-* Reads `SHOW GLOBAL VARIABLES` once for `have_ssl`, `require_secure_transport`, `tls_version`, `ssl_cert`, `ssl_key`, `ssl_ca` and `version`
+* Reads `SHOW GLOBAL VARIABLES` once for `bind_address`, `have_ssl`, `require_secure_transport`, `skip_networking`, `tls_version`, `ssl_cert`, `ssl_key`, `ssl_ca` and `version`
 * Reads `SHOW SESSION STATUS LIKE 'Ssl_cipher'` to detect whether the current connection is encrypted
 * Queries `mysql.user` (or `mysql.global_priv` on MariaDB 10.4+) for remote accounts without `REQUIRE SSL`
 * Reads the `ssl_cert` and `ssl_ca` files via the `cryptography` Python module to derive the days until expiry, when the files are locally readable
@@ -52,7 +53,9 @@ server's TLS capability (`have_ssl`), enforcement
 TLSv1.2 or TLSv1.3), the presence of a server certificate and key, the local
 expiry of `ssl_cert` and `ssl_ca` files (when readable on the same host), and
 any remote accounts that can still connect without `REQUIRE SSL`. Each finding
-maps to a copy-pasteable SQL or `openssl` recommendation. Alerts when a
+maps to a copy-pasteable SQL or `openssl` recommendation. On a server that
+only listens on the loopback interface, enforcement and the server certificate
+are reported without a state, as nothing leaves the host. Alerts when a
 finding fails, at the level `--severity` sets, and on its own thresholds for
 the expiry of the local certificate.
 

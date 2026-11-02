@@ -44,6 +44,8 @@ Requirements:
   `TESTCONTAINERS_RYUK_DISABLED`
 """
 
+import importlib.machinery
+import importlib.util
 import os
 import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
@@ -127,6 +129,45 @@ def _check_image(test, containerfile):
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)
+
+
+def _load_plugin_module(name):
+    loader = importlib.machinery.SourceFileLoader(
+        name.replace('-', '_'),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', name),
+    )
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+class TestIsLoopbackOnly(unittest.TestCase):
+    """Enforcing TLS guards a network path, so a server without one has nothing to
+    enforce. A value that does not clearly say loopback counts as reachable."""
+
+    def check(self, myvar):
+        return _load_plugin_module('mysql-tls').is_loopback_only(myvar)
+
+    def test_loopback_addresses(self):
+        for value in (
+            '127.0.0.1',
+            '127.0.0.1,::1',
+            '::1',
+            'localhost',
+            ' 127.0.0.1 , ::1',
+        ):
+            self.assertTrue(self.check({'bind_address': value}), value)
+
+    def test_skip_networking(self):
+        self.assertTrue(self.check({'bind_address': '', 'skip_networking': 'ON'}))
+
+    def test_reachable_servers(self):
+        for value in ('', '*', '0.0.0.0', '::', '192.0.2.1', '127.0.0.1,192.0.2.1'):
+            self.assertFalse(self.check({'bind_address': value}), value)
+
+    def test_missing_variable(self):
+        self.assertFalse(self.check({}))
 
 
 if __name__ == '__main__':

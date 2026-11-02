@@ -33,16 +33,17 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102501'
+__version__ = '2026110201'
 
 DESCRIPTION = """Checks MySQL/MariaDB TLS/SSL posture: the current connection itself, the server's TLS
 capability (`have_ssl`), enforcement (`require_secure_transport`), enabled TLS versions
 (no TLSv1.0/1.1, at least TLSv1.2 or TLSv1.3), the presence of a server certificate and
 key, the local expiry of `ssl_cert` and `ssl_ca` files (when readable on the same host),
 and any remote accounts that can still connect without `REQUIRE SSL`. Each finding maps to
-a copy-pasteable SQL or `openssl` recommendation. Alerts when a finding fails, at the
-level `--severity` sets, and on its own thresholds for the expiry of the local
-certificate."""
+a copy-pasteable SQL or `openssl` recommendation. On a server that only listens on the
+loopback interface, enforcement and the server certificate are reported without a state,
+as nothing leaves the host. Alerts when a finding fails, at the level `--severity` sets,
+and on its own thresholds for the expiry of the local certificate."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -146,6 +147,24 @@ def parse_args():
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def is_loopback_only(myvar):
+    """Tell whether the server cannot be reached from another host: networking is off,
+    or every address in `bind_address` is a loopback address. Unset or a wildcard means
+    all interfaces. Verified on MariaDB 11.8 with `127.0.0.1,::1`.
+    """
+    if (myvar.get('skip_networking') or '').upper() == 'ON':
+        return True
+    addresses = [
+        item.strip()
+        for item in (myvar.get('bind_address') or '').split(',')
+        if item.strip()
+    ]
+    return bool(addresses) and all(
+        item == 'localhost' or item == '::1' or item.startswith('127.')
+        for item in addresses
+    )
 
 
 def get_session_cipher(conn):
@@ -286,6 +305,7 @@ def main():
     ssl_cert_path = myvar.get('ssl_cert') or ''
     ssl_key_path = myvar.get('ssl_key') or ''
     ssl_ca_path = myvar.get('ssl_ca') or ''
+    loopback_only = is_loopback_only(myvar)
 
     weak_tls = count_weak_tls_versions(tls_versions)
     modern_tls = count_modern_tls_versions(tls_versions)
@@ -348,6 +368,8 @@ def main():
         # Variable did not exist on the server (very old MySQL / MariaDB).
         # mysqltuner stays silent then; we surface it as info.
         findings.append('`require_secure_transport` not supported by this server')
+    elif require_secure_transport == 'OFF' and loopback_only:
+        findings.append('`require_secure_transport` = OFF (loopback only)')
     elif require_secure_transport == 'OFF':
         state = lib.base.get_worst(state, severity_state)
         findings.append(
@@ -392,7 +414,9 @@ def main():
             findings.append(f'TLS versions: {tls_versions_display}')
 
     # 5. Server cert + key configured?
-    if not ssl_cert_path and not ssl_key_path:
+    if not ssl_cert_path and not ssl_key_path and loopback_only:
+        findings.append('No server certificate configured (loopback only)')
+    elif not ssl_cert_path and not ssl_key_path:
         state = lib.base.get_worst(state, severity_state)
         findings.append(
             f'No server certificate configured '
