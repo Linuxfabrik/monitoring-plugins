@@ -29,12 +29,11 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110201'
+__version__ = '2026110202'
 
 DESCRIPTION = """Checks Linux kernel parameters that affect MySQL/MariaDB stability and
-performance: `vm.swappiness`, the asynchronous-I/O event ceiling `fs.aio-max-nr`, the
-per-process file-handle ceiling `fs.nr_open`, and (on hosts that mount NFS) the sunrpc
-TCP slot-table size (`sunrpc.tcp_slot_table_entries`).
+performance: `vm.swappiness`, the asynchronous-I/O event ceiling `fs.aio-max-nr` and the
+per-process file-handle ceiling `fs.nr_open`.
 Optionally also flags hosts that listen on too many TCP ports.
 Alerts on misconfigured settings."""
 
@@ -106,21 +105,6 @@ def get_sysctl(key):
     return value or None
 
 
-def has_nfs_mount():
-    """Return `True` if the host mounts an NFS share. The sunrpc sysctls alone say nothing
-    about that: `/proc/sys/sunrpc` exists as soon as the module is loaded, for example for
-    `gssproxy` on a FreeIPA client.
-    """
-    success, mounts = lib.disk.read_file('/proc/mounts')
-    if not success:
-        return False
-    for mount in mounts.splitlines():
-        fields = mount.split()
-        if len(fields) > 2 and fields[2] in ('nfs', 'nfs4'):
-            return True
-    return False
-
-
 def fmt_value(raw):
     """Render a numeric sysctl value as `"123"` or `"1048576 (1.0M)"`. The SI-prefixed
     form is only appended if `number2human()` actually produces a unit suffix; otherwise
@@ -137,14 +121,12 @@ def main():
 
     # logic taken from mysqltuner.pl:get_kernel_info(),
     # verified in sync with MySQLTuner (vm.swappiness <= 10,
-    # sunrpc.tcp_slot_table_entries > 100, fs.aio-max-nr >= 1M
-    # and fs.nr_open >= 1M, with the same recommendations
-    # mysqltuner emits). Deliberate deviation: MySQLTuner judges the
-    # slot table wherever /proc/sys/sunrpc exists, we only do on hosts
-    # that mount NFS. MariaDB 11.8 does not know this setting, it only
-    # sizes the RPC client transports, and the kernel grows them on
-    # demand up to sunrpc.tcp_max_slot_table_entries (Linux 7.3,
-    # net/sunrpc/xprt.c, xprt_dynamic_alloc_slot()).
+    # fs.aio-max-nr >= 1M and fs.nr_open >= 1M, with the same
+    # recommendations mysqltuner emits). Deliberate deviation: no check of
+    # sunrpc.tcp_slot_table_entries. Neither MySQL 26.7 nor MariaDB 13.0
+    # read it, it sizes the RPC client transports of NFS, and the kernel
+    # grows them on demand up to sunrpc.tcp_max_slot_table_entries
+    # (Linux 7.3, net/sunrpc/xprt.c, xprt_dynamic_alloc_slot()).
 
     # parse the command line
     try:
@@ -210,30 +192,6 @@ def main():
             _min=0,
             _max=100,
         )
-
-        # sunrpc.tcp_slot_table_entries - reported if the sunrpc module is loaded, judged
-        # only if the host mounts NFS (see above)
-        if lib.disk.dir_exists('/proc/sys/sunrpc'):
-            result = get_sysctl('sunrpc.tcp_slot_table_entries')
-            if result is not None:
-                if int(result) <= 100 and has_nfs_mount():
-                    state = lib.base.get_worst(state, STATE_WARN)
-                    facts += (
-                        f'`sunrpc.tcp_slot_table_entries` is {result}, should be > 100'
-                        f'{lib.base.state2str(STATE_WARN, prefix=" ")}. '
-                    )
-                    recommendations.append(
-                        '`echo 128 > /proc/sys/sunrpc/tcp_slot_table_entries`,'
-                        ' or `sunrpc.tcp_slot_table_entries=128` in /etc/sysctl.conf'
-                        ' for persistence (recommended value: 128)'
-                    )
-                else:
-                    facts += f'`sunrpc.tcp_slot_table_entries` is {fmt_value(result)}. '
-                perfdata += lib.base.get_perfdata(
-                    'mysql_kernel_sunrpc_tcp_slot_table_entries',
-                    result,
-                    _min=0,
-                )
 
         # fs.aio-max-nr — InnoDB AIO event ceiling, recommend at least 1M
         if lib.disk.file_exists('/proc/sys/fs/aio-max-nr', allow_empty=True):

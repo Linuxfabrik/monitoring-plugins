@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks Linux kernel parameters that affect MySQL/MariaDB stability and performance: `vm.swappiness`, the asynchronous-I/O event ceiling `fs.aio-max-nr`, the per-process file-handle ceiling `fs.nr_open`, and (on hosts that mount NFS) the sunrpc TCP slot-table size. Optionally also flags hosts that listen on too many TCP ports. Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):get_kernel_info() and has been verified in sync with MySQLTuner.
+Checks Linux kernel parameters that affect MySQL/MariaDB stability and performance: `vm.swappiness`, the asynchronous-I/O event ceiling `fs.aio-max-nr` and the per-process file-handle ceiling `fs.nr_open`. Optionally also flags hosts that listen on too many TCP ports. Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):get_kernel_info() and has been verified in sync with MySQLTuner.
 
 **Important Notes:**
 
@@ -40,10 +40,9 @@ usage: mysql-system [-h] [-V] [--always-ok]
 
 Checks Linux kernel parameters that affect MySQL/MariaDB stability and
 performance: `vm.swappiness`, the asynchronous-I/O event ceiling
-`fs.aio-max-nr`, the per-process file-handle ceiling `fs.nr_open`, and (on
-hosts that mount NFS) the sunrpc TCP slot-table size
-(`sunrpc.tcp_slot_table_entries`). Optionally also flags hosts that listen on
-too many TCP ports. Alerts on misconfigured settings.
+`fs.aio-max-nr` and the per-process file-handle ceiling `fs.nr_open`.
+Optionally also flags hosts that listen on too many TCP ports. Alerts on
+misconfigured settings.
 
 options:
   -h, --help            show this help message and exit
@@ -71,13 +70,13 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-system/
 Output:
 
 ```text
-56 listening TCP ports system-wide, exceeds `--maxportsallowed` limit of 15. Consider dedicating a server for your database installation with less services running on. `vm.swappiness` is 60, should be <= 10 (`echo 10 > /proc/sys/vm/swappiness`, or `vm.swappiness=10` in /etc/sysctl.conf for persistence). `sunrpc.tcp_slot_table_entries` is 2, should be > 100 (recommended: 128; `echo 128 > /proc/sys/sunrpc/tcp_slot_table_entries`, or `sunrpc.tcp_slot_table_entries=128` in /etc/sysctl.conf for persistence). `fs.aio-max-nr` is 1048576 (1.0M). `fs.nr_open` is 2147483584 (2.1G).
+56 listening TCP ports system-wide, exceeds `--maxportsallowed` limit of 15. Consider dedicating a server for your database installation with less services running on. `vm.swappiness` is 60, should be <= 10 (`echo 10 > /proc/sys/vm/swappiness`, or `vm.swappiness=10` in /etc/sysctl.conf for persistence). `fs.aio-max-nr` is 1048576 (1.0M). `fs.nr_open` is 2147483584 (2.1G).
 ```
 
 When the host is fully tuned, the OK output enumerates each verified setting. Large counters are also rendered with an SI suffix in parens:
 
 ```text
-16 listening TCP ports system-wide. `vm.swappiness` is 5. `sunrpc.tcp_slot_table_entries` is 128. `fs.aio-max-nr` is 1048576 (1.0M). `fs.nr_open` is 1073741816 (1.1G).
+16 listening TCP ports system-wide. `vm.swappiness` is 5. `fs.aio-max-nr` is 1048576 (1.0M). `fs.nr_open` is 1073741816 (1.1G).
 ```
 
 
@@ -86,7 +85,6 @@ When the host is fully tuned, the OK output enumerates each verified setting. La
 * OK if all kernel parameters are within the recommended range and the port count is acceptable.
 * WARN if `--maxportsallowed` is set and the count of listening TCP ports exceeds it.
 * WARN if `vm.swappiness > 10`.
-* WARN if `sunrpc.tcp_slot_table_entries <= 100` (only on hosts that mount NFS).
 * WARN if `fs.aio-max-nr < 1M`.
 * WARN if `fs.nr_open < 1M`.
 * `--always-ok` suppresses all alerts and always returns OK.
@@ -98,7 +96,6 @@ When the host is fully tuned, the OK output enumerates each verified setting. La
 |----|----|----|
 | mysql_kernel_fs_aio_max_nr | Number | Maximum number of asynchronous I/O operations the system can handle. |
 | mysql_kernel_fs_nr_open | Number | Per-process ceiling for the number of open file descriptors. |
-| mysql_kernel_sunrpc_tcp_slot_table_entries | Number | Number of TCP RPC entries pre-allocated for in-flight RPC requests. Only emitted when `/proc/sys/sunrpc` exists. |
 | mysql_kernel_vm_swappiness | Percentage | Balance between swapping out runtime memory versus dropping pages from the system page cache. |
 | mysql_listening_ports | Number | Count of distinct local TCP ports in `LISTEN` state. |
 

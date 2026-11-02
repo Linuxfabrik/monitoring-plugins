@@ -63,10 +63,12 @@ spec:
           lineInterpolation: smooth
           lineWidth: 1
           pointSize: 3
+          scaleDistribution:
+            log: 10
+            type: log
           showPoints: always
           spanNulls: 900000
         decimals: 1
-        min: 0
         unit: short
       overrides:
       - matcher:
@@ -159,89 +161,13 @@ spec:
         value: mysql_kernel_fs_nr_open
 
 
-  - title: MySQL System - Kernel sunrpc
+  - title: MySQL System - Kernel vm - Percentages
     type: timeseries
     gridPos:
       h: 8
       w: 12
       x: 12
       y: 0
-    fieldConfig:
-      defaults:
-        color:
-          mode: palette-classic
-        custom:
-          drawStyle: line
-          lineInterpolation: smooth
-          lineWidth: 1
-          pointSize: 3
-          showPoints: always
-          spanNulls: 900000
-        decimals: 0
-        min: 0
-        unit: short
-      overrides:
-      - matcher:
-          id: byName
-          options: mysql_kernel_sunrpc_tcp_slot_table_entries
-        properties:
-        - id: displayName
-          value: Kernel sunrpc.tcp_slot_table_entries
-    options:
-      legend:
-        calcs:
-        - firstNotNull
-        - min
-        - mean
-        - max
-        - lastNotNull
-        displayMode: table
-        placement: bottom
-        showLegend: true
-      tooltip:
-        mode: multi
-        sort: none
-
-    targets:
-
-    - alias: mysql_kernel_sunrpc_tcp_slot_table_entries
-      refId: mysql_kernel_sunrpc_tcp_slot_table_entries
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - 'null'
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: mysql_kernel_sunrpc_tcp_slot_table_entries
-
-
-  - title: MySQL System - Kernel vm - Percentages
-    type: timeseries
-    gridPos:
-      h: 8
-      w: 12
-      x: 0
-      y: 8
     fieldConfig:
       defaults:
         color:
@@ -317,7 +243,7 @@ spec:
     gridPos:
       h: 8
       w: 12
-      x: 12
+      x: 0
       y: 8
     fieldConfig:
       defaults:
