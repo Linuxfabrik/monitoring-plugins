@@ -218,6 +218,9 @@ class TestDetectStorageType(unittest.TestCase):
     def test_a_virtio_disk_counts_as_neither_class(self):
         self.assertEqual(self.detect({'vda': '1\n'}), 'unknown')
 
+    def test_an_emulated_cdrom_does_not_make_a_vm_an_hdd_host(self):
+        self.assertEqual(self.detect({'sr0': '1\n', 'vda': '1\n'}), 'unknown')
+
     def test_a_xen_disk_counts_as_neither_class(self):
         self.assertEqual(self.detect({'xvda': '0\n'}), 'unknown')
 

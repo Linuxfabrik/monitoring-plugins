@@ -20,7 +20,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110201'
+__version__ = '2026110202'
 
 DESCRIPTION = """Checks MySQL/MariaDB user security: anonymous accounts (empty user name),
 accounts with empty passwords, accounts whose password matches the username (the classic
@@ -592,9 +592,10 @@ def main():
         renamed = u['user'].replace("'%'", f"'{HOST_PLACEHOLDER}'")
         recommendations.append(f'`RENAME USER {u["user"]} TO {renamed};`')
 
-    # PHP's mysqlnd and PyMySQL cannot log in with `parsec` or (mysqlnd) `ed25519`
-    # (php-src master, PyMySQL 1.4.6), so on MariaDB, migrating an account can lock its
-    # application out. It stays a hint until the clients catch up.
+    # Against MariaDB 11.8, PHP 8.4 (PDO, mysqlnd) fails on `parsec` and `ed25519` with
+    # error 2054, PyMySQL 2.2.8 and go-sql-driver fail on `parsec` and log in with
+    # `ed25519`. So on MariaDB, migrating an account can lock its application out, and it
+    # stays a hint until the clients catch up.
     n_legacy = len(legacy_auth_users)
     legacy_is_hint = bool(mariadb_auth_plugin)
     legacy_marker = ''
