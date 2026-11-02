@@ -25,7 +25,7 @@ import unittest
 from unittest import mock
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # The expected timestamps below are local times in Europe/Zurich, and the plugin
 # prints local time. Pin the zone so the result does not depend on the host the
@@ -47,6 +47,9 @@ time.tzset()
 #   report-partial-group      `--tests-from-group "ssh kernel"`: 15 tests, index 59
 #   report-category-security  `--tests-from-category security`: 264 tests, index 70,
 #                             the same as a full audit (268 tests)
+# In --test mode, a fixture named <report>-profile stands in for the lynis profile:
+#   report-skips          report-rocky10 with report-skips-profile, a profile that
+#                         covers every way lynis accepts a skipped test
 # The age of a report is measured against the real clock, so the fixed fixtures
 # switch the age check off with --max-age 0, and the age cases use reports that
 # are written below with an end relative to now.
@@ -84,14 +87,35 @@ TESTS = [
         'params': '--max-age 0',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Hardening index 65, 0 findings, 37 suggestions, audited ',
+            'Hardening index 65, 0 findings, 37 suggestions, 0 skipped tests, audited ',
             # a suggestion is advice, it carries no state
             'Suggestions:\n* ACCT-9622: Enable process accounting.\n',
             '`sudo lynis show details ACCT-9622`',
         ],
         'assert-not-in': ['[WARNING]', 'Findings:'],
         'assert-regex': r"'hardening_index'=65;65:;;0;100 'findings'=0;0;;0 "
-        r"'suggestions'=37;;;0",
+        r"'skipped_tests'=0;;;0 'suggestions'=37;;;0",
+    },
+    {
+        'id': 'ok-skipped-tests-are-counted',
+        'test': 'stdout/report-skips,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['37 suggestions, 5 skipped tests, audited '],
+        'assert-not-in': ['Skipped tests:', '[WARNING]'],
+        'assert-regex': r"'skipped_tests'=5;;;0",
+    },
+    {
+        'id': 'ok-skipped-tests-are-listed-with-lengthy',
+        'test': 'stdout/report-skips,,0',
+        'params': '--max-age 0 --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '\n\nSkipped tests:\n* ACCT-9622: no process accounting here\n'
+            '* FILE-6310\n* KRNL-6000:KERNEL.SYSRQ: needed on the console\n'
+            '* NETW-3015\n* SSH-7408',
+        ],
+        'assert-not-in': ['* PHP-2372', '* HTTP-6640'],
     },
     {
         'id': 'warn-finding-and-index-below-threshold',
@@ -189,7 +213,7 @@ TESTS = [
         'test': 'stdout/report-category-security,,0',
         'params': '--max-age 0',
         'assert-retc': STATE_OK,
-        'assert-in': ['Hardening index 70, 0 findings, 35 suggestions, audited '],
+        'assert-in': ['Hardening index 70, 0 findings, 35 suggestions, 0 skipped '],
         'assert-not-in': ['partial'],
     },
     {
@@ -242,6 +266,57 @@ def _load_plugin_module():
     module = importlib.util.module_from_spec(spec)
     loader.exec_module(module)
     return module
+
+
+class TestConfigFile(unittest.TestCase):
+    """The check runs as root, so `--config-file` must not reach anything but the
+    lynis profiles. The report comes from a fixture, the profile goes through the real
+    file access of the live path."""
+
+    def run_main(self, *params, default=None):
+        plugin = _load_plugin_module()
+        if default is not None:
+            plugin.DEFAULT_CONFIG_FILE = default
+        with open(os.path.join(HERE, 'stdout', 'report-rocky10'), 'rb') as handle:
+            report = handle.read()
+        real_read_file = plugin.lib.disk.read_file
+
+        def read_file(path, **kwargs):
+            if path == plugin.lib.lynis.REPORT:
+                return True, report
+            return real_read_file(path, **kwargs)
+
+        out = io.StringIO()
+        with (
+            mock.patch.object(sys, 'argv', ['lynis-logfile', '--max-age=0', *params]),
+            mock.patch.object(plugin.os.path, 'lexists', return_value=True),
+            mock.patch.object(plugin.lib.disk, 'read_file', side_effect=read_file),
+            mock.patch.object(plugin, 'audit_running', return_value=''),
+            mock.patch.object(plugin.lib.cache, 'set'),
+            contextlib.redirect_stdout(out),
+            self.assertRaises(SystemExit) as end,
+        ):
+            plugin.main()
+        return end.exception.code, out.getvalue()
+
+    def test_a_file_outside_of_the_roots_is_refused(self):
+        retc, stdout = self.run_main('--config-file=/etc/passwd')
+        self.assertEqual(retc, STATE_UNKNOWN, stdout)
+        self.assertIn('Failed to read the lynis profile /etc/passwd.', stdout)
+
+    def test_a_traversal_out_of_the_roots_is_refused(self):
+        retc, stdout = self.run_main('--config-file=/etc/lynis/../passwd')
+        self.assertEqual(retc, STATE_UNKNOWN, stdout)
+
+    def test_a_missing_file_answers_like_a_refused_one(self):
+        retc, stdout = self.run_main('--config-file=/etc/lynis/does-not-exist.prf')
+        self.assertEqual(retc, STATE_UNKNOWN, stdout)
+        self.assertIn('It has to exist below /etc/lynis', stdout)
+
+    def test_a_missing_default_profile_skips_nothing(self):
+        retc, stdout = self.run_main(default='/etc/lynis/does-not-exist.prf')
+        self.assertEqual(retc, STATE_OK, stdout)
+        self.assertIn('37 suggestions, 0 skipped tests, audited ', stdout)
 
 
 class TestAuditRunning(unittest.TestCase):

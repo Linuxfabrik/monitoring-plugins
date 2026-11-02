@@ -5,8 +5,14 @@
                 "--always-ok": {
                     "set_if": "$lynis_logfile_always_ok$"
                 },
+                "--config-file": {
+                    "value": "$lynis_logfile_config_file$"
+                },
                 "--critical": {
                     "value": "$lynis_logfile_critical$"
+                },
+                "--lengthy": {
+                    "set_if": "$lynis_logfile_lengthy$"
                 },
                 "--max-age": {
                     "value": "$lynis_logfile_max_age$"
@@ -43,6 +49,16 @@
                 },
                 {
                     "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -105,7 +121,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Evaluates the report of the lynis security audit that runs on the host once a day, for example through lynis.timer, and reports the hardening index, the findings (the lynis warnings) and the hardening suggestions of lynis. The check itself does not run an audit, so it is fast and needs no more than read access to the report. Alerts when the hardening index is below the threshold, when lynis reports a finding, when the report is missing, incomplete or older than the maximum age, because then the daily audit has stopped, and when a partial audit has replaced the report of the full one. Security posture is informational drift rather than a time-critical availability event, so by default only WARNING is raised. Requires root or sudo.",
+            "notes": "Evaluates the report of the lynis security audit that runs on the host once a day, for example through lynis.timer, and reports the hardening index, the findings (the lynis warnings) and the hardening suggestions of lynis, plus how many tests the lynis profile of the host skips, since an accepted test no longer shows up as a finding. The check itself does not run an audit, so it is fast and needs no more than read access to the report. Alerts when the hardening index is below the threshold, when lynis reports a finding, when the report is missing, incomplete or older than the maximum age, because then the daily audit has stopped, and when a partial audit has replaced the report of the full one. Security posture is informational drift rather than a time-critical availability event, so by default only WARNING is raised. Supports extended reporting via --lengthy. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/lynis-logfile/",
             "object_name": "tpl-service-lynis-logfile",
             "object_type": "template",
@@ -117,7 +133,9 @@
             "vars": {
                 "criticality": "C",
                 "lynis_logfile_always_ok": false,
+                "lynis_logfile_config_file": "/etc/lynis/custom.prf",
                 "lynis_logfile_critical": "",
+                "lynis_logfile_lengthy": false,
                 "lynis_logfile_max_age": 26,
                 "lynis_logfile_no_perfdata": false,
                 "lynis_logfile_warning": "65:"
@@ -183,6 +201,17 @@
             "uuid": "c2cebfe8-efb4-4fd5-ad9c-d5001a197be7"
         },
         "2": {
+            "varname": "lynis_logfile_config_file",
+            "caption": "Lynis Logfile: Config File",
+            "description": "The lynis profile to read the skipped tests from. Has to be below /etc/lynis, /usr/local/etc/lynis or /usr/local/lynis. Example: `--config-file=/etc/lynis/site.prf`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "bfb1aa8b-0e83-4ca8-9891-bd438738809c"
+        },
+        "3": {
             "varname": "lynis_logfile_critical",
             "caption": "Lynis Logfile: Critical",
             "description": "CRIT threshold for the hardening index (0-100). Supports Nagios ranges. Empty by default, because a daily hardening scan is posture drift, not a time-critical event that should page someone at night.",
@@ -193,7 +222,16 @@
             },
             "uuid": "7a568265-841b-44d5-a008-b543b3718ea4"
         },
-        "3": {
+        "4": {
+            "varname": "lynis_logfile_lengthy",
+            "caption": "Lynis Logfile: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "fdabf6ee-6830-4108-a6fa-857e4fd0345e"
+        },
+        "5": {
             "varname": "lynis_logfile_max_age",
             "caption": "Lynis Logfile: Max Age",
             "description": "Maximum age of the report in hours. An older report means that the daily audit no longer runs.",
@@ -204,7 +242,7 @@
             },
             "uuid": "be7042e6-0402-4882-8d78-068dcbb9bece"
         },
-        "4": {
+        "6": {
             "varname": "lynis_logfile_no_perfdata",
             "caption": "Lynis Logfile: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -213,7 +251,7 @@
             "settings": {},
             "uuid": "8a12b3c8-cbf2-4ef0-9c3f-45173104a185"
         },
-        "5": {
+        "7": {
             "varname": "lynis_logfile_warning",
             "caption": "Lynis Logfile: Warning",
             "description": "WARN threshold for the hardening index (0-100). Supports Nagios ranges. The default alerts when the index drops below 65.",

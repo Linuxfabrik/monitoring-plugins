@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Monitoring Plugins:
 
+* lynis-logfile: Reports how many tests the lynis profile skips.
 * nextcloud-stats: The output says "enabled apps", since disabled apps are not part of the count.
 * scanrootkit: Reports indicators instead of rootkits, generic paths and files any user can create only warn, detects 3 more implants.
 

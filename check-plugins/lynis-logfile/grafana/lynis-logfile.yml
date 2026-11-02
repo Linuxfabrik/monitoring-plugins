@@ -116,7 +116,7 @@ spec:
         operator: '='
         value: hardening_index
 
-  - title: Lynis Logfile - Findings and Suggestions
+  - title: Lynis Logfile - Findings, Suggestions and Skipped Tests
     type: timeseries
     gridPos:
       h: 8
@@ -183,6 +183,36 @@ spec:
         key: metric
         operator: '='
         value: findings
+
+    - alias: skipped_tests
+      refId: skipped_tests
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - 'null'
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: skipped_tests
 
     - alias: suggestions
       refId: suggestions

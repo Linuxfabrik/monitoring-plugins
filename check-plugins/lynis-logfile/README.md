@@ -3,7 +3,7 @@
 
 ## Overview
 
-Evaluates the report of the lynis security audit that runs on the host once a day, for example through lynis.timer, and reports the hardening index, the findings (the lynis warnings) and the hardening suggestions of lynis. The check itself does not run an audit, so it is fast and needs no more than read access to the report. Alerts when the hardening index is below the threshold, when lynis reports a finding, when the report is missing, incomplete or older than the maximum age, because then the daily audit has stopped, and when a partial audit has replaced the report of the full one. Security posture is informational drift rather than a time-critical availability event, so by default only WARNING is raised. Requires root or sudo.
+Evaluates the report of the lynis security audit that runs on the host once a day, for example through lynis.timer, and reports the hardening index, the findings (the lynis warnings) and the hardening suggestions of lynis, plus how many tests the lynis profile of the host skips, since an accepted test no longer shows up as a finding. The check itself does not run an audit, so it is fast and needs no more than read access to the report. Alerts when the hardening index is below the threshold, when lynis reports a finding, when the report is missing, incomplete or older than the maximum age, because then the daily audit has stopped, and when a partial audit has replaced the report of the full one. Security posture is informational drift rather than a time-critical availability event, so by default only WARNING is raised. Supports extended reporting via --lengthy. Requires root or sudo.
 
 **Important Notes:**
 
@@ -21,6 +21,9 @@ Evaluates the report of the lynis security audit that runs on the host once a da
 * Every lynis warning is listed under "Findings" with its test ID, its details where lynis gives any (the interface behind a `NETW-3015`, for example) and a `[WARNING]` marker. A warning is a concrete finding, not noise; accept it on the host (see Troubleshooting), not in this plugin.
 * lynis suggestions are hardening advice. They are listed under "Suggestions" and do not change the state.
 * Both lists are sorted by test ID.
+* The skipped tests are the `skip-test` entries (and the deprecated `test_skip_always` entries) in `/etc/lynis/custom.prf`, or in the file given with `--config-file`. A skip of a single check within a test (`SSH-7408:loglevel`) counts as one. The count does not change the state, since a skipped test is an accepted one. It tells "0 suggestions" on a host that needs none from the same line on a host that skips them. `--lengthy` lists the tests, each with the comment on the line above it in the profile.
+* The check reads one profile. Skips from another one lynis loads, such as a `default.prf` with local changes or a `--profile` on the audit command line, are not part of the count.
+* The check runs as root, so `--config-file` only reads below `/etc/lynis`, `/usr/local/etc/lynis` and `/usr/local/lynis`, where lynis looks for its profiles, and follows no symlink in the last path component.
 
 
 ## Fact Sheet
@@ -40,38 +43,49 @@ Evaluates the report of the lynis security audit that runs on the host once a da
 ## Help
 
 ```text
-usage: lynis-logfile [-h] [-V] [--always-ok] [-c CRIT] [--max-age MAX_AGE]
-                     [--no-perfdata] [-w WARN]
+usage: lynis-logfile [-h] [-V] [--always-ok] [--config-file CONFIG_FILE]
+                     [-c CRIT] [--lengthy] [--max-age MAX_AGE] [--no-perfdata]
+                     [-w WARN]
 
 Evaluates the report of the lynis security audit that runs on the host once a
 day, for example through lynis.timer, and reports the hardening index, the
-findings (the lynis warnings) and the hardening suggestions of lynis. The
-check itself does not run an audit, so it is fast and needs no more than read
-access to the report. Alerts when the hardening index is below the threshold,
-when lynis reports a finding, when the report is missing, incomplete or older
-than the maximum age, because then the daily audit has stopped, and when a
-partial audit has replaced the report of the full one. Security posture is
-informational drift rather than a time-critical availability event, so by
-default only WARNING is raised. Requires root or sudo.
+findings (the lynis warnings) and the hardening suggestions of lynis, plus how
+many tests the lynis profile of the host skips, since an accepted test no
+longer shows up as a finding. The check itself does not run an audit, so it is
+fast and needs no more than read access to the report. Alerts when the
+hardening index is below the threshold, when lynis reports a finding, when the
+report is missing, incomplete or older than the maximum age, because then the
+daily audit has stopped, and when a partial audit has replaced the report of
+the full one. Security posture is informational drift rather than a
+time-critical availability event, so by default only WARNING is raised.
+Supports extended reporting via --lengthy. Requires root or sudo.
 
 options:
-  -h, --help           show this help message and exit
-  -V, --version        show program's version number and exit
-  --always-ok          Always returns OK.
-  -c, --critical CRIT  CRIT threshold for the hardening index (0-100).
-                       Supports Nagios ranges. Empty by default, because a
-                       daily hardening scan is posture drift, not a time-
-                       critical event that should page someone at night.
-                       Default: (no critical)
-  --max-age MAX_AGE    Maximum age of the report in hours. An older report
-                       means that the daily audit no longer runs. Default: 26
-                       (0 disables the check)
-  --no-perfdata        Suppress the performance data section from the output.
-                       The status message and the exit code are unaffected, so
-                       alerting keeps working while trending data is dropped.
-  -w, --warning WARN   WARN threshold for the hardening index (0-100).
-                       Supports Nagios ranges. The default alerts when the
-                       index drops below 65. Default: 65:
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  --config-file CONFIG_FILE
+                        The lynis profile to read the skipped tests from. Has
+                        to be below /etc/lynis, /usr/local/etc/lynis or
+                        /usr/local/lynis. Example: `--config-
+                        file=/etc/lynis/site.prf`. Default:
+                        /etc/lynis/custom.prf
+  -c, --critical CRIT   CRIT threshold for the hardening index (0-100).
+                        Supports Nagios ranges. Empty by default, because a
+                        daily hardening scan is posture drift, not a time-
+                        critical event that should page someone at night.
+                        Default: (no critical)
+  --lengthy             Extended reporting.
+  --max-age MAX_AGE     Maximum age of the report in hours. An older report
+                        means that the daily audit no longer runs. Default: 26
+                        (0 disables the check)
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
+  -w, --warning WARN    WARN threshold for the hardening index (0-100).
+                        Supports Nagios ranges. The default alerts when the
+                        index drops below 65. Default: 65:
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/lynis-logfile/
@@ -85,7 +99,7 @@ sudo ./lynis-logfile
 ```
 
 ```text
-Hardening index 60 [WARNING], 1 finding [WARNING], 49 suggestions, audited 3h 12m ago
+Hardening index 60 [WARNING], 1 finding [WARNING], 49 suggestions, 2 skipped tests, audited 3h 12m ago
 
 Findings:
 * PKGS-7392: Found one or more vulnerable packages. [WARNING]
@@ -97,6 +111,20 @@ Suggestions:
 * USB-1000: Disable drivers like USB storage when not used, to prevent unauthorized storage or data theft.
 
 To look up an item, run `sudo lynis show details PKGS-7392` on the host. To accept it, add `skip-test=PKGS-7392` to `/etc/lynis/custom.prf`.
+```
+
+List the skipped tests of a profile in another place:
+
+```bash
+sudo ./lynis-logfile --config-file=/usr/local/etc/lynis/custom.prf --lengthy
+```
+
+```text
+Hardening index 89, 0 findings, 0 suggestions, 2 skipped tests, audited 3h 12m ago
+
+Skipped tests:
+* KRNL-6000:KERNEL.SYSRQ: 0 takes away the emergency keys on the console of a hung host.
+* NETW-2705
 ```
 
 Warn below a hardening index of 70, critical below 50, and accept a report of up to two days:
@@ -117,6 +145,7 @@ sudo ./lynis-logfile --warning=70: --critical=50: --max-age=48
 * CRIT if the hardening index drops below `--critical` (empty by default, so CRIT is never raised unless a threshold is set).
 * While an audit runs and the report is not complete yet, the result of the last finished audit stands; OK if none is known yet.
 * UNKNOWN if the report cannot be read, most likely because the check does not run via `sudo`.
+* UNKNOWN if the file given with `--config-file` is missing or outside of the directories lynis keeps its profiles in. Without `--config-file`, a missing `/etc/lynis/custom.prf` just means that no test is skipped.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -126,6 +155,7 @@ sudo ./lynis-logfile --warning=70: --critical=50: --max-age=48
 |----|----|----|
 | findings | Number | Number of findings (lynis warnings). |
 | hardening_index | Number | Hardening index of the host (0-100). |
+| skipped_tests | Number | Number of tests the lynis profile skips. |
 | suggestions | Number | Number of lynis suggestions. |
 
 
@@ -146,6 +176,10 @@ The last audit did not finish, so the report lacks the hardening index and the e
 ### `The lynis report /var/log/lynis-report.dat comes from a partial audit`
 
 Someone ran lynis as root with a selection of tests, for example `sudo lynis audit system --tests MAIL-8818` while looking into a finding, and this replaced the report of the full audit. The hardening index of such a report covers only the selected tests, which is why it looks absurdly low (often 1), and the findings and suggestions of all other tests are gone. Start a full audit with `sudo lynis audit system --cronjob`, or wait for the next daily one. Next time, look into a single test without replacing the report: `sudo lynis show details <test>` prints what the last full audit logged to `/var/log/lynis.log`. A partial audit replaces that log as well, so it only helps after the next full audit.
+
+### `Failed to read the lynis profile`
+
+The file given with `--config-file` does not exist, or it is not below `/etc/lynis`, `/usr/local/etc/lynis` or `/usr/local/lynis`. The check runs as root and reads nothing else, so that the parameter cannot be used to look at other files of the host. Move the profile to one of these directories.
 
 ### The report is older than `--max-age`
 

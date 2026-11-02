@@ -27,26 +27,35 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026110201'
 
 DESCRIPTION = """Evaluates the report of the lynis security audit that runs on the host once a
 day, for example through lynis.timer, and reports the hardening index, the findings (the
-lynis warnings) and the hardening suggestions of lynis. The check itself does not run an
-audit, so it is fast and needs no more than read access to the report. Alerts when the
+lynis warnings) and the hardening suggestions of lynis, plus how many tests the lynis
+profile of the host skips, since an accepted test no longer shows up as a finding. The
+check itself does not run an audit, so it is fast and needs no more than read access to the report. Alerts when the
 hardening index is below the threshold, when lynis reports a finding, when the report is
 missing, incomplete or older than the maximum age, because then the daily audit has
 stopped, and when a partial audit has replaced the report of the full one. Security
 posture is informational drift rather than a time-critical availability event, so by
 default only WARNING is raised.
+Supports extended reporting via --lengthy.
 Requires root or sudo."""
 
+DEFAULT_CONFIG_FILE = lib.lynis.CUSTOM_PROFILE
 DEFAULT_CRIT = ''
+DEFAULT_LENGTHY = False
 DEFAULT_MAX_AGE = 26
 DEFAULT_WARN = '65:'
 # A full audit performs more than 200 tests: 211 to 226 in minimal containers of
 # Rocky 9/10, Debian 13 and Alpine 3.22, 242 to 268 on real hosts (lynis 3.0.8 to
 # 3.1.7). A partial `lynis audit system --tests ...` performs the tests it names.
 MIN_FULL_AUDIT_TESTS = 100
+# The check runs as root and --config-file comes from the caller, so a profile is only
+# read below the directories lynis itself keeps its profiles in, and only up to this
+# size. Everything else on the host stays out of reach, a planted symlink included.
+PROFILE_ROOTS = ['/etc/lynis', '/usr/local/etc/lynis', '/usr/local/lynis']
+PROFILE_MAX_BYTES = 1024 * 1024
 # the online documentation of this check
 DOCS_URL = f'{lib.args.DOCS_BASE_URL}/check-plugins/lynis-logfile/'
 
@@ -78,6 +87,16 @@ def parse_args():
         default=False,
     )
 
+    parser.add_argument(
+        '--config-file',
+        help='The lynis profile to read the skipped tests from. '
+        'Has to be below /etc/lynis, /usr/local/etc/lynis or /usr/local/lynis. '
+        'Example: `--config-file=/etc/lynis/site.prf`. '
+        'Default: %(default)s',
+        dest='CONFIG_FILE',
+        default=DEFAULT_CONFIG_FILE,
+    )
+
     # Threshold parameters: use type=str (not int/float) to support Nagios
     # range expressions like "65:", "~:50", "@10:20".
     # In main(), pass _operator='range' to lib.base.get_state().
@@ -91,6 +110,14 @@ def parse_args():
         'Default: %(default)s (no critical)',
         dest='CRIT',
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
     )
 
     parser.add_argument(
@@ -154,6 +181,34 @@ def audit_running():
     return ''
 
 
+def get_skipped_tests(text):
+    """Return the tests a lynis profile skips, as a dictionary of test ID and the
+    comment on the line above it, sorted by test ID. These are the options that fill
+    the skip list in include/profiles of lynis 3.1.7: `skip-test` and the deprecated
+    `test_skip_always`, as `option=value` or old-style `config:option:value:`, with
+    IDs separated by spaces and in any case. Like lynis, this ignores indented lines.
+    """
+    skipped = {}
+    comment = ''
+    for line in text.splitlines():
+        if line.startswith('#'):
+            comment = line.lstrip('# ').strip()
+            continue
+        if line.startswith('config:'):
+            fields = line.split(':')
+            option = fields[1] if len(fields) > 1 else ''
+            value = fields[2] if len(fields) > 2 else ''
+        else:
+            option, _, value = line.partition('=')
+            value = value.split('=')[0]
+        if option in ('skip-test', 'test_skip_always'):
+            for test in value.upper().split():
+                # a repeated entry must not wipe the comment of the first one
+                skipped[test] = skipped.get(test) or comment
+        comment = ''
+    return dict(sorted(skipped.items()))
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -194,17 +249,42 @@ def main():
         # a value in the report carries what the host's configuration holds
         text = lib.txt.to_text(raw, errors='strict_or_latin1')
         running = audit_running()
+        success, raw_profile = lib.disk.read_file(
+            args.CONFIG_FILE,
+            binary=True,
+            max_bytes=PROFILE_MAX_BYTES,
+            allowed_roots=PROFILE_ROOTS,
+            nofollow=True,
+        )
+        if success:
+            profile = lib.txt.to_text(raw_profile, errors='strict_or_latin1')
+        elif args.CONFIG_FILE == DEFAULT_CONFIG_FILE:
+            # lynis runs fine without it, and then nothing is skipped
+            profile = ''
+        else:
+            # the same answer for a missing file and one outside of the roots, so the
+            # check does not tell the caller which files exist
+            lib.base.oao(
+                f'Failed to read the lynis profile {args.CONFIG_FILE}. It has to '
+                f'exist below {", ".join(PROFILE_ROOTS)}.',
+                STATE_UNKNOWN,
+                always_ok=args.ALWAYS_OK,
+            )
     else:
         # do not read the report, put in test data. A test never sees a running
         # audit.
         text, _, _ = lib.lftest.test(args.TEST)
         running = ''
+        profile = lib.lftest.test_text(
+            args.TEST, path=f'{args.TEST[0]}-profile', missing_ok=True
+        )
 
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
     report = lib.lynis.parse_report(text)
+    skipped = get_skipped_tests(profile or '')
 
     # analyze data
     # lynis writes the hardening index and the end of the audit last, so a report
@@ -293,6 +373,7 @@ def main():
         f'{len(findings)} {lib.txt.pluralize("finding", len(findings))}'
         f'{lib.base.state2str(findings_state, prefix=" ")}, '
         f'{len(suggestions)} {lib.txt.pluralize("suggestion", len(suggestions))}, '
+        f'{len(skipped)} skipped {lib.txt.pluralize("test", len(skipped))}, '
         f'audited {lib.human.seconds2human(age)} ago'
         f'{lib.base.state2str(age_state, prefix=" ")}'
     )
@@ -315,8 +396,14 @@ def main():
     perfdata += lib.base.get_perfdata(
         'findings', len(findings), uom=None, warn='0', _min=0
     )
+    # a skipped test is an accepted one, so the line is for trending and never alerts
+    perfdata += lib.base.get_perfdata('skipped_tests', len(skipped), uom=None, _min=0)
     perfdata += lib.base.get_perfdata('suggestions', len(suggestions), uom=None, _min=0)
     msg += lib.lynis.get_findings_msg(findings, suggestions)
+    if args.LENGTHY and skipped:
+        msg += '\n\nSkipped tests:'
+        for test, comment in skipped.items():
+            msg += f'\n* {test}: {comment}' if comment else f'\n* {test}'
 
     # over and out
     lib.base.oao(
