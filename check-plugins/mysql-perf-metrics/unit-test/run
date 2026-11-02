@@ -221,6 +221,13 @@ class TestDetectStorageType(unittest.TestCase):
     def test_an_emulated_cdrom_does_not_make_a_vm_an_hdd_host(self):
         self.assertEqual(self.detect({'sr0': '1\n', 'vda': '1\n'}), 'unknown')
 
+    def test_lvm_on_a_virtual_disk_does_not_make_a_vm_an_hdd_host(self):
+        disks = {'dm-0': '1\n', 'dm-1': '1\n', 'sr0': '1\n', 'vda': '1\n'}
+        self.assertEqual(self.detect(disks), 'unknown')
+
+    def test_lvm_on_a_physical_disk_is_judged_by_the_disk(self):
+        self.assertEqual(self.detect({'dm-0': '1\n', 'sda': '1\n'}), 'hdd')
+
     def test_a_xen_disk_counts_as_neither_class(self):
         self.assertEqual(self.detect({'xvda': '0\n'}), 'unknown')
 
