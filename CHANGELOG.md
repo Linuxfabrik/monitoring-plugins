@@ -14,7 +14,7 @@ Monitoring Plugins:
 
 * lynis-logfile: Reports how many tests the lynis profile skips.
 * nextcloud-stats: The output says "enabled apps", since disabled apps are not part of the count.
-* psi-io: Warns from 40 % and alerts critically from 60 % instead of 15 % and 30 %, so that a single busy reader on an idle host no longer alerts.
+* psi-io: Higher default thresholds, a single busy reader no longer alerts.
 * scanrootkit: Reports indicators instead of rootkits, generic paths and files any user can create only warn, detects 3 more implants.
 
 
