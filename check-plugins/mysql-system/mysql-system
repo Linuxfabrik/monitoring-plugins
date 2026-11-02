@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026110201'
 
 DESCRIPTION = """Checks Linux kernel parameters that affect MySQL/MariaDB stability and
 performance: `vm.swappiness`, the asynchronous-I/O event ceiling `fs.aio-max-nr`, the
@@ -106,6 +106,21 @@ def get_sysctl(key):
     return value or None
 
 
+def has_nfs_mount():
+    """Return `True` if the host mounts an NFS share. The sunrpc sysctls alone say nothing
+    about that: `/proc/sys/sunrpc` exists as soon as the module is loaded, for example for
+    `gssproxy` on a FreeIPA client.
+    """
+    success, mounts = lib.disk.read_file('/proc/mounts')
+    if not success:
+        return False
+    for mount in mounts.splitlines():
+        fields = mount.split()
+        if len(fields) > 2 and fields[2] in ('nfs', 'nfs4'):
+            return True
+    return False
+
+
 def fmt_value(raw):
     """Render a numeric sysctl value as `"123"` or `"1048576 (1.0M)"`. The SI-prefixed
     form is only appended if `number2human()` actually produces a unit suffix; otherwise
@@ -124,7 +139,12 @@ def main():
     # verified in sync with MySQLTuner (vm.swappiness <= 10,
     # sunrpc.tcp_slot_table_entries > 100, fs.aio-max-nr >= 1M
     # and fs.nr_open >= 1M, with the same recommendations
-    # mysqltuner emits).
+    # mysqltuner emits). Deliberate deviation: MySQLTuner judges the
+    # slot table wherever /proc/sys/sunrpc exists, we only do on hosts
+    # that mount NFS. MariaDB 11.8 does not know this setting, it only
+    # sizes the RPC client transports, and the kernel grows them on
+    # demand up to sunrpc.tcp_max_slot_table_entries (Linux 7.3,
+    # net/sunrpc/xprt.c, xprt_dynamic_alloc_slot()).
 
     # parse the command line
     try:
@@ -191,11 +211,12 @@ def main():
             _max=100,
         )
 
-        # sunrpc.tcp_slot_table_entries — only if /proc/sys/sunrpc exists (i.e. NFS in use)
+        # sunrpc.tcp_slot_table_entries - reported if the sunrpc module is loaded, judged
+        # only if the host mounts NFS (see above)
         if lib.disk.dir_exists('/proc/sys/sunrpc'):
             result = get_sysctl('sunrpc.tcp_slot_table_entries')
             if result is not None:
-                if int(result) <= 100:
+                if int(result) <= 100 and has_nfs_mount():
                     state = lib.base.get_worst(state, STATE_WARN)
                     facts += (
                         f'`sunrpc.tcp_slot_table_entries` is {result}, should be > 100'

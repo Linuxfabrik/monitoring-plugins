@@ -86,7 +86,7 @@ When the host is fully tuned, the OK output enumerates each verified setting. La
 * OK if all kernel parameters are within the recommended range and the port count is acceptable.
 * WARN if `--maxportsallowed` is set and the count of listening TCP ports exceeds it.
 * WARN if `vm.swappiness > 10`.
-* WARN if `sunrpc.tcp_slot_table_entries <= 100` (only on hosts where `/proc/sys/sunrpc` exists).
+* WARN if `sunrpc.tcp_slot_table_entries <= 100` (only on hosts that mount NFS).
 * WARN if `fs.aio-max-nr < 1M`.
 * WARN if `fs.nr_open < 1M`.
 * `--always-ok` suppresses all alerts and always returns OK.
