@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026110201'
 
 DESCRIPTION = """Audits MySQL/MariaDB configuration knobs that have a measurable impact
 on performance or correctness but no metric of their own. Highlights settings that
@@ -48,12 +48,13 @@ What gets checked:
   that transaction the way it would after a deadlock. Few
   frameworks do, which is why upstream kept the permissive default for years. A
   single application that cannot cope opts out for itself with
-  `SET SESSION innodb_snapshot_isolation = OFF`; where even that is out of reach,
-  `--ignore-innodb-snapshot-isolation` silences the check. Other isolation levels
+  `SET SESSION innodb_snapshot_isolation = OFF`. Hence `OFF` is a hint that changes no
+  state, and `--ignore-innodb-snapshot-isolation` silences it. Other isolation levels
   and non-MariaDB servers skip this check.
 - `innodb_flush_neighbors`: HDD wins from grouping seek-adjacent dirty-page flushes,
   SSD/NVMe pays in extra writes for no latency benefit, so the right value depends on
-  the storage class.
+  the storage class. Virtual disks are left out unless `--storage-type` names the class,
+  since their rotational flag says nothing about the storage behind them.
 - `innodb_io_capacity`: caps InnoDB's background flushing rate and should be sized to
   the disk's measured IOPS. Only checked when `--storage-type=ssd` is passed explicitly:
   the storage auto-detection cannot be trusted on virtualised or network-backed disks
@@ -153,6 +154,8 @@ DEFAULT_TIMEOUT = 3
 # either return rotational=0 (incorrect for SSD) or skew Mixed
 # detection. Mirrors the skip list in mysqltuner.pl.
 _TRANSIENT_BLOCK_PREFIXES = ('loop', 'ram', 'nbd', 'zram')
+# Paravirtualised disks (virtio_blk, Xen), whose rotational flag is the hypervisor's word.
+_VIRTUAL_BLOCK_PREFIXES = ('vd', 'xvd')
 
 
 def parse_args():
@@ -196,11 +199,11 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-innodb-snapshot-isolation',
-        help='Suppress the warning about `innodb_snapshot_isolation` being '
-        '`OFF` under `REPEATABLE-READ`. Use it where an application '
-        'connecting to this server cannot retry a transaction that was '
-        'rolled back with error 1020, so the admin has no way to turn the '
-        'variable on.',
+        help='Suppress the hint about `innodb_snapshot_isolation` being '
+        '`OFF` under `REPEATABLE-READ`. The hint never changes the state. '
+        'Use it where an application connecting to this server cannot retry '
+        'a transaction that was rolled back with error 1020, so the admin '
+        'has no way to turn the variable on.',
         dest='IGNORE_INNODB_SNAPSHOT_ISOLATION',
         default=DEFAULT_IGNORE_INNODB_SNAPSHOT_ISOLATION,
         action='store_true',
@@ -254,7 +257,9 @@ def detect_storage_type(override):
     `/sys/block` is not readable - remote check via TCP, Windows,
     container without `/sys/block` mounted - the result is 'unknown'
     and the downstream storage-aware checks are skipped silently.
-    Logic mirrors mysqltuner.
+    Logic mirrors mysqltuner, except for virtual disks: the hypervisor decides what
+    they report, and a Ceph volume showed up as rotational on Rocky 10 (virtio_blk), so
+    they count as neither class. Pass `--storage-type` where the class is known.
     """
     if override in ('ssd', 'hdd'):
         return override
@@ -267,7 +272,7 @@ def detect_storage_type(override):
     has_hdd = False
     for block in lib.disk.glob('/sys/block/*'):
         name = os.path.basename(block)
-        if name.startswith(_TRANSIENT_BLOCK_PREFIXES):
+        if name.startswith(_TRANSIENT_BLOCK_PREFIXES + _VIRTUAL_BLOCK_PREFIXES):
             continue
         rotational_path = os.path.join(block, 'queue', 'rotational')
         success, rotational = lib.disk.read_file(rotational_path)
@@ -491,8 +496,8 @@ def main():
     # the permissive default only survived for backward compatibility with
     # such applications (MDEV-26642, storage/innobase/lock/lock0lock.cc and
     # handler/ha_innodb.cc). Error 1020 reproduced on MariaDB 11.4.12.
-    # Hence the warning below names the risk, and
-    # --ignore-innodb-snapshot-isolation exists for hosts whose
+    # Few applications do that, so `OFF` is a hint without a state, and
+    # --ignore-innodb-snapshot-isolation silences it on hosts whose
     # applications leave the admin no choice.
     snapshot_iso = myvar.get('innodb_snapshot_isolation')
     if snapshot_iso is not None and not args.IGNORE_INNODB_SNAPSHOT_ISOLATION:
@@ -500,14 +505,9 @@ def main():
             myvar.get('transaction_isolation') or myvar.get('tx_isolation') or ''
         )
         if snapshot_iso == 'OFF' and transaction_iso == 'REPEATABLE-READ':
-            state = lib.base.get_worst(state, STATE_WARN)
-            facts.append(
-                '`innodb_snapshot_isolation` is `OFF` with '
-                '`REPEATABLE-READ`'
-                f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
-            )
+            facts.append('`innodb_snapshot_isolation` is `OFF` with `REPEATABLE-READ`')
             recommendations.append(
-                'Set `innodb_snapshot_isolation = ON` so `REPEATABLE-READ` '
+                'Consider `innodb_snapshot_isolation = ON`, so `REPEATABLE-READ` '
                 'transactions get a stable snapshot. Attention: check your '
                 'applications first, they have to retry a transaction rolled '
                 'back with error 1020, and it only works from MariaDB '

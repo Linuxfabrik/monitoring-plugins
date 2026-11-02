@@ -7,6 +7,8 @@ Checks MySQL/MariaDB best-practice knobs that do not have a dedicated plugin: `i
 
 * `innodb_stats_on_metadata`: when ON, InnoDB recalculates index statistics every time `information_schema` tables are queried. Most modern setups keep this OFF because applications and tooling query `information_schema` frequently.
 * `concurrent_insert`: when set to `NEVER`/`0`, MyISAM tables can no longer serve SELECTs in parallel with INSERTs. `AUTO` is the modern default.
+* `innodb_snapshot_isolation`: `OFF` under `REPEATABLE-READ` is reported as a hint that changes no state, because `ON` needs applications that retry a transaction rolled back with error 1020, and few do. `--ignore-innodb-snapshot-isolation` silences the hint.
+* `innodb_flush_neighbors`: judged only where the storage class is known. Virtual disks (`vd*`, `xvd*`) are left out under `--storage-type=auto`, since the hypervisor decides what they report: a Ceph volume shows up as rotational. Name the class with `--storage-type` to judge them.
 * Deprecated configuration variables: MariaDB keeps deprecated startup variables in `SHOW VARIABLES` as no-ops for the full LTS support window (5+ years) per its [feature deprecation policy](https://mariadb.com/docs/release-notes/community-server/about/feature-deprecation-policy). The plugin alerts only when such a variable was explicitly set via `my.cnf` or `SET GLOBAL` (`GLOBAL_VALUE_ORIGIN` in `INFORMATION_SCHEMA.SYSTEM_VARIABLES` not equal to `COMPILE-TIME`). Compile-time defaults stay silent. On MySQL, the plugin walks a list of known removed variables (ported from MySQLTuner) and filters them through `performance_schema.variables_info.VARIABLE_SOURCE` so only non-`COMPILED` values surface.
 
 **Important Notes:**
@@ -66,27 +68,30 @@ changed since last read in table` and rolled back, so every application
 talking to this server has to retry that transaction the way it would after a
 deadlock. Few frameworks do, which is why upstream kept the permissive default
 for years. A single application that cannot cope opts out for itself with `SET
-SESSION innodb_snapshot_isolation = OFF`; where even that is out of reach,
-`--ignore-innodb-snapshot-isolation` silences the check. Other isolation
-levels and non-MariaDB servers skip this check. - `innodb_flush_neighbors`:
-HDD wins from grouping seek-adjacent dirty-page flushes, SSD/NVMe pays in
-extra writes for no latency benefit, so the right value depends on the storage
-class. - `innodb_io_capacity`: caps InnoDB's background flushing rate and
-should be sized to the disk's measured IOPS. Only checked when
-`--storage-type=ssd` is passed explicitly: the storage auto-detection cannot
-be trusted on virtualised or network-backed disks (Ceph, cloud volumes) where
-a slow device still reports as non-rotational. - Deprecated configuration
-variables explicitly set via `my.cnf` or `SET GLOBAL`. The server tolerates
-these as no-ops, so they hide easily until the next major upgrade ships
-without them. Compile-time defaults are silent. MariaDB exposes a runtime
-deprecation flag; on MySQL a static list filtered through
-`performance_schema.variables_info.VARIABLE_SOURCE` catches the same cases.
-The storage-aware checks need to know the disk type. `innodb_flush_neighbors`
-uses auto-detection (it reads `/sys/block/*/queue/rotational` on the host the
-plugin runs on; `0` is the safe value on any non-seeking storage, so a misread
-costs nothing). `innodb_io_capacity` is only checked when `--storage-type=ssd`
-is passed explicitly, because the rotational flag reports `0` for virtio, RBD
-and emulated-NVMe devices regardless of the real backing store: a database on
+SESSION innodb_snapshot_isolation = OFF`. Hence `OFF` is a hint that changes
+no state, and `--ignore-innodb-snapshot-isolation` silences it. Other
+isolation levels and non-MariaDB servers skip this check. -
+`innodb_flush_neighbors`: HDD wins from grouping seek-adjacent dirty-page
+flushes, SSD/NVMe pays in extra writes for no latency benefit, so the right
+value depends on the storage class. Virtual disks are left out unless
+`--storage-type` names the class, since their rotational flag says nothing
+about the storage behind them. - `innodb_io_capacity`: caps InnoDB's
+background flushing rate and should be sized to the disk's measured IOPS. Only
+checked when `--storage-type=ssd` is passed explicitly: the storage
+auto-detection cannot be trusted on virtualised or network-backed disks (Ceph,
+cloud volumes) where a slow device still reports as non-rotational. -
+Deprecated configuration variables explicitly set via `my.cnf` or `SET
+GLOBAL`. The server tolerates these as no-ops, so they hide easily until the
+next major upgrade ships without them. Compile-time defaults are silent.
+MariaDB exposes a runtime deprecation flag; on MySQL a static list filtered
+through `performance_schema.variables_info.VARIABLE_SOURCE` catches the same
+cases. The storage-aware checks need to know the disk type.
+`innodb_flush_neighbors` uses auto-detection (it reads
+`/sys/block/*/queue/rotational` on the host the plugin runs on; `0` is the
+safe value on any non-seeking storage, so a misread costs nothing).
+`innodb_io_capacity` is only checked when `--storage-type=ssd` is passed
+explicitly, because the rotational flag reports `0` for virtio, RBD and
+emulated-NVMe devices regardless of the real backing store: a database on
 HDD-backed Ceph or a throttled cloud volume would be misread as fast local
 storage and told to raise the value, which can swamp a low-IOPS device. Pass
 `--storage-type=ssd` or `--storage-type=hdd` to override the auto-detection,
@@ -107,11 +112,12 @@ options:
                         Group/section to read from in the cnf file. Default:
                         client
   --ignore-innodb-snapshot-isolation
-                        Suppress the warning about `innodb_snapshot_isolation`
-                        being `OFF` under `REPEATABLE-READ`. Use it where an
-                        application connecting to this server cannot retry a
-                        transaction that was rolled back with error 1020, so
-                        the admin has no way to turn the variable on.
+                        Suppress the hint about `innodb_snapshot_isolation`
+                        being `OFF` under `REPEATABLE-READ`. The hint never
+                        changes the state. Use it where an application
+                        connecting to this server cannot retry a transaction
+                        that was rolled back with error 1020, so the admin has
+                        no way to turn the variable on.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

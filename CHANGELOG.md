@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Monitoring Plugins:
 
 * lynis-logfile: Reports how many tests the lynis profile skips.
+* mysql-perf-metrics: `innodb_snapshot_isolation` no longer alerts, and `--storage-type=auto` no longer judges virtual disks.
+* mysql-tls: A server on loopback only no longer alerts about `require_secure_transport` and the certificate.
+* mysql-user-security: A legacy authentication plugin no longer alerts on MariaDB.
 * nextcloud-stats: The output says "enabled apps", since disabled apps are not part of the count.
 * psi-io: Higher default thresholds, a single busy reader no longer alerts.
 * scanrootkit: Reports indicators instead of rootkits, generic paths and files any user can create only warn, detects 3 more implants.
