@@ -11,6 +11,7 @@ Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_st
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * The effective temp-table cap is `min(tmp_table_size, max_heap_table_size)`. Raising only one of the two has no effect; the recommendation always names both
+* MariaDB puts a temp table with a `TEXT` or `BLOB` column on disk at any size, so an application that reads such columns keeps the percentage high, however large the limits are. The recommendation therefore starts with a query that names the statements behind the disk tables.
 * Above mysqltuner's 256 MiB cut-off, raising the cap further does not help. The recommendation switches to "audit the queries" in that range (typically `SELECT DISTINCT` and `GROUP BY` without `LIMIT`)
 * If a server has not yet materialised a single temporary table (`Created_tmp_tables = 0`), the percentage is meaningless and the check skips with an info line (matches mysqltuner)
 
@@ -100,8 +101,9 @@ WARN output:
 Temporary tables created on disk: 34.6% (540 on disk / 1.6K total) [WARNING]. `tmp_table_size` = 16.0MiB, `max_heap_table_size` = 16.0MiB.
 
 Recommendations:
-* Raise both `tmp_table_size` (currently 16.0MiB) and `max_heap_table_size` (currently 16.0MiB) toward 256.0MiB (mysqltuner cut-off); keep them equal because the effective per-table cap is the smaller of the two
-* These limits apply per implicit temp table, not as a shared pool. Size them just above the largest single temp table your workload actually generates; going higher does not help. Plan RAM headroom for that limit multiplied by the number of concurrent sessions building temp tables, so the server does not run out of memory under load. Use the slow log or `sys.x$statements_with_temp_tables` in `performance_schema` to find typical temp-table sizes
+* Find the queries behind this first: `SELECT DIGEST_TEXT, COUNT_STAR, SUM_CREATED_TMP_DISK_TABLES FROM performance_schema.events_statements_summary_by_digest ORDER BY SUM_CREATED_TMP_DISK_TABLES DESC LIMIT 10;`. A query with as many disk tables as executions usually reads a `TEXT` or `BLOB` column. MariaDB puts such a temp table on disk at any size, so raising the limits does not help there
+* If oversized temp tables are the cause, raise both `tmp_table_size` (currently 16.0MiB) and `max_heap_table_size` (currently 16.0MiB) toward 256.0MiB (mysqltuner cut-off); keep them equal because the effective per-table cap is the smaller of the two
+* These limits apply per implicit temp table, not as a shared pool. Size them just above the largest single temp table your workload actually generates; going higher does not help. Plan RAM headroom for that limit multiplied by the number of concurrent sessions building temp tables, so the server does not run out of memory under load
 * Audit `SELECT DISTINCT` and `GROUP BY` queries that run without a `LIMIT` clause; those are the classic source of oversized temporary tables
 ```
 
