@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # The plugin reads several exports of `icingacli director`. Under `--test=stdout/<x>`
 # each one comes from its own fixture: `<x>-hosts` (`hosts fetch`), `<x>-commands`
@@ -38,9 +38,13 @@ from lib.globals import STATE_OK, STATE_UNKNOWN
 #   `-sudo` command; `nextcloud_stats_hostname` reaches the command only through the
 #   default of `nextcloud_stats_url`.
 # * Secrets, all of them containing "linuxfabrik" or "nextcloud-admin": a variable named
-#   `*password*`, a hidden data field (`nextcloud_stats_login`) and a dictionary with a
-#   sensitive member (`snmp_v3`).
+#   `*password*`, a hidden data field (`nextcloud_stats_login`), a dictionary with a
+#   sensitive member (`snmp_v3`) and the userinfo of a URL in `nextcloud_status_url`.
 # * old01 is disabled.
+#
+# `empty`: no hosts at all. `invalid`: the hosts export is a list instead of an object.
+# `malformed`: an override variable that is a string, an override of a service that is
+# a string, and a host without vars that imports a host template that does not exist.
 #
 # `same-short-name`: two hosts called web01 in different domains keep their full name,
 # an IP address is not shortened, db01.example.com becomes db01.
@@ -51,7 +55,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_OK,
         'assert-in': [
-            '8 overridden service variables on 2 of 3 hosts, 5 overrides without effect.',
+            '9 overridden service variables on 2 of 3 hosts, 5 overrides without effect.',
         ],
         'assert-regex': (
             r'db01 +! CPU Usage +! warning +! 80 +! 90'
@@ -97,6 +101,8 @@ TESTS = [
         'assert-regex': (
             r'Nextcloud Stats +! login +! \*{6} +! \*{6}'
             r'(.|\n)*Nextcloud Stats +! password +! \(not set\) +! \*{6}'
+            r'(.|\n)*Nextcloud Status +! url +! http://localhost/status\.php'
+            r' +! https://nagios:\*{6}@cloud\.example\.com/status\.php'
             r'(.|\n)*snmp_v3 +! \(not set\) +! \*{6}'
         ),
         'assert-not-in': ['linuxfabrik', 'nextcloud-admin', 'monitoring'],
@@ -135,10 +141,10 @@ TESTS = [
         'assert-in': ['No overridden service variables on 1 host.'],
     },
     {
-        'id': 'unknown-services-of-host-not-readable',
+        'id': 'warn-services-of-host-not-readable',
         'test': 'stdout/broken-host,,0',
         'params': '',
-        'assert-retc': STATE_UNKNOWN,
+        'assert-retc': STATE_WARN,
         'assert-in': [
             'services of 1 host could not be read.',
             'The Icinga Director returned no services for host "web01.example.com".',
@@ -163,6 +169,35 @@ TESTS = [
         'params': '--max-workers=0',
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['`--max-workers` has to be 1 or more.'],
+    },
+    {
+        'id': 'unknown-timeout-zero',
+        'test': 'stdout/overrides,,0',
+        'params': '--timeout=0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['`--timeout` has to be 1 or more.'],
+    },
+    {
+        'id': 'ok-no-hosts',
+        'test': 'stdout/empty,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No overridden service variables on 0 hosts.'],
+    },
+    {
+        'id': 'unknown-hosts-export-not-an-object',
+        'test': 'stdout/invalid,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['The Icinga Director returned no hosts.'],
+    },
+    {
+        'id': 'ok-ignores-malformed-overrides',
+        'test': 'stdout/malformed,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No overridden service variables on 3 hosts.'],
+        'assert-not-in': ['Traceback'],
     },
 ]
 

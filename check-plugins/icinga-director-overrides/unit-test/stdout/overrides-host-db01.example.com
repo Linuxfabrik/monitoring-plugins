@@ -56,6 +56,17 @@
             }
         },
         {
+            "check_command": "cmd-check-nextcloud-status",
+            "imports": [],
+            "object_name": "Nextcloud Status",
+            "object_type": "object",
+            "service_set": "Nextcloud Service Set",
+            "vars": {
+                "criticality": "C",
+                "nextcloud_status_url": "http://localhost/status.php"
+            }
+        },
+        {
             "check_command": "cmd-check-snmp-uptime",
             "imports": [],
             "object_name": "SNMP Uptime",

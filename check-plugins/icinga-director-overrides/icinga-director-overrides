@@ -23,10 +23,10 @@ import lib.base
 import lib.lftest
 import lib.shell
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110302'
+__version__ = '2026110303'
 
 DESCRIPTION = """Lists the service variables that were deliberately overridden for a single host in
 the Icinga Director, for example a threshold changed with "Modify" on a service that comes
@@ -35,8 +35,9 @@ service would have without it, as configured in its templates, Service Sets and 
 templates, so the deviation from the configured default is visible at a glance. Overrides that no longer have an effect are listed separately: those for
 services that no longer exist on the host, for variables that the check command does not
 use (for example after a variable was renamed), and those that merely repeat the default.
-Values of hidden or sensitive variables are masked. Always returns OK, as this is an
-inventory and not an alert. Supports extended reporting via --lengthy."""
+Values of hidden or sensitive variables are masked. Overrides never cause an alert, as
+this is an inventory. Alerts only if the configuration of the Icinga Director cannot be
+read. Supports extended reporting via --lengthy."""
 
 DEFAULT_LENGTHY = False
 DEFAULT_MAX_WORKERS = 4
@@ -151,10 +152,16 @@ def icingacli(args, *argv):
         msg = f'{what} failed with exit code {retc}'
         if first_line:
             msg += f': {lib.txt.sanitize_sensitive_data(first_line.strip())[:200]}'
-        msg += (
-            '. The account running this check has to be able to read the Icinga Web 2'
-            ' configuration, for example as a member of the group `icingaweb2`.'
-        )
+        msg += '.'
+        # `ERROR: Cannot read enabled modules. Config directory "/etc/icingaweb2" is
+        # not readable` (Icinga Web 2.14 on Rocky 10, run as an account outside the
+        # group `icingaweb2`)
+        if 'not readable' in first_line or 'permission denied' in first_line.lower():
+            msg += (
+                ' The account running this check has to be able to read the Icinga'
+                ' Web 2 configuration, for example as a member of the group'
+                ' `icingaweb2`.'
+            )
         return (False, msg)
     try:
         return (True, json.loads(stdout))
@@ -361,6 +368,9 @@ def format_value(value, sensitive, lengthy):
         text = json.dumps(value, ensure_ascii=False)
     else:
         text = str(value)
+    # a credential can also hide in a value whose name does not give it away, for
+    # example in the userinfo of a URL
+    text = lib.txt.sanitize_sensitive_data(text)
     if not lengthy and len(text) > MAX_VALUE_LEN:
         text = text[: MAX_VALUE_LEN - 3] + '...'
     return text
@@ -401,10 +411,17 @@ def main():
         sys.exit(STATE_UNKNOWN)
     if args.MAX_WORKERS < 1:
         lib.base.cu('`--max-workers` has to be 1 or more.')
+    if args.TIMEOUT < 1:
+        lib.base.cu('`--timeout` has to be 1 or more.')
 
     # fetch data
+    # `icingacli` belongs on the host this check is deployed to. If it fails, times
+    # out or lacks permissions, the admin has something to fix, so it is a WARN.
     hosts = lib.base.coe(
-        fetch(args, 'hosts', 'hosts', 'fetch', '--json', '--no-defaults', '--no-pretty')
+        fetch(
+            args, 'hosts', 'hosts', 'fetch', '--json', '--no-defaults', '--no-pretty'
+        ),
+        STATE_WARN,
     )
     if not isinstance(hosts, dict):
         lib.base.cu('The Icinga Director returned no hosts.')
@@ -441,12 +458,13 @@ def main():
             '--json',
             '--no-defaults',
             '--no-pretty',
-        )
+        ),
+        STATE_WARN,
     )
     if not isinstance(commands, dict):
         commands = {}
     datafields = lib.base.coe(
-        fetch(args, 'datafields', 'export', 'datafields', '--no-pretty')
+        fetch(args, 'datafields', 'export', 'datafields', '--no-pretty'), STATE_WARN
     )
     # Custom variables replace data fields since Director 1.12. An older Director
     # does not know the export, which is the same as having none.
@@ -479,7 +497,7 @@ def main():
         success, host_services = services[host]
         if not success:
             errors.append({'host': host, 'error': host_services})
-            state = STATE_UNKNOWN
+            state = STATE_WARN
             continue
         by_name = {}
         for service in host_services:
