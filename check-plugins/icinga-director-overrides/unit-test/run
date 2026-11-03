@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+# The plugin reads several exports of `icingacli director`. Under `--test=stdout/<x>`
+# each one comes from its own fixture: `<x>-hosts` (`hosts fetch`), `<x>-commands`
+# (`commands fetch`), `<x>-datafields` and `<x>-customproperties` (`export ...`), and
+# `<x>-host-<name>` (`host show <name> --resolved --with-services --all-services`) for
+# every host with overrides of its own. The fixtures are synthetic, in the shape these
+# exports have on Icinga Director 1.12.1.
+#
+# `overrides`:
+#
+# * `tpl-host-linux` overrides "Swap Usage" for every Linux host. That is a configured
+#   default, so app01 (no overrides of its own) is never read, and db01 shows no row for
+#   "Swap Usage".
+# * web01 has an entry for "Swap Usage" of its own. It replaces the one of the template
+#   as a whole, so its `swap_usage_warning` falls back from 70 to the 50 of the service.
+# * db01: `cpu_usage_warning` 80 -> 90; `cpu_usage_critical` "95" equals 95; `criticality`
+#   and the renamed `cpu_usage_warn` are not used by the command; the ignore lists of
+#   "Disk Usage" only differ in order; "Old Service" is not on the host; the
+#   `apache_httpd_security_ignore` argument is defined on the command imported by the
+#   `-sudo` command; `nextcloud_stats_hostname` reaches the command only through the
+#   default of `nextcloud_stats_url`.
+# * Secrets, all of them containing "linuxfabrik" or "nextcloud-admin": a variable named
+#   `*password*`, a hidden data field (`nextcloud_stats_login`) and a dictionary with a
+#   sensitive member (`snmp_v3`).
+# * old01 is disabled.
+#
+# `same-short-name`: two hosts called web01 in different domains keep their full name,
+# an IP address is not shortened, db01.example.com becomes db01.
+TESTS = [
+    {
+        'id': 'ok-lists-host-overrides',
+        'test': 'stdout/overrides,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '8 overridden service variables on 2 of 3 hosts, 5 overrides without effect.',
+        ],
+        'assert-regex': (
+            r'db01 +! CPU Usage +! warning +! 80 +! 90'
+            r'(.|\n)*web01 +! Swap Usage +! critical +! 90 +! 95'
+        ),
+    },
+    {
+        'id': 'ok-template-overrides-are-defaults',
+        'test': 'stdout/overrides,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'web01 +! Swap Usage +! warning +! 70 +! 50',
+        'assert-not-in': ['app01', 'db01 ! Swap Usage'],
+    },
+    {
+        'id': 'ok-lists-overrides-without-effect',
+        'test': 'stdout/overrides,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-regex': (
+            r'CPU Usage +! critical +! same as the default'
+            r'(.|\n)*CPU Usage +! criticality +! not used by the check command'
+            r'(.|\n)*CPU Usage +! warn +! not used by the check command'
+            r'(.|\n)*Disk Usage +! ignore +! same as the default'
+            r'(.|\n)*Old Service +! warning +! service does not exist on the host'
+        ),
+    },
+    {
+        'id': 'ok-follows-imported-command-and-indirect-macros',
+        'test': 'stdout/overrides,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-regex': (
+            r'Apache httpd Security +! ignore'
+            r'(.|\n)*Nextcloud Stats +! hostname +! localhost'
+        ),
+    },
+    {
+        'id': 'ok-masks-secrets',
+        'test': 'stdout/overrides,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-regex': (
+            r'Nextcloud Stats +! login +! \*{6} +! \*{6}'
+            r'(.|\n)*Nextcloud Stats +! password +! \(not set\) +! \*{6}'
+            r'(.|\n)*snmp_v3 +! \(not set\) +! \*{6}'
+        ),
+        'assert-not-in': ['linuxfabrik', 'nextcloud-admin', 'monitoring'],
+    },
+    {
+        'id': 'ok-lengthy-adds-service-set-and-full-values',
+        'test': 'stdout/overrides,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Service Set',
+            '["Status module", "Proxy modules", "Request line limit"]',
+            'Apache httpd Service Set',
+        ],
+    },
+    {
+        'id': 'ok-shortens-long-values',
+        'test': 'stdout/overrides,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['["Status module", "Proxy modules", "R...'],
+        'assert-not-in': ['Service Set'],
+    },
+    {
+        'id': 'ok-ignores-disabled-hosts',
+        'test': 'stdout/overrides,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['old01', '99'],
+    },
+    {
+        'id': 'ok-no-overrides',
+        'test': 'stdout/no-overrides,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No overridden service variables on 1 host.'],
+    },
+    {
+        'id': 'unknown-services-of-host-not-readable',
+        'test': 'stdout/broken-host,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'services of 1 host could not be read.',
+            'The Icinga Director returned no services for host "web01.example.com".',
+        ],
+        'assert-regex': r'\nweb01 +! The Icinga Director',
+    },
+    {
+        'id': 'ok-short-names-only-where-unique',
+        'test': 'stdout/same-short-name,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-regex': (
+            r'192\.0\.2\.10 +! CPU Usage +! warning +! 80 +! 87'
+            r'(.|\n)*\ndb01 +! CPU Usage +! warning +! 80 +! 88'
+            r'(.|\n)*web01\.example\.com +! CPU Usage +! warning +! 80 +! 85'
+            r'(.|\n)*web01\.example\.net +! CPU Usage +! warning +! 80 +! 86'
+        ),
+    },
+    {
+        'id': 'unknown-max-workers-zero',
+        'test': 'stdout/overrides,,0',
+        'params': '--max-workers=0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['`--max-workers` has to be 1 or more.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../icinga-director-overrides'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

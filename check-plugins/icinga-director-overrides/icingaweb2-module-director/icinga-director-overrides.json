@@ -1,0 +1,148 @@
+{
+    "Command": {
+        "cmd-check-icinga-director-overrides": {
+            "arguments": {
+                "--lengthy": {
+                    "set_if": "$icinga_director_overrides_lengthy$"
+                },
+                "--max-workers": {
+                    "value": "$icinga_director_overrides_max_workers$"
+                },
+                "--override-varname": {
+                    "value": "$icinga_director_overrides_override_varname$"
+                },
+                "--timeout": {
+                    "value": "$icinga_director_overrides_timeout$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/icinga-director-overrides",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-icinga-director-overrides",
+            "object_type": "object",
+            "timeout": 300,
+            "vars": {},
+            "zone": null,
+            "uuid": "e6f05ada-1d67-4f70-8023-d645aedf64b9"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-icinga-director-overrides": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-icinga-director-overrides",
+            "check_interval": 86400,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": false,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "icinga-director-overrides.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Lists the service variables that were deliberately overridden for a single host in the Icinga Director, for example a threshold changed with \"Modify\" on a service that comes from a Service Set or an apply rule. For each override, the plugin shows the value the service would have without it, as configured in its templates, Service Sets and host templates, so the deviation from the configured default is visible at a glance. Overrides that no longer have an effect are listed separately: those for services that no longer exist on the host, for variables that the check command does not use (for example after a variable was renamed), and those that merely repeat the default. Values of hidden or sensitive variables are masked. Always returns OK, as this is an inventory and not an alert. Supports extended reporting via --lengthy.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/icinga-director-overrides/",
+            "object_name": "tpl-service-icinga-director-overrides",
+            "object_type": "template",
+            "retry_interval": 300,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "icinga_director_overrides_lengthy": false,
+                "icinga_director_overrides_max_workers": 4,
+                "icinga_director_overrides_override_varname": "_override_servicevars",
+                "icinga_director_overrides_timeout": 8
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "c147653c-b017-418a-9beb-8296c5800e28"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "icinga_director_overrides_lengthy",
+            "caption": "Icinga Director Overrides: Lengthy?",
+            "description": "Extended reporting. Adds the Service Set of each service and does not shorten long values.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "b71c8e7d-e450-4072-b0c0-5f4fffca5e09"
+        },
+        "2": {
+            "varname": "icinga_director_overrides_max_workers",
+            "caption": "Icinga Director Overrides: Max Workers",
+            "description": "Maximum number of hosts whose services are read from the Icinga Director in parallel.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "72c9962b-0c6b-4b21-b44b-4c2c990df1eb"
+        },
+        "3": {
+            "varname": "icinga_director_overrides_override_varname",
+            "caption": "Icinga Director Overrides: Override Varname",
+            "description": "Name of the host variable in which the Icinga Director stores the per-host overrides of service variables. Only needs to be changed if the Director setting \"override_services_varname\" was changed. Case-sensitive.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6ac811b9-0b92-4add-bcc3-087e066dcb7f"
+        },
+        "4": {
+            "varname": "icinga_director_overrides_timeout",
+            "caption": "Icinga Director Overrides: Timeout",
+            "description": "Timeout for each call of `icingacli`, in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "174dd033-5910-4a22-8a87-e1a2c0857e43"
+        }
+    }
+}

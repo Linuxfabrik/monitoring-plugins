@@ -1,0 +1,108 @@
+{
+    "tpl-host-generic": {
+        "object_name": "tpl-host-generic",
+        "object_type": "template",
+        "vars": {
+            "criticality": "C"
+        }
+    },
+    "tpl-host-linux": {
+        "imports": [
+            "tpl-host-generic"
+        ],
+        "object_name": "tpl-host-linux",
+        "object_type": "template",
+        "vars": {
+            "_override_servicevars": {
+                "Swap Usage": {
+                    "swap_usage_warning": "70"
+                }
+            }
+        }
+    },
+    "db01.example.com": {
+        "imports": [
+            "tpl-host-linux"
+        ],
+        "object_name": "db01.example.com",
+        "object_type": "object",
+        "vars": {
+            "_override_servicevars": {
+                "Apache httpd Security": {
+                    "apache_httpd_security_ignore": [
+                        "Status module",
+                        "Proxy modules",
+                        "Request line limit"
+                    ]
+                },
+                "CPU Usage": {
+                    "criticality": "A",
+                    "cpu_usage_critical": "95",
+                    "cpu_usage_warn": "85",
+                    "cpu_usage_warning": "90"
+                },
+                "Disk Usage": {
+                    "disk_usage_ignore": [
+                        "/boot",
+                        "/tmp"
+                    ]
+                },
+                "Nextcloud Stats": {
+                    "nextcloud_stats_hostname": "cloud.example.com",
+                    "nextcloud_stats_password": "linuxfabrik",
+                    "nextcloud_stats_login": "nextcloud-admin"
+                },
+                "Old Service": {
+                    "old_service_warning": "1"
+                },
+                "SNMP Uptime": {
+                    "snmp_v3": {
+                        "user": "monitoring",
+                        "phrase": "linuxfabrik"
+                    }
+                }
+            },
+            "tags": [
+                "apache-httpd",
+                "nextcloud",
+                "rhel9"
+            ]
+        }
+    },
+    "web01.example.com": {
+        "imports": [
+            "tpl-host-linux"
+        ],
+        "object_name": "web01.example.com",
+        "object_type": "object",
+        "vars": {
+            "_override_servicevars": {
+                "Swap Usage": {
+                    "swap_usage_critical": 95
+                }
+            }
+        }
+    },
+    "app01.example.com": {
+        "imports": [
+            "tpl-host-linux"
+        ],
+        "object_name": "app01.example.com",
+        "object_type": "object"
+    },
+    "old01.example.com": {
+        "disabled": true,
+        "imports": [
+            "tpl-host-linux"
+        ],
+        "object_name": "old01.example.com",
+        "object_type": "object",
+        "vars": {
+            "_override_servicevars": {
+                "CPU Usage": {
+                    "cpu_usage_warning": "99"
+                }
+            }
+        }
+    }
+}

@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+Monitoring Plugins:
+
+* icinga-director-overrides: Lists the service variables overridden per host in the Icinga Director, and overrides without effect.
+
+
 ### Changed
 
 Monitoring Plugins:
