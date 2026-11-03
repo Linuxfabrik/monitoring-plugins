@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110309'
+__version__ = '2026110310'
 
 DESCRIPTION = """Compares the Linuxfabrik objects in the Icinga Director (data fields, commands, host
 and service templates, Service Sets) with the Director basket that ships with the
@@ -133,8 +133,10 @@ def parse_args():
     return args
 
 
-def format_value(field, value, lengthy):
-    """Render one side of a differing field for the table."""
+def format_value(field, value, lengthy, partial=False):
+    """Render one side of a differing field for the table. `partial` marks a list
+    that holds only the members missing on the other side.
+    """
     if value is None:
         return '(not set)'
     name = field.rsplit('.', 1)[-1]
@@ -142,6 +144,9 @@ def format_value(field, value, lengthy):
         return MASK
     if isinstance(value, bool):
         text = 'true' if value else 'false'
+    elif partial:
+        # `[..., "b"]`: the members both sides share are left out
+        text = json.dumps(['...', *value], ensure_ascii=False).replace('"..."', '...')
     elif isinstance(value, (dict, list)):
         text = json.dumps(value, ensure_ascii=False)
     else:
@@ -150,6 +155,17 @@ def format_value(field, value, lengthy):
     if not lengthy and len(text) > MAX_VALUE_LEN:
         text = text[: MAX_VALUE_LEN - 3] + '...'
     return text
+
+
+def list_delta(members, others):
+    """Return the members of a list that the other list does not have, compared the
+    way the values reach the plugin.
+    """
+    return [
+        member
+        for member in members
+        if not any(lib.icinga.director_same_value(member, other) for other in others)
+    ]
 
 
 def main():
@@ -238,11 +254,20 @@ def main():
                 cells['live'] = 'missing' if change['live'] is None else 'present'
                 cells['shipped'] = 'missing' if change['shipped'] is None else 'present'
             else:
+                live, shipped = change['live'], change['shipped']
+                partial = False
+                if isinstance(live, list) and isinstance(shipped, list):
+                    # A long list would hide its difference behind the shortening,
+                    # so only the members that differ are shown.
+                    only_live = list_delta(live, shipped)
+                    partial = len(only_live) < len(live)
+                    if partial:
+                        live, shipped = only_live, list_delta(shipped, live)
                 cells['live'] = format_value(
-                    change['field'], change['live'], args.LENGTHY
+                    change['field'], live, args.LENGTHY, partial
                 )
                 cells['shipped'] = format_value(
-                    change['field'], change['shipped'], args.LENGTHY
+                    change['field'], shipped, args.LENGTHY, partial
                 )
             table_data.append(cells)
 

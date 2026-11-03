@@ -13,6 +13,7 @@ Compares the Linuxfabrik objects in the Icinga Director (data fields, commands, 
 * Objects that exist only in the Director, your own templates and commands or objects that a former release dropped, are not checked: importing the basket leaves them alone. Overrides per host are listed by the check `icinga-director-overrides`
 * Differences that are only a matter of how the Director exports an object are ignored: renumbered data fields, the short form of a command argument, the plugin directory in a command line, `25` against `"25"`, an empty field against a missing one, and the description of a service
 * Icinga DB Web shows only the first 10000 characters of a plugin output (`plugin_output_character_limit` in its `config.ini`, 65536 with LFOps). Without `--lengthy`, the check therefore lists at most 30 differences, shortens values to 40 characters and leaves out the data fields and the data field bindings of commands, as they come with the commands that use them. Run it with `--lengthy` on the command line to see everything
+* A list that shares members with its counterpart shows only the members that differ, the shared ones are replaced by `...`: `[..., "load-old"]` against `[..., "load"]`, so that a long list does not hide its difference behind a shortened value
 * Values of variables whose name contains `api-key`, `community`, `credential`, `pass`, `private-key`, `secret` or `token` are masked, as are credentials in the form `password=...` or in the userinfo of a URL
 
 **Data Collection:**
@@ -88,6 +89,7 @@ The import of the basket overwrites local changes to these objects, so move chan
 
 Type             ! Object                       ! Field                          ! Current                                  ! After Import
 -----------------+------------------------------+--------------------------------+------------------------------------------+-----------------------------
+Service Set      ! Linux Service Set > Load     ! groups                         ! [..., "load-old"]                        ! [..., "load"]
 Service Set      ! Linux Service Set > Load     ! imports                        ! ["tpl-service-load-old"]                 ! ["tpl-service-load"]
 Service Template ! tpl-service-load             ! vars.load_warning              ! 85                                       ! 80
 Service Template ! tpl-service-nextcloud-status ! vars.nextcloud_status_password ! ******                                   ! (not set)
@@ -109,6 +111,7 @@ Output (table only):
 ```text
 Type             ! Object                       ! Field                          ! Current                                            ! After Import
 -----------------+------------------------------+--------------------------------+----------------------------------------------------+-----------------------------
+Service Set      ! Linux Service Set > Load     ! groups                         ! [..., "load-old"]                                  ! [..., "load"]
 Service Set      ! Linux Service Set > Load     ! imports                        ! ["tpl-service-load-old"]                           ! ["tpl-service-load"]
 Service Template ! tpl-service-load             ! vars.load_warning              ! 85                                                 ! 80
 Service Template ! tpl-service-nextcloud-status ! vars.nextcloud_status_password ! ******                                             ! (not set)

@@ -28,7 +28,7 @@ from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 # * `drift`: `load_warning` changed in the Director, a password and a URL with a
 #   password set on a template, `tpl-service-swap` not imported yet, the argument
 #   `--critical` missing on the command, a service of a Service Set importing another
-#   template.
+#   template and with other groups than the basket, two of three shared.
 # * `not-an-object`: the export is a list.
 #
 # * `empty-director`: no objects at all, against `fixtures/basket-many` (45 service
@@ -63,7 +63,9 @@ TESTS = [
         ],
         'assert-not-in': ['linuxfabrik', 'Director  ', 'Basket  '],
         'assert-regex': (
-            r'Service Set +! Linux Service Set > Load +! imports'
+            r'Service Set +! Linux Service Set > Load +! groups'
+            r' +! \[\.\.\., "load-old", "customer"\] +! \[\.\.\., "load"\]\s'
+            r'(.|\n)*Service Set +! Linux Service Set > Load +! imports'
             r' +! \["tpl-service-load-old"\] +! \["tpl-service-load"\]'
             r'(.|\n)*Service Template +! tpl-service-load +! vars\.load_warning +! 85 +! 80'
             r'(.|\n)*Service Template +! tpl-service-swap +! +! missing'
