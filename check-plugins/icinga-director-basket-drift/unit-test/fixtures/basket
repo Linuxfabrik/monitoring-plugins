@@ -1,0 +1,97 @@
+{
+    "Datafield": {
+        "1": {
+            "uuid": "df-1",
+            "varname": "load_warning",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString"
+        },
+        "2": {
+            "uuid": "df-2",
+            "varname": "load_critical",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString"
+        }
+    },
+    "Command": {
+        "cmd-check-load": {
+            "uuid": "cmd-1",
+            "object_name": "cmd-check-load",
+            "object_type": "object",
+            "command": "/usr/lib64/nagios/plugins/load",
+            "timeout": 10,
+            "arguments": {
+                "--critical": {
+                    "value": "$load_critical$"
+                },
+                "--warning": {
+                    "value": "$load_warning$"
+                }
+            },
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ]
+        }
+    },
+    "HostTemplate": {
+        "tpl-host-linux": {
+            "uuid": "ht-1",
+            "object_name": "tpl-host-linux",
+            "object_type": "template",
+            "check_command": "cmd-check-ping"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-load": {
+            "uuid": "st-1",
+            "object_name": "tpl-service-load",
+            "object_type": "template",
+            "check_command": "cmd-check-load",
+            "max_check_attempts": 5,
+            "notes": "Checks the load.",
+            "vars": {
+                "load_critical": "90",
+                "load_warning": "80"
+            }
+        },
+        "tpl-service-nextcloud-status": {
+            "uuid": "st-2",
+            "object_name": "tpl-service-nextcloud-status",
+            "object_type": "template",
+            "vars": {
+                "nextcloud_status_password": null,
+                "nextcloud_status_url": "http://localhost/status.php"
+            }
+        },
+        "tpl-service-swap": {
+            "uuid": "st-3",
+            "object_name": "tpl-service-swap",
+            "object_type": "template"
+        }
+    },
+    "ServiceSet": {
+        "Linux Service Set": {
+            "uuid": "set-1",
+            "object_name": "Linux Service Set",
+            "object_type": "template",
+            "assign_filter": "\"rhel9\"=host.vars.tags",
+            "services": {
+                "Load": {
+                    "uuid": "svc-1",
+                    "object_name": "Load",
+                    "imports": [
+                        "tpl-service-load"
+                    ],
+                    "vars": {}
+                }
+            }
+        }
+    }
+}

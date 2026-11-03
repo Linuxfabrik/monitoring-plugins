@@ -1,0 +1,300 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import os
+import sys
+
+import lib.args
+import lib.base
+import lib.disk
+import lib.icinga
+import lib.lftest
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026110308'
+
+DESCRIPTION = """Compares the Linuxfabrik objects in the Icinga Director (data fields, commands, host
+and service templates, Service Sets) with the Director basket that ships with the
+installed plugins. Alerts if one of them is missing in the Director or differs from the
+basket: either it was changed in the Director, and the next import of the basket would
+overwrite that change, or the basket of a newer plugin release has not been imported yet.
+Says what to do about it. Objects of your own are not checked. Supports extended
+reporting via --lengthy."""
+
+BASKET_FILE = 'icingaweb2-module-director-basket.json'
+# The basket that ships with the plugins has about 7 MiB. A file several times that
+# size is not a basket, and `--basket` must not make the check read without end.
+MAX_BASKET_BYTES = 64 * 1024 * 1024
+DEFAULT_BASKET_NAME = 'export'
+DEFAULT_LENGTHY = False
+# `icingacli director basket dump` takes 4 seconds on Rocky 10 and 10 seconds on
+# Rocky 8 (Director 1.12.1, about 700 commands and 5000 data fields).
+DEFAULT_TIMEOUT = 30
+
+MASK = '******'
+# Icinga DB Web shows the first 10000 characters of the plugin output (its setting
+# `plugin_output_character_limit`, LFOps raises it to 20000). Without --lengthy, the
+# table is kept well below that: at most 30 rows of up to 200 characters each.
+MAX_ROWS = 30
+MAX_VALUE_LEN = 40
+# What an admin looks at first: the services, then what they are built from.
+CLASS_ORDER = (
+    'Service Set',
+    'Service Template',
+    'Host Template',
+    'Command',
+    'Datafield',
+)
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--basket',
+        help='Path to the Director basket to compare with. '
+        f'Default: `assets/{BASKET_FILE}` in the directory of this plugin, the basket '
+        'that ships with the installed plugins.',
+        dest='BASKET',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--basket-name',
+        help='Name of the basket definition in the Icinga Director whose objects are '
+        'read. It has to cover all object types of the basket. '
+        'Case-sensitive. '
+        'Default: %(default)s',
+        dest='BASKET_NAME',
+        default=DEFAULT_BASKET_NAME,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy')
+        + ' Lists every difference, data fields included, and does not shorten '
+        'long values.',
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Timeout for the call of `icingacli`, in seconds. '
+        'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def format_value(field, value, lengthy):
+    """Render one side of a differing field for the table."""
+    if value is None:
+        return '(not set)'
+    name = field.rsplit('.', 1)[-1]
+    if lib.icinga.director_is_sensitive(name):
+        return MASK
+    if isinstance(value, bool):
+        text = 'true' if value else 'false'
+    elif isinstance(value, (dict, list)):
+        text = json.dumps(value, ensure_ascii=False)
+    else:
+        text = str(value)
+    text = lib.txt.sanitize_sensitive_data(text)
+    if not lengthy and len(text) > MAX_VALUE_LEN:
+        text = text[: MAX_VALUE_LEN - 3] + '...'
+    return text
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+    if args.TIMEOUT < 1:
+        lib.base.cu('`--timeout` has to be 1 or more.')
+    if args.BASKET is None:
+        args.BASKET = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), 'assets', BASKET_FILE
+        )
+
+    # fetch data
+    success, content = lib.disk.read_file(args.BASKET, max_bytes=MAX_BASKET_BYTES + 1)
+    if success and len(content) > MAX_BASKET_BYTES:
+        lib.base.cu(f'`{args.BASKET}` is larger than 64 MiB, which no basket is.')
+    if not success:
+        lib.base.cu(
+            f'Cannot read the basket `{args.BASKET}`. It ships with the plugins;'
+            ' reinstall them, or point `--basket` at the basket to compare with.'
+        )
+    try:
+        shipped = json.loads(content)
+    except ValueError:
+        lib.base.cu(f'`{args.BASKET}` is not a valid Director basket.')
+    if not isinstance(shipped, dict):
+        lib.base.cu(f'`{args.BASKET}` is not a valid Director basket.')
+    if args.TEST is None:
+        # `icingacli` belongs on the host this check is deployed to. If it fails, times
+        # out or lacks permissions, the admin has something to fix, so it is a WARN.
+        live = lib.base.coe(
+            lib.icinga.director_basket_dump(args.BASKET_NAME, timeout=args.TIMEOUT),
+            STATE_WARN,
+        )
+    else:
+        live = lib.lftest.test_json(args.TEST)
+        if not isinstance(live, dict):
+            lib.base.cu('The Icinga Director returned no objects.')
+
+    # init some vars
+    state = STATE_OK
+    table_data = []
+
+    # analyze data
+    drift = sorted(
+        lib.icinga.director_basket_diff(live, shipped),
+        # a class not known here goes last
+        key=lambda entry: (
+            CLASS_ORDER.index(entry['class'])
+            if entry['class'] in CLASS_ORDER
+            else len(CLASS_ORDER),
+            entry['class'],
+            entry['name'],
+        ),
+    )
+    missing = [entry for entry in drift if entry['missing']]
+    changed = [entry for entry in drift if not entry['missing']]
+    if drift:
+        state = STATE_WARN
+    # Data fields come with the commands that use them, and so do the field bindings
+    # (`fields.*`) of a command, so without --lengthy both are left out and counted.
+    unlisted = 0
+    for entry in drift:
+        if entry['class'] == 'Datafield' and not args.LENGTHY:
+            unlisted += 1
+            continue
+        row = {'class': entry['class'], 'name': entry['name']}
+        if entry['missing']:
+            table_data.append({**row, 'field': '', 'live': 'missing', 'shipped': ''})
+            continue
+        changes = entry['changes']
+        if not args.LENGTHY:
+            changes = [c for c in changes if not c['field'].startswith('fields.')]
+            changes = changes or entry['changes']
+        for change in changes:
+            cells = {**row, 'field': change['field']}
+            if change['service']:
+                cells['name'] = f'{entry["name"]} > {change["service"]}'
+            if change['service'] and not change['field']:
+                # the whole service exists on one side only
+                cells['live'] = 'missing' if change['live'] is None else 'present'
+                cells['shipped'] = 'missing' if change['shipped'] is None else 'present'
+            else:
+                cells['live'] = format_value(
+                    change['field'], change['live'], args.LENGTHY
+                )
+                cells['shipped'] = format_value(
+                    change['field'], change['shipped'], args.LENGTHY
+                )
+            table_data.append(cells)
+
+    # build the message
+    if not drift:
+        msg = (
+            'Everything is ok. The Icinga Director is up to date with the plugins'
+            ' basket.'
+        )
+    else:
+        parts = []
+        if changed:
+            parts.append(
+                '1 object differs'
+                if len(changed) == 1
+                else f'{len(changed)} objects differ'
+            )
+        if missing:
+            parts.append(f'{len(missing)} missing')
+        msg = (
+            'Icinga Director not up to date with the plugins basket:'
+            f' {", ".join(parts)}{lib.base.state2str(state, prefix=" ")}'
+            '\n\nThe import of the basket overwrites local changes to these objects,'
+            ' so move changes you want to keep into your own templates or into host'
+            ' overrides first. Then import the basket with'
+            f' `sudo icingacli director basket restore < {args.BASKET}` and deploy'
+            ' the result to Icinga 2 with `sudo icingacli director config deploy`'
+            ' (or in the Icinga Director under "Activity Log > Deploy"). Afterwards,'
+            ' look for overrides without effect in "Icinga Director Overrides": they'
+            ' point to renamed parameters.'
+        )
+
+    # build table output
+    if table_data:
+        msg += '\n\n' + lib.base.get_table(
+            table_data,
+            ['class', 'name', 'field', 'live', 'shipped'],
+            header=['Type', 'Object', 'Field', 'Current', 'After Import'],
+            max_rows=None if args.LENGTHY else MAX_ROWS,
+            max_rows_label='difference',
+        )
+    if unlisted:
+        msg += (
+            f'\n{unlisted} {lib.txt.pluralize("data field", unlisted)} of these'
+            ' commands left out. `--lengthy` lists everything, values unshortened.'
+        )
+
+    # over and out
+    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

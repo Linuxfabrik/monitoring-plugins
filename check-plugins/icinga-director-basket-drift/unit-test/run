@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# `fixtures/basket` stands in for the basket that ships with the plugins, a small
+# synthetic one. `stdout/<x>` stands in for `icingacli director basket dump --name
+# export` (Icinga Director 1.12.1):
+#
+# * `in-sync`: the same objects, serialized the way the Director exports them:
+#   renumbered data fields, the short form of command arguments, no plugin directory
+#   in the command line, numbers as strings, empty fields that the basket leaves out,
+#   a reworded description. Plus a command of its own, which is not checked.
+# * `drift`: `load_warning` changed in the Director, a password and a URL with a
+#   password set on a template, `tpl-service-swap` not imported yet, the argument
+#   `--critical` missing on the command, a service of a Service Set importing another
+#   template.
+# * `not-an-object`: the export is a list.
+#
+# * `empty-director`: no objects at all, against `fixtures/basket-many` (45 service
+#   templates and 2 data fields), to cap the table below the 10000 characters Icinga DB
+#   Web shows of the plugin output.
+#
+# `fixtures/not-json` is a basket file that does not parse.
+TESTS = [
+    {
+        'id': 'ok-in-sync-despite-serialization',
+        'test': 'stdout/in-sync,,0',
+        'params': '--basket=fixtures/basket',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. The Icinga Director is up to date with the plugins'
+            ' basket.'
+        ],
+        'assert-not-in': ['cmd-check-custom'],
+    },
+    {
+        'id': 'warn-drift',
+        'test': 'stdout/drift,,0',
+        'params': '--basket=fixtures/basket',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Icinga Director not up to date with the plugins basket: 4 objects'
+            ' differ, 1 missing [WARNING]',
+            'icingacli director basket restore < fixtures/basket',
+            'Icinga Director Overrides',
+            '! Current ',
+            '! After Import',
+        ],
+        'assert-not-in': ['linuxfabrik', 'Director  ', 'Basket  '],
+        'assert-regex': (
+            r'Service Set +! Linux Service Set > Load +! imports'
+            r' +! \["tpl-service-load-old"\] +! \["tpl-service-load"\]'
+            r'(.|\n)*Service Template +! tpl-service-load +! vars\.load_warning +! 85 +! 80'
+            r'(.|\n)*Service Template +! tpl-service-swap +! +! missing'
+            r'(.|\n)*Command +! cmd-check-load +! arguments\.--critical +! \(not set\)'
+        ),
+    },
+    {
+        'id': 'warn-drift-lengthy-masks-secrets',
+        'test': 'stdout/drift,,0',
+        'params': '--basket=fixtures/basket --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-regex': (
+            r'tpl-service-load +! vars\.load_warning +! 85 +! 80\s'
+            r'(.|\n)*vars\.nextcloud_status_password +! \*{6} +! \(not set\)'
+            r'(.|\n)*https://nagios:\*{6}@cloud\.example\.com/status\.php'
+        ),
+        'assert-not-in': ['linuxfabrik'],
+    },
+    {
+        'id': 'warn-table-is-capped-and-data-fields-left-out',
+        'test': 'stdout/empty-director,,0',
+        'params': '--basket=fixtures/basket-many',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Icinga Director not up to date with the plugins basket: 47 missing'
+            ' [WARNING]',
+            '... and 15 more differences.',
+            '2 data fields of these commands left out.',
+        ],
+        'assert-not-in': ['State', 'var_1', 'tpl-service-31'],
+    },
+    {
+        'id': 'warn-lengthy-lists-everything',
+        'test': 'stdout/empty-director,,0',
+        'params': '--basket=fixtures/basket-many --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['tpl-service-45', 'var_1', 'var_2'],
+        'assert-not-in': ['more differences', 'left out'],
+    },
+    {
+        'id': 'ok-always-ok',
+        'test': 'stdout/drift,,0',
+        'params': '--basket=fixtures/basket --always-ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'unknown-basket-missing',
+        'test': 'stdout/in-sync,,0',
+        'params': '--basket=fixtures/does-not-exist',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Cannot read the basket `fixtures/does-not-exist`.'],
+    },
+    {
+        'id': 'unknown-basket-endless',
+        'test': 'stdout/in-sync,,0',
+        'params': '--basket=/dev/zero',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['`/dev/zero` is larger than 64 MiB, which no basket is.'],
+    },
+    {
+        'id': 'unknown-basket-not-json',
+        'test': 'stdout/in-sync,,0',
+        'params': '--basket=fixtures/not-json',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['`fixtures/not-json` is not a valid Director basket.'],
+    },
+    {
+        'id': 'unknown-export-not-an-object',
+        'test': 'stdout/not-an-object,,0',
+        'params': '--basket=fixtures/basket',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['The Icinga Director returned no objects.'],
+    },
+    {
+        'id': 'unknown-timeout-zero',
+        'test': 'stdout/in-sync,,0',
+        'params': '--basket=fixtures/basket --timeout=0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['`--timeout` has to be 1 or more.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../icinga-director-basket-drift'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

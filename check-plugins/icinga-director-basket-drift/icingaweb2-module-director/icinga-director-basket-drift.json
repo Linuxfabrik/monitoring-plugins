@@ -1,0 +1,165 @@
+{
+    "Command": {
+        "cmd-check-icinga-director-basket-drift": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$icinga_director_basket_drift_always_ok$"
+                },
+                "--basket": {
+                    "value": "$icinga_director_basket_drift_basket$"
+                },
+                "--basket-name": {
+                    "value": "$icinga_director_basket_drift_basket_name$"
+                },
+                "--lengthy": {
+                    "set_if": "$icinga_director_basket_drift_lengthy$"
+                },
+                "--timeout": {
+                    "value": "$icinga_director_basket_drift_timeout$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/icinga-director-basket-drift",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-icinga-director-basket-drift",
+            "object_type": "object",
+            "timeout": 60,
+            "vars": {},
+            "zone": null,
+            "uuid": "1d41f439-659b-48ab-b43c-9eb4de31dba3"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-icinga-director-basket-drift": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-icinga-director-basket-drift",
+            "check_interval": 86400,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": false,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "icinga-director-basket-drift.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Compares the Linuxfabrik objects in the Icinga Director (data fields, commands, host and service templates, Service Sets) with the Director basket that ships with the installed plugins. Alerts if one of them is missing in the Director or differs from the basket: either it was changed in the Director, and the next import of the basket would overwrite that change, or the basket of a newer plugin release has not been imported yet. Says what to do about it. Objects of your own are not checked. Supports extended reporting via --lengthy.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/icinga-director-basket-drift/",
+            "object_name": "tpl-service-icinga-director-basket-drift",
+            "object_type": "template",
+            "retry_interval": 300,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "icinga_director_basket_drift_always_ok": false,
+                "icinga_director_basket_drift_basket_name": "export",
+                "icinga_director_basket_drift_lengthy": false,
+                "icinga_director_basket_drift_timeout": 30
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "a7c90083-15d0-476f-bf02-998c3237ae37"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "icinga_director_basket_drift_always_ok",
+            "caption": "Icinga Director Basket Drift: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "276983b8-4054-490f-9fba-71a1043efd80"
+        },
+        "2": {
+            "varname": "icinga_director_basket_drift_basket",
+            "caption": "Icinga Director Basket Drift: Basket",
+            "description": "Path to the Director basket to compare with. Default: `assets/icingaweb2-module-director-basket.json` in the directory of this plugin, the basket that ships with the installed plugins.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2cfa0fcd-4045-4acd-bfef-70e12640a891"
+        },
+        "3": {
+            "varname": "icinga_director_basket_drift_basket_name",
+            "caption": "Icinga Director Basket Drift: Basket Name",
+            "description": "Name of the basket definition in the Icinga Director whose objects are read. It has to cover all object types of the basket. Case-sensitive.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "cd754f05-85d6-4493-be13-1b6d0bc06ef6"
+        },
+        "4": {
+            "varname": "icinga_director_basket_drift_lengthy",
+            "caption": "Icinga Director Basket Drift: Lengthy?",
+            "description": "Extended reporting. Lists every difference, data fields included, and does not shorten long values.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "4e4ed1a6-79c3-438f-8bc3-b38b95cd4113"
+        },
+        "5": {
+            "varname": "icinga_director_basket_drift_timeout",
+            "caption": "Icinga Director Basket Drift: Timeout",
+            "description": "Timeout for the call of `icingacli`, in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ac0df2d1-96fd-4748-923b-0f5826bc7ac3"
+        }
+    }
+}
