@@ -21,7 +21,7 @@ The default of a service is everything configured for it in the Icinga Director:
 
 * Reads all hosts and host templates with `icingacli director hosts fetch`, and the check commands with `icingacli director commands fetch`
 * Reads the data fields and custom variables with `icingacli director export datafields` and `icingacli director export customproperties` to know which values to mask. An Icinga Director without custom variables is supported
-* For every enabled host with overrides of its own, reads its services with `icingacli director host show --resolved --with-services --all-services`. This lets the Icinga Director resolve which Service Sets and apply rules match the host, and returns each service with the values of its templates, without the overrides of the host. These calls take about half a second each and run in parallel, see `--max-workers`
+* For every enabled host with overrides of its own, reads its services with `icingacli director host show --resolved --with-services --all-services`. This lets the Icinga Director resolve which Service Sets and apply rules match the host, and returns each service with the values of its templates, without the overrides of the host. These calls take 0.5 to 1.2 seconds each and run in parallel, see `--max-workers`
 * An override has no effect if its service is not on the host, if neither the arguments nor the command line of the check command use the variable (directly, or through the value of another variable they use), or if it repeats the default
 
 
