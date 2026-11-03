@@ -14,6 +14,7 @@ The default of a service is everything configured for it in the Icinga Director:
 * A host's override of a service replaces the overrides that its host templates define for the same service as a whole, it does not add to them. A variable that only a host template overrides is therefore back at the value of the service on such a host. The plugin lists it as an override, with the value of the host template as the default
 * The Icinga Director does not tell from its exports whether a service of a Service Set was deactivated for a host. Overrides for such a service are listed as if the service were active
 * To keep the tables narrow, a host is shown by its short name (the part before the first dot), unless another host has the same short name or the name is an IP address. A variable name loses its leading service name, so `cpu_usage_warning` of the service "CPU Usage" becomes `warning`
+* Icinga DB Web shows only the first 10000 characters of a plugin output (`plugin_output_character_limit` in its `config.ini`, 20000 with LFOps). Without `--lengthy`, the check therefore lists at most 25 overridden variables and 15 overrides without effect, and says how many it left out. Run it with `--lengthy` on the command line to see all of them
 * Values are compared the way they reach the plugin: `25` and `"25"` are the same, and a list with the same members in another order is not a change
 * A value is masked if its data field is hidden, if its custom variable (or a member of it) is of the type "sensitive", or if its name contains `api-key`, `community`, `credential`, `pass`, `private-key`, `secret` or `token`. In all other values, credentials in the form `password=...` or in the userinfo of a URL (`https://user:******@host`) are masked as well
 
@@ -63,7 +64,8 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --lengthy             Extended reporting. Adds the Service Set of each
-                        service and does not shorten long values.
+                        service, does not shorten long values and lists every
+                        override instead of the first ones.
   --max-workers MAX_WORKERS
                         Maximum number of hosts whose services are read from
                         the Icinga Director in parallel. Default: 4
@@ -115,7 +117,7 @@ db01 ! Old Service ! warning     ! service does not exist on the host
 
 `warning` of "Swap Usage" on web01 shows the case described in the Important Notes: a host template sets it to 70 for all hosts, but web01 overrides "Swap Usage" itself, which drops the value of the host template.
 
-With `--lengthy`, the Service Set of each service is added, and long values are not shortened:
+With `--lengthy`, every override is listed, the Service Set of each service is added, and long values are not shortened:
 
 ```bash
 ./icinga-director-overrides --lengthy

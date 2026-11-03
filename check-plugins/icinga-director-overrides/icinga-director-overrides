@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110304'
+__version__ = '2026110305'
 
 DESCRIPTION = """Lists the service variables that were deliberately overridden for a single host in
 the Icinga Director, for example a threshold changed with "Modify" on a service that comes
@@ -50,6 +50,11 @@ DEFAULT_TIMEOUT = 8
 
 MASK = '******'
 
+# Icinga DB Web shows the first 10000 characters of the plugin output (its setting
+# `plugin_output_character_limit`, LFOps raises it to 20000). Without --lengthy, the
+# tables are kept well below that: at most 25 plus 15 rows of up to 180 characters.
+MAX_ROWS_EFFECTIVE = 25
+MAX_ROWS_WITHOUT_EFFECT = 15
 MAX_VALUE_LEN = 40
 
 
@@ -71,7 +76,8 @@ def parse_args():
     parser.add_argument(
         '--lengthy',
         help=lib.args.help('--lengthy')
-        + ' Adds the Service Set of each service and does not shorten long values.',
+        + ' Adds the Service Set of each service, does not shorten long values and'
+        ' lists every override instead of the first ones.',
         dest='LENGTHY',
         action='store_true',
         default=DEFAULT_LENGTHY,
@@ -374,13 +380,23 @@ def main():
         if args.LENGTHY:
             keys.append('set')
             headers.append('Service Set')
-        tables.append(lib.base.get_table(effective, keys, header=headers))
+        tables.append(
+            lib.base.get_table(
+                effective,
+                keys,
+                header=headers,
+                max_rows=None if args.LENGTHY else MAX_ROWS_EFFECTIVE,
+                max_rows_label='overridden variable',
+            )
+        )
     if without_effect:
         tables.append(
             lib.base.get_table(
                 without_effect,
                 ['host', 'service', 'variable', 'reason'],
                 header=['Host', 'Service', 'Variable', 'Without effect'],
+                max_rows=None if args.LENGTHY else MAX_ROWS_WITHOUT_EFFECT,
+                max_rows_label='override',
             )
         )
     if errors:
@@ -388,8 +404,10 @@ def main():
             lib.base.get_table(errors, ['host', 'error'], header=['Host', 'Error'])
         )
     if tables:
-        # every table ends with a newline, which separates it from the next one
-        msg += '\n\n' + '\n'.join(tables)
+        # a newline after every table separates it from the next one
+        msg += '\n\n' + '\n'.join(
+            table if table.endswith('\n') else f'{table}\n' for table in tables
+        )
 
     # over and out
     lib.base.oao(msg, state)

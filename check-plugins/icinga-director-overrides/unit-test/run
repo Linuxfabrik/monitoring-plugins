@@ -42,6 +42,9 @@ from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 #   sensitive member (`snmp_v3`) and the userinfo of a URL in `nextcloud_status_url`.
 # * old01 is disabled.
 #
+# `many`: 30 used variables and 18 unused ones overridden on one host, to cap the tables
+# below the 10000 characters Icinga DB Web shows of the plugin output.
+#
 # `empty`: no hosts at all. `invalid`: the hosts export is a list instead of an object.
 # `malformed`: an override variable that is a string, an override of a service that is
 # a string, and a host without vars that imports a host template that does not exist.
@@ -132,6 +135,27 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_OK,
         'assert-not-in': ['old01', '99'],
+    },
+    {
+        'id': 'ok-tables-are-capped',
+        'test': 'stdout/many,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '30 overridden service variables on 1 of 1 host, 18 overrides without effect.',
+            '... and 5 more overridden variables.',
+            '... and 3 more overrides.',
+        ],
+        'assert-regex': r'more overridden variables\.\n\nHost ',
+        'assert-not-in': ['! v26 ', '! old16 '],
+    },
+    {
+        'id': 'ok-lengthy-lists-everything',
+        'test': 'stdout/many,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['! v30 ', '! old18 '],
+        'assert-not-in': ['... and'],
     },
     {
         'id': 'ok-no-overrides',
