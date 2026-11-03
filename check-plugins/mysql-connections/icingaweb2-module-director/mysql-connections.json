@@ -104,7 +104,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the connection usage rate and the rate of aborted connections in MySQL/MariaDB. Also verifies whether name resolution is enabled for new connections, which can impact performance. Alerts when connection usage or abort rates exceed acceptable levels. The abort rate is only evaluated once the server has accepted at least `--min-connections` connections (default 100), because a handful of aborted connections out of a few dozen is no rate.",
+            "notes": "Checks the connection usage rate and the rate of failed connection attempts in MySQL/MariaDB. Also verifies whether name resolution is enabled for new connections, which can impact performance. Alerts when connection usage or the rate of failed connection attempts exceeds acceptable levels. A failed attempt is a client the server turned away before the session began: a wrong password, an account without a grant for the client's host, a handshake that did not finish within `connect_timeout`, or `max_connections` reached. That rate is only evaluated once the server has accepted at least `--min-connections` connections (default 100), because a handful of failed attempts out of a few dozen is no rate.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-connections/",
             "object_name": "tpl-service-mysql-connections",
             "object_type": "template",
@@ -172,7 +172,7 @@
         "5": {
             "varname": "mysql_connections_min_connections",
             "caption": "MySQL Connections: Min Connections",
-            "description": "Minimum number of connections the server has accepted since its start before the percentage of aborted connections is evaluated. The percentage is a lifetime average, so right after a restart a single aborted connection out of a few dozen would exceed the threshold. Below the minimum the percentage is reported but does not raise WARN. Example: `--min-connections=1000`.",
+            "description": "Minimum number of connections the server has accepted since its start before the percentage of failed connection attempts is evaluated. The percentage is a lifetime average, so right after a restart a single failed attempt out of a few dozen would exceed the threshold. Below the minimum the percentage is reported but does not raise WARN. Example: `--min-connections=1000`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

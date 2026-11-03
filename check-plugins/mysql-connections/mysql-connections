@@ -22,16 +22,21 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026101401'
+__version__ = '2026110301'
 
 SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-connections.db'
 
-DESCRIPTION = """Checks the connection usage rate and the rate of aborted connections in MySQL/MariaDB.
+DESCRIPTION = """Checks the connection usage rate and the rate of failed connection
+attempts in MySQL/MariaDB.
 Also verifies whether name resolution is enabled for new connections, which can impact
 performance.
-Alerts when connection usage or abort rates exceed acceptable levels. The abort rate is only
-evaluated once the server has accepted at least `--min-connections` connections (default 100),
-because a handful of aborted connections out of a few dozen is no rate."""
+Alerts when connection usage or the rate of failed connection attempts exceeds
+acceptable levels. A failed attempt is a client the server turned away before the
+session began: a wrong password, an account without a grant for the client's host, a
+handshake that did not finish within `connect_timeout`, or `max_connections` reached.
+That rate is only evaluated once the server has accepted at least `--min-connections`
+connections (default 100), because a handful of failed attempts out of a few dozen is
+no rate."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -90,9 +95,9 @@ def parse_args():
     parser.add_argument(
         '--min-connections',
         help='Minimum number of connections the server has accepted since '
-        'its start before the percentage of aborted connections is '
+        'its start before the percentage of failed connection attempts is '
         'evaluated. The percentage is a lifetime average, so right after a '
-        'restart a single aborted connection out of a few dozen would '
+        'restart a single failed attempt out of a few dozen would '
         'exceed the threshold. Below the minimum the percentage is reported '
         'but does not raise WARN. '
         'Example: `--min-connections=1000`. '
@@ -203,26 +208,35 @@ def main():
     recommendations = []
 
     # analyze data
-    # Aborted Connections
+    # Failed connection attempts. `Aborted_connects` counts the clients the server
+    # turned away before the session began (wrong password, no grant for the
+    # client's host, handshake past `connect_timeout`, `max_connections` reached),
+    # not the clients that went away without closing their session, which is
+    # `Aborted_clients`. mysqltuner calls this "aborted connections" and
+    # recommends closing connections, which sends the admin after the wrong
+    # problem. Verified against the MariaDB sources (`sql/mysqld.cc`,
+    # `sql/sql_connect.cc`).
     aborted_connections_state = STATE_OK
     mycalc['pct_connections_aborted'] = round(
         int(mystat['Aborted_connects']) / int(mystat['Connections']) * 100, 1
     )
     # A lifetime percentage over a few dozen connections is noise: right after a
-    # restart 3 aborted connections out of 29 read as "10.3%" and raised a WARN.
+    # restart 3 failed attempts out of 29 read as "10.3%" and raised a WARN.
     # mysqltuner does not skip this case; we do (Linuxfabrik addition).
     too_few_connections = int(mystat['Connections']) < args.MIN_CONNECTIONS
     if mycalc['pct_connections_aborted'] > 3 and not too_few_connections:
         aborted_connections_state = STATE_WARN
         state = lib.base.get_worst(state, aborted_connections_state)
         recommendations.append(
-            'Reduce or eliminate unclosed connections and network issues'
+            'Clients are failing to connect. Look for "Access denied" in the error'
+            ' log: it names the account and the host of a client using a wrong'
+            ' password or connecting from a host the account has no grant for'
         )
     aborted = lib.human.number2human(mystat['Aborted_connects'])
     total_conn = lib.human.number2human(mystat['Connections'])
     aborted_str = lib.base.state2str(aborted_connections_state, prefix=' ')
     facts.append(
-        f'{mycalc["pct_connections_aborted"]}% aborted connections'
+        f'{mycalc["pct_connections_aborted"]}% failed connection attempts'
         f' ({aborted}/{total_conn}){aborted_str}'
     )
     if too_few_connections:

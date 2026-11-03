@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the connection usage rate and the rate of aborted connections in MySQL/MariaDB. Also verifies whether name resolution is enabled for new connections, which can impact performance. Alerts when connection usage or abort rates exceed acceptable levels. The abort rate is only evaluated once the server has accepted at least `--min-connections` connections (default 100), because a handful of aborted connections out of a few dozen is no rate.
+Checks the connection usage rate and the rate of failed connection attempts in MySQL/MariaDB. Also verifies whether name resolution is enabled for new connections, which can impact performance. Alerts when connection usage or the rate of failed connection attempts exceeds acceptable levels. A failed attempt is a client the server turned away before the session began: a wrong password, an account without a grant for the client's host, a handshake that did not finish within `connect_timeout`, or `max_connections` reached. That rate is only evaluated once the server has accepted at least `--min-connections` connections (default 100), because a handful of failed attempts out of a few dozen is no rate.
 
 **Important Notes:**
 
@@ -15,7 +15,7 @@ Checks the connection usage rate and the rate of aborted connections in MySQL/Ma
 
 * Queries `SHOW GLOBAL VARIABLES` for `interactive_timeout`, `max_connections`, `skip_name_resolve`, `skip_networking`, and `wait_timeout`
 * Queries `SHOW GLOBAL STATUS` for `Aborted_connects`, `Connections`, `Max_used_connections`, `Max_used_connections_time`, `Threads_connected`, and `Threads_running`
-* Reports current, peak, and aborted connection statistics
+* Reports current and peak connection usage and the share of failed connection attempts
 * Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and has been verified in sync with MySQLTuner
 
 
@@ -43,12 +43,16 @@ usage: mysql-connections [-h] [-V] [--always-ok]
                          [--min-connections MIN_CONNECTIONS] [--no-perfdata]
                          [--timeout TIMEOUT]
 
-Checks the connection usage rate and the rate of aborted connections in
+Checks the connection usage rate and the rate of failed connection attempts in
 MySQL/MariaDB. Also verifies whether name resolution is enabled for new
-connections, which can impact performance. Alerts when connection usage or
-abort rates exceed acceptable levels. The abort rate is only evaluated once
-the server has accepted at least `--min-connections` connections (default
-100), because a handful of aborted connections out of a few dozen is no rate.
+connections, which can impact performance. Alerts when connection usage or the
+rate of failed connection attempts exceeds acceptable levels. A failed attempt
+is a client the server turned away before the session began: a wrong password,
+an account without a grant for the client's host, a handshake that did not
+finish within `connect_timeout`, or `max_connections` reached. That rate is
+only evaluated once the server has accepted at least `--min-connections`
+connections (default 100), because a handful of failed attempts out of a few
+dozen is no rate.
 
 options:
   -h, --help            show this help message and exit
@@ -66,10 +70,10 @@ options:
                         Suppress the warning about active name resolution.
   --min-connections MIN_CONNECTIONS
                         Minimum number of connections the server has accepted
-                        since its start before the percentage of aborted
-                        connections is evaluated. The percentage is a lifetime
-                        average, so right after a restart a single aborted
-                        connection out of a few dozen would exceed the
+                        since its start before the percentage of failed
+                        connection attempts is evaluated. The percentage is a
+                        lifetime average, so right after a restart a single
+                        failed attempt out of a few dozen would exceed the
                         threshold. Below the minimum the percentage is
                         reported but does not raise WARN. Example: `--min-
                         connections=1000`. Default: 100
@@ -93,7 +97,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-connections
 Output:
 
 ```text
-0.0% aborted connections (0/3.1K); current 90% used (136/151, 5 threads running) [WARNING]; peak 93% used (140/151) at 2023-10-06 10:08:47; `interactive_timeout` = 8h, `wait_timeout` = 8h; Name resolution is active [WARNING]
+0.0% failed connection attempts (0/3.1K); current 90% used (136/151, 5 threads running) [WARNING]; peak 93% used (140/151) at 2023-10-06 10:08:47; `interactive_timeout` = 8h, `wait_timeout` = 8h; Name resolution is active [WARNING]
 
 Recommendations:
 * Reduce or eliminate persistent connections to reduce connection usage (raise `max_connections` > 151, lower `wait_timeout` < 28800 and/or lower `interactive_timeout` < 28800).
@@ -104,7 +108,7 @@ Recommendations:
 ## States
 
 * WARN if the **current** number of connections (`Threads_connected`) exceeds 85% of `max_connections`. The lifetime **peak** (`Max_used_connections / max_connections`) is reported and graphed but does not trigger an alert.
-* WARN if the lifetime aborted-connections ratio (`Aborted_connects / Connections`) exceeds 3%, once the server has accepted at least `--min-connections` connections (default: 100). Below that the ratio is shown, but does not raise WARN.
+* WARN if the lifetime ratio of failed connection attempts (`Aborted_connects / Connections`) exceeds 3%, once the server has accepted at least `--min-connections` connections (default: 100). Below that the ratio is shown, but does not raise WARN.
 * WARN if name resolution is active (unless `--ignore-name-resolution` is used). Suppressed when `skip_networking=ON` or when the MySQL/MariaDB version does not expose `skip_name_resolve`.
 * `--always-ok` suppresses all alerts and always returns OK.
 
