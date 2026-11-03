@@ -1,0 +1,100 @@
+{
+    "Command": {
+        "cmd-check-cpu-usage": {
+            "uuid": "c-1",
+            "object_name": "cmd-check-cpu-usage",
+            "object_type": "object",
+            "command": "/usr/lib64/nagios/plugins/cpu-usage",
+            "arguments": {
+                "--count": "$cpu_usage_count$",
+                "--critical": "$cpu_usage_critical$",
+                "--warning": "$cpu_usage_warning$"
+            }
+        },
+        "cmd-check-nextcloud-stats": {
+            "uuid": "c-2",
+            "object_name": "cmd-check-nextcloud-stats",
+            "object_type": "object",
+            "command": "/usr/lib64/nagios/plugins/nextcloud-stats",
+            "arguments": {
+                "--password": "$nextcloud_stats_password$",
+                "--url": "$nextcloud_stats_url$",
+                "--username": "$nextcloud_stats_login$"
+            }
+        },
+        "cmd-check-swap-usage": {
+            "uuid": "c-3",
+            "object_name": "cmd-check-swap-usage",
+            "object_type": "object",
+            "command": "/usr/lib64/nagios/plugins/swap-usage",
+            "arguments": {
+                "--critical": "$swap_usage_critical$",
+                "--warning": "$swap_usage_warning$"
+            }
+        }
+    },
+    "HostTemplate": {
+        "tpl-host-generic": {
+            "uuid": "h-1",
+            "object_name": "tpl-host-generic",
+            "object_type": "template"
+        },
+        "tpl-host-linux": {
+            "uuid": "h-2",
+            "object_name": "tpl-host-linux",
+            "object_type": "template",
+            "imports": [
+                "tpl-host-generic"
+            ]
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-generic": {
+            "uuid": "s-0",
+            "object_name": "tpl-service-generic",
+            "object_type": "template",
+            "vars": {
+                "criticality": "C"
+            }
+        },
+        "tpl-service-cpu-usage": {
+            "uuid": "s-1",
+            "object_name": "tpl-service-cpu-usage",
+            "object_type": "template",
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "check_command": "cmd-check-cpu-usage",
+            "vars": {
+                "cpu_usage_critical": 90,
+                "cpu_usage_warning": 80
+            }
+        },
+        "tpl-service-nextcloud-stats": {
+            "uuid": "s-2",
+            "object_name": "tpl-service-nextcloud-stats",
+            "object_type": "template",
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "check_command": "cmd-check-nextcloud-stats",
+            "vars": {
+                "nextcloud_stats_login": "admin",
+                "nextcloud_stats_url": "http://localhost/ocs"
+            }
+        },
+        "tpl-service-swap-usage": {
+            "uuid": "s-3",
+            "object_name": "tpl-service-swap-usage",
+            "object_type": "template",
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "check_command": "cmd-check-swap-usage",
+            "vars": {
+                "swap_usage_critical": 90,
+                "swap_usage_warning": 50
+            }
+        }
+    }
+}

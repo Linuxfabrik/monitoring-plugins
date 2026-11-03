@@ -1,0 +1,167 @@
+{
+    "Command": {
+        "cmd-check-icinga-director-template-overrides": {
+            "arguments": {
+                "--basket": {
+                    "value": "$icinga_director_template_overrides_basket$"
+                },
+                "--basket-name": {
+                    "value": "$icinga_director_template_overrides_basket_name$"
+                },
+                "--lengthy": {
+                    "set_if": "$icinga_director_template_overrides_lengthy$"
+                },
+                "--override-varname": {
+                    "value": "$icinga_director_template_overrides_override_varname$"
+                },
+                "--timeout": {
+                    "value": "$icinga_director_template_overrides_timeout$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/icinga-director-template-overrides",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-icinga-director-template-overrides",
+            "object_type": "object",
+            "timeout": 120,
+            "vars": {},
+            "zone": null,
+            "uuid": "49bd04f1-065c-4428-9aa8-7e69adc9a7e3"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-icinga-director-template-overrides": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-icinga-director-template-overrides",
+            "check_interval": 86400,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": false,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "icinga-director-template-overrides.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Lists where your own templates in the Icinga Director override the defaults of the Linuxfabrik templates: service templates that import a Linuxfabrik service template, directly or through further templates, and set variables of its check command to other values, and host templates whose service overrides apply to every host that imports them. For each override, the plugin shows the default it replaces. Overrides that no longer have an effect are listed separately: those for variables that the check command does not use (for example after a variable was renamed), those that merely repeat the default, and host template overrides for services that no host gets. Values of hidden or sensitive variables are masked. Overrides never cause an alert, as this is an inventory. Alerts only if the configuration of the Icinga Director cannot be read. Supports extended reporting via --lengthy.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/icinga-director-template-overrides/",
+            "object_name": "tpl-service-icinga-director-template-overrides",
+            "object_type": "template",
+            "retry_interval": 300,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "icinga_director_template_overrides_basket_name": "export",
+                "icinga_director_template_overrides_lengthy": false,
+                "icinga_director_template_overrides_override_varname": "_override_servicevars",
+                "icinga_director_template_overrides_timeout": 30
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "0c36d2d0-6a7f-42c6-8cb9-f9355936e6c0"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "icinga_director_template_overrides_basket",
+            "caption": "Icinga Director Template Overrides: Basket",
+            "description": "Path to the Director basket that tells which templates and commands are the Linuxfabrik ones. Default: `assets/icingaweb2-module-director-basket.json` in the directory of this plugin, the basket that ships with the installed plugins.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2bf1f6a4-e82f-4ac1-89d4-80b520f134c6"
+        },
+        "2": {
+            "varname": "icinga_director_template_overrides_basket_name",
+            "caption": "Icinga Director Template Overrides: Basket Name",
+            "description": "Name of the basket definition in the Icinga Director whose objects are read. It has to cover the commands, data fields, host templates, service templates and Service Sets. Case-sensitive.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2b302464-3283-43df-a7be-3533271922e6"
+        },
+        "3": {
+            "varname": "icinga_director_template_overrides_lengthy",
+            "caption": "Icinga Director Template Overrides: Lengthy?",
+            "description": "Extended reporting. Adds the Linuxfabrik template an override replaces, does not shorten long values and lists every override instead of the first ones.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "31649d94-314e-4ae0-aa99-93ee62457c30"
+        },
+        "4": {
+            "varname": "icinga_director_template_overrides_override_varname",
+            "caption": "Icinga Director Template Overrides: Override Varname",
+            "description": "Name of the host variable in which the Icinga Director stores the per-host overrides of service variables. Only needs to be changed if the Director setting \"override_services_varname\" was changed. Case-sensitive.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6fea3aea-c8a2-48ff-8e2c-253d3abe5df6"
+        },
+        "5": {
+            "varname": "icinga_director_template_overrides_timeout",
+            "caption": "Icinga Director Template Overrides: Timeout",
+            "description": "Timeout for each call of `icingacli`, in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "48c8561d-446f-45d0-b5ef-b65deeb9cf9a"
+        }
+    }
+}

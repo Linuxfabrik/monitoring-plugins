@@ -14,6 +14,7 @@ Monitoring Plugins:
 
 * icinga-director-basket-drift: Warns when Linuxfabrik objects in the Icinga Director differ from the basket of the installed plugins.
 * icinga-director-overrides: Lists the service variables overridden per host in the Icinga Director, and overrides without effect.
+* icinga-director-template-overrides: Lists where your own templates in the Icinga Director override the Linuxfabrik templates.
 
 
 ### Changed

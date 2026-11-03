@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# `fixtures/basket` stands in for the basket that ships with the plugins and tells
+# which commands and templates are the Linuxfabrik ones. Under `--test=stdout/<x>`, the
+# exports of `icingacli director` come from `<x>-dump` (`basket dump --name export`),
+# `<x>-hosts` (`hosts fetch`), `<x>-host-<name>` (`host show <name> --all-services`)
+# and `<x>-customproperties` (Icinga Director 1.12.1). All synthetic.
+#
+# `overrides`:
+#
+# * `tpl-service-cpu-usage-customer` imports `tpl-service-cpu-usage`: `cpu_usage_warning`
+#   80 -> 90, `cpu_usage_count` not set by the Linuxfabrik template but used by the
+#   command, `cpu_usage_critical` "90" equals 90, the renamed `cpu_usage_warn` and
+#   `criticality` are not used by the command.
+# * `tpl-service-cpu-usage-customer-db` imports the former, two levels above the
+#   Linuxfabrik template: `cpu_usage_critical` 90 -> 95.
+# * `tpl-service-nextcloud-stats-customer`: a hidden data field (`nextcloud_stats_login`),
+#   a password and a URL with a password, all containing "linuxfabrik" or
+#   "nextcloud-admin".
+# * `tpl-service-legacy` runs a command of its own and only borrows from
+#   `tpl-service-generic`, `tpl-service-swap-usage-plain` sets nothing: both ignored.
+# * `tpl-host-customer` overrides "Swap Usage" for every host importing it; web01
+#   imports it through `tpl-host-site` and stands in for them. "Old Service" is not on
+#   web01, `swap_usage_crit` is a renamed parameter.
+# * `tpl-host-unused`: its only host is disabled.
+# * `tpl-host-linux` comes with the basket, its override (`swap_usage_warning` 55) is a
+#   default and not listed.
+#
+# `fixtures/not-json` is a basket file that does not parse.
+#
+# `none`: only the Linuxfabrik objects. `broken-host`: the services of web01 cannot be
+# read. `not-an-object`: the export is a list.
+TESTS = [
+    {
+        'id': 'ok-lists-template-overrides',
+        'test': 'stdout/overrides,,0',
+        'params': '--basket=fixtures/basket',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '6 variables overridden in 3 service templates, 1 in 1 host template,'
+            ' 7 overrides without effect.',
+        ],
+        'assert-regex': (
+            r'tpl-service-cpu-usage-customer +! count +! \(not set\) +! 3'
+            r'(.|\n)*tpl-service-cpu-usage-customer +! warning +! 80 +! 90'
+            r'(.|\n)*tpl-service-cpu-usage-customer-db +! critical +! 90 +! 95'
+            r'(.|\n)*tpl-host-customer +! Swap Usage +! warning +! 50 +! 70'
+        ),
+        'assert-not-in': [
+            'tpl-service-legacy',
+            'tpl-service-swap-usage-plain',
+            'tpl-host-linux',
+            '55',
+        ],
+    },
+    {
+        'id': 'ok-lists-overrides-without-effect',
+        'test': 'stdout/overrides,,0',
+        'params': '--basket=fixtures/basket',
+        'assert-retc': STATE_OK,
+        'assert-regex': (
+            r'tpl-host-customer +! Old Service +! warning +! service does not exist'
+            r' on web01\.example\.com'
+            r'(.|\n)*tpl-host-customer +! Swap Usage +! crit +! not used by the check'
+            r'(.|\n)*tpl-host-customer +! Swap Usage +! critical +! same as the default'
+            r'(.|\n)*tpl-host-unused +! Swap Usage +! warning +! no enabled host imports'
+            r'(.|\n)*tpl-service-cpu-usage-customer +! +! critical +! same as the default'
+            r'(.|\n)*tpl-service-cpu-usage-customer +! +! criticality +! not used by'
+            r'(.|\n)*tpl-service-cpu-usage-customer +! +! warn +! not used by'
+        ),
+    },
+    {
+        'id': 'ok-masks-secrets',
+        'test': 'stdout/overrides,,0',
+        'params': '--basket=fixtures/basket --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-regex': (
+            r'nextcloud-stats-customer +! login +! \*{6} +! \*{6}'
+            r'(.|\n)*nextcloud-stats-customer +! password +! \(not set\) +! \*{6}'
+            r'(.|\n)*https://nagios:\*{6}@cloud\.example\.com/ocs'
+        ),
+        'assert-not-in': ['linuxfabrik', 'nextcloud-admin'],
+    },
+    {
+        'id': 'ok-lengthy-names-the-linuxfabrik-template',
+        'test': 'stdout/overrides,,0',
+        'params': '--basket=fixtures/basket --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-regex': (
+            r'Based on(.|\n)*tpl-service-cpu-usage-customer-db +! critical +! 90 +! 95'
+            r' +! tpl-service-cpu-usage\s'
+        ),
+    },
+    {
+        'id': 'ok-nothing-of-your-own',
+        'test': 'stdout/none,,0',
+        'params': '--basket=fixtures/basket',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No templates of your own override the Linuxfabrik templates.'],
+    },
+    {
+        'id': 'warn-services-of-host-not-readable',
+        'test': 'stdout/broken-host,,0',
+        'params': '--basket=fixtures/basket',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'services of 1 host template could not be read.',
+            'The Icinga Director returned no services for host "web01.example.com".',
+        ],
+    },
+    {
+        'id': 'unknown-export-not-an-object',
+        'test': 'stdout/not-an-object,,0',
+        'params': '--basket=fixtures/basket',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['The Icinga Director returned no objects.'],
+    },
+    {
+        'id': 'unknown-basket-missing',
+        'test': 'stdout/overrides,,0',
+        'params': '--basket=fixtures/does-not-exist',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Cannot read the basket `fixtures/does-not-exist`.'],
+    },
+    {
+        'id': 'unknown-basket-not-json',
+        'test': 'stdout/overrides,,0',
+        'params': '--basket=fixtures/not-json',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['`fixtures/not-json` is not a valid Director basket.'],
+    },
+    {
+        'id': 'unknown-basket-endless',
+        'test': 'stdout/overrides,,0',
+        'params': '--basket=/dev/zero',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['`/dev/zero` is larger than 64 MiB, which no basket is.'],
+    },
+    {
+        'id': 'unknown-timeout-zero',
+        'test': 'stdout/overrides,,0',
+        'params': '--basket=fixtures/basket --timeout=0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['`--timeout` has to be 1 or more.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../icinga-director-template-overrides'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

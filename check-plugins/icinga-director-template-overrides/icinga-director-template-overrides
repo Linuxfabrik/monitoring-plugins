@@ -1,0 +1,554 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import os
+import sys
+
+import lib.args
+import lib.base
+import lib.disk
+import lib.icinga
+import lib.lftest
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026110301'
+
+DESCRIPTION = """Lists where your own templates in the Icinga Director override the defaults of the
+Linuxfabrik templates: service templates that import a Linuxfabrik service template,
+directly or through further templates, and set variables of its check command to other
+values, and host templates whose service overrides apply to every host that imports
+them. For each override, the plugin shows the default it replaces. Overrides that no
+longer have an effect are listed separately: those for variables that the check command
+does not use (for example after a variable was renamed), those that merely repeat the
+default, and host template overrides for services that no host gets. Values of hidden
+or sensitive variables are masked. Overrides never cause an alert, as this is an
+inventory. Alerts only if the configuration of the Icinga Director cannot be read.
+Supports extended reporting via --lengthy."""
+
+BASKET_FILE = 'icingaweb2-module-director-basket.json'
+DEFAULT_BASKET_NAME = 'export'
+DEFAULT_LENGTHY = False
+DEFAULT_OVERRIDE_VARNAME = '_override_servicevars'
+# `icingacli director basket dump` takes 4 seconds on Rocky 10 and 10 seconds on
+# Rocky 8 (Director 1.12.1, about 700 commands and 5000 data fields).
+DEFAULT_TIMEOUT = 30
+
+MASK = '******'
+MAX_BASKET_BYTES = 64 * 1024 * 1024
+# Icinga DB Web shows the first 10000 characters of the plugin output (its setting
+# `plugin_output_character_limit`). Without --lengthy, the tables are kept well below
+# that: at most 15 plus 15 plus 10 rows of up to 180 characters each.
+MAX_ROWS_HOST_TEMPLATES = 15
+MAX_ROWS_SERVICE_TEMPLATES = 15
+MAX_ROWS_WITHOUT_EFFECT = 10
+MAX_VALUE_LEN = 40
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--basket',
+        help='Path to the Director basket that tells which templates and commands are '
+        'the Linuxfabrik ones. '
+        f'Default: `assets/{BASKET_FILE}` in the directory of this plugin, the basket '
+        'that ships with the installed plugins.',
+        dest='BASKET',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--basket-name',
+        help='Name of the basket definition in the Icinga Director whose objects are '
+        'read. It has to cover the commands, data fields, host templates, service '
+        'templates and Service Sets. '
+        'Case-sensitive. '
+        'Default: %(default)s',
+        dest='BASKET_NAME',
+        default=DEFAULT_BASKET_NAME,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy')
+        + ' Adds the Linuxfabrik template an override replaces, does not shorten '
+        'long values and lists every override instead of the first ones.',
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--override-varname',
+        help='Name of the host variable in which the Icinga Director stores the '
+        'per-host overrides of service variables. Only needs to be changed if the '
+        'Director setting "override_services_varname" was changed. '
+        'Case-sensitive. '
+        'Default: %(default)s',
+        dest='OVERRIDE_VARNAME',
+        default=DEFAULT_OVERRIDE_VARNAME,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Timeout for each call of `icingacli`, in seconds. '
+        'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def fetch(args, kind, argv):
+    """Read one export from the Icinga Director, or from the fixture `<test>-<kind>`
+    under `--test`.
+    """
+    if args.TEST is not None:
+        return (True, lib.lftest.test_json(args.TEST, f'{args.TEST[0]}-{kind}'))
+    return lib.icinga.director_cli(argv, timeout=args.TIMEOUT)
+
+
+def fetch_host_services(args, host):
+    """Return the services of a host with their resolved variables, but without the
+    overrides of the host, or the fixture `<test>-host-<host>` under `--test`.
+    """
+    if args.TEST is None:
+        return lib.icinga.director_host_services(host, timeout=args.TIMEOUT)
+    result = lib.lftest.test_json(args.TEST, f'{args.TEST[0]}-host-{host}')
+    services = result.get('services') if isinstance(result, dict) else None
+    if not isinstance(services, list):
+        return (False, f'The Icinga Director returned no services for host "{host}".')
+    return (True, services)
+
+
+def format_value(name, value, sensitive_vars, lengthy):
+    """Render a variable value for the table."""
+    if lib.icinga.director_same_value(value, None):
+        return '(not set)'
+    if lib.icinga.director_is_sensitive(name, sensitive_vars):
+        return MASK
+    if isinstance(value, bool):
+        text = 'true' if value else 'false'
+    elif isinstance(value, (dict, list)):
+        text = json.dumps(value, ensure_ascii=False)
+    else:
+        text = str(value)
+    # a credential can also hide in a value whose name does not give it away, for
+    # example in the userinfo of a URL
+    text = lib.txt.sanitize_sensitive_data(text)
+    if not lengthy and len(text) > MAX_VALUE_LEN:
+        text = text[: MAX_VALUE_LEN - 3] + '...'
+    return text
+
+
+def imports(hosts, name, template, seen=()):
+    """True if the host or host template `name` imports `template`, directly or
+    through further templates.
+    """
+    obj = hosts.get(name)
+    if not isinstance(obj, dict) or name in seen:
+        return False
+    parents = obj.get('imports') or []
+    return template in parents or any(
+        imports(hosts, parent, template, (*seen, name)) for parent in parents
+    )
+
+
+def is_ours(objects, ours, name):
+    """True if the object `name` comes with the Linuxfabrik basket."""
+    obj = objects.get(name)
+    return isinstance(obj, dict) and (obj.get('uuid') or name) in ours
+
+
+def resolve(templates, ours, name, only_ours, seen=()):
+    """Return `(vars, check command, nearest Linuxfabrik template)` of a service
+    template, the way Icinga 2 resolves them: the imports in order, then the
+    template itself, a later value replacing an earlier one. With `only_ours`, only
+    the Linuxfabrik templates of the chain count, which gives the defaults a template
+    of your own starts from.
+    """
+    obj = templates.get(name)
+    if not isinstance(obj, dict) or name in seen:
+        return ({}, None, None)
+    seen = (*seen, name)
+    service_vars, command, base = {}, None, None
+    for parent in obj.get('imports') or []:
+        parent_vars, parent_command, parent_base = resolve(
+            templates, ours, parent, only_ours, seen
+        )
+        service_vars.update(parent_vars)
+        command = parent_command or command
+        base = parent_base or base
+    if is_ours(templates, ours, name):
+        base = name
+    if not only_ours or is_ours(templates, ours, name):
+        service_vars.update(obj.get('vars') or {})
+        command = obj.get('check_command') or command
+    return (service_vars, command, base)
+
+
+def strip_prefix(prefix, variable):
+    """Drop the name of the service or plugin from the start of the variable name,
+    as in `cpu_usage_warning` of "CPU Usage", which becomes `warning`.
+    """
+    prefix = prefix.lower().replace(' ', '_').replace('-', '_') + '_'
+    if variable.startswith(prefix) and len(variable) > len(prefix):
+        return variable[len(prefix) :]
+    return variable
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+    if args.TIMEOUT < 1:
+        lib.base.cu('`--timeout` has to be 1 or more.')
+    if args.BASKET is None:
+        args.BASKET = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), 'assets', BASKET_FILE
+        )
+
+    # fetch data
+    success, content = lib.disk.read_file(args.BASKET, max_bytes=MAX_BASKET_BYTES + 1)
+    if success and len(content) > MAX_BASKET_BYTES:
+        lib.base.cu(f'`{args.BASKET}` is larger than 64 MiB, which no basket is.')
+    if not success:
+        lib.base.cu(
+            f'Cannot read the basket `{args.BASKET}`. It ships with the plugins;'
+            ' reinstall them, or point `--basket` at the basket to compare with.'
+        )
+    try:
+        shipped = json.loads(content)
+    except ValueError:
+        shipped = None
+    if not isinstance(shipped, dict):
+        lib.base.cu(f'`{args.BASKET}` is not a valid Director basket.')
+    # `icingacli` belongs on the host this check is deployed to. If it fails, times
+    # out or lacks permissions, the admin has something to fix, so it is a WARN.
+    if args.TEST is None:
+        live = lib.base.coe(
+            lib.icinga.director_basket_dump(args.BASKET_NAME, timeout=args.TIMEOUT),
+            STATE_WARN,
+        )
+    else:
+        live = lib.lftest.test_json(args.TEST, f'{args.TEST[0]}-dump')
+    if not isinstance(live, dict):
+        lib.base.cu('The Icinga Director returned no objects.')
+    # Custom variables replace data fields since Director 1.12. An older Director
+    # does not know the export, which is the same as having none.
+    success, customproperties = fetch(
+        args, 'customproperties', ['export', 'customproperties', '--no-pretty']
+    )
+    if not success:
+        customproperties = []
+    # Host templates of your own with service overrides. The services a host gets
+    # depend on its own tags and imports, so one enabled host that imports such a
+    # template stands in for all of them.
+    host_templates = (
+        live.get('HostTemplate') if isinstance(live.get('HostTemplate'), dict) else {}
+    )
+    ours_host_templates = {
+        obj.get('uuid') or name
+        for name, obj in (shipped.get('HostTemplate') or {}).items()
+        if isinstance(obj, dict)
+    }
+    overridden = {}
+    for name in sorted(host_templates):
+        if is_ours(host_templates, ours_host_templates, name):
+            continue
+        own = lib.icinga.director_own_overrides(
+            host_templates[name], args.OVERRIDE_VARNAME
+        )
+        if own:
+            overridden[name] = own
+    stand_ins = {}
+    if overridden:
+        hosts = lib.base.coe(
+            fetch(
+                args,
+                'hosts',
+                ['hosts', 'fetch', '--json', '--no-defaults', '--no-pretty'],
+            ),
+            STATE_WARN,
+        )
+        if not isinstance(hosts, dict):
+            lib.base.cu('The Icinga Director returned no hosts.')
+        for name in overridden:
+            host = next(
+                (
+                    host_name
+                    for host_name, obj in sorted(hosts.items())
+                    if isinstance(obj, dict)
+                    and obj.get('object_type') == 'object'
+                    and not obj.get('disabled')
+                    and imports(hosts, host_name, name)
+                ),
+                None,
+            )
+            stand_ins[name] = (host, fetch_host_services(args, host) if host else None)
+
+    # init some vars
+    state = STATE_OK
+    commands = live.get('Command') if isinstance(live.get('Command'), dict) else {}
+    templates = (
+        live.get('ServiceTemplate')
+        if isinstance(live.get('ServiceTemplate'), dict)
+        else {}
+    )
+    datafields = (
+        live.get('Datafield') if isinstance(live.get('Datafield'), dict) else {}
+    )
+    sensitive_vars = lib.icinga.director_sensitive_vars(
+        list(datafields.values()), customproperties
+    )
+    ours_commands = {
+        obj.get('uuid') or name
+        for name, obj in (shipped.get('Command') or {}).items()
+        if isinstance(obj, dict)
+    }
+    ours_templates = {
+        obj.get('uuid') or name
+        for name, obj in (shipped.get('ServiceTemplate') or {}).items()
+        if isinstance(obj, dict)
+    }
+    service_rows = []
+    host_rows = []
+    without_effect = []
+    errors = []
+
+    # analyze data
+    # service templates of your own on top of a Linuxfabrik one
+    for name in sorted(templates):
+        if is_ours(templates, ours_templates, name):
+            continue
+        own_vars = (
+            (templates[name].get('vars') or {})
+            if isinstance(templates[name], dict)
+            else {}
+        )
+        if not isinstance(own_vars, dict) or not own_vars:
+            continue
+        service_vars, command, base = resolve(templates, ours_templates, name, False)
+        # a template that runs a check of its own merely borrows settings
+        if base is None or not is_ours(commands, ours_commands, command):
+            continue
+        default_vars = resolve(templates, ours_templates, name, True)[0]
+        used_vars = lib.icinga.director_used_vars(
+            lib.icinga.director_command_vars(commands, command) or set(), service_vars
+        )
+        prefix = base[len('tpl-service-') :] if base.startswith('tpl-service-') else ''
+        for var, value in sorted(own_vars.items()):
+            if var.startswith(lib.icinga.DIRECTOR_RESERVED_PREFIX) or value is None:
+                continue
+            row = {
+                'base': base,
+                'service': '',
+                'template': name,
+                'variable': strip_prefix(prefix, var),
+            }
+            if var not in used_vars:
+                without_effect.append(
+                    {**row, 'reason': 'not used by the check command'}
+                )
+            elif lib.icinga.director_same_value(value, default_vars.get(var)):
+                without_effect.append({**row, 'reason': 'same as the default'})
+            else:
+                row['default'] = format_value(
+                    var, default_vars.get(var), sensitive_vars, args.LENGTHY
+                )
+                row['override'] = format_value(var, value, sensitive_vars, args.LENGTHY)
+                service_rows.append(row)
+
+    # host templates with service overrides, which apply to every host importing them
+    for name, own in overridden.items():
+        host, result = stand_ins[name]
+        if host is None:
+            for service_name, service_vars in sorted(own.items()):
+                for var in sorted(service_vars):
+                    without_effect.append(
+                        {
+                            'reason': 'no enabled host imports the template',
+                            'service': service_name,
+                            'template': name,
+                            'variable': strip_prefix(service_name, var),
+                        }
+                    )
+            continue
+        success, services = result
+        if not success:
+            errors.append({'error': services, 'template': name})
+            state = STATE_WARN
+            continue
+        by_name = {}
+        for service in services:
+            if isinstance(service, dict):
+                by_name.setdefault(service.get('object_name'), service)
+        for service_name, override_vars in sorted(own.items()):
+            service = by_name.get(service_name)
+            default_vars = (service.get('vars') or {}) if service else {}
+            host_vars = {**default_vars, **override_vars}
+            used_vars = None
+            if service:
+                command_vars = lib.icinga.director_command_vars(
+                    commands, service.get('check_command')
+                )
+                if command_vars is not None:
+                    used_vars = lib.icinga.director_used_vars(command_vars, host_vars)
+            for var, value in sorted(override_vars.items()):
+                if var.startswith(lib.icinga.DIRECTOR_RESERVED_PREFIX) or value is None:
+                    continue
+                row = {
+                    'service': service_name,
+                    'template': name,
+                    'variable': strip_prefix(service_name, var),
+                }
+                if not service:
+                    row['reason'] = f'service does not exist on {host}'
+                elif used_vars is not None and var not in used_vars:
+                    row['reason'] = 'not used by the check command'
+                elif lib.icinga.director_same_value(value, default_vars.get(var)):
+                    row['reason'] = 'same as the default'
+                else:
+                    row['default'] = format_value(
+                        var, default_vars.get(var), sensitive_vars, args.LENGTHY
+                    )
+                    row['override'] = format_value(
+                        var, value, sensitive_vars, args.LENGTHY
+                    )
+                    host_rows.append(row)
+                    continue
+                without_effect.append(row)
+
+    def order(row):
+        return (row['template'], row.get('service', ''), row.get('variable', ''))
+
+    service_rows.sort(key=order)
+    host_rows.sort(key=order)
+    without_effect.sort(key=order)
+
+    # build the message
+    if not (service_rows or host_rows or without_effect or errors):
+        lib.base.oao(
+            'No templates of your own override the Linuxfabrik templates.', state
+        )
+    parts = []
+    service_templates = {row['template'] for row in service_rows}
+    parts.append(
+        f'{len(service_rows)} {lib.txt.pluralize("variable", len(service_rows))}'
+        f' overridden in {len(service_templates)} service'
+        f' {lib.txt.pluralize("template", len(service_templates))}'
+    )
+    host_templates_hit = {row['template'] for row in host_rows}
+    parts.append(
+        f'{len(host_rows)} in {len(host_templates_hit)} host'
+        f' {lib.txt.pluralize("template", len(host_templates_hit))}'
+    )
+    if without_effect:
+        parts.append(
+            f'{len(without_effect)}'
+            f' {lib.txt.pluralize("override", len(without_effect))} without effect'
+        )
+    if errors:
+        parts.append(
+            f'services of {len(errors)} host'
+            f' {lib.txt.pluralize("template", len(errors))} could not be read'
+        )
+    msg = ', '.join(parts) + '.'
+
+    # build table output
+    tables = []
+    if service_rows:
+        keys = ['template', 'variable', 'default', 'override']
+        headers = ['Service Template', 'Variable', 'Default', 'Override']
+        if args.LENGTHY:
+            keys.append('base')
+            headers.append('Based on')
+        tables.append(
+            lib.base.get_table(
+                service_rows,
+                keys,
+                header=headers,
+                max_rows=None if args.LENGTHY else MAX_ROWS_SERVICE_TEMPLATES,
+                max_rows_label='overridden variable',
+            )
+        )
+    if host_rows:
+        tables.append(
+            lib.base.get_table(
+                host_rows,
+                ['template', 'service', 'variable', 'default', 'override'],
+                header=['Host Template', 'Service', 'Variable', 'Default', 'Override'],
+                max_rows=None if args.LENGTHY else MAX_ROWS_HOST_TEMPLATES,
+                max_rows_label='overridden variable',
+            )
+        )
+    if without_effect:
+        tables.append(
+            lib.base.get_table(
+                without_effect,
+                ['template', 'service', 'variable', 'reason'],
+                header=['Template', 'Service', 'Variable', 'Without effect'],
+                max_rows=None if args.LENGTHY else MAX_ROWS_WITHOUT_EFFECT,
+                max_rows_label='override',
+            )
+        )
+    if errors:
+        tables.append(
+            lib.base.get_table(
+                errors, ['template', 'error'], header=['Host Template', 'Error']
+            )
+        )
+    if tables:
+        # a newline after every table separates it from the next one
+        msg += '\n\n' + '\n'.join(
+            table if table.endswith('\n') else f'{table}\n' for table in tables
+        )
+
+    # over and out
+    lib.base.oao(msg, state)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()
