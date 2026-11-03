@@ -65,6 +65,15 @@ CASES = [
         'assert-in': ['is empty. Assuming log-rotation.'],
     },
     {
+        # copytruncate leaves an empty log right after logrotate ran. The window
+        # still spans the rotation, or an empty file would hide what the
+        # predecessor holds until the first line lands in the live file.
+        'id': 'crit-empty-log-does-not-hide-the-rotated-one',
+        'params': [f'--server-log={fixture("rotated-empty/error.log")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['error.log.1`', '1 ALERT line found'],
+    },
+    {
         # What the check sees for the rest of the day after the nightly
         # logrotate: PHP-FPM re-opened the file and wrote one line into it. Every
         # counter reads zero, and the window says why.

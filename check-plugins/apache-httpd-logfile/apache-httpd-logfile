@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026110201'
 
 DESCRIPTION = """Scans the Apache HTTP Server error log for the events an administrator
 has to act on: children that died on a signal or had to be killed at a stop, a server that
@@ -1912,7 +1912,11 @@ def main():
     sizes = {
         item['label']: item['size'] for item in result['sources'] if 'size' in item
     }
-    if len(server_logs) == 1 and sizes.get(result['sources'][0]['label']) == 0:
+    if (
+        len(server_logs) == 1
+        and sizes.get(result['sources'][0]['label']) == 0
+        and not result['lines']
+    ):
         # An empty log file is a deterministic "no events observed" state,
         # not an unknown one - typical right after logrotate fires.
         lib.base.oao(

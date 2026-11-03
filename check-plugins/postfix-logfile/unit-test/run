@@ -223,6 +223,15 @@ CASES = [
         'assert-in': ['is empty. Assuming log-rotation.'],
     },
     {
+        # copytruncate leaves an empty log right after logrotate ran. The window
+        # still spans the rotation, or an empty file would hide what the
+        # predecessor holds until the first line lands in the live file.
+        'id': 'crit-empty-log-does-not-hide-the-rotated-one',
+        'params': [f'--server-log={fixture("rotated-empty/maillog")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['maillog.1`', '2 startup failures [CRITICAL]'],
+    },
+    {
         'id': 'unknown-source-is-not-a-mail-log',
         'params': [f'--server-log={fixture("apache-access-log.txt")}'],
         'assert-retc': STATE_UNKNOWN,

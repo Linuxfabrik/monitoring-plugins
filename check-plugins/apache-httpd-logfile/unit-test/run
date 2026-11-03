@@ -109,6 +109,15 @@ CASES = [
         'assert-in': ['is empty. Assuming log-rotation.'],
     },
     {
+        # copytruncate leaves an empty log right after logrotate ran. The window
+        # still spans the rotation, or an empty file would hide what the
+        # predecessor holds until the first line lands in the live file.
+        'id': 'crit-empty-log-does-not-hide-the-rotated-one',
+        'params': [f'--server-log={fixture("rotated-empty/error_log")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['error_log.1`', '1 worker saturation'],
+    },
+    {
         # Apache logs a child that died on a signal at `notice` and a saturated
         # server at `error`, so neither the level alone nor the state alone says
         # what happened.

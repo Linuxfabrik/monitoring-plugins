@@ -162,6 +162,15 @@ CASES = [
         'assert-in': ['is empty. Assuming log-rotation.'],
     },
     {
+        # copytruncate leaves an empty log right after logrotate ran. The window
+        # still spans the rotation, or an empty file would hide what the
+        # predecessor holds until the first line lands in the live file.
+        'id': 'crit-empty-log-does-not-hide-the-rotated-one',
+        'params': [f'--server-log={fixture("rotated-empty/secure")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['secure.1`', '3 startup failures [CRITICAL]'],
+    },
+    {
         'id': 'crit-rocky9-busy-server',
         'params': [f'--server-log={aged("rocky9-busy-server.txt")}'],
         'assert-retc': STATE_CRIT,

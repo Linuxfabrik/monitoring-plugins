@@ -154,6 +154,19 @@ CASES = [
         ],
     },
     {
+        # copytruncate leaves an empty log right after logrotate ran. The window
+        # still spans the rotation, or an empty file would hide what the
+        # predecessor holds until the first line lands in the live file.
+        'id': 'crit-empty-log-does-not-hide-the-rotated-one',
+        'fixture': 'rotated-empty/mysqld.err',
+        'extra': [],
+        'retc': STATE_CRIT,
+        'assert_in': [
+            'mysqld.err.1`',
+            '1 error line found',
+        ],
+    },
+    {
         # logrotate moved the older half of the log aside; without reading it the
         # startup would have disappeared from the report the moment it did.
         # Exactly one predecessor on purpose: git stores no modification times,

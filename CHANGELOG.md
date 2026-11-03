@@ -35,6 +35,13 @@ Monitoring Plugins:
 * mysql-system: No longer checks `sunrpc.tcp_slot_table_entries`, including its perfdata and Grafana panel.
 
 
+### Fixed
+
+Monitoring Plugins:
+
+* apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: An empty log right after a rotation no longer hides what the rotated log holds.
+
+
 ## [v8.1.0] - 2026-10-27
 
 **Highlights:** Mainly a bug-fix release: every plugin was tested again against all available Linux and Windows versions. New are `aide-logfile` for the AIDE file integrity check, `lynis-logfile` for the daily lynis audit, `ntp-offset` for the offset of the system clock and `windows-version` for the end of life of Windows. On RHEL, Debian and Ubuntu, the version checks follow the distribution's life cycle for the software it ships. Re-import all Grafana dashboards and the Director basket; hosts on Windows 10 or later and Server 2016 or later move to the per-version Basic Service Sets by their tag. The RPM and DEB packages move to the Linuxfabrik repository: install `linuxfabrik-release` once per host, or deploy it with the `repo_linuxfabrik` role of LFOps; the former repository at repo.linuxfabrik.ch/monitoring-plugins/ keeps receiving updates until 2026-12-31.
