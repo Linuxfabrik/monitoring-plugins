@@ -12,7 +12,7 @@ Compares the Linuxfabrik objects in the Icinga Director (data fields, commands, 
 * The check cannot tell a change made in the Director from a release that has not been imported yet. Both are fixed the same way, and in both cases the import overwrites what is in the Director now
 * Objects that exist only in the Director, your own templates and commands or objects that a former release dropped, are not checked: importing the basket leaves them alone. Overrides per host are listed by the check `icinga-director-overrides`
 * Differences that are only a matter of how the Director exports an object are ignored: renumbered data fields, the short form of a command argument, the plugin directory in a command line, `25` against `"25"`, an empty field against a missing one, and the description of a service
-* Icinga DB Web shows only the first 10000 characters of a plugin output (`plugin_output_character_limit` in its `config.ini`, 20000 with LFOps). Without `--lengthy`, the check therefore lists at most 30 differences, shortens values to 40 characters and leaves out the data fields and the data field bindings of commands, as they come with the commands that use them. Run it with `--lengthy` on the command line to see everything
+* Icinga DB Web shows only the first 10000 characters of a plugin output (`plugin_output_character_limit` in its `config.ini`, 65536 with LFOps). Without `--lengthy`, the check therefore lists at most 30 differences, shortens values to 40 characters and leaves out the data fields and the data field bindings of commands, as they come with the commands that use them. Run it with `--lengthy` on the command line to see everything
 * Values of variables whose name contains `api-key`, `community`, `credential`, `pass`, `private-key`, `secret` or `token` are masked, as are credentials in the form `password=...` or in the userinfo of a URL
 
 **Data Collection:**
@@ -60,8 +60,9 @@ options:
                         the installed plugins.
   --basket-name BASKET_NAME
                         Name of the basket definition in the Icinga Director
-                        whose objects are read. It has to cover all object
-                        types of the basket. Case-sensitive. Default: export
+                        whose objects are read. It has to cover the commands,
+                        data fields, host templates, service templates and
+                        Service Sets. Case-sensitive. Default: export
   --lengthy             Extended reporting. Lists every difference, data
                         fields included, and does not shorten long values.
   --timeout TIMEOUT     Timeout for the call of `icingacli`, in seconds.

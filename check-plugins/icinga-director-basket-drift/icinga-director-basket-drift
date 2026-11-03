@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110308'
+__version__ = '2026110309'
 
 DESCRIPTION = """Compares the Linuxfabrik objects in the Icinga Director (data fields, commands, host
 and service templates, Service Sets) with the Director basket that ships with the
@@ -46,7 +46,7 @@ DEFAULT_TIMEOUT = 30
 
 MASK = '******'
 # Icinga DB Web shows the first 10000 characters of the plugin output (its setting
-# `plugin_output_character_limit`, LFOps raises it to 20000). Without --lengthy, the
+# `plugin_output_character_limit`, LFOps raises it to 65536). Without --lengthy, the
 # table is kept well below that: at most 30 rows of up to 200 characters each.
 MAX_ROWS = 30
 MAX_VALUE_LEN = 40
@@ -95,7 +95,8 @@ def parse_args():
     parser.add_argument(
         '--basket-name',
         help='Name of the basket definition in the Icinga Director whose objects are '
-        'read. It has to cover all object types of the basket. '
+        'read. It has to cover the commands, data fields, host templates, service '
+        'templates and Service Sets. '
         'Case-sensitive. '
         'Default: %(default)s',
         dest='BASKET_NAME',
