@@ -108,6 +108,20 @@ CASES = [
         ],
     },
     {
+        # MariaDB writes InnoDB's part of a shutdown without an `InnoDB:` prefix,
+        # so one restart must not count as two shutdowns. Taken off MariaDB 11.8.9.
+        'id': 'ok-one-mariadb-restart-is-one-shutdown',
+        'fixture': 'mariadb-restart.txt',
+        'extra': [],
+        'retc': STATE_OK,
+        'assert_in': [
+            'No errors or warnings found',
+            '1 startup detected',
+            '1 shutdown detected',
+            "'mysql_shutdowns'=1;;;0",
+        ],
+    },
+    {
         'id': 'ok-bracket-tag-only-no-false-positives',
         'fixture': 'sample-bracket-tag-only.txt',
         'extra': [],
@@ -196,8 +210,10 @@ CASES = [
         'assert_in': [
             '4 denied logins from localhost in the last',
             '(7 in total from 2 addresses)',
-            'No errors or warnings found',
         ],
+        # The denied logins are `[Warning]` lines, so claiming there were none
+        # right before reporting them would contradict the next sentence.
+        'assert_not_in': ['No errors or warnings found'],
     },
     {
         'id': 'warn-a-run-against-one-account-reaches-the-threshold',
@@ -306,7 +322,7 @@ class TestAbortedConnections(unittest.TestCase):
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603 - argv list, no shell
         combined = result.stdout + result.stderr
         self.assertEqual(result.returncode, STATE_OK, combined)
-        self.assertIn('No errors or warnings found', combined)
+        self.assertNotIn('No errors or warnings found', combined)
         self.assertIn('0 aborted connections in the last 10m', combined)
         self.assertIn('(4 in the window read)', combined)
         self.assertIn("'mysql_aborted_connections'=0;20;200;0", combined)

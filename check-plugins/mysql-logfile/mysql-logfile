@@ -31,7 +31,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110201'
+__version__ = '2026110301'
 
 DESCRIPTION = """Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table
@@ -101,6 +101,15 @@ ACCESS_DENIED_REGEX = re.compile(r"Access denied for user '[^']*'@'(?P<source>[^
 ABORTED_CONNECTION_REGEX = re.compile(
     r"Aborted connection \d+ to db: '[^']*' user: '[^']*' host: '(?P<source>[^']*)'"
 )
+
+# The server's own last word on a shutdown: `/usr/sbin/mariadbd: Shutdown complete`,
+# on MySQL `/usr/sbin/mysqld: Shutdown complete (mysqld 8.0.36)`. InnoDB reports its
+# part of the same shutdown a moment earlier as `Shutdown completed; log sequence
+# number ...`, which the word boundary keeps out. Matching on an `InnoDB` prefix
+# instead is not enough: MariaDB writes that line without one, so a single restart
+# counted as two shutdowns. Verified against MariaDB 11.8.9 on Rocky 10 and in the
+# sources (`sql/mysqld.cc`, `storage/innobase/srv/srv0start.cc`).
+SHUTDOWN_COMPLETE_REGEX = re.compile(r'\bShutdown complete\b', re.IGNORECASE)
 
 # What the two servers have to be told before they write that line at all.
 # MariaDB writes it at `log_warnings` 2, which is its default. MySQL keeps it at
@@ -921,7 +930,7 @@ def main():
             last_errs.append(log_line)
         if '[warning]' in haystack:
             last_warns.append(log_line)
-        if 'shutdown complete' in haystack and 'innodb' not in haystack:
+        if SHUTDOWN_COMPLETE_REGEX.search(log_line):
             last_shutdowns.append(log_line)
         if 'ready for connections' in log_line:
             last_starts.append(log_line)
@@ -1051,9 +1060,11 @@ def main():
             f' (last: {last_warns[-1]})'
         )
 
-    if not n_err and not n_warn:
+    if not n_err and not n_warn and not last_denied and not last_aborted:
         # Naming both levels one by one would bury the one sentence a healthy
-        # host is supposed to be.
+        # host is supposed to be. Denied logins and aborted connections are
+        # `[Warning]` lines on MariaDB, too, so with them reported below the
+        # sentence would contradict the very next one.
         facts.append('No errors or warnings found')
 
     # What the server turned away, counted per source: a run against one account
