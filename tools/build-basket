@@ -49,7 +49,7 @@ import _common
 import yaml
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091401'
+__version__ = '2026110301'
 
 DESCRIPTION = """Generate an Icinga Director basket JSON from a check plugin. Walks the
 plugin's argparse definition, turns each parameter into a Director datafield, emits a
@@ -1047,6 +1047,11 @@ def main():
     if failed:
         _common.err(f'\nFailed: {", ".join(failed)}')
         return 1
+
+    # The joined basket ships with the plugins, so it has to follow every change
+    # of a per-plugin basket. `tools/basket-join --check` verifies it.
+    _basket.save_basket(_basket.SHIPPED_BASKET, _basket.join_all(verbose=False))
+    print(f'\nShipped basket: {_basket.SHIPPED_BASKET.relative_to(_common.REPO_ROOT)}')
     return 0
 
 

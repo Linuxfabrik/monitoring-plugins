@@ -41,10 +41,11 @@ tools/basket-compare old-basket.json new-basket.json
 
 Merge every per-plugin `icingaweb2-module-director/<plugin>.json` plus
 the shared `assets/icingaweb2-module-director/all-the-rest.json` into
-one importable basket for `icingacli director basket restore`.
+one importable basket for `icingacli director basket restore`. The same joined basket ships with the plugins as `check-plugins/icinga-director-basket-drift/assets/icingaweb2-module-director-basket.json`; `--check` exits with 1 if that copy is out of date (also run as a pre-commit hook).
 
 ```bash
-tools/basket-join --output /tmp/basket.json
+tools/basket-join --output-file=/tmp/basket.json
+tools/basket-join --check
 ```
 
 ### basket-remove-uuids
@@ -63,7 +64,8 @@ Generate a single-plugin Director basket from a check-plugin script.
 Imports the plugin without running `main()`, walks its argparse
 definition and translates it into Datafields, a Command and a Service
 Template. Run with `--auto` to regenerate baskets for every plugin
-non-interactively.
+non-interactively, together with the joined basket that ships with the
+plugins.
 
 ```bash
 tools/build-basket --plugin-file check-plugins/cpu-usage/cpu-usage

@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Tests for the joined basket that ships with the plugins.
+
+The installer, the source zip and the packages collect every file below
+`check-plugins/*/assets/` (`find ... -mindepth 3 -path '*/assets/*'`) into
+`<plugin-dir>/assets/`. The shipped basket only reaches the masters if it
+stays at such a path, and `basket-join --check` has to tell a stale copy
+from a current one.
+"""
+
+import contextlib
+import importlib.machinery
+import importlib.util
+import io
+import json
+import pathlib
+import sys
+import tempfile
+import unittest
+from unittest import mock
+
+HERE = pathlib.Path(__file__).resolve().parent
+TOOLS = HERE.parent.parent
+sys.path.insert(0, str(TOOLS))
+
+import _basket  # noqa: E402
+import _common  # noqa: E402
+
+
+def load_basket_join():
+    """Import the extension-less `basket-join` script as a module."""
+    loader = importlib.machinery.SourceFileLoader(
+        'basket_join', str(TOOLS / 'basket-join')
+    )
+    spec = importlib.util.spec_from_loader('basket_join', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def run_check(module):
+    """Run `basket-join --check`, return its exit code and stderr."""
+    stderr = io.StringIO()
+    argv = mock.patch.object(sys, 'argv', ['basket-join', '--check'])
+    with argv, contextlib.redirect_stderr(stderr):
+        retc = module.main()
+    return retc, stderr.getvalue()
+
+
+class TestShippedBasket(unittest.TestCase):
+    def test_lies_where_installer_and_packages_collect_assets(self):
+        relative = _basket.SHIPPED_BASKET.relative_to(_common.REPO_ROOT)
+        self.assertEqual(relative.parts[0], 'check-plugins')
+        self.assertEqual(relative.parent.name, 'assets')
+        self.assertGreaterEqual(len(relative.parts), 4)  # find -mindepth 3
+
+    def test_dump_keeps_the_committed_style(self):
+        text = _basket.dump_basket({'Command': {'a': {'b': 1}}})
+        self.assertTrue(text.endswith('}\n'))
+        self.assertIn('\n    "Command": {', text)
+        self.assertEqual(json.loads(text), {'Command': {'a': {'b': 1}}})
+
+    def test_check_detects_a_stale_and_a_missing_copy(self):
+        module = load_basket_join()
+        with tempfile.TemporaryDirectory() as tmp:
+            stale = pathlib.Path(tmp) / 'basket.json'
+            stale.write_text('{}\n', encoding='utf-8')
+            for path in (stale, pathlib.Path(tmp) / 'missing.json'):
+                with self.subTest(path=path.name):
+                    with mock.patch.object(module._basket, 'SHIPPED_BASKET', path):
+                        retc, stderr = run_check(module)
+                    self.assertEqual(retc, 1)
+                    self.assertIn('Run `tools/build-basket --auto`', stderr)
+
+    def test_check_accepts_a_current_copy(self):
+        module = load_basket_join()
+        with tempfile.TemporaryDirectory() as tmp:
+            current = pathlib.Path(tmp) / 'basket.json'
+            current.write_text(
+                _basket.dump_basket(_basket.join_all(verbose=False)), encoding='utf-8'
+            )
+            with mock.patch.object(module._basket, 'SHIPPED_BASKET', current):
+                retc, stderr = run_check(module)
+        self.assertEqual(retc, 0)
+        self.assertEqual(stderr, '')
+
+
+if __name__ == '__main__':
+    unittest.main()

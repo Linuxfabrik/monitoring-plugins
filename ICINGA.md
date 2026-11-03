@@ -15,6 +15,8 @@ This document explains what the basket contains, how to import it, how to operat
 
     This produces `icingaweb2-module-director-basket.json` at the repository root. On any Director v1.9.0 or newer (that is, every currently supported release), the file imports as-is. The legacy `basket-remove-uuids` tool is still available for the rare edge cases described in *Troubleshooting*.
 
+    The packages and the installer also place the same joined basket next to the plugins, in the version of the plugins installed: `<plugin-dir>/assets/icingaweb2-module-director-basket.json`, for example `/usr/lib64/nagios/plugins/assets/icingaweb2-module-director-basket.json` on RHEL. On a master with the plugins installed, import that file and skip this step.
+
 2. Import it on the Icinga 2 master:
 
     ```bash
@@ -234,7 +236,7 @@ Use this for fresh installs and for version upgrades.
     ./tools/basket-join
     ```
 
-    This writes `icingaweb2-module-director-basket.json` at the repository root. The file merges every per-plugin basket with `all-the-rest.json` and renumbers Datafield IDs.
+    This writes `icingaweb2-module-director-basket.json` at the repository root. The file merges every per-plugin basket with `all-the-rest.json` and renumbers Datafield IDs. On a master with the plugins installed, the same file is already at `<plugin-dir>/assets/icingaweb2-module-director-basket.json`; copy it to a working directory if you need to replace the zone in the next step.
 
 2. If your Icinga 2 master zone is not named `master`, replace the placeholder in the generated file:
 

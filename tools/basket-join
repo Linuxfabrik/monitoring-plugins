@@ -25,32 +25,32 @@ references inside every Command that referenced a renumbered
 field. After the merge we verify that every object has a uuid
 (for the Linuxfabrik Director fork) and that no two objects
 share one.
+
+The joined basket also ships with the plugins (see
+`_basket.SHIPPED_BASKET`). `--check` tells whether that copy is current.
 """
 
 import argparse
-import collections
 import sys
 
 import _basket
 import _common
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041301'
+__version__ = '2026110301'
 
 DESCRIPTION = """Merge every per-plugin Icinga Director basket (check-plugins/*, notification-plugins/*,
 and the shared assets template) into a single Director basket JSON suitable for import."""
 
 DEFAULT_OUTPUT_FILE = 'icingaweb2-module-director-basket.json'
-ALL_THE_REST_BASKET = 'assets/icingaweb2-module-director/all-the-rest.json'
 
-# Plugin families whose per-plugin baskets should be merged in.
-# Order matters for the final merged output only as far as
-# readability goes; the resulting basket is a dict so lookups do
-# not depend on insertion order.
-PLUGIN_FAMILIES = (
-    'check-plugins',
-    'notification-plugins',
-)
+
+def shown(path):
+    """Return `path` relative to the repository, or as is if it lies outside."""
+    try:
+        return path.relative_to(_common.REPO_ROOT)
+    except ValueError:
+        return path
 
 
 def parse_args():
@@ -65,6 +65,16 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--check',
+        help='Write nothing, only check that the basket that ships with the plugins '
+        f'({shown(_basket.SHIPPED_BASKET)}) is current. '
+        'Exits with 1 if it is not. `tools/build-basket --auto` updates it.',
+        dest='CHECK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--output-file',
         help=f'Path to the output JSON file. Default: {DEFAULT_OUTPUT_FILE}',
         dest='OUTPUT_FILE',
@@ -75,126 +85,28 @@ def parse_args():
     return parser.parse_args()
 
 
-class BasketJoiner:
-    """Stateful merge of one or more per-plugin basket JSON files.
-
-    The joiner keeps a running dict of merged objects plus the
-    `uuid -> datafield_id` map it uses to detect "this datafield
-    was already merged from an earlier file". Datafield IDs are
-    renumbered as they are added so the merged output uses a
-    dense, conflict-free 1..N range.
-    """
-
-    def __init__(self):
-        self.data = collections.defaultdict(dict)
-        self.uuids2datafields = {}
-        self.highest_datafield_id = 0
-
-    def join_with_file(self, basket_file):
-        """Merge the contents of `basket_file` into the running data."""
-        if not basket_file.is_file():
-            return
-        print(f'File: {basket_file}')
-        basket_data = _basket.load_basket(basket_file)
-
-        new_datafield_ids = {}  # reset per file
-        try:
-            if 'Datafield' in basket_data:
-                for key, value in basket_data['Datafield'].items():
-                    uuid = value.get('uuid')
-                    if uuid in self.uuids2datafields:
-                        current_value = self.data['Datafield'][
-                            self.uuids2datafields[uuid]
-                        ]
-                        if current_value != value:
-                            _common.die(
-                                f'The objects "[Datafield][{value["varname"]}]"'
-                                f' and "[Datafield][{current_value["varname"]}]"'
-                                f' have the same uuid ("{uuid}") but not the'
-                                f' same content. Fix this, aborting...',
-                            )
-                    else:
-                        self.highest_datafield_id += 1
-                        if uuid:
-                            self.uuids2datafields[uuid] = str(self.highest_datafield_id)
-                        self.data['Datafield'][str(self.highest_datafield_id)] = value
-                        new_datafield_ids[key] = self.highest_datafield_id
-        except Exception as exc:  # pylint: disable=broad-except
-            _common.die(f'Invalid basket definition file {basket_file}: {exc}')
-
-        for parent_key, parent_value in basket_data.items():
-            if parent_key == 'Datafield':
-                # already handled above
-                continue
-            for key, value in parent_value.items():
-                fields = value.get('fields')
-                if fields:
-                    for field in fields:
-                        old_datafield_id = field['datafield_id']
-                        field['datafield_id'] = new_datafield_ids[str(old_datafield_id)]
-                self.data[parent_key][key] = value
-
-    def validate_uuids(self):
-        """Check that every merged object carries a uuid, once.
-
-        Prints a warning for objects without a uuid and aborts
-        via `_common.die()` if any uuid is used twice - duplicate
-        uuids break the Linuxfabrik Director fork's import.
-        """
-        uuids = []
-        objects_without_uuids = []
-        for parent_key, parent_value in self.data.items():
-            for key, value in parent_value.items():
-                if 'uuid' in value:
-                    uuids.append(value['uuid'])
-                elif parent_key == 'Datafield':
-                    objects_without_uuids.append(
-                        f'[{parent_key}][{value["varname"]}] (Datafield)',
-                    )
-                else:
-                    objects_without_uuids.append(f'[{parent_key}][{key}]')
-                # descent into services of Service Sets
-                services = value.get('services')
-                if not services:
-                    continue
-                for service_key, service_value in services.items():
-                    if 'uuid' in service_value:
-                        uuids.append(service_value['uuid'])
-                    else:
-                        objects_without_uuids.append(
-                            f'[{parent_key}][{key}][{service_key}] (Service)',
-                        )
-
-        if objects_without_uuids:
-            _common.err('\nFound objects without uuids:')
-            _common.err('* ' + '\n* '.join(objects_without_uuids))
-
-        unique_uuids = set(uuids)
-        if len(uuids) != len(unique_uuids):
-            for uuid in unique_uuids:
-                uuids.remove(uuid)
-            duplicates = '\n* '.join(uuids)
-            _common.die(f'There are duplicate uuids:\n* {duplicates}')
-
-
 def main():
-    """Walk the repo, merge every basket into one, write the result."""
+    """Merge every basket into one, then write or check the result."""
     args = parse_args()
 
-    joiner = BasketJoiner()
-    joiner.join_with_file(_common.REPO_ROOT / ALL_THE_REST_BASKET)
-    for family in PLUGIN_FAMILIES:
-        for plugin_dir in _common.iter_plugin_dirs(family):
-            basket_file = (
-                plugin_dir / 'icingaweb2-module-director' / f'{plugin_dir.name}.json'
+    if args.CHECK:
+        expected = _basket.dump_basket(_basket.join_all(verbose=False))
+        try:
+            current = _basket.SHIPPED_BASKET.read_text(encoding='utf-8')
+        except OSError:
+            current = None
+        if current != expected:
+            _common.err(
+                f'{shown(_basket.SHIPPED_BASKET)} is out of date.'
+                ' Run `tools/build-basket --auto` and commit the result.'
             )
-            joiner.join_with_file(basket_file)
-
-    joiner.validate_uuids()
+            return 1
+        return 0
 
     output_path = _common.REPO_ROOT / args.OUTPUT_FILE
-    _basket.save_basket(output_path, joiner.data)
+    _basket.save_basket(output_path, _basket.join_all())
     print(f'Written to file {output_path}')
+    return 0
 
 
 if __name__ == '__main__':
