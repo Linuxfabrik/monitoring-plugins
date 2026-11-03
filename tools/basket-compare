@@ -39,9 +39,24 @@ import _common
 import lib.base
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061819'
+__version__ = '2026110301'
 
 DESCRIPTION = """Compare Icinga Director baskets and highlight the differences."""
+
+DOCS = 'https://linuxfabrik.github.io/monitoring-plugins/check-plugins'
+# Shown on every call, on stderr so that the table output stays the same.
+SUPERSEDED = f"""Three check plugins answer the questions of this tool directly in Icinga:
+
+* icinga-director-basket-drift: Is the Icinga Director up to date with the basket
+  that ships with the plugins, and which Linuxfabrik objects would an import change?
+  {DOCS}/icinga-director-basket-drift/
+* icinga-director-overrides: Which service variables are overridden on single hosts
+  ("Modify"), and which of these overrides no longer have an effect?
+  {DOCS}/icinga-director-overrides/
+* icinga-director-template-overrides: Which templates of your own override the
+  defaults of the Linuxfabrik templates?
+  {DOCS}/icinga-director-template-overrides/
+"""
 
 # Sentinel for a field that is absent on one side of a comparison.
 MISSING = object()
@@ -662,6 +677,8 @@ def run_diff(left_basket, right_basket, left_name, right_name, show_all):
 
 def main():
     """Load both baskets, diff every object class, print what changed."""
+    # before parsing, so that a call without arguments shows it as well
+    print(SUPERSEDED, file=sys.stderr)
     args = parse_args()
 
     # fetch data

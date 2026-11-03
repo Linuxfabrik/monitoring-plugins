@@ -37,6 +37,8 @@ suppressed.
 tools/basket-compare old-basket.json new-basket.json
 ```
 
+On a running Icinga Director, the check plugins [icinga-director-basket-drift](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/icinga-director-basket-drift/), [icinga-director-overrides](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/icinga-director-overrides/) and [icinga-director-template-overrides](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/icinga-director-template-overrides/) answer these questions directly in Icinga. `basket-compare` names them on every call.
+
 ### basket-join
 
 Merge every per-plugin `icingaweb2-module-director/<plugin>.json` plus
