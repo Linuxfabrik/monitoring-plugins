@@ -1,6 +1,6 @@
 # Installing the Linuxfabrik Monitoring Plugins Collection
 
-The recommended path is the one-liner installer on both Linux and Windows. For rollouts across many hosts, use [Ansible](#ansible-lfops).
+The recommended path is the package repository on Linux and the one-liner installer on Windows. For rollouts across many hosts, use [Ansible](#ansible-lfops).
 
 
 ## Linux
@@ -8,9 +8,44 @@ The recommended path is the one-liner installer on both Linux and Windows. For r
 The plugins need Python 3.9 or newer. The packages bring their own venv built against the system Python. They always go to `/usr/lib64/nagios/plugins`, even where the distribution's Nagios package uses `/usr/lib/nagios/plugins`. This keeps sudoers rules and Icinga Director command definitions portable (see [icingaweb2-module-director#2123](https://github.com/Icinga/icingaweb2-module-director/issues/2123)).
 
 
-### One-Liner: Package Repository (recommended)
+### Package Repository (recommended)
 
-For most hosts, with access to the internet or to a mirror server. Sets up the signed Linuxfabrik package repository with the `linuxfabrik-release` package, unless the host has it already (from the package or from LFOps), and installs the package. On RHEL, it also installs the `-selinux` sub-package. A repository file of the former repo.linuxfabrik.ch/monitoring-plugins/ is removed, so a host set up with it switches over by running the one-liner again. Upgrades then come with `dnf upgrade`, `zypper update` or `apt upgrade`. Supported: Debian 11-13, RHEL 8-10 and compatibles, SLE 15 SP5+ and 16, openSUSE Leap, Ubuntu 22.04-26.04.
+For those who want to use a released version from a repository. The plugins come from the Linuxfabrik package repository at [repo.linuxfabrik.ch](https://repo.linuxfabrik.ch/), which serves the Monitoring Plugins along with the other Linuxfabrik packages from one signed repository per distribution. Set it up with the `linuxfabrik-release` package as described there under "Set up the repository". The page also lists the versions available per distribution and explains how to enable the `testing` channel. If you run Icinga Director, pin the package version before upgrading, so the Director configuration and the plugins stay in sync.
+
+Then install the package. RHEL 8, 9, 10 (Rocky, AlmaLinux, CentOS Stream, Oracle Linux):
+
+```bash
+sudo dnf --assumeyes install linuxfabrik-monitoring-plugins-selinux
+```
+
+The `-selinux` sub-package pulls in the base package and loads the SELinux policy module (see [SELinux](#selinux)). Install `linuxfabrik-monitoring-plugins` instead if SELinux is permissive or disabled.
+
+SLE 15 SP5+, SLE 16, openSUSE Leap:
+
+```bash
+sudo zypper --non-interactive install linuxfabrik-monitoring-plugins
+```
+
+Debian 11, 12, 13, Ubuntu 22.04, 24.04, 26.04:
+
+```bash
+sudo apt update
+sudo apt --yes install linuxfabrik-monitoring-plugins
+```
+
+Upgrades then come with `dnf upgrade`, `zypper update` or `apt upgrade`.
+
+A host that was set up with the former repository below repo.linuxfabrik.ch/monitoring-plugins/ switches over as described on [repo.linuxfabrik.ch](https://repo.linuxfabrik.ch/): install `linuxfabrik-release` and remove the configuration of the former repository. The installed packages stay, their updates then come from the Linuxfabrik repository.
+
+
+### One-Liner
+
+`install-monitoring-plugins` installs the plugins with a single command, from the package repository or from source, and reverses that with `--uninstall`. It also handles sudoers, bash completion and, on RHEL, the SELinux module.
+
+
+#### Package Repository
+
+The default mode. Does in one step what [Package Repository](#package-repository-recommended) describes: sets up the signed Linuxfabrik package repository with the `linuxfabrik-release` package, unless the host has it already (from the package or from LFOps), and installs the package. On RHEL, it also installs the `-selinux` sub-package. A repository file of the former repo.linuxfabrik.ch/monitoring-plugins/ is removed, so a host set up with it switches over by running the one-liner again. Upgrades then come with `dnf upgrade`, `zypper update` or `apt upgrade`. Supported: Debian 11-13, RHEL 8-10 and compatibles, SLE 15 SP5+ and 16, openSUSE Leap, Ubuntu 22.04-26.04.
 
 ```bash
 curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash
@@ -19,7 +54,7 @@ curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash
 `-fsSL` is short for `--fail --silent --show-error --location`: curl aborts on an HTTP error instead of piping the error page into `bash`, prints nothing but errors, and follows redirects.
 
 
-### One-Liner: Source Zip
+#### Source Zip
 
 For hosts that need a released version but may not use the RPM or DEB packages. Installs a released source zip from the [download server](https://download.linuxfabrik.ch/monitoring-plugins/) into a self-contained venv. Preferred over the GitHub source: the zip is sha256- and GPG-verified, carries exactly the library the release was tested with, and does not depend on GitHub, so it can be mirrored or copied to hosts without internet access. `latest` is the newest release, `<version>-<iteration>` pins one. Not managed by the package manager, so upgrades mean re-running it.
 
@@ -29,7 +64,7 @@ curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s
 ```
 
 
-### One-Liner: Source from GitHub
+#### Source from GitHub
 
 For hosts that need a fix or plugin that is not yet released, and can reach GitHub. Installs the current `main` (or a branch or tag with `--ref`) into a self-contained venv. Not managed by the package manager, so upgrades mean re-running it. A re-run replaces plugins and library and rebuilds the venv only if the dependency lockfiles or the Python version changed. To force a rebuild, delete `/usr/lib64/linuxfabrik-monitoring-plugins/dependencies.sha256` first.
 
@@ -39,7 +74,7 @@ curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s
 ```
 
 
-### One-Liner: Options
+#### Options
 
 * `--help`: shows all options.
 * `--plugin-dir=DIR`: installs somewhere other than `/usr/lib64/nagios/plugins`.
@@ -56,39 +91,6 @@ curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins.sha256 | sha25
 less install-monitoring-plugins
 sudo bash install-monitoring-plugins
 ```
-
-
-### Package Repository, Manual Setup
-
-For hosts whose repositories are managed by hand or by other tooling. The `linuxfabrik-release` package sets up the signed Linuxfabrik package repository, which serves the Monitoring Plugins along with the other Linuxfabrik packages. If you run Icinga Director, pin the package version before upgrading, so the Director configuration and the plugins stay in sync.
-
-RHEL 8, 9, 10 (Rocky, AlmaLinux, CentOS Stream, Oracle Linux; replace `el10` with `el8` or `el9`):
-
-```bash
-sudo dnf install https://repo.linuxfabrik.ch/linuxfabrik-release-latest-el10.noarch.rpm
-sudo dnf install linuxfabrik-monitoring-plugins-selinux
-```
-
-The `-selinux` sub-package pulls in the base package and loads the SELinux policy module (see [SELinux](#selinux)). Install `linuxfabrik-monitoring-plugins` instead if SELinux is permissive or disabled.
-
-SLE 15 SP5+, SLE 16, openSUSE Leap (replace `sle16` with `sle15`):
-
-```bash
-sudo rpm --import https://repo.linuxfabrik.ch/linuxfabrik.key
-sudo zypper install https://repo.linuxfabrik.ch/linuxfabrik-release-latest-sle16.noarch.rpm
-sudo zypper install linuxfabrik-monitoring-plugins
-```
-
-Debian 11, 12, 13, Ubuntu 22.04, 24.04, 26.04 (replace `debian13` with `debian11`, `debian12`, `ubuntu22.04`, `ubuntu24.04` or `ubuntu26.04`):
-
-```bash
-curl --fail --location --remote-name https://repo.linuxfabrik.ch/linuxfabrik-release-latest-debian13.deb
-sudo apt install ./linuxfabrik-release-latest-debian13.deb
-sudo apt update
-sudo apt install linuxfabrik-monitoring-plugins
-```
-
-A host that was set up with the former repository at repo.linuxfabrik.ch/monitoring-plugins/ switches over by installing `linuxfabrik-release` and removing `/etc/yum.repos.d/linuxfabrik-monitoring-plugins*.repo`, the `linuxfabrik-monitoring-plugins-release` zypper repository (`sudo zypper removerepo linuxfabrik-monitoring-plugins-release`), or `/etc/apt/sources.list.d/linuxfabrik-monitoring-plugins.list` and `/etc/apt/keyrings/linuxfabrik.asc`.
 
 
 ### Source, Manual Setup
