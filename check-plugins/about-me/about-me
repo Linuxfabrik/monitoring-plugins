@@ -41,7 +41,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102701 / v8.1.0'
+__version__ = '2026110401 / v8.1.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -1202,7 +1202,10 @@ def get_lftags(distro):
                 run_cmd(
                     ['systemctl', 'is-enabled', 'rocketchat.service'],
                     ignore_output=True,
-                )
+                ),
+                # home of the user running Rocket.Chat as a rootless Podman container,
+                # as set up by the LFOps rocketchat role
+                lib.disk.dir_exists('/opt/rocketchat'),
             ],
         },
         {
@@ -1672,6 +1675,9 @@ def get_software_found():
             'expr': [
                 lib.disk.dir_exists('/opt/Rocket.Chat'),
                 lib.disk.dir_exists('/opt/rocket.chat'),
+                # home of the user running Rocket.Chat as a rootless Podman container,
+                # as set up by the LFOps rocketchat role
+                lib.disk.dir_exists('/opt/rocketchat'),
             ],
         },
         {
