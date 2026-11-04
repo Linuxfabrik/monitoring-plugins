@@ -7,25 +7,32 @@ This document explains what the basket contains, how to import it, how to operat
 
 ## Quick Start
 
-1. Generate the joined basket:
+1. Find the joined basket. The packages and the installer place it next to the plugins, in the version of the plugins installed: `<plugin-dir>/assets/icingaweb2-module-director-basket.json`, for example `/usr/lib64/nagios/plugins/assets/icingaweb2-module-director-basket.json` on RHEL. Without the plugins on the master, build it from a checkout of this repository:
 
     ```bash
     ./tools/basket-join
     ```
 
-    This produces `icingaweb2-module-director-basket.json` at the repository root. On any Director v1.9.0 or newer (that is, every currently supported release), the file imports as-is. The legacy `basket-remove-uuids` tool is still available for the rare edge cases described in *Troubleshooting*.
-
-    The packages and the installer also place the same joined basket next to the plugins, in the version of the plugins installed: `<plugin-dir>/assets/icingaweb2-module-director-basket.json`, for example `/usr/lib64/nagios/plugins/assets/icingaweb2-module-director-basket.json` on RHEL. On a master with the plugins installed, import that file and skip this step.
+    This writes `icingaweb2-module-director-basket.json` at the repository root. On any Director v1.9.0 or newer (that is, every currently supported release), the file imports as-is. The legacy `basket-remove-uuids` tool is still available for the rare edge cases described in *Troubleshooting*.
 
 2. Import it on the Icinga 2 master:
 
     ```bash
-    icingacli director basket restore --verbose < icingaweb2-module-director-basket.json
+    sudo icingacli director basket restore --verbose \
+        < /usr/lib64/nagios/plugins/assets/icingaweb2-module-director-basket.json
     ```
 
     Alternatively, upload the file in the Director GUI under *Configuration Baskets > Upload*, then open the freshly uploaded snapshot and click *Restore*.
 
-3. Create your first host:
+3. Deploy the configuration to Icinga 2:
+
+    ```bash
+    sudo icingacli director config deploy
+    ```
+
+    Or in the Director under *Activity Log > Deploy*.
+
+4. Create your first host:
 
     * Import template `tpl-host-linux` (or `tpl-host-windows`).
     * Set `host_criticality` (A, B, or C) and `tag_list` (e.g. `rocky10`, `nextcloud`, `mysql`).
@@ -220,7 +227,7 @@ Each Service Template's `notes_url` points at the matching plugin documentation 
 
 The basket is designed for the [upstream Icinga Director](https://github.com/Icinga/icingaweb2-module-director) from v1.9.0 onwards (UUIDs are supported there since 2022). That is our recommended deployment target.
 
-We additionally maintain a [fork](https://github.com/Linuxfabrik/icingaweb2-module-director) that adds one feature: **automatic renaming of applied related vars during basket imports**. Use it only if you regularly reimport baskets and want the values you already set on hosts and services to follow when a Datafield is renamed. The fork currently tracks upstream v1.11.7. Everything else in this document applies to both.
+We additionally maintain a [fork](https://github.com/Linuxfabrik/icingaweb2-module-director) that adds one feature: **automatic renaming of applied related vars during basket imports**. Use it only if you regularly reimport baskets and want the values you already set on hosts and services to follow when a Datafield is renamed. The renaming does not reach the per-host overrides of services ("Modify"): such an override keeps the old name and no longer has an effect. The check `icinga-director-overrides` lists it as "not used by the check command" (see *Keeping Track of Deviations*). Everything else in this document applies to both.
 
 
 ## Importing
@@ -230,15 +237,15 @@ We additionally maintain a [fork](https://github.com/Linuxfabrik/icingaweb2-modu
 
 Use this for fresh installs and for version upgrades.
 
-1. From a checkout of the monitoring-plugins repository, build the joined basket:
+1. On a master with the plugins installed, the joined basket is at `<plugin-dir>/assets/icingaweb2-module-director-basket.json`. Copy it to a working directory if you need to replace the zone in the next step. Without the plugins on the master, build it from a checkout of the monitoring-plugins repository:
 
     ```bash
     ./tools/basket-join
     ```
 
-    This writes `icingaweb2-module-director-basket.json` at the repository root. The file merges every per-plugin basket with `all-the-rest.json` and renumbers Datafield IDs. On a master with the plugins installed, the same file is already at `<plugin-dir>/assets/icingaweb2-module-director-basket.json`; copy it to a working directory if you need to replace the zone in the next step.
+    This writes `icingaweb2-module-director-basket.json` at the repository root. The file merges every per-plugin basket with `all-the-rest.json` and renumbers Datafield IDs.
 
-2. If your Icinga 2 master zone is not named `master`, replace the placeholder in the generated file:
+2. If your Icinga 2 master zone is not named `master`, replace the placeholder in your copy:
 
     ```bash
     sed --in-place 's/"zone": "master"/"zone": "your-master-zone"/g' \
@@ -248,13 +255,19 @@ Use this for fresh installs and for version upgrades.
 3. Import on the master:
 
     ```bash
-    icingacli director basket restore --verbose \
+    sudo icingacli director basket restore --verbose \
         < icingaweb2-module-director-basket.json
     ```
 
     Or upload the file in the GUI under *Configuration Baskets > Upload*, then open the new snapshot and click *Restore*.
 
-4. Activate the changes in the Director (*Activity Log > Deploy*).
+4. Deploy the configuration to Icinga 2:
+
+    ```bash
+    sudo icingacli director config deploy
+    ```
+
+    Or in the Director under *Activity Log > Deploy*.
 
 
 ### Single-Plugin Basket
@@ -297,18 +310,42 @@ Run the plugin's `--help` to see the full option list. This path is tedious acro
 4. Deploy.
 
 
+### Keeping Track of Deviations
+
+Three checks show where your Director deviates from the basket, each answering one question:
+
+* [icinga-director-basket-drift](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/icinga-director-basket-drift/): Is the Director up to date with the basket that ships with the installed plugins, and which Linuxfabrik objects would an import change? Warns until the basket of a new release is imported, and lists changes made to our objects in the Director, which the next import would overwrite.
+* [icinga-director-overrides](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/icinga-director-overrides/): Which service variables are overridden on single hosts ("Modify"), and which of these overrides no longer have an effect?
+* [icinga-director-template-overrides](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/icinga-director-template-overrides/): Which templates of your own override the defaults of our templates?
+
+All three run on the Icinga master and come with the `Icinga Web 2 Service Set`: add the tag `icingaweb2` to the host object of the master. The account running the checks has to be able to read the Icinga Web 2 configuration, see their READMEs.
+
+
 ### Updating After a Plugin Release
 
-On every release, regenerate the basket and review the diff before importing:
+An update of the plugins on the master also updates the basket at `<plugin-dir>/assets/icingaweb2-module-director-basket.json`, while the Director still holds the objects of the previous release. Until the new basket is imported, the service "Icinga Director Basket Drift" warns and lists what the import would change.
 
-```bash
-./tools/basket-join
-./tools/basket-compare \
-    --old <previous-version>/icingaweb2-module-director-basket.json \
-    --new icingaweb2-module-director-basket.json
-```
+1. Update the plugins on the master.
+2. Review what the import would change. Run the check by hand to see every difference with its full values:
 
-`basket-compare` prints one table per object class (Datafield, Command, Host Template, Service Template, Service Set) showing only the rows that changed, so you can spot parameter renames and new Service Sets before they hit your Director. Then restore as usual.
+    ```bash
+    sudo -u icinga /usr/lib64/nagios/plugins/icinga-director-basket-drift --lengthy
+    ```
+
+    A row is either a change of the new release, or a change someone made to our objects in the Director. The import overwrites both alike.
+
+3. Move the changes you want to keep out of our objects: into a template of your own (see *Overriding our Service Templates*), or into a per-host override with "Modify".
+4. Import the basket and deploy:
+
+    ```bash
+    sudo icingacli director basket restore --verbose \
+        < /usr/lib64/nagios/plugins/assets/icingaweb2-module-director-basket.json
+    sudo icingacli director config deploy
+    ```
+
+5. Look for overrides without effect in "Icinga Director Overrides" and "Icinga Director Template Overrides". A parameter the release renamed shows up there with its old name, listed as "not used by the check command". Move the value to the new variable.
+
+If you build the basket from a checkout instead, point the check at it with `--basket=icingaweb2-module-director-basket.json` before importing.
 
 For Director Branches users: test the new basket in a branch first. The Linuxfabrik fork is not tested with the Configuration Branches module.
 
@@ -326,7 +363,9 @@ If you need deeper hooks into the basket generation (for example, per-OS variant
 
 ### Overriding our Service Templates
 
-Do not edit our templates in place, as basket reimports will overwrite them. Clone the shipped template to `tpl-service-<name>-local` (or similar) in your own basket or Director, set your overrides there, and have your services import the local version.
+Do not edit our templates in place, as basket reimports will overwrite them. Create a service template of your own, for example `tpl-service-<name>-local`, that imports ours, set only the variables you want to change, and have your services import it. Unlike a clone, it keeps following the updates of our template, and the check `icinga-director-template-overrides` lists what it overrides.
+
+The services of our Service Sets import our templates, and a change to a Service Set is overwritten by the next import as well. Override their variables per host with "Modify" instead, or on a host template of your own, which passes the override on to every host that imports it.
 
 
 ## Parameter Handling
@@ -377,7 +416,7 @@ Every Service Template ships a default for each of its datafields, and a service
 
 The give-away is in the plugin output itself: our plugins name the value they actually used. If that value is not the one you passed by hand, the command Icinga runs is not the command you ran, and the plugin is not where the problem is.
 
-Look at the rendered command rather than at the plugin. On the Icinga host, `icinga2 object list --type Service --name '<host>!<service>'` prints the variables the service really carries; in the Director, the service's Fields tab shows which ones are set and which are inherited. Then set the variable on the object, using the name from the datafield (`<plugin_name_with_underscores>_<parameter>`), not the plugin's parameter name. See [#1464](https://github.com/Linuxfabrik/monitoring-plugins/issues/1464).
+Look at the rendered command rather than at the plugin. On the Icinga host, `icinga2 object list --type Service --name '<host>!<service>'` prints the variables the service really carries; in the Director, the service's Fields tab shows which ones are set and which are inherited. Then set the variable on the object, using the name from the datafield (`<plugin_name_with_underscores>_<parameter>`), not the plugin's parameter name. See [#1464](https://github.com/Linuxfabrik/monitoring-plugins/issues/1464). The check `icinga-director-overrides` lists every variable overridden per host next to its default, including overrides that do not reach the plugin.
 
 
 ### "exceeds the defined ini size" on Upload
