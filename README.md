@@ -54,10 +54,10 @@ A public demo with the plugins wired into Icinga Web 2 and Grafana:
 
 ## Installation
 
-**On Linux**, install with the one-liner. It registers our signed package repository and installs the package:
+**On Linux**, set up our signed package repository with the `linuxfabrik-release` package as described on [repo.linuxfabrik.ch](https://repo.linuxfabrik.ch/), then install the package, for example on RHEL:
 
 ```bash
-curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash
+sudo dnf --assumeyes install linuxfabrik-monitoring-plugins-selinux
 ```
 
 **On Windows**, install with the one-liner in an elevated PowerShell. It downloads the signed MSI, verifies its Authenticode signature and installs it silently:
@@ -77,7 +77,7 @@ ctx_switches: 8.5G, interrupts: 6.8G, soft_interrupts: 1.7G
 
 Every plugin supports `--help` and prints its version with `--version`.
 
-For more installation paths, see [INSTALL.md](https://linuxfabrik.github.io/monitoring-plugins/install/): the LFOps Ansible role for fleets (Linux and Windows), the manual MSI download on Windows, reviewing the installer against its published sha256 checksum before running it, the source install for running the latest state in production, air-gapped and per-distribution setups, sudoers drop-ins and SELinux.
+For more installation paths, see [INSTALL.md](https://linuxfabrik.github.io/monitoring-plugins/install/): the commands for SLE, Debian and Ubuntu, the Linux one-liner that sets up the repository and installs the package in one step, the LFOps Ansible role for fleets (Linux and Windows), the manual MSI download on Windows, reviewing the installer against its published sha256 checksum before running it, the source install for running the latest state in production, air-gapped and per-distribution setups, sudoers drop-ins and SELinux.
 
 Plugins that share setup steps:
 
