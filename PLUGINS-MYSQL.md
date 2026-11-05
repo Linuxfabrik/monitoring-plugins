@@ -187,9 +187,15 @@ role; activate several sets on the same host when appropriate.
 * **MySQL Replication Service Set**: replica-specific health
   (`mysql-replica-status`). Activate on asynchronous replicas.
 * **MySQL Schemas Service Set**: per-database / per-query metrics
-  (database metrics, joins, long-running queries, slow queries, sorts,
-  table cache, table definition cache, table indexes, table locks,
-  temp tables).
+  (database metrics, index health, joins, long-running queries, slow
+  queries, sorts, table cache, table definition cache, table indexes,
+  table locks, temp tables). Meant for databases whose schema and
+  queries the admin or their developers control. Do not activate it on
+  hosts that only run third-party applications such as Nextcloud,
+  Icinga DB or Icinga Director: their findings, like the indexes such
+  an application creates or the temporary tables its queries on TEXT
+  columns put on disk, are not the admin's to fix. The baseline,
+  InnoDB, Metrics and Security sets stay useful there.
 * **MySQL Security Service Set**: account hygiene, TLS posture and the
   server-side error log (`mysql-user-security`, `mysql-tls`,
   `mysql-logfile`).

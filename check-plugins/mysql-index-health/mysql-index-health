@@ -38,8 +38,10 @@ plugin stays silent (OK with a wait hint) until server uptime crosses
 restart and the false-positive "unused" signal that would fire before weekly or monthly
 jobs have had a chance to touch their indexes. Index housekeeping is never a
 wake-up-at-night finding, so the plugin only emits WARN (and the implicit OK), never
-CRIT. Alerts when redundant indexes exist, and when the count of unused indexes crosses
-`--warning-unused`, which is off by default.
+CRIT. Alerts when the count of redundant indexes crosses `--warning-redundant`, or the
+count of unused indexes crosses `--warning-unused`. Both are off by default and the
+indexes are only listed, because in a schema an application manages itself the admin
+cannot drop either kind.
 Supports extended reporting via --lengthy."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
@@ -47,11 +49,13 @@ DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_LENGTHY = False
 DEFAULT_MIN_UPTIME_HOURS = 24
 DEFAULT_TIMEOUT = 3
-DEFAULT_WARN_REDUNDANT = '0'
-# An unused index only says that nothing read it since the last server start. Whether
-# it can go depends on jobs the counters never saw, and in a schema an application
-# manages itself (Metabase, for example) the admin cannot drop it anyway. So it is
-# listed, but alerts only when `--warning-unused` asks for it.
+# Both findings are listed, but alert only when `--warning-redundant` or
+# `--warning-unused` asks for it. In a schema an application manages itself (Nextcloud,
+# Icinga DB, Metabase), the admin cannot drop an index: the next update or
+# `occ db:add-missing-indices` brings it back. Seen on a Nextcloud host with 347 unused
+# and 42 redundant indexes, all in the `nextcloud` schema. An unused index says even
+# less, because whether it can go depends on jobs the counters never saw.
+DEFAULT_WARN_REDUNDANT = None
 DEFAULT_WARN_UNUSED = None
 
 # Schemas that the server itself manages and that the admin never gets
@@ -184,8 +188,8 @@ def parse_args():
         '--warning-redundant',
         help=lib.args.help('--warning-count') + ' Applies to redundant indexes. '
         'Supports Nagios ranges. '
-        'Example: `--warning-redundant=10`. '
-        'Default: %(default)s',
+        'Example: `--warning-redundant=0`. '
+        'Default: not evaluated, the redundant indexes are only listed.',
         dest='WARN_REDUNDANT',
         default=DEFAULT_WARN_REDUNDANT,
     )
