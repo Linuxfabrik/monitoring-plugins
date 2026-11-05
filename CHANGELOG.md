@@ -44,7 +44,7 @@ Monitoring Plugins:
 
 * about-me: Rocket.Chat running as a rootless Podman container under `/opt/rocketchat` gets its tag again.
 * apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: An empty log right after a rotation no longer hides what the rotated log holds.
-* dmesg: use correct punctuation for `SMBus base address uninitialized` lines in `DEFAULT_IGNORE`.
+* dmesg: The default ignore pattern for `SMBus base address uninitialized` matches the AMD (piix4, " - ") and Intel (i801/iSMT, ", ") spellings.
 * mysql-logfile: A MariaDB restart counts as one shutdown, and denied logins no longer come with "No errors or warnings found".
 
 
