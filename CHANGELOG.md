@@ -41,12 +41,16 @@ Monitoring Plugins:
 
 * mysql-system: No longer checks `sunrpc.tcp_slot_table_entries`, including its perfdata and Grafana panel.
 
+Icinga Director:
+
+* system-update Service Set: No longer checks `notify-and-schedule`, which LFOps disables by default.
+
 
 ### Fixed
 
 Monitoring Plugins:
 
-* about-me: Rocket.Chat running as a rootless Podman container under `/opt/rocketchat` gets its tag again.
+* about-me: Rocket.Chat running as a rootless Podman container under `/opt/rocketchat` gets its tag again, and hosts with the LFOps system update are detected without `notify-and-schedule`.
 * apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: An empty log right after a rotation no longer hides what the rotated log holds.
 * dmesg: Ignores `SMBus base address uninitialized` on Intel hosts too.
 * graylog-version: No longer times out right after a reboot on RHEL 8.
