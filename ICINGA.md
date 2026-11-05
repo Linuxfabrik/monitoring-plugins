@@ -450,6 +450,38 @@ icingacli director basket restore --verbose \
 Trade-off: without UUIDs, Director falls back to name-based object matching, which loses the ability to rename a Datafield while preserving the values already set on hosts and services. Use this only after an actual import error.
 
 
+### Basket Import Fails on "Huawei Dorado Alarm"
+
+A Director that once imported the v7.0.0 basket fails on every basket from v8.0.0 on:
+
+```text
+Storing icinga_service[{"service_set_id":"45","object_name":"Huawei Dorado Alarm"}] failed: SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry '...' for key 'uuid'
+```
+
+In v7.0.0, six services of the Huawei Dorado Service Set shared the name "Huawei Dorado System". The import runs in a transaction, so the Director stays unchanged. Rename the five services by their UUID in the Director database, then import the basket as usual. On a Director without the duplicates, the statement changes nothing.
+
+```sql
+UPDATE icinga_service s
+  JOIN icinga_service_set ss ON ss.id = s.service_set_id
+   SET s.object_name = CASE LOWER(HEX(s.uuid))
+       WHEN '627be1e351744b1b840c2d535d4dbe6e' THEN 'Huawei Dorado Alarm'
+       WHEN '52f00fd44b4b42b7b05966da46ccee5b' THEN 'Huawei Dorado Expansion Board'
+       WHEN '9597de55e784495787696fe3506d57bd' THEN 'Huawei Dorado LUN'
+       WHEN 'f9dd7993edff4836b0e5acb5660f5498' THEN 'Huawei Dorado Port'
+       WHEN '277f64aec5cf45a39981d67c286fce6b' THEN 'Huawei Dorado SFP'
+       END
+ WHERE ss.object_name = 'Huawei Dorado Service Set'
+   AND s.object_name = 'Huawei Dorado System'
+   AND LOWER(HEX(s.uuid)) IN (
+       '627be1e351744b1b840c2d535d4dbe6e',
+       '52f00fd44b4b42b7b05966da46ccee5b',
+       '9597de55e784495787696fe3506d57bd',
+       'f9dd7993edff4836b0e5acb5660f5498',
+       '277f64aec5cf45a39981d67c286fce6b'
+   );
+```
+
+
 ### Master zone is not named `master`
 
 The shipped base templates `tpl-service-generic` and `tpl-host-generic` carry `"zone": "master"`, and every other template inherits it (see the "Distributed Monitoring" section under Core Concepts for the reasoning). If your Icinga 2 master zone has a different name, replace the literal before importing so the checks still target your master:

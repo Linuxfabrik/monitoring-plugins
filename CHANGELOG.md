@@ -267,6 +267,7 @@ Icinga Director:
 
 * Deb Updates, RPM Updates: also alert on ordinary updates after a grace period, tick `Only Critical` for the old behaviour
 * delete the leftover `tpl-service-cert` that uses `cmd-check-url` ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
+* Huawei Dorado Service Set: a Director that imported the v7.0.0 basket needs [five services renamed](https://linuxfabrik.github.io/monitoring-plugins/icinga/#basket-import-fails-on-huawei-dorado-alarm) before the import
 * Journald Query, Logfile, MySQL Logfile: `Ignore Pattern` / `Ignore Regex` become `Ignore` (regex), and MySQL Logfile's `Server Log` has to be re-entered
 * KVM Host Service Set: tag your hypervisors `libvirtd` or `virtqemud`
 * MySQL Database Metrics, Storage Engines, Table Indexes: `Ignore Schemas` / `Ignore Tables` become `Match` / `Ignore`
