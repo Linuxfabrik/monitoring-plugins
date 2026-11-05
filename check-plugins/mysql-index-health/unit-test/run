@@ -151,6 +151,13 @@ def _check_image(test, containerfile):
             'CREATE DATABASE t; USE t; '
             'CREATE TABLE x (a INT, b INT, KEY idx_a(a), KEY idx_a_b(a,b));',
         )
+        # `sys.schema_redundant_indexes` lists the primary key of this table as
+        # redundant to `uq_u`. The plugin must never offer to drop a primary key.
+        _exec_sql(
+            container,
+            'CREATE TABLE t.r (u INT NOT NULL, i INT NOT NULL, '
+            'PRIMARY KEY (u, i), UNIQUE KEY uq_u (u));',
+        )
 
         # Phase 3: re-run with findings present. Behaviour differs
         # between images:
@@ -168,6 +175,7 @@ def _check_image(test, containerfile):
         test.assertIn('redundant index', out)
         test.assertIn('mysql_redundant_indexes', out)
         test.assertIn('mysqltuner --pfstat', out)
+        test.assertNotIn('PRIMARY', out)
 
         # Unused indexes alert only when `--warning-unused` asks for it. With the
         # redundant finding out of the way, the default run is OK even where the

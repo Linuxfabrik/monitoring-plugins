@@ -20,7 +20,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026110501'
 
 DESCRIPTION = """Reports the two index-housekeeping findings that MySQLTuner
 flags inside its `mysql_pfs()` block: unused indexes (never read since the last server
@@ -261,6 +261,13 @@ def fetch_redundant_indexes(conn):
     filter is needed. `sql_drop_index` is taken straight from the view
     so the admin can copy/paste a ready-to-run `ALTER TABLE` statement.
     """
+    # The view also lists a primary key as redundant when a narrower unique key covers
+    # its leading columns, for example `PRIMARY KEY (a, b)` next to `UNIQUE KEY (a)`,
+    # and offers `DROP INDEX PRIMARY`. In InnoDB the primary key is the clustered
+    # index, so dropping it rebuilds the table around a hidden row id and breaks the
+    # schema the application expects. Verified on MariaDB 11.8 and MySQL 8.4.
+    # MySQLTuner passes such rows through. `sys.schema_unused_indexes` excludes the
+    # primary key itself.
     sql = """
         select table_schema as schema_name,
             table_name,
@@ -268,6 +275,7 @@ def fetch_redundant_indexes(conn):
             dominant_index_name as dominant_name,
             sql_drop_index
         from sys.schema_redundant_indexes
+        where redundant_index_name <> 'PRIMARY'
         order by table_schema, table_name, redundant_index_name
         ;
     """
