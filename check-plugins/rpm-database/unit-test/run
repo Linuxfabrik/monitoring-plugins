@@ -1,0 +1,228 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_OK, STATE_WARN
+
+# Every fixture is the output of `rpm --query --all --queryformat='%{NAME}\n'` run as
+# root, captured from a real run:
+#
+# * `*-healthy`: the stock container images of Rocky Linux 8, 9 and 10 (rpm 4.14.3,
+#   4.16.1.3, 4.19.1.1), Fedora 44 (rpm 6.0.2) and openSUSE Leap 15.6 and 16.0
+#   (rpm 4.14.3, 4.20.1).
+# * `rocky8-killed-process-left-locks`: a Rocky 8.10 host whose database broke when
+#   a monitoring check killed `needs-restarting` with SIGKILL after its timeout. The
+#   same state was reproduced in a Rocky 8 container by SIGKILLing
+#   `rpm --query --all` in a loop until one landed inside Berkeley DB.
+# * `rocky8-killed-reader-read-locks-freed`: a query SIGKILLed while it only held read
+#   locks. rpm frees them on the next open and says so on stderr, nothing is broken.
+# * `*-page-damaged`, `*-file-truncated`, `*-header-damaged`: 32 KiB of random bytes
+#   written into the middle of `Packages` / `rpmdb.sqlite`, a truncated `Packages`, and
+#   100 random bytes over the sqlite file header, in the respective container.
+# * `*-dbpath-empty`: the database directory replaced by an empty one.
+TESTS = [
+    {
+        'id': 'ok-fedora44',
+        'test': 'stdout/fedora44-healthy,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['The RPM database lists 147 installed packages.'],
+    },
+    {
+        'id': 'ok-leap156',
+        'test': 'stdout/leap156-healthy,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['lists 141 installed packages', "'packages'=141;;;0"],
+    },
+    {
+        'id': 'ok-leap160',
+        'test': 'stdout/leap160-healthy,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['lists 121 installed packages'],
+    },
+    {
+        'id': 'ok-rocky10',
+        'test': 'stdout/rocky10-healthy,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['lists 138 installed packages'],
+    },
+    {
+        'id': 'ok-rocky8',
+        'test': 'stdout/rocky8-healthy,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['lists 148 installed packages'],
+        'assert-not-in': ['rpm reported'],
+    },
+    {
+        'id': 'ok-rocky8-read-locks-freed',
+        'test': 'stdout/rocky8-killed-reader-read-locks-freed,'
+        'stderr/rocky8-killed-reader-read-locks-freed,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'lists 148 installed packages',
+            'rpm reported:',
+            '* rpmdb: BDB2053 Freeing read locks for locker 0x1',
+        ],
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        'id': 'ok-rocky9',
+        'test': 'stdout/rocky9-healthy,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['lists 147 installed packages'],
+    },
+    {
+        'id': 'ok-always-ok-on-broken-database',
+        'test': 'stdout/rocky8-killed-process-left-locks,'
+        'stderr/rocky8-killed-process-left-locks,1',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['The RPM database cannot be read [WARNING].'],
+    },
+    {
+        'id': 'ok-no-perfdata',
+        'test': 'stdout/rocky8-healthy,,0',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['|'],
+    },
+    {
+        'id': 'warn-rocky10-dbpath-empty',
+        'test': 'stdout/rocky10-dbpath-empty,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'The RPM database lists no installed packages [WARNING].',
+            'rpm --eval %_dbpath',
+            "'packages'=0;;;0",
+        ],
+    },
+    {
+        'id': 'warn-rocky10-sqlite-page-damaged',
+        'test': 'stdout/rocky10-sqlite-page-damaged,'
+        'stderr/rocky10-sqlite-page-damaged,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'The RPM database is damaged, only 69 packages could be read [WARNING].',
+            "* SELECT hnum, blob FROM 'Packages': 11: database disk image is malformed",
+            'silently drops every package it cannot read',
+        ],
+        'assert-not-in': ['rm --force /var/lib/rpm/__db.*'],
+    },
+    {
+        'id': 'warn-rocky8-dbpath-empty',
+        'test': 'stdout/rocky8-dbpath-empty,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['lists no installed packages [WARNING]'],
+    },
+    {
+        'id': 'warn-rocky8-killed-process-left-locks',
+        'test': 'stdout/rocky8-killed-process-left-locks,'
+        'stderr/rocky8-killed-process-left-locks,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-regex': (
+            r'^The RPM database cannot be read \[WARNING\]\.\n'
+            r'\* rpmdb: BDB0113 Thread/process 3210/\d+ failed: BDB1507 Thread died'
+        ),
+        'assert-in': [
+            'DB_RUNRECOVERY: Fatal error, run database recovery',
+            'sudo rm --force /var/lib/rpm/__db.*',
+        ],
+    },
+    {
+        'id': 'parses-rocky8-killed-process-errors-once',
+        'test': 'stdout/rocky8-killed-process-left-locks,'
+        'stderr/rocky8-killed-process-left-locks,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        # rpm prints the four lines twice, the plugin lists them once
+        'assert-regex': r'^(?![\s\S]*BDB1507[\s\S]*BDB1507)',
+    },
+    {
+        'id': 'warn-rocky8-packages-file-truncated',
+        'test': 'stdout/rocky8-packages-file-truncated,'
+        'stderr/rocky8-packages-file-truncated,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'The RPM database cannot be read [WARNING].',
+            'unexpected file type or format',
+            'Restore the database directory',
+        ],
+        'assert-not-in': ['rm --force /var/lib/rpm/__db.*'],
+    },
+    {
+        'id': 'warn-rocky8-packages-page-damaged',
+        'test': 'stdout/rocky8-packages-page-damaged,'
+        'stderr/rocky8-packages-page-damaged,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'The RPM database is damaged, only 43 packages could be read [WARNING].',
+            'BDB0058 page 1066: illegal page type or format',
+            # rpm 4.14 reports DB_RUNRECOVERY here too, but the data is damaged and
+            # removing the lock environment does not help
+            'DB_RUNRECOVERY',
+            'Restore the database directory',
+        ],
+        'assert-not-in': ['rm --force /var/lib/rpm/__db.*'],
+    },
+    {
+        'id': 'warn-rocky9-sqlite-header-damaged',
+        'test': 'stdout/rocky9-sqlite-header-damaged,'
+        'stderr/rocky9-sqlite-header-damaged,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'The RPM database cannot be read [WARNING].',
+            'file is not a database',
+        ],
+    },
+    {
+        'id': 'warn-rocky9-sqlite-page-damaged',
+        'test': 'stdout/rocky9-sqlite-page-damaged,stderr/rocky9-sqlite-page-damaged,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['only 89 packages could be read [WARNING]'],
+    },
+    {
+        'id': 'warn-nonzero-exit-without-stderr',
+        'test': 'stdout/rocky8-healthy,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['The RPM database is damaged, only 148 packages could be read'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../rpm-database'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

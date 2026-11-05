@@ -1,0 +1,126 @@
+{
+    "Command": {
+        "cmd-check-rpm-database": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$rpm_database_always_ok$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$rpm_database_no_perfdata$"
+                },
+                "--timeout": {
+                    "value": "$rpm_database_timeout$"
+                }
+            },
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/rpm-database",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-rpm-database",
+            "object_type": "object",
+            "timeout": 75,
+            "vars": {},
+            "zone": null,
+            "uuid": "de1ebda5-77ce-4edd-a7bb-93b04dc6aa55"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-rpm-database": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-rpm-database",
+            "check_interval": 3600,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "rpm-database.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 3,
+            "notes": "Checks that the RPM database can be read completely, by listing every installed package the way the package manager does. A broken database stops dnf, yum, zypper and every check that asks for installed packages, so the host silently stops receiving updates. Alerts when the database cannot be opened, when reading it reports errors, and when it lists no packages at all. Requires root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rpm-database/",
+            "object_name": "tpl-service-rpm-database",
+            "object_type": "template",
+            "retry_interval": 300,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "rpm_database_always_ok": false,
+                "rpm_database_no_perfdata": false,
+                "rpm_database_timeout": 60
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "36563a85-2f85-40ec-b845-b10ba5c2dec1"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "rpm_database_always_ok",
+            "caption": "RPM Database: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "c8f227ec-aad0-4599-9370-f5b7e5650f9e"
+        },
+        "2": {
+            "varname": "rpm_database_no_perfdata",
+            "caption": "RPM Database: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "43a61ac6-a4ad-4fbb-96f8-eb036a47ddc8"
+        },
+        "3": {
+            "varname": "rpm_database_timeout",
+            "caption": "RPM Database: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "feed64d7-88c5-4cb5-abc5-fad9af4b6e55"
+        }
+    }
+}

@@ -1,0 +1,11 @@
+---
+overwrites:
+  '["Command"]["cmd-check-rpm-database"]["command"]': '/usr/bin/sudo /usr/lib64/nagios/plugins/rpm-database'
+  # The plugin gives rpm 60 seconds, enough for the first read of a large database
+  # right after a reboot. A shorter command timeout makes the monitoring server end the
+  # check while rpm is still reading, and report a timeout instead of the result.
+  '["Command"]["cmd-check-rpm-database"]["timeout"]': 75
+  '["ServiceTemplate"]["tpl-service-rpm-database"]["check_interval"]': 3600
+  '["ServiceTemplate"]["tpl-service-rpm-database"]["enable_perfdata"]': true
+  '["ServiceTemplate"]["tpl-service-rpm-database"]["max_check_attempts"]': 3
+  '["ServiceTemplate"]["tpl-service-rpm-database"]["retry_interval"]': 300

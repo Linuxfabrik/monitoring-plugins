@@ -1,0 +1,282 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import os
+import sys
+import time
+
+import lib.args
+import lib.base
+import lib.distro
+import lib.human
+import lib.lftest
+import lib.shell
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026110501'
+
+DESCRIPTION = """Checks that the RPM database can be read completely, by listing every
+installed package the way the package manager does. A broken database stops dnf, yum,
+zypper and every check that asks for installed packages, so the host silently stops
+receiving updates. Alerts when the database cannot be opened, when reading it reports
+errors, and when it lists no packages at all. Requires root or sudo."""
+
+# The families whose packages are managed through RPM. Debian can install `rpm` too, but
+# its database is empty there by design, which this check would report as a fault.
+SUPPORTED_OS_FAMILIES = ('RedHat', 'Suse')
+
+# Measured on Rocky 8.10 with 552 packages and a 317 MB `Packages` file: 1 s with a warm
+# page cache, 27 s for the first query after a reboot. The timeout has to cover the cold
+# case, because a query killed inside Berkeley DB is what breaks the database: SIGKILL
+# while rpm 4.14 holds a mutex leaves "BDB1507 Thread died in Berkeley DB library" and
+# DB_RUNRECOVERY for every later root query (reproduced on Rocky 8 within 24 attempts).
+# On a timeout the command is asked to end with SIGTERM first, which rpm handles by
+# closing the database, and killed only if it does not end in time. The sqlite backend
+# of EL9 and later survived 400 SIGKILLs. The command timeout of the basket is 75.
+DEFAULT_TIMEOUT = 60
+
+# Red Hat's procedure for stale locks (RH342, "Recovering a Corrupted RPM Database"):
+# reboot, or remove the `__db.*` files once nothing uses the database. A reboot works
+# because rpm ships `r /var/lib/rpm/__db.*` in `/usr/lib/tmpfiles.d/rpm.conf`. Verified
+# on Rocky 8.3 / rpm 4.14.3 after reproducing the state: removing the files alone brings
+# the database back, and dnf works again.
+HELP_STALE_ENVIRONMENT = (
+    'A process was killed while it was using the database, and its lock files were '
+    'left behind. Reboot, which removes them, or make sure no rpm, dnf, yum or '
+    'PackageKit process is running and remove them: '
+    '`sudo rm --force /var/lib/rpm/__db.*`'
+)
+
+# `rpm --rebuilddb` exits 0 on damaged data and drops every package it cannot read.
+# Measured on Rocky 8.3 with a damaged `Packages` file: 365 packages before, 181 after
+# the rebuild, and no word about the ones that went missing. Red Hat's longer procedure
+# (`rpmdb_dump` into `rpmdb_load`, then the rebuild) saved no more on the same damage,
+# and registering the 184 missing packages again with `rpm --install --justdb` failed on
+# dependencies and on versions that differed from the installed ones. After a rebuild
+# this check reads a consistent database and reports OK, so the backup comes first.
+HELP_DAMAGED = (
+    'Restore the database directory (`rpm --eval %_dbpath`) from a backup. Without '
+    'one, `sudo rpm --rebuilddb` gets the package manager working again, but silently '
+    'drops every package it cannot read, and each of those has to be registered again '
+    'with `rpm --install --justdb` in the version that is installed.'
+)
+
+HELP_EMPTY = (
+    'Check that `rpm --eval %_dbpath` points to the database of this host and that the '
+    'directory has not been emptied or replaced.'
+)
+
+# The message that marks a lock environment left behind by a process that died inside
+# Berkeley DB (EL8 and older). DB_RUNRECOVERY alone is no such marker: rpm 4.14 prints
+# it for damaged data pages as well, where removing the environment does not help.
+STALE_ENVIRONMENT_MARKER = 'BDB1507'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def unique_lines(text, prefix):
+    """
+    Return the lines of `text` that start with `prefix`, without the prefix and in
+    their original order, each only once. rpm prints most database errors twice, once
+    per attempt to open the database.
+    """
+    lines = []
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith(prefix):
+            line = line[len(prefix) :].strip()
+            if line and line not in lines:
+                lines.append(line)
+    return lines
+
+
+def query_database(args):
+    """
+    List the installed packages as root, the way the package manager reads them.
+
+    Returns `(stdout, stderr, retc, duration)`. Ends the check where there is no RPM
+    database to ask, where the check lacks the rights to ask it honestly, and where rpm
+    does not answer in time.
+    """
+    facts = lib.distro.get_distribution_facts()
+    if facts['os_family'] not in SUPPORTED_OS_FAMILIES:
+        # name the distribution rather than the family id, which reads "Suse" on
+        # openSUSE
+        lib.base.cu(
+            f'{facts.get("os_info") or facts["os_family"]} does not manage its '
+            'packages through RPM, so there is no RPM database to check here.'
+        )
+
+    # Without root, rpm opens a Berkeley DB database without its shared lock
+    # environment and reads it as if nothing was wrong. Measured on Rocky 8.10
+    # with a database broken by a killed process: 552 packages and no error as an
+    # unprivileged user, DB_RUNRECOVERY and no packages as root, which is also
+    # what dnf sees.
+    if hasattr(os, 'geteuid') and os.geteuid() != 0:
+        lib.base.cu(
+            'This check has to run as root. Without it rpm reads the database '
+            'past the locks that dnf and yum stumble over, and a broken database '
+            'looks healthy. Deploy the sudoers file that comes with the check and '
+            'call it through sudo.'
+        )
+
+    cmd = ['rpm', '--query', '--all', '--queryformat=%{NAME}\n']
+    start = time.monotonic()
+    success, result = lib.shell.shell_exec(cmd, timeout=args.TIMEOUT)
+    duration = time.monotonic() - start
+    if not success and result.startswith('Timeout after'):
+        lib.base.oao(
+            f'Timeout after {args.TIMEOUT}s while listing the installed packages. '
+            'The database may be locked by a running package transaction, or it '
+            'is slow to read right after a reboot. Raise `--timeout` if this '
+            'repeats on an idle host.',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
+    if not success:
+        lib.base.cu(f'Could not run rpm: {result}')
+    stdout, stderr, retc = result
+    return stdout, stderr, retc, duration
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        stdout, stderr, retc, duration = query_database(args)
+    else:
+        # do not call rpm, put in test data
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
+        duration = None
+
+    # init some vars
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+
+    # analyze data
+    packages = len([line for line in stdout.splitlines() if line.strip()])
+    # rpm draws the line itself: "error:" for what it could not do, "warning:" for
+    # what it noticed and handled, such as freeing the read locks of a process that
+    # died while only reading. A damaged database still exits 0 and lists the packages
+    # it got to, so the exit code alone misses it.
+    errors = unique_lines(stderr, 'error:')
+    warnings = unique_lines(stderr, 'warning:')
+    stale = any(STALE_ENVIRONMENT_MARKER in error for error in errors)
+
+    # build the message
+    if int(retc) != 0 or errors:
+        state = STATE_WARN
+        if packages == 0:
+            msg = 'The RPM database cannot be read'
+        else:
+            msg = (
+                f'The RPM database is damaged, only {packages} '
+                f'{lib.txt.pluralize("package", packages)} could be read'
+            )
+        msg += f'{lib.base.state2str(state, prefix=" ")}.'
+        if errors:
+            msg += '\n' + '\n'.join(f'* {error}' for error in errors)
+        msg += '\n' + (HELP_STALE_ENVIRONMENT if stale else HELP_DAMAGED)
+    elif packages == 0:
+        state = STATE_WARN
+        msg = (
+            'The RPM database lists no installed packages'
+            f'{lib.base.state2str(state, prefix=" ")}.\n{HELP_EMPTY}'
+        )
+    else:
+        msg = (
+            f'The RPM database lists {packages} installed '
+            f'{lib.txt.pluralize("package", packages)}'
+        )
+        if duration is not None:
+            msg += f' and was read in {lib.human.seconds2human(round(duration, 2))}'
+        msg += '.'
+
+    if warnings:
+        msg += '\nrpm reported:\n' + '\n'.join(f'* {warning}' for warning in warnings)
+
+    perfdata += lib.base.get_perfdata('packages', packages, uom=None, _min=0)
+    if duration is not None:
+        perfdata += lib.base.get_perfdata(
+            'query_duration', round(duration, 3), uom='s', _min=0
+        )
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()
