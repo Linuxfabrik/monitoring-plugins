@@ -3,6 +3,10 @@ variants:
   - linux
 
 overwrites:
+  # The package query alone may take up to 60 seconds right after a reboot on RHEL 8, and
+  # the endoflife.date lookup follows it. A shorter command timeout makes the monitoring
+  # server end the check before it can report.
+  '["Command"]["cmd-check-graylog-version"]["timeout"]': 75
   '["ServiceTemplate"]["tpl-service-graylog-version"]["check_interval"]': 86400
   '["ServiceTemplate"]["tpl-service-graylog-version"]["enable_perfdata"]': true
   '["ServiceTemplate"]["tpl-service-graylog-version"]["retry_interval"]': 60

@@ -23,7 +23,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102402'
+__version__ = '2026110501'
 
 DESCRIPTION = """Checks the installed Graylog version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -37,6 +37,12 @@ DEFAULT_NO_PROXY = False
 DEFAULT_OFFSET_EOL = -30  # days
 DEFAULT_TIMEOUT = 8
 DEFAULT_UNREACHABLE_SEVERITY = 'ok'
+
+# The package query gets its own timeout, `--timeout` is meant for the network. On
+# RHEL 8, `yum list installed` reads the whole RPM database, which took 20 to 27 s right
+# after a reboot (measured on Rocky 8.10), and a query killed inside Berkeley DB can
+# break the database for dnf and yum.
+PACKAGE_QUERY_TIMEOUT = 60
 
 
 def parse_args():
@@ -152,7 +158,9 @@ def parse_args():
     return args
 
 
-def get_installed_version(test_arg=None, timeout=DEFAULT_TIMEOUT, always_ok=False):
+def get_installed_version(
+    test_arg=None, timeout=PACKAGE_QUERY_TIMEOUT, always_ok=False
+):
     if test_arg is None:
         distro = lib.distro.get_distribution_facts()
         if distro['os_family'] == 'RedHat':
@@ -195,9 +203,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = get_installed_version(
-        args.TEST, timeout=args.TIMEOUT, always_ok=args.ALWAYS_OK
-    )
+    installed_version = get_installed_version(args.TEST, always_ok=args.ALWAYS_OK)
     if not installed_version:
         lib.base.cu(
             'Graylog not found: no `graylog-server` package installed, and this check '
