@@ -46,6 +46,7 @@ Monitoring Plugins:
 * apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: An empty log right after a rotation no longer hides what the rotated log holds.
 * dmesg: Ignores `SMBus base address uninitialized` on Intel hosts too.
 * mysql-logfile: A MariaDB restart counts as one shutdown, and denied logins no longer come with "No errors or warnings found".
+* needs-restarting: The first run after a reboot no longer times out and leaves the RPM database broken on RHEL 8.
 
 
 ## [v8.1.0] - 2026-10-27

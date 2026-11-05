@@ -68,7 +68,7 @@ options:
                         reboot and for each service, and starts over once that
                         entry is gone. A duration such as `12h`, `8D` or `2W`;
                         `0D` disables the grace period. Default: 0D
-  --timeout TIMEOUT     Network timeout in seconds. Default: 20 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 60 (seconds)
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/needs-restarting/

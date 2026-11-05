@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026110501'
 
 DESCRIPTION = """Reports what on this host is still running the code it had before the
 last update: processes that were started before they or one of their dependencies were
@@ -87,7 +87,13 @@ SERVICE_HELP = (
 )
 
 DEFAULT_GRACE_WAIT = '0D'
-DEFAULT_TIMEOUT = 20  # per call, up to two; the command timeout of the basket is 45
+# Per call, up to two; the command timeout of the basket is 130. The RPM family reads
+# the whole RPM database, which took 27 s on a Rocky 8.10 host for its first query after
+# a reboot (552 packages, 1 s with a warm page cache). Running into the timeout there is
+# worse than slow: the kill that ends the call can land inside Berkeley DB and leave the
+# database unusable for dnf and yum ("BDB1507 Thread died in Berkeley DB library",
+# DB_RUNRECOVERY), which is how a 20 s timeout broke such a host.
+DEFAULT_TIMEOUT = 60
 
 
 def parse_args():
