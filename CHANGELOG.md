@@ -35,6 +35,10 @@ Monitoring Plugins:
 * psi-io: Higher default thresholds, a single busy reader no longer alerts.
 * scanrootkit: Reports indicators instead of rootkits, generic paths and files any user can create only warn, detects 3 more implants.
 
+Icinga Director:
+
+* deb-updates, rpm-updates: Check for updates every 8 hours instead of once a day.
+
 
 ### Removed
 

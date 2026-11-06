@@ -37,7 +37,7 @@ Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/rpm-updates> |
 | Nagios/Icinga Check Name              | `check_rpm_updates` |
-| Check Interval Recommendation         | Every day |
+| Check Interval Recommendation         | Every 8 hours |
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
