@@ -24,6 +24,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
+* about-me: `--tags` proposes the new `data-partition` tag on hosts with a partition mounted at `/data`.
 * lynis-logfile: Reports how many tests the lynis profile skips.
 * mysql-connections: Speaks of failed connection attempts instead of aborted connections, and points to the denied logins.
 * mysql-index-health: Redundant indexes no longer alert by default.

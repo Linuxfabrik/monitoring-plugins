@@ -35,13 +35,16 @@ from lib.globals import STATE_OK, STATE_UNKNOWN
 try:
     import psutil
 
+    # lib.psutil exits with UNKNOWN on a missing psutil, which is optional here
+    import lib.psutil
+
     HAVE_PSUTIL = True
 except ImportError:
     HAVE_PSUTIL = False
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110501 / v8.1.0'
+__version__ = '2026110601 / v8.1.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -412,6 +415,13 @@ def get_lftags(distro):
         lib.disk.read_file(path)[1].strip().startswith('LVM-')
         for path in lib.disk.glob('/sys/block/dm-*/dm/uuid')
     )
+    # A /data directory on the root filesystem is no reason for the tag, a partition
+    # mounted at /data is, because that one can fill up on its own. Network and memory
+    # filesystems are left out, and the list comes from the mount table alone, so a
+    # dead network mount cannot hold it up.
+    has_data_partition = HAVE_PSUTIL and any(
+        part.mountpoint == '/data' for part in lib.psutil.get_partitions()
+    )
     # A loaded mod_qos is no reason for the tag, its status page is: that page is
     # what the mod-qos-stats check reads, and without it the check can only fail.
     # In the `?auto` form the page always starts with the system load line
@@ -550,6 +560,7 @@ def get_lftags(distro):
             'package': ['coturn'],
             'expr': [run_cmd(['systemctl', 'is-enabled', 'coturn.service'])],
         },
+        {'sw': 'Data Partition', 'package': [], 'expr': [has_data_partition]},
         # {'sw': 'DHCP Client', 'package': [], 'expr': []},
         {
             'sw': 'Docker',
