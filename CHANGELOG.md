@@ -33,6 +33,7 @@ Monitoring Plugins:
 * mysql-user-security: A legacy authentication plugin no longer alerts on MariaDB.
 * nextcloud-stats: The output says "enabled apps", since disabled apps are not part of the count.
 * psi-io: Higher default thresholds, a single busy reader no longer alerts.
+* rpm-updates: Counts Rocky Linux `security` repo hot-fixes as security updates.
 * scanrootkit: Reports indicators instead of rootkits, generic paths and files any user can create only warn, detects 3 more implants.
 
 Icinga Director:

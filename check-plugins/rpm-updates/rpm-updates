@@ -17,6 +17,7 @@ import sys
 import lib.args
 import lib.base
 import lib.db_sqlite
+import lib.distro
 import lib.human
 import lib.lftest
 import lib.shell
@@ -24,13 +25,15 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102501'
+__version__ = '2026110601'
 
 DESCRIPTION = """Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 systems. Reports the number and type of available advisories (bugfix, enhancement,
-security). Alerts when the number of pending updates reaches the warning threshold, and
-when the number of security updates reaches the critical threshold. This check only lists
-updates and never actually installs anything."""
+security). An update counts as a security update if it carries a security advisory, or,
+where it is enabled, if it comes from the optional Rocky Linux `security` repository,
+which carries no advisories. Alerts when the number of pending updates reaches the
+warning threshold, and when the number of security updates reaches the critical
+threshold. This check only lists updates and never actually installs anything."""
 
 DEFAULT_CRIT = None  # number of security updates, off by default
 DEFAULT_GRACE_SECURITY = '0D'
@@ -38,6 +41,19 @@ DEFAULT_GRACE_UPDATES = '0D'
 DEFAULT_QUERY = '1'
 DEFAULT_TIMEOUT = 120
 DEFAULT_WARN = 1  # number of updatable packages
+
+# Rocky Linux publishes security hot-fixes (kernel and kernel tooling, release suffix
+# `.0.N`, e.g. `5.14.0-687.61.1.el9_8.0.1`) in a repository of their own, without any
+# updateinfo metadata, so `yum updateinfo` never marks them as security. The repo id is
+# `security` in the `rocky-security.repo` / `Rocky-Security.repo` file. `yum list
+# --upgrades` prints it bare, without the `@` that marks installed packages. Verified
+# with dnf 4.7 on Rocky 8.10, dnf 4.14 on Rocky 9.8 and dnf 4.20 on Rocky 10.2.
+# The repository is optional: rocky-repos ships it with `enabled=0` on Rocky 9 and 10
+# and not at all on Rocky 8, so without it only advisories count. The rule applies on
+# Rocky Linux only (lib.distro reports `Rocky` there, `RedHat` on RHEL and
+# `OracleLinux` on Oracle Linux), because elsewhere a repository of that id belongs to
+# somebody else and says nothing about what it ships.
+SECURITY_REPO = 'security'
 
 
 def parse_args():
@@ -67,8 +83,8 @@ def parse_args():
         '-c',
         '--critical',
         help='Minimum number of pending security updates to trigger a CRITICAL. '
-        'Counts the updates carrying a security advisory, within the scope of '
-        '`--query`. '
+        'Counts the updates carrying a security advisory or coming from the Rocky '
+        'Linux `security` repository (if enabled), within the scope of `--query`. '
         'Unset by default, so security updates raise a WARNING like any other '
         'update until a threshold is given. '
         'Example: `--critical=1` '
@@ -284,6 +300,23 @@ def get_updateinfo(args):
         )
 
     return yum_info
+
+
+def is_rocky(args):
+    """Return True if the host runs Rocky Linux.
+
+    Under `--test`, the host's own release must not decide the outcome, so the
+    answer comes from the optional fixture `<base>-os-release`, a copy of
+    `/etc/os-release`. Without that fixture the host counts as not Rocky.
+    """
+    if args.TEST is None:
+        return lib.distro.get_distribution_facts().get('distribution') == 'Rocky'
+    os_release = lib.lftest.test_text(
+        args.TEST, path=args.TEST[0] + '-os-release', missing_ok=True
+    )
+    if not os_release:
+        return False
+    return re.search(r'^ID="?rocky"?$', os_release, re.MULTILINE) is not None
 
 
 def join_packages_updates(yum_installed, yum_upgrades):
@@ -502,7 +535,7 @@ def store_updateinfo(conn, yum_info):
             )
 
 
-def get_advisory_type(update_data, info_data):
+def get_advisory_type(update_data, info_data, count_security_repo):
     """
     Annotate Updates with Advisory Types
 
@@ -529,6 +562,8 @@ def get_advisory_type(update_data, info_data):
         - `'type'` (`str` or similar): Advisory type string (e.g., `"security"`, `"bugfix"`).
           Only the first character of this string (uppercased) is used.
         As matches are found, corresponding dictionaries are removed from `info_data`.
+    count_security_repo : bool
+        Whether an update from `SECURITY_REPO` counts as security (Rocky Linux only).
 
     Returns
     -------
@@ -544,7 +579,9 @@ def get_advisory_type(update_data, info_data):
     - The function mutates both `update_data` (by injecting `'type'` keys) and `info_data`
       (by removing matched entries).
       If the caller needs to preserve the original lists, they should pass deep copies.
-    - If an update has no matching entries in `info_data`, its `'type'` remains an empty string.
+    - If an update has no matching entries in `info_data`, its `'type'` remains an empty string,
+      unless it comes from `SECURITY_REPO` and `count_security_repo` is set, which adds
+      an `S`.
     - The ordering of characters in `'type'` corresponds to the order in which matches were found;
       duplicates may occur if multiple advisories share the same first letter.
     - The `lookup_lod` helper is expected to return a tuple `(index, info_dict)`.
@@ -559,6 +596,13 @@ def get_advisory_type(update_data, info_data):
                 break
             info_data.pop(iidx)
             update['type'] += info['type'][0].upper()
+        # A hot-fix from the security repository carries no advisory, but is one.
+        if (
+            count_security_repo
+            and update['repo_upgrade'] == SECURITY_REPO
+            and 'S' not in update['type']
+        ):
+            update['type'] += 'S'
         table_data.append(update)
 
     return table_data
@@ -592,6 +636,9 @@ def main():
 
     # get the list of installed software
     yum_upgrades, yum_installed = get_updates(args)
+
+    # only Rocky Linux names its hot-fix repository `security`
+    count_security_repo = is_rocky(args)
 
     # join the list of installed packages and their updates
     packages = join_packages_updates(yum_installed, yum_upgrades)
@@ -703,7 +750,7 @@ def main():
     lib.db_sqlite.close(conn)
 
     # for each package get the update types up to the newest available version (first letter)
-    table_data = get_advisory_type(update_data, info_data)
+    table_data = get_advisory_type(update_data, info_data, count_security_repo)
 
     # `--only-critical` narrows down what is reported, while the security count
     # itself stays available either way, so both numbers can be trended at once

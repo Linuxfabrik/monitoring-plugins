@@ -143,6 +143,50 @@ TESTS = [
         'assert-retc': STATE_CRIT,
         'assert-in': ['2 critical updates available', "'critical_updates'=2"],
     },
+    # Rocky Linux ships kernel hot-fixes in its `security` repository, which has no
+    # updateinfo, so only the repo column marks them. Captured on Rocky 9.8 with
+    # the `security` repo enabled, in the window before BaseOS/AppStream
+    # catch up: perf installed one release below the hot-fix, the newer regular
+    # perf builds excluded. 36 updates carry an advisory, perf is the 37th. The
+    # rule applies on Rocky Linux only, which `<base>-os-release` tells the plugin.
+    {
+        'id': 'crit-security-repo-hotfix-counts-as-security',
+        'test': 'stdout/rocky9-security-hotfix,,0',
+        'params': '--critical 1',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '45 updates available, 37 of them critical',
+            "'critical_updates'=37",
+        ],
+        'assert-regex': r'perf +! [^!]+! [^!]+\.0\.1 +! S +! overdue \[CRITICAL\]',
+    },
+    {
+        'id': 'warn-security-repo-hotfix-in-only-critical',
+        'test': 'stdout/rocky9-security-hotfix,,0',
+        'params': '--only-critical',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['37 critical updates available', 'perf '],
+    },
+    # A package from BaseOS without an advisory stays an ordinary update.
+    {
+        'id': 'crit-baseos-row-without-advisory-stays-warning',
+        'test': 'stdout/rocky9-security-hotfix,,0',
+        'params': '--critical 1',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'rocky-release +! [^!]+! [^!]+! +! overdue \[WARNING\]',
+    },
+    # On any other distribution a repository with the id `security` is a third
+    # party's and says nothing about its content. Captured on UBI 9 with such a
+    # repository (Rocky's security repo, gpgcheck=0, as a stand-in that carries
+    # no updateinfo) and libperf installed one hot-fix below its newest.
+    {
+        'id': 'warn-repo-id-security-on-rhel-is-not-security',
+        'test': 'stdout/ubi9-repo-id-security,,0',
+        'params': '--critical 1',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['4 updates available.', "'critical_updates'=0"],
+        'assert-regex': r'libperf +! [^!]+! [^!]+! +! overdue \[WARNING\]',
+    },
     # The table names per row the state that package feeds, so the check's own
     # state can be traced back to the packages responsible for it. Under
     # `--test` no ages are read from the host, so every row is due.

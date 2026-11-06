@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible systems. Reports the number and type of available advisories (bugfix, enhancement, security). Alerts when the number of pending updates reaches the warning threshold, and when the number of security updates reaches the critical threshold. This check only lists updates and never actually installs anything.
+Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible systems. Reports the number and type of available advisories (bugfix, enhancement, security). An update counts as a security update if it carries a security advisory, or, where it is enabled, if it comes from the optional Rocky Linux `security` repository, which carries no advisories. Alerts when the number of pending updates reaches the warning threshold, and when the number of security updates reaches the critical threshold. This check only lists updates and never actually installs anything.
 
 **Important Notes:**
 
@@ -18,7 +18,7 @@ Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 * The "Type" column in the output lists the type of update for each intermediate version. Abbreviation meanings:
     * B: Bugfix
     * E: Enhancement
-    * S: Security
+    * S: Security (a security advisory, or an update from the Rocky Linux `security` repository if enabled)
     * U: Unspecified
     * no character: unknown
 
@@ -26,7 +26,7 @@ Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 
 * Executes `yum list --upgrades`, `yum list --installed`, and `yum updateinfo list --available`
 * Stores all package and advisory information in a local SQLite database that lives only for the duration of the run, for SQL-based filtering via `--query`
-* Counts an update as security-critical when it carries a security advisory (`S` in the "Type" column). Optionally narrows the report down to those updates (`--only-critical`); the security count is reported either way
+* Counts an update as security-critical (`S` in the "Type" column) in two cases. It carries a security advisory, as the errata in BaseOS and AppStream on RHEL and Rocky Linux and the security updates on Fedora do. Or, on Rocky Linux only, its newest version comes from the `security` repository (repo id `security`), which publishes urgent hot-fixes, mostly for the kernel, ahead of the regular errata and without any advisory metadata. That repository is optional and disabled by default (Rocky Linux 9 and 10 ship it with `enabled=0`, Rocky Linux 8 does not ship it at all); without it, only advisories count. Both kinds count towards `--critical`, `--grace-security` and `--only-critical`. Optionally narrows the report down to those updates (`--only-critical`); the security count is reported either way
 * Records when an update for a package first showed up, so `--grace-updates` and `--grace-security` can hold the alert back until the host has had a patch window. An update inside its grace period is still listed and still counted in the performance data, it just does not drive the check state yet. The clock keys on the package name, so a newer candidate version does not restart it, and it starts over if the package drops off the list and comes back. A security update is governed by `--grace-security` alone, which by default is `0D`, so security never waits. Both are `0D` out of the box; the shipped Icinga Director service template sets `--grace-updates=8D` to cover a weekly patch window
 * Plugin execution may take more than 10 seconds due to yum operations (default timeout: 120 seconds)
 
@@ -55,10 +55,12 @@ usage: rpm-updates [-h] [-V] [--always-ok] [-c CRIT]
 
 Checks for available RPM package updates on RHEL, CentOS, Fedora, and
 compatible systems. Reports the number and type of available advisories
-(bugfix, enhancement, security). Alerts when the number of pending updates
-reaches the warning threshold, and when the number of security updates reaches
-the critical threshold. This check only lists updates and never actually
-installs anything.
+(bugfix, enhancement, security). An update counts as a security update if it
+carries a security advisory, or, where it is enabled, if it comes from the
+optional Rocky Linux `security` repository, which carries no advisories.
+Alerts when the number of pending updates reaches the warning threshold, and
+when the number of security updates reaches the critical threshold. This check
+only lists updates and never actually installs anything.
 
 options:
   -h, --help            show this help message and exit
@@ -66,10 +68,11 @@ options:
   --always-ok           Always returns OK.
   -c, --critical CRIT   Minimum number of pending security updates to trigger
                         a CRITICAL. Counts the updates carrying a security
-                        advisory, within the scope of `--query`. Unset by
-                        default, so security updates raise a WARNING like any
-                        other update until a threshold is given. Example:
-                        `--critical=1` Default: None
+                        advisory or coming from the Rocky Linux `security`
+                        repository (if enabled), within the scope of
+                        `--query`. Unset by default, so security updates raise
+                        a WARNING like any other update until a threshold is
+                        given. Example: `--critical=1` Default: None
   --grace-security GRACE_SECURITY
                         How long a pending security update is tolerated before
                         it counts towards the thresholds. Starts when the
@@ -166,7 +169,7 @@ wget          ! 1.19.5-12.el8_10  ! 1.19.5-16.el8_10  !      ! due in 1W 18h
 
 * OK if no updates are available (or both counts stay below their thresholds).
 * WARN if the number of pending updates is >= `--warning` (default: 1).
-* CRIT if the number of security updates is >= `--critical`. Unset by default, so security updates raise a WARNING like any other update until a threshold is given.
+* CRIT if the number of security updates (with a security advisory, or from the Rocky Linux `security` repository if enabled) is >= `--critical`. Unset by default, so security updates raise a WARNING like any other update until a threshold is given.
 * WARN if one of the `yum` calls does not finish within `--timeout`.
 * UNKNOWN if `yum` is not installed, or if one of the `yum` calls fails.
 * `--always-ok` suppresses all alerts and always returns OK.
@@ -176,7 +179,7 @@ wget          ! 1.19.5-12.el8_10  ! 1.19.5-16.el8_10  !      ! due in 1W 18h
 
 | Name | Type | Description |
 |----|----|----|
-| critical_updates | Number | Number of updates carrying a security advisory, matching the current `--query`. |
+| critical_updates | Number | Number of updates carrying a security advisory or coming from the Rocky Linux `security` repository if enabled, matching the current `--query`. |
 | updates | Number | Number of updatable packages matching the current `--query`. With `--only-critical` this is the security count. |
 
 
