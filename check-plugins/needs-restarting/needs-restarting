@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110501'
+__version__ = '2026110801'
 
 DESCRIPTION = """Reports what on this host is still running the code it had before the
 last update: processes that were started before they or one of their dependencies were
@@ -56,16 +56,16 @@ TOOL_PACKAGES = {
 
 TOOL_NAMES = {'Debian': 'needrestart', 'RedHat': 'needs-restarting'}
 
-# What `NEEDRESTART-KSTA` means, from the needrestart manual. 2 and 3 both mean the
-# running kernel is not the one that is installed, which only a reboot changes; 0 is
-# needrestart saying it could not tell, which is not a finding of its own.
-KSTA_LABELS = {
-    '0': 'the kernel state could not be detected',
-    '1': 'no kernel upgrade pending',
-    '2': 'an ABI compatible kernel upgrade is pending',
-    '3': 'a kernel version upgrade is pending',
+# What `NEEDRESTART-KSTA` means, from the needrestart manual: 0 the kernel state could
+# not be detected, 1 no kernel upgrade pending, 2 an ABI compatible kernel upgrade
+# pending, 3 a kernel version upgrade pending. 2 and 3 both mean the running kernel is
+# not the one that is installed, which only a reboot changes; 0 is needrestart saying it
+# could not tell, which is not a finding of its own. Worded to complete the sentence
+# "A reboot is pending, because ...".
+KSTA_REASONS = {
+    '2': 'an ABI compatible kernel update is installed',
+    '3': 'a newer kernel version is installed',
 }
-KSTA_NEEDS_REBOOT = ('2', '3')
 
 # Debian packages drop this marker when something they replaced only takes effect after
 # a reboot. `/var/run` is a symlink to `/run`, so one path covers both.
@@ -196,6 +196,31 @@ def run_tool(command, args, suffix):
     return result
 
 
+def tool_failed(command, stderr, retc):
+    """
+    End the check with what the tool said when it failed.
+
+    Both `needs-restarting` calls also exit 1 when they have something to report, and
+    every dnf error exits 1 as well. What tells them apart is the answer: a pending
+    reboot always names at least one package, so a non-zero exit without one is the tool
+    failing, for example on a damaged RPM database. Read as a pending reboot, that
+    sends somebody to reboot a host that does not need it, while the actual problem
+    stays hidden.
+    """
+    lib.base.cu(
+        f'Could not ask what needs restarting, `{" ".join(command)}` failed with exit '
+        f'code {retc}:\n{stderr.strip()}',
+        traceback=False,
+    )
+
+
+def human_join(items):
+    """Join `['a', 'b', 'c']` into `a, b and c`."""
+    if len(items) < 2:
+        return ''.join(items)
+    return f'{", ".join(items[:-1])} and {items[-1]}'
+
+
 def collect_redhat(args, tool):
     """
     Ask `needs-restarting` what is pending.
@@ -206,34 +231,43 @@ def collect_redhat(args, tool):
     """
     findings = []
 
-    stdout, _, retc = run_tool([tool, '--reboothint'], args, '-reboothint')
+    command = [tool, '--reboothint']
+    stdout, stderr, retc = run_tool(command, args, '-reboothint')
     if int(retc) != 0:
         packages = [
             line.strip().lstrip('* ').strip()
             for line in stdout.splitlines()
             if line.strip().startswith('*')
         ]
+        if not packages:
+            tool_failed(command, stderr, retc)
         findings.append(
             {
                 'key': 'reboot',
                 'kind': 'reboot',
-                'text': (
-                    'replaced since boot: ' + ', '.join(packages)
-                    if packages
-                    else 'a core library or the kernel was replaced since boot'
+                'reason': (
+                    f'{human_join(packages)} '
+                    f'{lib.txt.pluralize("", len(packages), "was,were")} updated '
+                    f'since boot'
                 ),
             }
         )
 
-    stdout, _, _ = run_tool([tool], args, '-services')
+    # dnf 4 exits 0 after listing the processes, dnf 5 exits 1 when it lists any; both
+    # exit 1 on an error, which lists none.
+    command = [tool]
+    stdout, stderr, retc = run_tool(command, args, '-services')
+    services = []
     for line in stdout.splitlines():
         # `<pid> : <command>`. The pid changes on every restart, the command does not,
         # so the command is what the grace period can age.
-        _, _, command = line.partition(' : ')
-        command = command.strip()
-        if command:
-            findings.append({'key': command, 'kind': 'service', 'text': command})
-    return findings
+        _, _, process = line.partition(' : ')
+        process = process.strip()
+        if process:
+            services.append({'key': process, 'kind': 'service', 'text': process})
+    if int(retc) != 0 and not services:
+        tool_failed(command, stderr, retc)
+    return findings + services
 
 
 def collect_debian(args, tool):
@@ -263,11 +297,11 @@ def collect_debian(args, tool):
     # The kernel state is the authority here. A host whose services need a restart but
     # whose kernel is current does not need a reboot, and saying it does sends somebody
     # to schedule a maintenance window for nothing.
-    if ksta in KSTA_NEEDS_REBOOT:
-        detail = KSTA_LABELS[ksta]
+    if ksta in KSTA_REASONS:
+        reason = KSTA_REASONS[ksta]
         if kcur and kexp and kcur != kexp:
-            detail += f', running {kcur} against the installed {kexp}'
-        findings.append({'key': 'reboot', 'kind': 'reboot', 'text': detail})
+            reason = f'kernel {kexp} is installed, but {kcur} is running'
+        findings.append({'key': 'reboot', 'kind': 'reboot', 'reason': reason})
     elif args.TEST is None and lib.disk.file_exists(
         REBOOT_REQUIRED_FILE, allow_empty=True
     ):
@@ -275,7 +309,7 @@ def collect_debian(args, tool):
             {
                 'key': 'reboot',
                 'kind': 'reboot',
-                'text': f'a package left {REBOOT_REQUIRED_FILE} behind',
+                'reason': f'a package asked for it in {REBOOT_REQUIRED_FILE}',
             }
         )
     return findings
@@ -372,7 +406,7 @@ def main():
     # build the message
     headline = []
     if reboot:
-        headline.append('A reboot is pending')
+        headline.append(f'A reboot is pending, because {reboot[0]["reason"]}')
     if services:
         count = len(services)
         headline.append(
@@ -400,8 +434,6 @@ def main():
     else:
         msg = 'No reboot and no service restart pending.'
 
-    if reboot:
-        msg_body += f'{reboot[0]["text"]}\n'
     if services:
         msg_body += '\n'.join(f'* {finding["text"]}' for finding in services) + '\n'
     if reboot:

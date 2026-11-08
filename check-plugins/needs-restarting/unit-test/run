@@ -53,6 +53,11 @@ from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 #                              reboot
 #   debian-kernel-and-services a newer kernel installed on top, so `KSTA: 3` with
 #                              `KCUR != KEXP` next to the same five services
+#   rhel-rpmdb-damaged         Rocky 8.10, yum-utils 4.0.21, dnf 4.7.0, on a host whose
+#                              RPM database a killed process had left broken
+#                              (DB_RUNRECOVERY): both calls print nothing on stdout,
+#                              the dnf error on stderr, and exit 1, which is also the
+#                              exit code of a pending reboot
 #   debian-answered-nothing    what needrestart answers when it cannot do its job: the
 #                              version line, nothing else, and exit code 0. Left in
 #                              because that answer is indistinguishable from a clean
@@ -76,20 +81,38 @@ TESTS = [
         'params': '--test-os-family=RedHat',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'A reboot is pending. 7 running processes need a restart.',
-            'replaced since boot: dbus-broker, glibc, kernel',
+            'A reboot is pending, because dbus-broker, glibc, kernel, kernel-core, '
+            'linux-firmware, microcode_ctl and systemd were updated since boot. '
+            '7 running processes need a restart.',
             '/usr/sbin/NetworkManager --no-daemon',
             'Schedule the reboot.',
         ],
     },
     {
-        # The first line is what reaches a notification, so it stays a summary and the
-        # packages behind the reboot go below it.
-        'id': 'warn-rhel-the-first-line-stays-short',
+        # The reason for the reboot completes the first sentence instead of standing
+        # on a line of its own.
+        'id': 'warn-rhel-the-reason-is-part-of-the-first-line',
         'test': 'stdout/rhel-reboot-and-services,,1',
         'params': '--test-os-family=RedHat',
         'assert-retc': STATE_WARN,
-        'assert-regex': r'(?m)\AA reboot is pending\. 7 running processes need a restart\.$',
+        'assert-regex': (
+            r'(?m)\AA reboot is pending, because [^\n]* were updated since boot\. '
+            r'7 running processes need a restart\.\n\* '
+        ),
+    },
+    {
+        # A failing dnf exits 1 like a pending reboot, but names no package. Read as a
+        # pending reboot, it sends somebody to reboot a host that does not need it.
+        'id': 'unknown-rhel-a-failing-tool-is-not-a-pending-reboot',
+        'test': 'stdout/rhel-rpmdb-damaged,stderr/rhel-rpmdb-damaged,1',
+        'params': '--test-os-family=RedHat',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Could not ask what needs restarting, `needs-restarting --reboothint` '
+            'failed with exit code 1:',
+            'Error: Error: rpmdb open failed',
+        ],
+        'assert-not-in': ['A reboot is pending', 'Traceback'],
     },
     {
         # The Red Hat Subscription Manager banner lands on stdout of both calls and is
@@ -115,8 +138,9 @@ TESTS = [
         'params': '--test-os-family=RedHat',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'A reboot is pending. 7 running processes need a restart.',
-            'replaced since boot: dbus-broker, glibc, kernel',
+            'A reboot is pending, because dbus-broker, glibc, kernel, kernel-core, '
+            'linux-firmware, microcode_ctl and systemd were updated since boot. '
+            '7 running processes need a restart.',
         ],
         'assert-not-in': ['Subscription Management'],
     },
@@ -147,9 +171,8 @@ TESTS = [
         'params': '--test-os-family=Debian',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'A reboot is pending. 5 running processes need a restart.',
-            'a kernel version upgrade is pending',
-            'running 6.12.43+deb13-amd64 against the installed 6.12.105+deb13-amd64',
+            'A reboot is pending, because kernel 6.12.105+deb13-amd64 is installed, '
+            'but 6.12.43+deb13-amd64 is running. 5 running processes need a restart.',
         ],
     },
     {

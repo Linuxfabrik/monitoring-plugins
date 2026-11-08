@@ -65,7 +65,7 @@ Monitoring Plugins:
 * graylog-version: No longer times out right after a reboot on RHEL 8.
 * mysql-index-health: Never suggests dropping a primary key as a redundant index.
 * mysql-logfile: A MariaDB restart counts as one shutdown, and denied logins no longer come with "No errors or warnings found".
-* needs-restarting: The first run after a reboot no longer times out and leaves the RPM database broken on RHEL 8.
+* needs-restarting: The first run after a reboot no longer times out and leaves the RPM database broken on RHEL 8, a broken RPM database returns UNKNOWN instead of a pending reboot, and the warning names the reason for the reboot in its first line.
 
 
 ## [v8.1.0] - 2026-10-27

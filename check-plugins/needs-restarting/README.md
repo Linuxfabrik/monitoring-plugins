@@ -11,7 +11,7 @@ Reports what on this host is still running the code it had before the last updat
 * **A pending service restart is not a pending reboot.** On the Debian family the two come from different fields, and only the kernel state (`NEEDRESTART-KSTA` together with the running and installed kernel version) decides the reboot. Five services running replaced libraries on a host whose kernel is current need `systemctl restart`, not a maintenance window.
 * **The grace period is off by default.** `--grace-wait` starts when a pending restart is first seen, separately for the reboot and for each service, and starts over once that entry is gone. The plugin defaults to `0D`, so a run from the command line reports what is pending right now; the Icinga Director template carries the site policy of four hours.
 * **What is pending is always reported, only the state waits.** A finding inside its grace period is counted and named in the summary; it just does not raise the state yet.
-* **Red Hat and Debian answer different questions.** `needs-restarting --reboothint` names the core packages replaced since boot, and its exit code is the reboot verdict. `needrestart` compares the running kernel against the installed one and lists the services. The check reads both for what they are.
+* **Red Hat and Debian answer different questions.** `needs-restarting --reboothint` names the core packages replaced since boot, and its exit code is the reboot verdict, as long as it names at least one: dnf exits 1 on any error as well. `needrestart` compares the running kernel against the installed one and lists the services. The check reads both for what they are.
 * **On the Debian family `/run/reboot-required` is written by `reboot-notifier`**, which a minimal installation does not have. It is read as an additional signal where it exists, never as a substitute for `needrestart`.
 * Related checks: `deb-updates` and `rpm-updates` report what is waiting to be installed, this one what is waiting to be put into service afterwards.
 
@@ -84,8 +84,7 @@ sudo ./needs-restarting
 Output on a host that was patched and not rebooted:
 
 ```text
-A reboot is pending. 7 running processes need a restart.
-replaced since boot: dbus-broker, glibc, kernel, kernel-core, linux-firmware, microcode_ctl, systemd
+A reboot is pending, because dbus-broker, glibc, kernel, kernel-core, linux-firmware, microcode_ctl and systemd were updated since boot. 7 running processes need a restart.
 * /usr/lib/systemd/systemd --system --deserialize=73
 * /usr/lib/systemd/systemd-userdbd
 * /usr/bin/dbus-broker-launch --scope system --audit
@@ -122,7 +121,7 @@ While the grace period is running, the check reports what is pending and stays O
 Once part of it is due, the summary names both:
 
 ```text
-A reboot is pending. 2 more within the grace period (4h), the oldest for 8m 31s.
+A reboot is pending, because glibc and kernel were updated since boot. 2 more within the grace period (4h), the oldest for 8m 31s.
 ```
 
 Output on a host where nothing is waiting:
@@ -136,11 +135,12 @@ No reboot and no service restart pending.
 
 * OK if no reboot and no service restart is pending.
 * OK while every pending restart is still within `--grace-wait`. The summary counts them and names the age of the oldest.
-* WARN if a reboot is pending and past its grace period. On the Red Hat family that is `needs-restarting --reboothint` returning non-zero, on the Debian family a kernel state of 2 or 3.
+* WARN if a reboot is pending and past its grace period. On the Red Hat family that is `needs-restarting --reboothint` returning non-zero and naming the packages behind it, on the Debian family a kernel state of 2 or 3.
 * WARN if a running process needs a restart and is past its grace period.
 * WARN if the tool does not answer within `--timeout`.
 * UNKNOWN if the check does not run as root. Without it the tools answer with nothing at all, which is not the same as nothing being pending.
 * UNKNOWN if the tool is not installed, or cannot be run.
+* UNKNOWN if the tool fails, for example on a damaged RPM database. On the Red Hat family that is a non-zero exit code without a package or process in the answer.
 * UNKNOWN if the OS family is neither Red Hat nor Debian.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -177,6 +177,10 @@ On the Red Hat family the tool comes with `yum-utils`, which a minimal installat
 ```bash
 dnf install yum-utils
 ```
+
+### `needs-restarting` fails with an error
+
+`Could not ask what needs restarting, ... failed with exit code 1:` is followed by what the tool printed. On the Red Hat family that is a dnf error, for example a damaged RPM database (`DB_RUNRECOVERY`, `rpmdb open failed`), which also keeps dnf from installing updates. The [rpm-database](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rpm-database/) check reports that state on its own and describes the repair.
 
 ### The check keeps warning although the services were restarted
 
