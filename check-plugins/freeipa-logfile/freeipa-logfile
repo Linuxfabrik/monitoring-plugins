@@ -30,14 +30,15 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110801'
+__version__ = '2026110802'
 
 DESCRIPTION = """Evaluates the result file of ipa-healthcheck, which checks a FreeIPA
 server for certificate, replication, topology, DNS, service and file permission problems
 once a day, for example through ipa-healthcheck.timer. The check itself does not run
 ipa-healthcheck, so it is fast and needs no more than read access to the result file.
-Alerts when ipa-healthcheck reports a problem, and when the result file is damaged or
-older than the maximum age, because then the daily run has stopped. After the nightly
+Alerts when ipa-healthcheck reports a problem, when a FreeIPA server has no result file,
+and when the result file is damaged or older than the maximum age, because then the daily
+run has stopped. After the nightly
 log rotation, the result of the rotated file stands until the next run. ipa-healthcheck
 runs once a day and the services of the server are better watched in real time, so by
 default only WARNING is raised."""
@@ -122,12 +123,13 @@ def parse_args():
 
     parser.add_argument(
         '--ignore',
-        help='Any ipa-healthcheck result matching this Python regex will be ignored. '
-        'The regex is matched against the line the check prints for the result, '
+        help='Ignore an ipa-healthcheck result matching this Python regular '
+        'expression. It is matched against the line the check prints for the result, '
         '`<source>.<check>[.<key>]: <message>`, without the result value. '
-        'Case-sensitive. '
+        'The line is lowercased before matching, so write the pattern in lowercase '
+        '(or use the `(?i)` flag). '
         'Can be specified multiple times. '
-        'Example: `--ignore=IPADNSSystemRecordsCheck`',
+        'Example: `--ignore=ipadnssystemrecordscheck`',
         dest='IGNORE',
         action='append',
         default=None,
@@ -330,11 +332,15 @@ def main():
                 raw, mtime, source = rotated_raw, rotated_mtime, rotated
     if not source:
         if not os.path.lexists(f'{root}{IPACTL}'):
+            missing_state = STATE_OK
             msg = (
                 'No FreeIPA server is installed on this host, so there is no '
                 'ipa-healthcheck result to evaluate.'
             )
         elif not os.path.lexists(f'{root}{HEALTHCHECK}'):
+            # Deliberately WARNING and not UNKNOWN: ipa-healthcheck belongs on a
+            # FreeIPA server that got this check, so the gap is the admin's to close.
+            missing_state = STATE_WARN
             msg = (
                 f'No ipa-healthcheck result found at {REPORT_DIR}/{REPORT_NAME}, '
                 'because ipa-healthcheck is not installed. Install it and run it once '
@@ -342,13 +348,14 @@ def main():
                 'systemctl enable --now ipa-healthcheck.timer`.'
             )
         else:
+            missing_state = STATE_WARN
             msg = (
                 f'No ipa-healthcheck result found at {REPORT_DIR}/{REPORT_NAME}, so '
                 'ipa-healthcheck has not run yet. Run it once a day: '
                 '`sudo systemctl enable --now ipa-healthcheck.timer`, and right now: '
                 '`sudo systemctl start ipa-healthcheck.service`.'
             )
-        lib.base.oao(msg, STATE_OK, always_ok=args.ALWAYS_OK)
+        lib.base.oao(msg, missing_state, always_ok=args.ALWAYS_OK)
 
     # init some vars
     msg = ''
@@ -404,7 +411,7 @@ def main():
 
     for entry in results:
         line = format_result(entry)
-        if any(item.search(line) for item in compiled_ignore):
+        if any(item.search(line.lower()) for item in compiled_ignore):
             ignored += 1
             continue
         # a value of a type JSON allows but upstream never writes still counts

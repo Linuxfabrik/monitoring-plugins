@@ -97,7 +97,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Evaluates the result file of ipa-healthcheck, which checks a FreeIPA server for certificate, replication, topology, DNS, service and file permission problems once a day, for example through ipa-healthcheck.timer. The check itself does not run ipa-healthcheck, so it is fast and needs no more than read access to the result file. Alerts when ipa-healthcheck reports a problem, and when the result file is damaged or older than the maximum age, because then the daily run has stopped. After the nightly log rotation, the result of the rotated file stands until the next run. ipa-healthcheck runs once a day and the services of the server are better watched in real time, so by default only WARNING is raised.",
+            "notes": "Evaluates the result file of ipa-healthcheck, which checks a FreeIPA server for certificate, replication, topology, DNS, service and file permission problems once a day, for example through ipa-healthcheck.timer. The check itself does not run ipa-healthcheck, so it is fast and needs no more than read access to the result file. Alerts when ipa-healthcheck reports a problem, when a FreeIPA server has no result file, and when the result file is damaged or older than the maximum age, because then the daily run has stopped. After the nightly log rotation, the result of the rotated file stands until the next run. ipa-healthcheck runs once a day and the services of the server are better watched in real time, so by default only WARNING is raised.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/freeipa-logfile/",
             "object_name": "tpl-service-freeipa-logfile",
             "object_type": "template",
@@ -210,7 +210,7 @@
         "3": {
             "varname": "freeipa_logfile_ignore",
             "caption": "Freeipa Logfile: Ignore",
-            "description": "Any ipa-healthcheck result matching this Python regex will be ignored. The regex is matched against the line the check prints for the result, `<source>.<check>[.<key>]: <message>`, without the result value. Case-sensitive. Can be specified multiple times. Example: `--ignore=IPADNSSystemRecordsCheck`",
+            "description": "Ignore an ipa-healthcheck result matching this Python regular expression. It is matched against the line the check prints for the result, `<source>.<check>[.<key>]: <message>`, without the result value. The line is lowercased before matching, so write the pattern in lowercase (or use the `(?i)` flag). Can be specified multiple times. Example: `--ignore=ipadnssystemrecordscheck`",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {

@@ -98,16 +98,20 @@ STALE = write_report('stale', 30)
 # A result file without a single result has no `when`, so its age is the
 # modification time of the file. `ipa-healthcheck --failures-only` writes this on a
 # server without a problem.
+# The plugin counts whole seconds and the display drops them, so a modification
+# time of exactly 30h ago may show as "1D 5h". Half an hour more keeps it at 1D 6h.
+MTIME_30H = 30.5 * 3600
+
 EMPTY_LIST_STALE = generated_root('empty-list-stale')
 _path = os.path.join(EMPTY_LIST_STALE, REPORT_DIR, 'healthcheck.log')
 with open(_path, 'w', encoding='utf-8') as _f:
     _f.write('[]')
-os.utime(_path, (time.time() - 30 * 3600,) * 2)
+os.utime(_path, (time.time() - MTIME_30H,) * 2)
 
 EMPTY_STALE = generated_root('empty-stale')
 _path = os.path.join(EMPTY_STALE, REPORT_DIR, 'healthcheck.log')
 open(_path, 'w', encoding='utf-8').close()
-os.utime(_path, (time.time() - 30 * 3600,) * 2)
+os.utime(_path, (time.time() - MTIME_30H,) * 2)
 
 # Two predecessors: the counted one is renamed upwards on every rotation, so its
 # name says nothing about its age. The newer one by modification time is the one
@@ -290,7 +294,7 @@ CASES = [
         'params': [
             f'--config-root={config_root("rocky9-dns-warnings")}',
             '--max-age=0',
-            '--ignore=IPADNSSystemRecordsCheck',
+            '--ignore=ipadnssystemrecordscheck',
         ],
         'assert-retc': STATE_OK,
         'assert-in': [
@@ -299,6 +303,27 @@ CASES = [
             "'results_warning'=0;0;;0",
         ],
         'assert-not-in': ['* WARNING'],
+    },
+    {
+        'id': 'warn-ignore-pattern-in-uppercase-matches-nothing',
+        'params': [
+            f'--config-root={config_root("rocky9-dns-warnings")}',
+            '--max-age=0',
+            '--ignore=IPADNSSystemRecordsCheck',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['ipa-healthcheck found 12 warnings in 277 results [WARNING]'],
+        'assert-not-in': ['ignored by'],
+    },
+    {
+        'id': 'ok-ignore-case-insensitive-flag',
+        'params': [
+            f'--config-root={config_root("rocky9-dns-warnings")}',
+            '--max-age=0',
+            '--ignore=(?i)IPADNSSystemRecordsCheck',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': ['(12 ignored by `--ignore`)'],
     },
     {
         'id': 'warn-ignore-matches-the-message',
@@ -394,7 +419,12 @@ CASES = [
     },
     {
         'id': 'ok-empty-file-without-predecessor',
-        'params': [f'--config-root={config_root("empty-no-predecessor")}'],
+        # git keeps no modification time, so the age of this tracked file is the
+        # age of the checkout; the stale case below sets its own
+        'params': [
+            f'--config-root={config_root("empty-no-predecessor")}',
+            '--max-age=0',
+        ],
         'assert-retc': STATE_OK,
         'assert-in': [
             'The ipa-healthcheck result file /var/log/ipa/healthcheck/healthcheck.log '
@@ -428,9 +458,9 @@ CASES = [
         'assert-in': ['No FreeIPA server is installed on this host'],
     },
     {
-        'id': 'ok-server-without-healthcheck-recommends-installing-it',
+        'id': 'warn-server-without-healthcheck-recommends-installing-it',
         'params': [f'--config-root={config_root("server-without-healthcheck")}'],
-        'assert-retc': STATE_OK,
+        'assert-retc': STATE_WARN,
         'assert-in': [
             'because ipa-healthcheck is not installed',
             '`sudo dnf --assumeyes install ipa-healthcheck && sudo systemctl enable '
@@ -438,9 +468,9 @@ CASES = [
         ],
     },
     {
-        'id': 'ok-healthcheck-not-run-recommends-the-timer',
+        'id': 'warn-healthcheck-not-run-recommends-the-timer',
         'params': [f'--config-root={config_root("healthcheck-not-run")}'],
-        'assert-retc': STATE_OK,
+        'assert-retc': STATE_WARN,
         'assert-in': [
             'so ipa-healthcheck has not run yet',
             '`sudo systemctl enable --now ipa-healthcheck.timer`',
