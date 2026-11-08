@@ -1,0 +1,518 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import datetime
+import gzip
+import io
+import json
+import os
+import re
+import stat
+import sys
+
+import lib.args
+import lib.base
+import lib.disk
+import lib.human
+import lib.lftest
+import lib.time
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026110801'
+
+DESCRIPTION = """Evaluates the result file of ipa-healthcheck, which checks a FreeIPA
+server for certificate, replication, topology, DNS, service and file permission problems
+once a day, for example through ipa-healthcheck.timer. The check itself does not run
+ipa-healthcheck, so it is fast and needs no more than read access to the result file.
+Alerts when ipa-healthcheck reports a problem, and when the result file is damaged or
+older than the maximum age, because then the daily run has stopped. After the nightly
+log rotation, the result of the rotated file stands until the next run. ipa-healthcheck
+runs once a day and the services of the server are better watched in real time, so by
+default only WARNING is raised."""
+
+DEFAULT_CRIT = 'none'
+DEFAULT_MAX_AGE = 26
+DEFAULT_WARN = 'WARNING'
+
+# The result values of ipa-healthcheck, least severe first. They are all that
+# `ipahealthcheck.core.constants` defines, SUCCESS aside (verified against
+# freeipa-healthcheck 0.11 to 0.19, Debian 12, Rocky 8 to 10).
+LEVELS = ['WARNING', 'ERROR', 'CRITICAL']
+LEVEL_CHOICES = ['CRITICAL', 'ERROR', 'WARNING', 'none']
+
+# ipa-healthcheck.sh writes here, and the shipped logrotate configuration rotates the
+# file daily with `dateext` and `create` (same on Debian 12/13, Fedora, Rocky 8 to 10).
+REPORT_DIR = '/var/log/ipa/healthcheck'
+REPORT_NAME = 'healthcheck.log'
+# What logrotate can make of the name: a dated or counted suffix, maybe compressed.
+ROTATED_REGEX = re.compile(r'^' + re.escape(REPORT_NAME) + r'[-._][-._0-9]+(\.gz)?$')
+# A result file of a single server is about 90 KiB (277 results on Rocky 9).
+REPORT_MAX_BYTES = 16 * 1024 * 1024
+# How many problems the output lists; the perfdata always counts all of them.
+MAX_LISTED = 50
+
+# `ipactl` ships with the FreeIPA server only, never with the client.
+IPACTL = '/usr/sbin/ipactl'
+HEALTHCHECK = '/usr/bin/ipa-healthcheck'
+
+# the online documentation of this check
+DOCS_URL = f'{lib.args.DOCS_BASE_URL}/check-plugins/freeipa-logfile/'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    # Hidden hook for the unit tests: prefixes every path the check reads, so
+    # fixture trees under unit-test/config stand in for the host. Deliberately not
+    # named `--test-...`, because argparse would then resolve a bare `--test`
+    # into it.
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='',
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='Least severe ipa-healthcheck result that returns CRITICAL. '
+        'Each result includes everything more severe than itself, so `ERROR` '
+        'covers `CRITICAL` as well. '
+        'Case-sensitive. '
+        '`none` lets no result return CRITICAL. '
+        'Example: `--critical=CRITICAL`. '
+        'Default: %(default)s',
+        dest='CRIT',
+        choices=LEVEL_CHOICES,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Any ipa-healthcheck result matching this Python regex will be ignored. '
+        'The regex is matched against the line the check prints for the result, '
+        '`<source>.<check>[.<key>]: <message>`, without the result value. '
+        'Case-sensitive. '
+        'Can be specified multiple times. '
+        'Example: `--ignore=IPADNSSystemRecordsCheck`',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--max-age',
+        help='Maximum age of the ipa-healthcheck result in hours. '
+        'An older result means that the daily run no longer happens. '
+        'Default: %(default)s (0 disables the check)',
+        dest='MAX_AGE',
+        type=int,
+        default=DEFAULT_MAX_AGE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='Least severe ipa-healthcheck result that returns WARNING. '
+        'Each result includes everything more severe than itself, and a result '
+        'that `--critical` already covers returns CRITICAL instead. '
+        'Case-sensitive. '
+        '`none` lets no result return WARNING. '
+        'Example: `--warning=ERROR`. '
+        'Default: %(default)s',
+        dest='WARN',
+        choices=LEVEL_CHOICES,
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_rotated(directory):
+    """Return the newest file logrotate moved aside from the result file, or ''.
+
+    Ordering is by modification time, not by name, because a counted suffix is
+    renamed upwards on every rotation while a dated one never moves; compressing
+    keeps the modification time. Only a regular file counts and a symlink is not
+    followed, so nothing that was dropped into the directory widens what is read.
+    """
+    newest = (0, '')
+    try:
+        names = os.listdir(directory)
+    except OSError:
+        return ''
+    for name in names:
+        if not ROTATED_REGEX.match(name):
+            continue
+        path = os.path.join(directory, name)
+        try:
+            info = os.lstat(path)
+        except OSError:
+            continue
+        if stat.S_ISREG(info.st_mode) and info.st_mtime > newest[0]:
+            newest = (info.st_mtime, path)
+    return newest[1]
+
+
+def read_report(path, directory):
+    """Read a result file below `directory`. Returns (True, (raw bytes, mtime)) or
+    (False, errormessage). The handle is checked against the path and only a regular
+    file is read, so a planted symlink does not redirect the read.
+    """
+    success, handle = lib.disk.open_file(
+        path, binary=True, allowed_roots=[directory], nofollow=True
+    )
+    if not success:
+        return (False, handle)
+    try:
+        with handle:
+            mtime = os.fstat(handle.fileno()).st_mtime
+            raw = handle.read(REPORT_MAX_BYTES + 1)
+        if path.endswith('.gz'):
+            with gzip.GzipFile(fileobj=io.BytesIO(raw)) as unpacked:
+                raw = unpacked.read(REPORT_MAX_BYTES + 1)
+    except (EOFError, OSError) as e:
+        return (False, f'Failed to read {path}: {e}')
+    if len(raw) > REPORT_MAX_BYTES:
+        return (
+            False,
+            f'{path} is larger than {lib.human.bytes2human(REPORT_MAX_BYTES)}, '
+            'which no ipa-healthcheck result file of a single server is.',
+        )
+    return (True, (raw, mtime))
+
+
+def format_result(entry):
+    """Render a result like `ipa-healthcheck --output-type=human` does:
+    `<source>.<check>[.<key>]: <message>`. The message is a format string over the
+    other keywords of the result; a check that raised has an `exception` instead.
+    The traceback of such a result is never printed.
+    """
+    kw = entry.get('kw') if isinstance(entry.get('kw'), dict) else {}
+    line = f'{entry.get("source")}.{entry.get("check")}'
+    if kw.get('key'):
+        line += f'.{kw["key"]}'
+    if kw.get('msg'):
+        try:
+            message = str(kw['msg']).format(**kw)
+        # a placeholder without a value or a malformed format string, as upstream
+        # would fail on as well; the raw message still says what is wrong
+        except (AttributeError, IndexError, KeyError, ValueError):
+            message = str(kw['msg'])
+        line += f': {message}'
+    elif kw.get('exception'):
+        line += f': {kw["exception"]}'
+    return line
+
+
+def get_result_state(result, args):
+    """Map an ipa-healthcheck result value to a state, see the README for why."""
+    if result == 'SUCCESS':
+        return STATE_OK
+    if result not in LEVELS:
+        # Upstream writes the raw value for anything it has no name for, so a newer
+        # ipa-healthcheck could bring one. It is not a success, so a human looks.
+        return STATE_WARN
+    rank = LEVELS.index(result)
+    if args.CRIT != 'none' and rank >= LEVELS.index(args.CRIT):
+        return STATE_CRIT
+    if args.WARN != 'none' and rank >= LEVELS.index(args.WARN):
+        return STATE_WARN
+    return STATE_OK
+
+
+def get_age_epoch(results, mtime):
+    """Return when ipa-healthcheck ran, as epoch: the newest `when` of the results
+    (UTC, `YYYYmmddHHMMSSZ`), which a copy or a `touch` of the file does not change.
+    Only a result file without a single result falls back to its modification time.
+    """
+    newest = None
+    for entry in results:
+        try:
+            when = datetime.datetime.strptime(str(entry.get('when')), '%Y%m%d%H%M%SZ')
+        except ValueError:
+            continue
+        epoch = when.replace(tzinfo=datetime.timezone.utc).timestamp()
+        newest = epoch if newest is None else max(newest, epoch)
+    return mtime if newest is None else newest
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+
+    # fetch data
+    root = ''
+    if args.CONFIG_ROOT:
+        root = lib.base.coe(lib.lftest.fixture_root(args.CONFIG_ROOT))
+    directory = f'{root}{REPORT_DIR}'
+    report = f'{directory}/{REPORT_NAME}'
+    try:
+        os.listdir(directory)
+        listable = True
+    except PermissionError:
+        listable = False
+    except OSError:
+        listable = None
+    if listable is False:
+        # the shipped directory is world-readable, so this is a local change
+        lib.base.oao(
+            f'Failed to list {REPORT_DIR}: permission denied. Its default mode is '
+            f'0755, so either restore that (`sudo chmod 0755 {REPORT_DIR}`) or run '
+            f'the check via sudo, see {DOCS_URL}.',
+            STATE_UNKNOWN,
+            always_ok=args.ALWAYS_OK,
+        )
+
+    source = ''
+    raw, mtime = b'', 0
+    if os.path.lexists(report):
+        raw, mtime = lib.base.coe(read_report(report, directory))
+        source = report
+    if not raw.strip():
+        # logrotate (`create`) leaves an empty file until the next run, and the
+        # rotated predecessor holds the last result until then
+        rotated = get_rotated(directory)
+        if rotated:
+            rotated_raw, rotated_mtime = lib.base.coe(read_report(rotated, directory))
+            if rotated_raw.strip() or not source:
+                raw, mtime, source = rotated_raw, rotated_mtime, rotated
+    if not source:
+        if not os.path.lexists(f'{root}{IPACTL}'):
+            msg = (
+                'No FreeIPA server is installed on this host, so there is no '
+                'ipa-healthcheck result to evaluate.'
+            )
+        elif not os.path.lexists(f'{root}{HEALTHCHECK}'):
+            msg = (
+                f'No ipa-healthcheck result found at {REPORT_DIR}/{REPORT_NAME}, '
+                'because ipa-healthcheck is not installed. Install it and run it once '
+                'a day: `sudo dnf --assumeyes install ipa-healthcheck && sudo '
+                'systemctl enable --now ipa-healthcheck.timer`.'
+            )
+        else:
+            msg = (
+                f'No ipa-healthcheck result found at {REPORT_DIR}/{REPORT_NAME}, so '
+                'ipa-healthcheck has not run yet. Run it once a day: '
+                '`sudo systemctl enable --now ipa-healthcheck.timer`, and right now: '
+                '`sudo systemctl start ipa-healthcheck.service`.'
+            )
+        lib.base.oao(msg, STATE_OK, always_ok=args.ALWAYS_OK)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    shown_source = source[len(root) :]
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    counts = dict.fromkeys(['CRITICAL', 'ERROR', 'SUCCESS', 'WARNING', 'other'], 0)
+    ignored = 0
+    problems = []
+
+    # analyze data
+    text = lib.txt.to_text(raw, errors='strict_or_latin1')
+    if not text.strip():
+        # an empty file and no predecessor: the file was emptied by hand, or the
+        # first run after the installation has not happened yet
+        results = None
+    else:
+        try:
+            results = json.loads(text)
+        except ValueError:
+            results = 'invalid'
+        if not isinstance(results, list) or not all(
+            isinstance(entry, dict) for entry in results
+        ):
+            # ipa-healthcheck writes the whole file in one go at the very end of a
+            # run, so this lasts a moment, or the file is not what it should be
+            lib.base.oao(
+                f'The ipa-healthcheck result file {shown_source} is not a JSON list of '
+                'results. Unless a run was writing it just now, it was damaged or '
+                'written with another `--output-type`. Write a new one with '
+                '`sudo systemctl start ipa-healthcheck.service`.',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
+
+    if results is None:
+        age = max(0, lib.time.now() - mtime)
+        age_state = STATE_OK
+        if args.MAX_AGE and age > args.MAX_AGE * 3600:
+            age_state = STATE_WARN
+        lib.base.oao(
+            f'The ipa-healthcheck result file {shown_source} is empty and holds no '
+            f'result yet, it was last changed {lib.human.seconds2human(age)} ago'
+            f'{lib.base.state2str(age_state, prefix=" ")}. The next run of '
+            '`ipa-healthcheck.timer` writes a result, check the timer with '
+            '`systemctl list-timers ipa-healthcheck.timer`.',
+            age_state,
+            always_ok=args.ALWAYS_OK,
+        )
+
+    for entry in results:
+        line = format_result(entry)
+        if any(item.search(line) for item in compiled_ignore):
+            ignored += 1
+            continue
+        # a value of a type JSON allows but upstream never writes still counts
+        result = entry.get('result')
+        if not isinstance(result, str):
+            result = str(result)
+        counts[result if result in counts else 'other'] += 1
+        item_state = get_result_state(result, args)
+        state = lib.base.get_worst(state, item_state)
+        if result != 'SUCCESS':
+            problems.append((result, line, item_state))
+
+    age = max(0, lib.time.now() - get_age_epoch(results, mtime))
+    age_state = STATE_OK
+    if args.MAX_AGE and age > args.MAX_AGE * 3600:
+        age_state = STATE_WARN
+    state = lib.base.get_worst(state, age_state)
+
+    # build the message
+    checked = sum(counts.values())
+    found = []
+    for name, label in (
+        ('CRITICAL', 'critical'),
+        ('ERROR', 'error'),
+        ('WARNING', 'warning'),
+        ('other', 'unknown result'),
+    ):
+        if counts[name]:
+            # "2 critical", not "2 criticals"
+            suffix = '' if name == 'CRITICAL' else 's'
+            found.append(
+                f'{counts[name]} {lib.txt.pluralize(label, counts[name], suffix)}'
+            )
+    if found:
+        problem_state = lib.base.get_worst(*[item[2] for item in problems])
+        msg += (
+            f'ipa-healthcheck found {", ".join(found)} in {checked} '
+            f'{lib.txt.pluralize("result", checked)}'
+            f'{lib.base.state2str(problem_state, prefix=" ")}'
+        )
+    elif checked or ignored:
+        msg += (
+            f'ipa-healthcheck found no problem in {checked} '
+            f'{lib.txt.pluralize("result", checked)}'
+        )
+    else:
+        msg += (
+            'ipa-healthcheck reported no result, as it does with `--failures-only` '
+            'when it finds no problem'
+        )
+    if ignored:
+        msg += f' ({ignored} ignored by `--ignore`)'
+    msg += (
+        f', last run {lib.human.seconds2human(age)} ago'
+        f'{lib.base.state2str(age_state, prefix=" ")}'
+    )
+
+    if problems:
+        msg += '\n'
+        # most severe first, then in the order of the result file
+        severity = {'CRITICAL': 0, 'ERROR': 1, 'WARNING': 2}
+        problems.sort(key=lambda item: severity.get(item[0], -1))
+        for result, line, item_state in problems[:MAX_LISTED]:
+            msg += f'\n* {result}: {line}{lib.base.state2str(item_state, prefix=" ")}'
+        if len(problems) > MAX_LISTED:
+            msg += f'\n* ... and {len(problems) - MAX_LISTED} more'
+        msg += (
+            '\n\nThe current state of the server: '
+            '`sudo ipa-healthcheck --failures-only`.'
+        )
+    if age_state != STATE_OK:
+        msg += (
+            f'\n\nThe last ipa-healthcheck run was more than {args.MAX_AGE}h ago. '
+            'Check that the daily run still happens, for example with '
+            '`systemctl list-timers ipa-healthcheck.timer`.'
+        )
+    if source != report:
+        msg += (
+            f'\n\n{REPORT_DIR}/{REPORT_NAME} holds no result since the last log '
+            f'rotation, so this is the result in {shown_source}.'
+        )
+
+    for name, label in (
+        ('CRITICAL', 'critical'),
+        ('ERROR', 'error'),
+        ('SUCCESS', 'success'),
+        ('WARNING', 'warning'),
+    ):
+        # a problem counter alerts from its first result on, if its level alerts
+        level_state = get_result_state(name, args)
+        perfdata += lib.base.get_perfdata(
+            f'results_{label}',
+            counts[name],
+            uom=None,
+            warn='0' if level_state == STATE_WARN else None,
+            crit='0' if level_state == STATE_CRIT else None,
+            _min=0,
+        )
+    perfdata += lib.base.get_perfdata('report_age', int(age), uom='s', _min=0)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

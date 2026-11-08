@@ -1,0 +1,537 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the freeipa-logfile check plugin.
+
+The trees under `config/` stand in for the host and are handed to the check with
+the hidden `--config-root`. Every result file in them was written by a real
+`ipa-healthcheck --output-file` on a FreeIPA server in the freeipa-container images
+(ipa-healthcheck 0.12 on Rocky 8, 0.19 on Rocky 9):
+
+    rocky8-dns-warnings   0.12, 283 results, 11 WARNING: no integrated DNS, so the
+                          SRV and URI records ipa-healthcheck expects are missing
+    rocky8-check-timeout  0.12 with `timeout=2`: IPACertRevocation ran out of time
+    rocky9-dns-warnings   0.19, 277 results, 12 WARNING, the same cause
+    rocky9-errors         0.19 with ipa-custodia stopped and /etc/ipa/ca.crt at 0600
+    rocky9-dirsrv-down    0.19 with dirsrv stopped: a check raised (CRITICAL with a
+                          traceback), and the checks that need dirsrv did not run
+    rocky9-rotated-*      rocky9-errors after `logrotate --force`: the empty file it
+                          creates, and the dated predecessor
+    rocky9-human-output   `--output-type human` instead of JSON
+    rocky9-truncated      the first 4 KiB of rocky9-dns-warnings
+
+Synthetic, because no ipa-healthcheck writes it today:
+
+    rocky9-unknown-result rocky9-dns-warnings with the first result set to 40, a
+                          value upstream has no name for and writes as it is
+
+The age of a result file is measured against the real clock, so the fixed trees
+switch the age check off with `--max-age=0`, and the age cases use trees that are
+written below with `when` relative to now.
+"""
+
+import atexit
+import datetime
+import gzip
+import json
+import os
+import shutil
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
+import sys
+import tempfile
+import time
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+PLUGIN = os.path.join(HERE, '..', 'freeipa-logfile')
+REPORT_DIR = os.path.join('var', 'log', 'ipa', 'healthcheck')
+
+
+def config_root(name):
+    return os.path.join(HERE, 'config', name)
+
+
+def generated_root(name):
+    """Create a tree below unit-test/, the only place the check accepts a
+    `--config-root` from, and remove it when the tests are done. The process ID
+    keeps parallel runs (tox -p) from removing each other's trees."""
+    root = os.path.join(HERE, 'config', f'generated-{os.getpid()}-{name}')
+    shutil.rmtree(root, ignore_errors=True)
+    os.makedirs(os.path.join(root, REPORT_DIR))
+    atexit.register(shutil.rmtree, root, True)
+    return root
+
+
+def write_report(name, hours_ago, filename='healthcheck.log'):
+    """Write rocky9-dns-warnings with every `when` moved to `hours_ago` hours ago."""
+    when = datetime.datetime.fromtimestamp(
+        time.time() - hours_ago * 3600, tz=datetime.timezone.utc
+    ).strftime('%Y%m%d%H%M%SZ')
+    path = os.path.join(
+        config_root('rocky9-dns-warnings'), REPORT_DIR, 'healthcheck.log'
+    )
+    with open(path, encoding='utf-8') as f:
+        results = json.load(f)
+    for entry in results:
+        entry['when'] = when
+    root = generated_root(name)
+    with open(os.path.join(root, REPORT_DIR, filename), 'w', encoding='utf-8') as f:
+        json.dump(results, f, indent=2)
+    return root
+
+
+FRESH = write_report('fresh', 1)
+STALE = write_report('stale', 30)
+
+# A result file without a single result has no `when`, so its age is the
+# modification time of the file. `ipa-healthcheck --failures-only` writes this on a
+# server without a problem.
+EMPTY_LIST_STALE = generated_root('empty-list-stale')
+_path = os.path.join(EMPTY_LIST_STALE, REPORT_DIR, 'healthcheck.log')
+with open(_path, 'w', encoding='utf-8') as _f:
+    _f.write('[]')
+os.utime(_path, (time.time() - 30 * 3600,) * 2)
+
+EMPTY_STALE = generated_root('empty-stale')
+_path = os.path.join(EMPTY_STALE, REPORT_DIR, 'healthcheck.log')
+open(_path, 'w', encoding='utf-8').close()
+os.utime(_path, (time.time() - 30 * 3600,) * 2)
+
+# Two predecessors: the counted one is renamed upwards on every rotation, so its
+# name says nothing about its age. The newer one by modification time is the one
+# that counts, here a compressed copy of rocky9-errors.
+ROTATED_ORDER = generated_root('rotated-order')
+_dir = os.path.join(ROTATED_ORDER, REPORT_DIR)
+open(os.path.join(_dir, 'healthcheck.log'), 'w', encoding='utf-8').close()
+shutil.copy(
+    os.path.join(config_root('rocky9-dns-warnings'), REPORT_DIR, 'healthcheck.log'),
+    os.path.join(_dir, 'healthcheck.log.1'),
+)
+_src = os.path.join(config_root('rocky9-errors'), REPORT_DIR, 'healthcheck.log')
+_dst = os.path.join(_dir, 'healthcheck.log.2.gz')
+with open(_src, 'rb') as _in, gzip.open(_dst, 'wb') as _out:
+    shutil.copyfileobj(_in, _out)
+os.utime(os.path.join(_dir, 'healthcheck.log.1'), (time.time() - 7200,) * 2)
+os.utime(os.path.join(_dir, 'healthcheck.log.2.gz'), (time.time() - 3600,) * 2)
+
+# A symlink in place of the result file is never followed, and neither is one in
+# place of a predecessor.
+SECRET = os.path.join(tempfile.mkdtemp(prefix='freeipa-logfile-'), 'secret')
+atexit.register(shutil.rmtree, os.path.dirname(SECRET), True)
+with open(SECRET, 'w', encoding='utf-8') as _f:
+    _f.write('[{"source": "planted", "check": "SecretMarker", "result": "ERROR"}]')
+SYMLINKED = generated_root('symlinked')
+os.symlink(SECRET, os.path.join(SYMLINKED, REPORT_DIR, 'healthcheck.log'))
+SYMLINKED_PREDECESSOR = generated_root('symlinked-predecessor')
+open(
+    os.path.join(SYMLINKED_PREDECESSOR, REPORT_DIR, 'healthcheck.log'),
+    'w',
+    encoding='utf-8',
+).close()
+os.symlink(
+    SECRET, os.path.join(SYMLINKED_PREDECESSOR, REPORT_DIR, 'healthcheck.log-20261108')
+)
+
+CASES = [
+    # the result values and their default mapping
+    {
+        'id': 'warn-warning-results',
+        'params': [
+            f'--config-root={config_root("rocky9-dns-warnings")}',
+            '--max-age=0',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'ipa-healthcheck found 12 warnings in 277 results [WARNING], last run ',
+            '* WARNING: ipahealthcheck.ipa.idns.IPADNSSystemRecordsCheck.'
+            '_ldap._tcp.example.test.:ipa-rocky-9.example.test.: '
+            'Expected SRV record missing [WARNING]',
+            '`sudo ipa-healthcheck --failures-only`',
+            "'results_critical'=0;0;;0 'results_error'=0;0;;0 "
+            "'results_success'=265;;;0 'results_warning'=12;0;;0",
+        ],
+        'assert-not-in': ['SUCCESS:', '[CRITICAL]', 'log rotation'],
+    },
+    {
+        'id': 'warn-warning-results-of-0-12',
+        'params': [
+            f'--config-root={config_root("rocky8-dns-warnings")}',
+            '--max-age=0',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['ipa-healthcheck found 11 warnings in 283 results [WARNING]'],
+    },
+    {
+        'id': 'ok-warning-error-lets-warnings-pass',
+        'params': [
+            f'--config-root={config_root("rocky9-dns-warnings")}',
+            '--max-age=0',
+            '--warning=ERROR',
+        ],
+        'assert-retc': STATE_OK,
+        # still listed, they just do not alert
+        'assert-in': [
+            'ipa-healthcheck found 12 warnings in 277 results, last run ',
+            'Expected SRV record missing\n',
+            "'results_warning'=12;;;0",
+        ],
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        'id': 'warn-error-results',
+        'params': [f'--config-root={config_root("rocky9-errors")}', '--max-age=0'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'ipa-healthcheck found 2 errors, 12 warnings in 277 results [WARNING]',
+            # most severe first
+            '\n\n* ERROR: ipahealthcheck.meta.services.ipa_custodia: '
+            'ipa-custodia: not running [WARNING]\n',
+            '* ERROR: ipahealthcheck.ipa.files.IPAFileCheck._etc_ipa_ca.crt_mode: '
+            'Permissions of /etc/ipa/ca.crt are too restrictive: 0600 and should be '
+            '0644 [WARNING]',
+        ],
+    },
+    {
+        'id': 'crit-critical-error',
+        'params': [
+            f'--config-root={config_root("rocky9-errors")}',
+            '--max-age=0',
+            '--critical=ERROR',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'ipa-healthcheck found 2 errors, 12 warnings in 277 results [CRITICAL]',
+            'ipa-custodia: not running [CRITICAL]',
+            'Expected SRV record missing [WARNING]',
+            "'results_error'=2;;0;0",
+        ],
+    },
+    {
+        'id': 'warn-timeout-is-an-error',
+        'params': [
+            f'--config-root={config_root("rocky8-check-timeout")}',
+            '--max-age=0',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '* ERROR: ipahealthcheck.ipa.certs.IPACertRevocation.20261108103917: Unable '
+            "to retrieve certificate 'caSigningCert cert-pki-ca' from "
+            '/etc/pki/pki-tomcat/alias: Request timed out [WARNING]',
+        ],
+    },
+    {
+        # CRITICAL is what a check that raised reports, and the server is
+        # usually seen to be down by the service and port checks long before
+        # this daily result says so, hence WARNING by default
+        'id': 'warn-critical-result-by-default',
+        'params': [f'--config-root={config_root("rocky9-dirsrv-down")}', '--max-age=0'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'ipa-healthcheck found 1 critical, 2 errors in 186 results [WARNING]',
+            '\n\n* CRITICAL: ipahealthcheck.ipa.trust.IPAauthzdatapacCheck: ldap2 is '
+            'not connected',
+            '* ERROR: ipahealthcheck.meta.services.dirsrv: dirsrv: not running',
+        ],
+        # the traceback of a check that raised stays out of the output
+        'assert-not-in': ['Traceback', 'File "/usr/lib'],
+    },
+    {
+        'id': 'crit-critical-critical',
+        'params': [
+            f'--config-root={config_root("rocky9-dirsrv-down")}',
+            '--max-age=0',
+            '--critical=CRITICAL',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'is not connected (ldap2_',
+            'in MainThread) [CRITICAL]',
+            'dirsrv: not running [WARNING]',
+        ],
+    },
+    {
+        'id': 'ok-levels-none',
+        'params': [
+            f'--config-root={config_root("rocky9-dirsrv-down")}',
+            '--max-age=0',
+            '--warning=none',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'warn-unknown-result-value',
+        'params': [
+            f'--config-root={config_root("rocky9-unknown-result")}',
+            '--max-age=0',
+            '--warning=none',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '12 warnings, 1 unknown result in 277 results [WARNING]',
+            '* 40: ipahealthcheck.meta.services.certmonger [WARNING]',
+        ],
+    },
+    # --ignore
+    {
+        'id': 'ok-ignore-drops-the-warnings',
+        'params': [
+            f'--config-root={config_root("rocky9-dns-warnings")}',
+            '--max-age=0',
+            '--ignore=IPADNSSystemRecordsCheck',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'ipa-healthcheck found no problem in 265 results (12 ignored by '
+            '`--ignore`), last run ',
+            "'results_warning'=0;0;;0",
+        ],
+        'assert-not-in': ['* WARNING'],
+    },
+    {
+        'id': 'warn-ignore-matches-the-message',
+        'params': [
+            f'--config-root={config_root("rocky9-errors")}',
+            '--max-age=0',
+            '--ignore=record missing$',
+        ],
+        'assert-retc': STATE_WARN,
+        # the regex sees the message: "missing IP address for ipa-ca server"
+        # does not end in "record missing", so it stays
+        'assert-in': [
+            'found 2 errors, 1 warning in 266 results [WARNING] (11 ignored',
+            'missing IP address for ipa-ca server',
+        ],
+    },
+    {
+        'id': 'unknown-invalid-ignore-regex',
+        'params': [
+            f'--config-root={config_root("rocky9-errors")}',
+            '--ignore=(',
+        ],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['contains one or more errors'],
+    },
+    # age
+    {
+        'id': 'ok-fresh-result',
+        'params': [f'--config-root={FRESH}', '--warning=none'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['last run 1h', "'report_age'="],
+        'assert-not-in': ['more than 26h ago'],
+    },
+    {
+        'id': 'warn-stale-result',
+        'params': [f'--config-root={STALE}', '--warning=none'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'ipa-healthcheck found 12 warnings in 277 results, last run 1D 6h ago '
+            '[WARNING]',
+            'more than 26h ago',
+            '`systemctl list-timers ipa-healthcheck.timer`',
+        ],
+    },
+    {
+        'id': 'ok-max-age-0-switches-the-age-off',
+        'params': [f'--config-root={STALE}', '--warning=none', '--max-age=0'],
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'ok-max-age-raised',
+        'params': [f'--config-root={STALE}', '--warning=none', '--max-age=48'],
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'warn-empty-list-falls-back-to-the-file-age',
+        'params': [f'--config-root={EMPTY_LIST_STALE}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'ipa-healthcheck reported no result, as it does with `--failures-only` '
+            'when it finds no problem, last run 1D 6h ago [WARNING]',
+        ],
+    },
+    # log rotation
+    {
+        'id': 'warn-empty-file-after-rotation-uses-the-predecessor',
+        'params': [
+            f'--config-root={config_root("rocky9-rotated-empty")}',
+            '--max-age=0',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'ipa-healthcheck found 2 errors, 12 warnings in 277 results [WARNING]',
+            '/var/log/ipa/healthcheck/healthcheck.log holds no result since the last '
+            'log rotation, so this is the result in '
+            '/var/log/ipa/healthcheck/healthcheck.log-20261108.',
+        ],
+    },
+    {
+        'id': 'warn-missing-file-uses-the-predecessor',
+        'params': [
+            f'--config-root={config_root("rocky9-rotated-missing")}',
+            '--max-age=0',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['found 2 errors, 12 warnings', 'healthcheck.log-20261108.'],
+    },
+    {
+        'id': 'warn-newest-predecessor-by-mtime-compressed',
+        'params': [f'--config-root={ROTATED_ORDER}', '--max-age=0'],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['found 2 errors, 12 warnings', 'healthcheck.log.2.gz.'],
+    },
+    {
+        'id': 'ok-empty-file-without-predecessor',
+        'params': [f'--config-root={config_root("empty-no-predecessor")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'The ipa-healthcheck result file /var/log/ipa/healthcheck/healthcheck.log '
+            'is empty and holds no result yet',
+        ],
+    },
+    {
+        'id': 'warn-empty-file-without-predecessor-stays-empty',
+        'params': [f'--config-root={EMPTY_STALE}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['last changed 1D 6h ago [WARNING]'],
+    },
+    # damaged files
+    {
+        'id': 'warn-truncated-file',
+        'params': [f'--config-root={config_root("rocky9-truncated")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['is not a JSON list of results'],
+    },
+    {
+        'id': 'warn-human-output-type',
+        'params': [f'--config-root={config_root("rocky9-human-output")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['written with another `--output-type`'],
+    },
+    # no result at all
+    {
+        'id': 'ok-no-freeipa-server',
+        'params': [f'--config-root={config_root("does-not-exist")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['No FreeIPA server is installed on this host'],
+    },
+    {
+        'id': 'ok-server-without-healthcheck-recommends-installing-it',
+        'params': [f'--config-root={config_root("server-without-healthcheck")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'because ipa-healthcheck is not installed',
+            '`sudo dnf --assumeyes install ipa-healthcheck && sudo systemctl enable '
+            '--now ipa-healthcheck.timer`',
+        ],
+    },
+    {
+        'id': 'ok-healthcheck-not-run-recommends-the-timer',
+        'params': [f'--config-root={config_root("healthcheck-not-run")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'so ipa-healthcheck has not run yet',
+            '`sudo systemctl enable --now ipa-healthcheck.timer`',
+        ],
+    },
+    # confinement
+    {
+        'id': 'unknown-symlinked-file-is-not-followed',
+        'params': [f'--config-root={SYMLINKED}'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-not-in': ['SecretMarker'],
+    },
+    {
+        'id': 'ok-symlinked-predecessor-is-not-followed',
+        'params': [f'--config-root={SYMLINKED_PREDECESSOR}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['is empty and holds no result yet'],
+        'assert-not-in': ['SecretMarker'],
+    },
+    {
+        'id': 'unknown-config-root-outside-the-unit-tests',
+        'params': [f'--config-root={os.path.dirname(SECRET)}'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['accepted only inside the unit tests'],
+    },
+    {
+        'id': 'ok-always-ok',
+        'params': [
+            f'--config-root={config_root("rocky9-errors")}',
+            '--critical=ERROR',
+            '--always-ok',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': ['[CRITICAL]'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    pass
+
+
+def _check_case(test, case):
+    result = subprocess.run(  # nosec B603 - argv list, no shell
+        [PLUGIN, *case['params']],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    combined = result.stdout + result.stderr
+    test.assertEqual(
+        result.returncode,
+        case['assert-retc'],
+        f'expected retc {case["assert-retc"]}, got {result.returncode}.'
+        f'\nOutput: {combined}',
+    )
+    for needle in case.get('assert-in', []):
+        test.assertIn(needle, combined, f'{needle!r} not in output:\n{combined}')
+    for needle in case.get('assert-not-in', []):
+        test.assertNotIn(
+            needle, combined, f'{needle!r} unexpectedly in output:\n{combined}'
+        )
+
+
+lib.lftest.attach_each(TestCheck, CASES, _check_case, id_func=lambda it: it['id'])
+
+
+class TestPermissions(unittest.TestCase):
+    """A result directory the check may not list is UNKNOWN, not "not installed"."""
+
+    def test_unlistable_directory(self):
+        if hasattr(os, 'geteuid') and os.geteuid() == 0:
+            self.skipTest('root lists every directory')
+        root = generated_root('unlistable')
+        directory = os.path.join(root, REPORT_DIR)
+        shutil.copy(
+            os.path.join(config_root('rocky9-errors'), REPORT_DIR, 'healthcheck.log'),
+            directory,
+        )
+        os.chmod(directory, 0o000)
+        self.addCleanup(os.chmod, directory, 0o755)
+        result = subprocess.run(  # nosec B603 - argv list, no shell
+            [PLUGIN, f'--config-root={root}'],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, STATE_UNKNOWN, result.stdout)
+        self.assertIn('permission denied', result.stdout)
+        self.assertIn('sudo chmod 0755 /var/log/ipa/healthcheck', result.stdout)
+
+
+if __name__ == '__main__':
+    unittest.main()

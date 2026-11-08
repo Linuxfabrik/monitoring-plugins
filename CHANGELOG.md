@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Monitoring Plugins:
 
+* freeipa-logfile: Warns when the daily ipa-healthcheck run finds a problem on a FreeIPA server, or no longer runs.
 * icinga-director-basket-drift: Warns when Linuxfabrik objects in the Icinga Director differ from the basket of the installed plugins.
 * icinga-director-overrides: Lists the service variables overridden per host in the Icinga Director, and overrides without effect.
 * icinga-director-template-overrides: Lists where your own templates in the Icinga Director override the Linuxfabrik templates.
@@ -39,6 +40,8 @@ Monitoring Plugins:
 Icinga Director:
 
 * deb-updates, rpm-updates: Check for updates every 8 hours instead of once a day.
+* FreeIPA Server Service Set: Also checks the result of ipa-healthcheck and its timer.
+* OS - \* Basic Service Sets: `Systemd Units Failed` no longer alerts on a failed `ipa-healthcheck.service`.
 
 
 ### Removed

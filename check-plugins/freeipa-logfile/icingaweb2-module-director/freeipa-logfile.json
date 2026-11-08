@@ -1,0 +1,255 @@
+{
+    "Command": {
+        "cmd-check-freeipa-logfile": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$freeipa_logfile_always_ok$"
+                },
+                "--critical": {
+                    "value": "$freeipa_logfile_critical$"
+                },
+                "--ignore": {
+                    "value": "$freeipa_logfile_ignore$",
+                    "repeat_key": true
+                },
+                "--max-age": {
+                    "value": "$freeipa_logfile_max_age$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$freeipa_logfile_no_perfdata$"
+                },
+                "--warning": {
+                    "value": "$freeipa_logfile_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/freeipa-logfile",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-freeipa-logfile",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "bf2ee855-e60e-4d30-ab5a-7c964476a22a"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-freeipa-logfile": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-freeipa-logfile",
+            "check_interval": "3600",
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "freeipa-logfile.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Evaluates the result file of ipa-healthcheck, which checks a FreeIPA server for certificate, replication, topology, DNS, service and file permission problems once a day, for example through ipa-healthcheck.timer. The check itself does not run ipa-healthcheck, so it is fast and needs no more than read access to the result file. Alerts when ipa-healthcheck reports a problem, and when the result file is damaged or older than the maximum age, because then the daily run has stopped. After the nightly log rotation, the result of the rotated file stands until the next run. ipa-healthcheck runs once a day and the services of the server are better watched in real time, so by default only WARNING is raised.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/freeipa-logfile/",
+            "object_name": "tpl-service-freeipa-logfile",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "freeipa_logfile_always_ok": false,
+                "freeipa_logfile_critical": "none",
+                "freeipa_logfile_ignore": [],
+                "freeipa_logfile_max_age": 26,
+                "freeipa_logfile_no_perfdata": false,
+                "freeipa_logfile_warning": "WARNING"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "075759a4-d1f5-4e13-80eb-9fab15fca3ec"
+        }
+    },
+    "DataList": {
+        "freeipa_logfile_critical_list": {
+            "list_name": "freeipa_logfile_critical_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "CRITICAL",
+                    "entry_value": "Critical",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "ERROR",
+                    "entry_value": "Error",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "WARNING",
+                    "entry_value": "Warning",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "none",
+                    "entry_value": "None",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "86d78e47-7511-43d4-9273-e79038409a57"
+        },
+        "freeipa_logfile_warning_list": {
+            "list_name": "freeipa_logfile_warning_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "CRITICAL",
+                    "entry_value": "Critical",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "ERROR",
+                    "entry_value": "Error",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "WARNING",
+                    "entry_value": "Warning",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "none",
+                    "entry_value": "None",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "57b79d91-5c9f-47c4-9329-a57e7f9323c0"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "freeipa_logfile_always_ok",
+            "caption": "Freeipa Logfile: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "93271370-bfd7-4ab3-8ccc-3f09f74f2e69"
+        },
+        "2": {
+            "varname": "freeipa_logfile_critical",
+            "caption": "Freeipa Logfile: Critical",
+            "description": "Least severe ipa-healthcheck result that returns CRITICAL. Each result includes everything more severe than itself, so `ERROR` covers `CRITICAL` as well. Case-sensitive. `none` lets no result return CRITICAL. Example: `--critical=CRITICAL`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "freeipa_logfile_critical_list"
+            },
+            "uuid": "47eeca5f-d6aa-400f-a8ff-ba549da3f59c"
+        },
+        "3": {
+            "varname": "freeipa_logfile_ignore",
+            "caption": "Freeipa Logfile: Ignore",
+            "description": "Any ipa-healthcheck result matching this Python regex will be ignored. The regex is matched against the line the check prints for the result, `<source>.<check>[.<key>]: <message>`, without the result value. Case-sensitive. Can be specified multiple times. Example: `--ignore=IPADNSSystemRecordsCheck`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2f7cd2f5-64bf-4d1c-adb8-b67a48068128"
+        },
+        "4": {
+            "varname": "freeipa_logfile_max_age",
+            "caption": "Freeipa Logfile: Max Age",
+            "description": "Maximum age of the ipa-healthcheck result in hours. An older result means that the daily run no longer happens.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "15d93b18-7191-4350-9d90-5619d02846c6"
+        },
+        "5": {
+            "varname": "freeipa_logfile_no_perfdata",
+            "caption": "Freeipa Logfile: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "616421d1-59c8-42d4-a879-6d6cb0179bef"
+        },
+        "6": {
+            "varname": "freeipa_logfile_warning",
+            "caption": "Freeipa Logfile: Warning",
+            "description": "Least severe ipa-healthcheck result that returns WARNING. Each result includes everything more severe than itself, and a result that `--critical` already covers returns CRITICAL instead. Case-sensitive. `none` lets no result return WARNING. Example: `--warning=ERROR`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "freeipa_logfile_warning_list"
+            },
+            "uuid": "e8479496-b5de-43ac-8323-658db0a604a0"
+        }
+    }
+}
