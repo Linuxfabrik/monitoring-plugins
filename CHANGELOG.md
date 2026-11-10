@@ -20,12 +20,16 @@ Monitoring Plugins:
 * icinga-director-template-overrides: Lists where your own templates in the Icinga Director override the Linuxfabrik templates.
 * rpm-database: Warns when the RPM database is broken, which stops dnf, yum and zypper.
 
+Icinga Director:
+
+* Icinga Director Service Set: Checks the Director daemon, its daily housekeeping and the Director checks above, on hosts tagged `icinga-director`.
+
 
 ### Changed
 
 Monitoring Plugins:
 
-* about-me: `--tags` proposes the new `data-partition` tag on hosts with a partition mounted at `/data`.
+* about-me: `--tags` proposes the new `data-partition` tag on hosts with a partition mounted at `/data`, and the new `icinga-director` tag.
 * lynis-logfile: Reports how many tests the lynis profile skips.
 * mysql-connections: Speaks of failed connection attempts instead of aborted connections, and points to the denied logins.
 * mysql-index-health: Redundant indexes no longer alert by default.

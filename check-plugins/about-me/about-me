@@ -44,7 +44,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110601 / v8.1.0'
+__version__ = '2026111001 / v8.1.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -751,6 +751,22 @@ def get_lftags(distro):
                 run_cmd(
                     ['systemctl', 'is-enabled', 'icingadb.service'], ignore_output=True
                 )
+            ],
+        },
+        {
+            # LFOps installs the Director from the release tarball, so the
+            # package is not always there. The module directory also catches a
+            # host whose daemon was disabled, which the Service Set reports.
+            # The packages use the same path, verified against icinga-director
+            # 1.12.1 from packages.icinga.com on Debian 13 and Fedora 43.
+            'sw': 'Icinga Director',
+            'package': ['icinga-director'],
+            'expr': [
+                lib.disk.dir_exists('/usr/share/icingaweb2/modules/director'),
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'icinga-director.service'],
+                    ignore_output=True,
+                ),
             ],
         },
         {
