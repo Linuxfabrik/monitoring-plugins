@@ -17,22 +17,49 @@ import lib.args
 import lib.base
 import lib.lftest
 import lib.shell
+import lib.systemd
 import lib.version
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102403'
+__version__ = '2026111101'
 
 DESCRIPTION = """Checks the state of a specific systemd unit (service, socket, device, mount, timer,
 scope, etc.) via systemctl. Verifies the active state, sub-state, load state, and
 unit file state against expected values.
-Alerts when the unit is not in the expected state.
+Alerts when the unit is not in the expected state, and if it failed, says why, for
+example the exit status or the signal that killed it, and shows its last log lines.
 Requires root or sudo."""
 
 DEFAULT_ACTIVESTATE = []
 DEFAULT_LOADSTATE = 'loaded'
 DEFAULT_SEVERITY = 'warn'
 DEFAULT_SUBSTATE = []
+
+JOURNAL_TIMEOUT = 5  # seconds
+LOG_LINES = 3
+# A program may write a whole document into one log line.
+LOG_LINE_LENGTH = 200
+
+
+def get_log_lines(unit, test):
+    """Return the last LOG_LINES lines the unit's own processes wrote to the journal
+    in the current boot, or an empty list.
+    """
+    if test is None:
+        logs = lib.systemd.get_log_lines(
+            [unit],
+            lines=LOG_LINES,
+            line_length=LOG_LINE_LENGTH,
+            timeout=JOURNAL_TIMEOUT,
+        )
+        return logs.get(unit, [])
+    # lib.lftest.test() hands back the path itself for a missing fixture
+    path = f'{test[0]}-journal'
+    stdout, _stderr, _retc = lib.lftest.test([path])
+    if stdout == path:
+        return []
+    return lib.systemd.log_lines(stdout, LOG_LINES, LOG_LINE_LENGTH)
 
 
 def parse_args():
@@ -286,8 +313,8 @@ def main():
         'systemctl',
         *options,
         'show',
-        '-p',
-        'LoadState,ActiveState,SubState,UnitFileState',
+        '--property=Id,LoadState,ActiveState,SubState,UnitFileState,'
+        f'{lib.systemd.SHOW_PROPERTIES}',
         args.UNIT,
     ]
 
@@ -310,17 +337,17 @@ def main():
 
     # analyze data
     # systemctl prints the properties in its own order, not in the order they
-    # were asked for, and with `-p` it prints every one of them even where the
-    # unit has no value for it (a .device or a .scope has no UnitFileState, and
-    # the line still arrives as "UnitFileState="). Both hold on systemd 239
-    # (Rocky 8), 252 (Rocky 9) and 258 (Fedora 43), which is what makes reading
-    # the four lines by position safe.
-    result = stdout.split('\n')
+    # were asked for (`Result` comes before `Id`), and leaves out the ExecMain
+    # properties for a unit that is not a service, so they are read by name. A
+    # .device or a .scope has no UnitFileState, and the line arrives as
+    # "UnitFileState=". Verified on systemd 239 (ubi8), 252 (ubi9), 257 (ubi10,
+    # Debian 13) and 259 (Ubuntu 26.04).
+    props = (lib.systemd.parse_show(stdout) or [{}])[0]
 
-    loadstate = result[0].replace('LoadState=', '')
-    activestate = result[1].replace('ActiveState=', '')
-    substate = result[2].replace('SubState=', '')
-    unitfilestate = result[3].replace('UnitFileState=', '')
+    loadstate = props.get('LoadState', '')
+    activestate = props.get('ActiveState', '')
+    substate = props.get('SubState', '')
+    unitfilestate = props.get('UnitFileState', '')
 
     # build the message
     msg = f'{args.UNIT} is {loadstate}, {activestate}, {substate}'
@@ -375,7 +402,26 @@ def main():
             )
 
     if problem:
-        msg = f'{args.UNIT} - {problem_msg[:-2]}'
+        # systemd keeps the result of a failed run until the unit is started again,
+        # also while it waits in auto-restart, so this is empty for a unit that was
+        # merely stopped
+        reason = lib.systemd.failure_reason(props)
+        unit = f'{args.UNIT} ({reason})' if reason else args.UNIT
+        msg = f'{unit} - {problem_msg[:-2]}'
+        # The journal of a container or of a user's service manager is somewhere
+        # else, so the last log lines and the command are for the system only. The
+        # journal knows the unit by its real name (`Id`), not by an alias or a name
+        # without suffix such as `sshd`.
+        unit_id = props.get('Id', '')
+        if reason and unit_id and not (args.MACHINE or args.USER):
+            lines = get_log_lines(unit_id, args.TEST)
+            if lines:
+                log = '\n'.join(lines)
+                msg += f'\n\nLast log lines of {unit_id}:\n{log}'
+            # always, since the last lines are only a first hint; no period after
+            # the command, so it can be copied as is
+            command = lib.systemd.journalctl_command([unit_id])
+            msg += f'\n\nShow the log with `sudo {command}`'
         state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
 
     # over and out

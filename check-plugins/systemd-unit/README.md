@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the state of a specific systemd unit (service, socket, device, mount, timer, scope, etc.) via `systemctl show`. Verifies the active state, sub-state, load state, and unit file state against expected values.
+Checks the state of a specific systemd unit (service, socket, device, mount, timer, scope, etc.) via `systemctl show`. Verifies the active state, sub-state, load state, and unit file state against expected values. If the unit failed, the check says why, for example the exit status or the signal that killed it, and shows the last log lines of the unit.
 
 **Important Notes:**
 
@@ -13,7 +13,9 @@ Checks the state of a specific systemd unit (service, socket, device, mount, tim
 
 **Data Collection:**
 
-* Executes `systemctl show -p LoadState,ActiveState,SubState,UnitFileState <unit>`
+* Executes `systemctl show --property=Id,LoadState,ActiveState,SubState,UnitFileState,Result,ExecMainCode,ExecMainStatus <unit>`
+* If the unit is not in the expected state and failed, or waits to be restarted after a failure, the check says why from `Result`, `ExecMainCode` and `ExecMainStatus`. Exit statuses from 200 on are set by systemd itself and are shown with their name, for example `203/EXEC`, see [systemd.exec(5)](https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Process%20Exit%20Codes)
+* Then it reads the last three lines the unit wrote itself with `journalctl --boot=0 --output=cat --lines=3 _SYSTEMD_UNIT=<unit>`, and ends with the `journalctl` command that shows the whole log. Not with `--machine` or `--user`, whose journal is elsewhere
 * Optionally supports `--machine` to query units inside local containers (requires systemd >= 209)
 * Optionally supports `--user` to query user-level service manager
 
@@ -46,7 +48,9 @@ usage: systemd-unit [-h] [-V]
 Checks the state of a specific systemd unit (service, socket, device, mount,
 timer, scope, etc.) via systemctl. Verifies the active state, sub-state, load
 state, and unit file state against expected values. Alerts when the unit is
-not in the expected state. Requires root or sudo.
+not in the expected state, and if it failed, says why, for example the exit
+status or the signal that killed it, and shows its last log lines. Requires
+root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -166,6 +170,19 @@ Output (mismatch):
 
 ```text
 firewalld.service - LoadState is "loaded", but should be set to "not-found"
+```
+
+Output (the unit failed):
+
+```text
+httpd (exited with status 1) - ActiveState is "failed", but supposed to be "['active']"
+
+Last log lines of httpd.service:
+httpd.service: Referenced but unset environment variable evaluates to an empty string: OPTIONS
+AH00526: Syntax error on line 100 of /etc/httpd/conf/httpd.conf:
+Invalid command 'ServerNmae', perhaps misspelled or defined by a module not included in the server configuration
+
+Show the log with `sudo journalctl --boot=0 --unit=httpd.service`
 ```
 
 

@@ -64,6 +64,49 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': ['ActiveState is "failed"', 'SubState is "failed"'],
     },
+    # A real httpd with a typo in its configuration, from a ubi10-init container
+    # (systemd 257): the reason, its last log lines and the command for the rest.
+    {
+        'id': 'warn-failed-service-says-why-and-shows-the-log',
+        'test': 'stdout/httpd-failed-el10,,0',
+        'params': '--unit=httpd --activestate=active',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'httpd (exited with status 1) - ActiveState is "failed"',
+            '\n\nLast log lines of httpd.service:\n'
+            'httpd.service: Referenced but unset environment variable',
+            "Invalid command 'ServerNmae', perhaps misspelled",
+            '\n\nShow the log with `sudo journalctl --boot=0 --unit=httpd.service`',
+        ],
+    },
+    # systemd keeps the reason while the unit waits to be restarted.
+    {
+        'id': 'warn-auto-restart-says-why',
+        'test': 'stdout/auto-restart-el10,,0',
+        'params': '--unit=t-restart.service --activestate=active --substate=running',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            't-restart.service (exited with status 4) - ActiveState is "activating"',
+            'Last log lines of t-restart.service:\nconnecting to db\nfatal: db down',
+        ],
+    },
+    # The journal of a container is elsewhere: the reason, but no log lines.
+    {
+        'id': 'warn-machine-says-why-without-log',
+        'test': 'stdout/httpd-failed-el10,,0',
+        'params': '--unit=httpd --activestate=active --machine=lftest',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['httpd (exited with status 1)'],
+        'assert-not-in': ['Last log lines', 'journalctl'],
+    },
+    # A unit in the expected state gets no reason, even where it failed.
+    {
+        'id': 'ok-failed-as-expected-has-no-reason',
+        'test': 'stdout/httpd-failed-el10,,0',
+        'params': '--unit=httpd --activestate=failed',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['exited with status', 'journalctl'],
+    },
     # --severity lifts the very same finding to CRIT.
     {
         'id': 'crit-failed-service-with-severity',

@@ -40,6 +40,7 @@ Monitoring Plugins:
 * psi-io: Higher default thresholds, a single busy reader no longer alerts.
 * rpm-updates: Counts Rocky Linux `security` repo hot-fixes as security updates.
 * scanrootkit: Reports indicators instead of rootkits, generic paths and files any user can create only warn, detects 3 more implants.
+* systemd-unit: Says why a failed unit failed, and shows its last log lines.
 * systemd-units-failed: Says why each unit failed, and shows its last log lines when the check may read the journal.
 
 Icinga Director:

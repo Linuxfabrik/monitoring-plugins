@@ -13,31 +13,28 @@
 import argparse
 import fnmatch
 import re
-import shlex
-import signal
 import sys
-import time
 
 import lib.args
 import lib.base
 import lib.human
 import lib.lftest
 import lib.shell
+import lib.systemd
 import lib.time
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026111101'
+__version__ = '2026111102'
 
 DESCRIPTION = """Checks for failed systemd units. Alerts when any unit is in a failed state, and
 says why each unit failed, for example the exit status or the signal that killed it.
 With read access to the systemd journal, also shows the last log lines of each failed
 unit. Specific units can be excluded from the check via --ignore with glob patterns.
-When no unit
-is currently failed, reports the most recent system unit-failed event from the current
-boot's journal so operators see at a glance how long the host has been clean since the
-last reboot."""
+When no unit is currently failed, reports the most recent system unit-failed event
+from the current boot's journal so operators see at a glance how long the host has
+been clean since the last reboot."""
 
 JOURNAL_TIMEOUT = 5  # seconds
 
@@ -48,91 +45,6 @@ LOG_LINES = 3
 LOG_UNITS = 5
 # A program may write a whole document into one log line.
 LOG_LINE_LENGTH = 200
-
-# How systemd's `Result` property reads in the output, complete for every unit type
-# (`*_result_table` in src/core/{automount,mount,path,scope,service,socket,swap,
-# timer}.c, verified against systemd 257). `success` is left out, since a unit with
-# that result has not failed for a reason of its own (a unit that is not found, for
-# example). `exit-code`, `signal` and `core-dump` are refined with the exit status or
-# the signal of the main process where systemd knows them.
-RESULT_REASONS = {
-    'core-dump': 'dumped core',
-    'exec-condition': 'its ExecCondition= failed',
-    'exit-code': 'exited with an error',
-    'mount-start-limit-hit': 'its mount unit was started too often',
-    'oom-kill': 'killed by the OOM killer',
-    'protocol': 'did not follow the start-up protocol of its type',
-    'resources': 'a system operation failed while starting or stopping it',
-    'service-start-limit-hit': 'its service was started too often',
-    'signal': 'killed by a signal',
-    'start-limit-hit': 'started too often',
-    'timeout': 'timed out',
-    'trigger-limit-hit': 'triggered too often',
-    'unit-start-limit-hit': 'the unit it triggers was started too often',
-    'unmounted': 'its automount point was unmounted',
-    'watchdog': 'missed its watchdog',
-}
-
-# The exit statuses systemd sets itself when it cannot start a process, from
-# src/shared/exit-status.h (verified against systemd 257). 223 and 234 are reserved
-# and have no name. The LSB (1 to 7) and BSD (64 to 78) names that systemctl also
-# prints are left out on purpose: a program chooses those statuses itself, mostly
-# without following either convention, so `3/NOTIMPLEMENTED` would mislead.
-SYSTEMD_EXIT_STATUSES = {
-    200: 'CHDIR',
-    201: 'NICE',
-    202: 'FDS',
-    203: 'EXEC',
-    204: 'MEMORY',
-    205: 'LIMITS',
-    206: 'OOM_ADJUST',
-    207: 'SIGNAL_MASK',
-    208: 'STDIN',
-    209: 'STDOUT',
-    210: 'CHROOT',
-    211: 'IOPRIO',
-    212: 'TIMERSLACK',
-    213: 'SECUREBITS',
-    214: 'SETSCHEDULER',
-    215: 'CPUAFFINITY',
-    216: 'GROUP',
-    217: 'USER',
-    218: 'CAPABILITIES',
-    219: 'CGROUP',
-    220: 'SETSID',
-    221: 'CONFIRM',
-    222: 'STDERR',
-    224: 'PAM',
-    225: 'NETWORK',
-    226: 'NAMESPACE',
-    227: 'NO_NEW_PRIVILEGES',
-    228: 'SECCOMP',
-    229: 'SELINUX_CONTEXT',
-    230: 'PERSONALITY',
-    231: 'APPARMOR',
-    232: 'ADDRESS_FAMILIES',
-    233: 'RUNTIME_DIRECTORY',
-    235: 'CHOWN',
-    236: 'SMACK_PROCESS_LABEL',
-    237: 'KEYRING',
-    238: 'STATE_DIRECTORY',
-    239: 'CACHE_DIRECTORY',
-    240: 'LOGS_DIRECTORY',
-    241: 'CONFIGURATION_DIRECTORY',
-    242: 'NUMA_POLICY',
-    243: 'CREDENTIALS',
-    244: 'BPF',
-    245: 'KSM',
-    246: 'MEMORY_THP',
-    255: 'EXCEPTION',
-}
-
-# `ExecMainCode` is the si_code of the main process: CLD_EXITED, CLD_KILLED or
-# CLD_DUMPED. 0 means the main process never ran, for example because an
-# ExecStartPre= command failed, and a unit that is not a service has no main process.
-CLD_EXITED = 1
-CLD_KILLED = 2
-CLD_DUMPED = 3
 
 
 def parse_args():
@@ -281,113 +193,33 @@ def get_last_failed_unit(ignores):
     return unit, epoch, message
 
 
-def _signal_name(number):
-    """Return the name of signal `number` (`SIGKILL`), or `signal 9` if Python does
-    not know it.
-    """
-    try:
-        return signal.Signals(number).name
-    except ValueError:
-        return f'signal {number}'
-
-
 def get_log_lines(units, test):
-    """Return a dict of unit name to the last LOG_LINES lines that the unit's own
-    processes wrote to the journal in the current boot, for the first LOG_UNITS units.
-    The messages of systemd about the unit stay out, since the reason already says
-    what they say.
-
-    Reading the system journal needs root, sudo or the `systemd-journal` group.
-    Without them, journalctl ends with an error or shows only the account's own
-    journal; either way, no lines come back and the unit is left out. All calls
-    together get JOURNAL_TIMEOUT seconds.
+    """Return a dict of unit name to the last LOG_LINES lines the unit's own processes
+    wrote to the journal in the current boot, for the first LOG_UNITS units. Every
+    unit costs one journalctl call, so all calls together get JOURNAL_TIMEOUT seconds.
     """
+    units = units[:LOG_UNITS]
+    if test is None:
+        return lib.systemd.get_log_lines(
+            units, lines=LOG_LINES, line_length=LOG_LINE_LENGTH, timeout=JOURNAL_TIMEOUT
+        )
     logs = {}
-    deadline = time.monotonic() + JOURNAL_TIMEOUT
-    for unit in units[:LOG_UNITS]:
-        if test is None:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                break
-            success, result = lib.shell.shell_exec(
-                [
-                    'journalctl',
-                    '--no-pager',
-                    '--boot=0',
-                    '--output=cat',
-                    f'--lines={LOG_LINES}',
-                    f'_SYSTEMD_UNIT={unit}',
-                ],
-                timeout=remaining,
-            )
-            if not success:
-                break
-            stdout, _stderr, retc = result
-            if retc != 0:
-                # not allowed to read a single journal file, the next unit fares
-                # no better
-                break
-        else:
-            stdout = load_fixture(f'{test[0]}-journal-{unit}')
-        lines = [
-            lib.txt.shorten(line.rstrip(), LOG_LINE_LENGTH)
-            for line in stdout.splitlines()
-            if line.strip()
-        ]
+    for unit in units:
+        lines = lib.systemd.log_lines(
+            load_fixture(f'{test[0]}-journal-{unit}'), LOG_LINES, LOG_LINE_LENGTH
+        )
         if lines:
-            logs[unit] = lines[-LOG_LINES:]
+            logs[unit] = lines
     return logs
 
 
-def get_reason(props):
-    """Tell in a few words why a unit failed, from its `Result`, `ExecMainCode` and
-    `ExecMainStatus` properties (`systemctl show`). Returns '' if systemd gives no
-    reason, which is the case for a unit that is not found.
-    """
-    result = props.get('Result', '')
-    if not result or result == 'success':
-        return ''
-    try:
-        code = int(props.get('ExecMainCode', 0))
-        status = int(props.get('ExecMainStatus', 0))
-    except ValueError:
-        code, status = 0, 0
-    if result == 'exit-code' and code == CLD_EXITED and status:
-        name = SYSTEMD_EXIT_STATUSES.get(status)
-        return f'exited with status {status}' + (f'/{name}' if name else '')
-    if result == 'signal' and code == CLD_KILLED and status:
-        return f'killed by {_signal_name(status)}'
-    if result == 'core-dump' and code == CLD_DUMPED and status:
-        return f'dumped core on {_signal_name(status)}'
-    # a result that a later systemd adds still says something
-    return RESULT_REASONS.get(result, f"failed with result '{result}'")
-
-
 def get_reasons(units, test):
-    """Return a dict of unit name to reason, from one `systemctl show` call for all
-    `units`. Reading the properties needs no privileges. On any error, the units go
+    """Return a dict of unit name to the reason it failed. On any error, the units go
     without a reason instead of failing the check.
     """
-    cmd = [
-        'systemctl',
-        'show',
-        '--property=Result,ExecMainCode,ExecMainStatus',
-        '--',
-        *units,
-    ]
     if test is None:
-        success, result = lib.shell.shell_exec(cmd)
-        if not success:
-            return {}
-        stdout, _stderr, retc = result
-        if retc != 0:
-            return {}
-    else:
-        stdout = load_fixture(f'{test[0]}-show')
-    blocks = parse_show(stdout)
-    if len(blocks) != len(units):
-        return {}
-    return {unit: get_reason(props) for unit, props in zip(units, blocks)}
+        return lib.systemd.get_failure_reasons(units)
+    return lib.systemd.failure_reasons(units, load_fixture(f'{test[0]}-show'))
 
 
 def load_fixture(path):
@@ -396,23 +228,6 @@ def load_fixture(path):
     """
     stdout, _stderr, _retc = lib.lftest.test([path])
     return '' if stdout == path else stdout
-
-
-def parse_show(stdout):
-    """Split the output of `systemctl show <unit> <unit> ...` into one dict of
-    properties per unit. systemctl prints one block per unit, in the order of the
-    arguments, separated by an empty line, and leaves out the ExecMain properties for
-    a unit that is not a service.
-    """
-    blocks = []
-    for block in stdout.strip().split('\n\n'):
-        props = {}
-        for line in block.splitlines():
-            key, sep, value = line.partition('=')
-            if sep:
-                props[key] = value
-        blocks.append(props)
-    return blocks
 
 
 def main():
@@ -489,10 +304,10 @@ def main():
                 log = '\n'.join(lines)
                 table += f'\nLast log lines of {unit}:\n{log}\n'
             # always, since the last lines are only a first hint and cover at
-            # most LOG_UNITS units; quoted, since an escaped unit name contains a
-            # backslash; no period after the command, so it can be copied as is
-            unit_args = ' '.join(shlex.quote(f'--unit={unit}') for unit in units)
-            table += f'\nShow the log with `sudo journalctl --boot=0 {unit_args}`\n'
+            # most LOG_UNITS units; no period after the command, so it can be copied
+            # as is
+            command = lib.systemd.journalctl_command(units)
+            table += f'\nShow the log with `sudo {command}`\n'
 
     # When the system is currently clean, surface the most recent unit-failed
     # journal event so the admin sees how long the host has been quiet.
