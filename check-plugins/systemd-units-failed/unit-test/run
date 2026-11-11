@@ -17,6 +17,14 @@ import unittest
 import lib.lftest
 from lib.globals import STATE_OK, STATE_WARN
 
+# Fixtures are the verbatim output of the commands the check runs, in the C locale it
+# runs them in. A check with failed units also asks `systemctl show` for the reason
+# (`<base>-show`) and journalctl for the log of each unit (`<base>-journal-<unit>`);
+# without such a fixture, the unit goes without a reason or without log lines.
+# `ten-failed-el10*` comes from a ubi10-init container (systemd 257) with ten units
+# that fail in different ways. `one-failed-openipmi-show` is made up: a Result value
+# that systemd does not know today.
+
 TESTS = [
     {
         'id': 'ok-no-failed-units',
@@ -95,6 +103,74 @@ TESTS = [
         'assert-regex': (
             r'tomcat8.service    ! not-found ! failed ! failed ! tomcat8.service'
         ),
+    },
+    {
+        'id': 'warn-ten-failed-el10-say-why',
+        'test': 'stdout/ten-failed-el10,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '10 failed units: mnt-x.mount (exited with an error), ',
+            't-exit.service (exited with status 3), ',
+            't-noexec.service (exited with status 203/EXEC), ',
+            't-notify.service (timed out), ',
+            't-nouser.service (exited with status 217/USER), ',
+            't-pre.service (exited with an error), ',
+            't-segv.service (dumped core on SIGSEGV), ',
+            't-signal.service (killed by SIGKILL), ',
+            't-timeout.service (timed out)',
+        ],
+    },
+    {
+        'id': 'warn-ten-failed-el10-show-the-log',
+        'test': 'stdout/ten-failed-el10,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Last log lines of t-exit.service:\n'
+            'starting\n'
+            'Error: config file /etc/foo.conf not found\n',
+            'Last log lines of t-noexec.service:\n'
+            "t-noexec.service: Unable to locate executable '/nonexistent/binary'",
+        ],
+        'assert-not-in': ['Last log lines of mnt-x.mount'],
+    },
+    {
+        # the last lines are only a hint, so the command follows them for all units
+        'id': 'warn-ten-failed-el10-hint-names-every-unit',
+        'test': 'stdout/ten-failed-el10,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'No such file or directory\n\n'
+            'Show the log with `sudo journalctl --boot=0 --unit=mnt-x.mount '
+            '--unit=t-exit.service --unit=t-limit.service --unit=t-noexec.service '
+            '--unit=t-notify.service --unit=t-nouser.service --unit=t-pre.service '
+            '--unit=t-segv.service --unit=t-signal.service --unit=t-timeout.service`',
+        ],
+    },
+    {
+        'id': 'warn-unknown-result-is-shown-as-is',
+        'test': 'stdout/one-failed-openipmi,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            "1 failed unit: openipmi.service (failed with result 'frobnicate')",
+        ],
+    },
+    {
+        # no log lines: the journal is not readable, or the unit wrote nothing
+        'id': 'warn-without-log-points-to-journalctl',
+        'test': 'stdout/one-failed-openipmi,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Show the log with `sudo journalctl --boot=0 --unit=openipmi.service`',
+        ],
+    },
+    {
+        # quoted, so the shell keeps the backslash of the escaped name
+        'id': 'warn-escaped-unit-is-quoted-in-the-journalctl-hint',
+        'test': 'stdout/one-failed-escaped-swap,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            r"`sudo journalctl --boot=0 '--unit=dev-disk-by\x2duuid-0a1b2c3d.swap'`",
+        ],
     },
 ]
 
