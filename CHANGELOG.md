@@ -73,6 +73,7 @@ Monitoring Plugins:
 * mysql-index-health: Never suggests dropping a primary key as a redundant index.
 * mysql-logfile: A MariaDB restart counts as one shutdown, and denied logins no longer come with "No errors or warnings found".
 * needs-restarting: The first run after a reboot no longer breaks the RPM database on RHEL 8, and a broken RPM database returns UNKNOWN instead of a pending reboot.
+* nextcloud-status: An HTTP 404 names the wrong path in `--url`, and a web server error page is no longer quoted with its CSS.
 
 
 ## [v8.1.0] - 2026-10-27

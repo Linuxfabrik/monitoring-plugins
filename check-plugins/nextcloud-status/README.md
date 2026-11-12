@@ -182,7 +182,7 @@ Nextcloud answered HTTP 503 instead of a status document: Cannot write into "con
 * CRIT (default) or the state given by `--upgrade-severity` if a database upgrade is pending while maintenance mode is off.
 * WARN (default) or the state given by `--maintenance-severity` if maintenance mode is on. The same state applies to a pending database upgrade while maintenance mode is on, because a running `occ upgrade` sets both flags.
 * CRIT if the instance reports that it is not installed.
-* CRIT (default) or the state given by `--unavailable-severity` if the instance does not answer with a status document at all: a refused connection, a timeout, an HTTP error, or a body that is not one. The metric keeps being reported in this case, so the graph does not break off exactly while the instance is down.
+* CRIT (default) or the state given by `--unavailable-severity` if the instance does not answer with a status document at all: a refused connection, a timeout, an HTTP error such as a 404 for a wrong path in `--url`, or a body that is not one. The metric keeps being reported in this case, so the graph does not break off exactly while the instance is down.
 * UNKNOWN if the instance rejects the host name used in `--url` as an untrusted domain. `--unavailable-severity` does not apply, because this is a wrong URL rather than a broken instance.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -201,6 +201,12 @@ Nextcloud answered HTTP 503 instead of a status document: Cannot write into "con
 `HTTP 400 "Trusted domain error" from http://192.0.2.10/status.php.`
 
 Nextcloud only answers under the host names listed in the `trusted_domains` array of its `config.php`. Probing by IP address is the usual cause. Either add the name used in `--url` to `trusted_domains`, or point `--url` at a name that is already listed.
+
+### HTTP 404 from the status endpoint
+
+`HTTP 404 from http://localhost/nextcloud/status.php, there is no Nextcloud at this path.`
+
+The web server found no `status.php` under the path in `--url`. The default assumes an instance in the `/nextcloud` subdirectory; one that is served from the document root of its virtual host answers at `/status.php` instead, so set `--url` to the base URL of the instance, for example `--url=https://cloud.example.com`. The check alerts at `--unavailable-severity` here, because an installation that is gone from the disk answers the same way.
 
 ### HTTP 500 while fetching the status endpoint
 

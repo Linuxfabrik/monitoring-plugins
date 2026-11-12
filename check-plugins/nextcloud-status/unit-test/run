@@ -22,6 +22,9 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # Every fixture was captured from a Nextcloud 34.0.2 container on PHP 8.5.9, including the
 # error pages: the config directory was made read only, and the supported PHP range in
 # `lib/versioncheck.php` was moved so that the running interpreter fell outside it.
+# The `webserver-*` fixtures are no Nextcloud pages: they were captured from Apache httpd
+# 2.4.62 on RHEL 9 with styled `ErrorDocument` pages that carry their CSS inline, by
+# requesting a path that does not exist (404) and one proxied to a dead backend (503).
 TESTS = [
     {
         'id': 'ok-healthy',
@@ -173,6 +176,38 @@ TESTS = [
         'test': ',,500',
         'assert-retc': STATE_CRIT,
         'assert-in': ['Nextcloud answered HTTP 500 instead of a status document.'],
+    },
+    {
+        # Nothing of the web server's error page is worth quoting: the admin needs to hear
+        # that --url points at the wrong path. The instance may just as well be gone from
+        # the disk, so this is still an outage and not a config error.
+        'id': 'crit-not-found-names-the-url',
+        'test': 'stdout/webserver-404-styled-error-page,,404',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'HTTP 404 from http://localhost/nextcloud/status.php, '
+            'there is no Nextcloud at this path.',
+            'Fix the path in --url',
+            "'nextcloud-status'=2;;;0;3",
+        ],
+        'assert-not-in': ['<', '{', 'font-family', 'Application Gateway'],
+    },
+    {
+        'id': 'warn-not-found-severity-warn',
+        'test': 'stdout/webserver-404-styled-error-page,,404',
+        'params': '--unavailable-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['HTTP 404 from'],
+    },
+    {
+        # A styled error page of the web server in front of Nextcloud: its title, CSS and
+        # JavaScript must not end up in the message, and its blocks must not run together.
+        'id': 'crit-webserver-error-page-without-css',
+        'test': 'stdout/webserver-503-styled-error-page,,503',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'^Nextcloud answered HTTP 503 instead of a status document: '
+        r'Linuxfabrik Application Gateway ERROR · 503 SERVICE UNAVAILABLE ',
+        'assert-not-in': ['<', '{', 'font-family', '503 Service UnavailableLinux'],
     },
     {
         # A host name the instance does not answer under is a wrong --url, not a broken

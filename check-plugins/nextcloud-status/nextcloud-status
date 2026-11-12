@@ -12,6 +12,7 @@
 
 import argparse
 import json
+import re
 import sys
 
 import lib.args
@@ -22,7 +23,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102501'
+__version__ = '2026111201'
 
 DESCRIPTION = """Monitors the health of a Nextcloud instance via its status endpoint, reporting
 whether the instance is installed, whether a pending database upgrade blocks it, and whether
@@ -45,6 +46,16 @@ DEFAULT_URL = 'http://localhost/nextcloud/status.php'
 
 # how much of an error page is quoted back before the message becomes a wall of text
 MAX_REASON_LENGTH = 200
+
+# closing tags after which a browser starts a new line; dropping them without putting
+# something in their place would run the last word of one block into the next one
+RE_LINE_END = re.compile(r'</(?:div|h[1-6]|li|p)>|<br\s*/?>', re.IGNORECASE)
+# parts of a page that hold no sentence a human is meant to read: the title repeats the
+# status code, and the rest is CSS and JavaScript
+RE_UNREADABLE = re.compile(
+    r'<(head|script|style)\b.*?</\1>',
+    re.DOTALL | re.IGNORECASE,
+)
 
 
 def parse_args():
@@ -174,14 +185,18 @@ def error_page_text(response):
     fallback at every step. The markers are deliberately locale-independent: the heading
     above the list is translated, the list itself is not.
 
+    The page does not have to come from Nextcloud at all: a web server or a reverse proxy in
+    front of it answers with its own error page, often a styled one that carries its CSS
+    inline. Whatever is no running text is therefore dropped before the tags are.
+
     Verified against Nextcloud 34.0.2 on PHP 8.5.9 (`core/templates/error.php` and
-    `lib/versioncheck.php`).
+    `lib/versioncheck.php`), and against the styled error pages of Apache httpd 2.4.62 on
+    RHEL 9.
     """
     box = lib.txt.extract_str(response, 'guest-box">', '</div>')
     markup = lib.txt.extract_str(box, '<ul>', '</ul>') or box or response
-    # a line break carries a sentence boundary here, so dropping its tag without putting
-    # something in its place would run the last word of one sentence into the next one
-    text = lib.url.strip_tags(markup.replace('<br/>', ' ').replace('<br>', ' '))
+    markup = RE_LINE_END.sub(' ', RE_UNREADABLE.sub('', markup))
+    text = lib.url.strip_tags(markup)
     text = ' '.join(lib.txt.unescape(text).split())
     if len(text) > MAX_REASON_LENGTH:
         # cut the tail, not the middle: the first sentence names the problem, and what
@@ -208,6 +223,19 @@ def describe_failure(args, result):
             f'Add the host name used in --url to the "trusted_domains" array in '
             f'the Nextcloud config.php, or probe the instance under a name that is '
             f'already listed there.'
+        )
+
+    if status_code == 404:
+        # Nextcloud does not answer the status endpoint with a 404 (neither `status.php`
+        # nor `lib/base.php` sets one, verified against Nextcloud 35.0.2), so it was the
+        # web server that found no such file, and its error page says nothing an admin
+        # could act on. Usually the path in --url is wrong, but an installation that
+        # vanished from the disk looks the same, which is why this stays on the
+        # unavailable severity.
+        return False, (
+            f'HTTP 404 from {args.URL}, there is no Nextcloud at this path. '
+            f'Fix the path in --url: an instance served from the document root '
+            f'answers at /status.php.'
         )
 
     reason = error_page_text(response)
