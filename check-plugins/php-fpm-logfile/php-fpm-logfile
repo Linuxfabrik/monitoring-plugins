@@ -29,11 +29,11 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110201'
+__version__ = '2026111201'
 
 DESCRIPTION = """Scans the PHP-FPM error log for the events an administrator has to act
-on: rejected configurations, worker crashes, workers killed with SIGKILL, requests that
-ran into `request_terminate_timeout` or `request_slowlog_timeout`, workers that hang after
+on: rejected configurations, worker crashes, workers killed by the kernel's OOM killer,
+requests that ran into `request_terminate_timeout` or `request_slowlog_timeout`, workers that hang after
 the SIGTERM such a timeout sent, workers that waited on a connection the web server never
 sent a request over, pools that hit `pm.max_children`, PHP fatal errors, and the
 emergency reload PHP-FPM performs after repeated worker failures. Startups, reloads and
@@ -52,6 +52,10 @@ What is left is counted by the level PHP-FPM writes at the head of the line: `AL
 `--warning-level` move. The events named above carry their own state and are counted there
 and nowhere else, because the level says nothing about what happened. A
 message that merely contains the word "error" never counts.
+A worker that died on SIGKILL is looked up in the kernel log of the journal, because
+PHP-FPM ends an idle worker that does not leave when the pool shrinks the same way the
+OOM killer ends one, and its error log shows no difference. Only the OOM kill alerts;
+where the kernel log cannot answer, the check alerts and names both causes.
 The log is read either from a file, from a systemd unit (`systemd:`) or from a
 container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times,
 and everything named is then read as one window. Without it the file path is taken from
@@ -194,6 +198,33 @@ TIMEOUT_WORKER_REGEX = re.compile(
 )
 EXIT_WORKER_REGEX = re.compile(r'\[pool ([^\]]+)\] child (\d+) exited')
 
+# PHP-FPM writes the same line for a worker the kernel's OOM killer took and for an
+# idle worker it killed itself (see `worker_kills` below), so the kernel log has to
+# say which one it was. The kernel reports every OOM kill as `<reason>: Killed
+# process <pid> (<comm>) total-vm:...` at `err` (`__oom_kill_process()` in
+# `mm/oom_kill.c`), whatever the reason: `Out of memory`, `Memory cgroup out of
+# memory` and `Out of memory (oom_kill_allocating_task)`. The other processes it
+# kills for sharing the victim's memory get no line, which does not matter here:
+# PHP-FPM forks its workers, so none of them shares another one's. Reproduced with
+# php-fpm 8.0.30 on Rocky 9 under a memory limit, kernel 7.3 on Fedora 44.
+KILLED_WORKER_REGEX = re.compile(r'child (\d+) exited on signal 9 \(SIGKILL')
+OOM_KILL_REGEX = re.compile(r' kernel: .*Killed process (\d+) \(([^)]*)\)')
+# What the kernel calls a PHP-FPM process: the name of the binary, which the RHEL
+# family ships as `php-fpm` and the Debian family as `php-fpm8.2`.
+OOM_COMM_PREFIX = 'php-fpm'
+# The kernel logs the kill and PHP-FPM logs the exit once it has reaped the worker.
+# Both landed in the same second in every reproduction; a host out of memory may
+# take longer to tear a large process down.
+OOM_KILL_TOLERANCE = 10  # seconds
+# How far before the first killed worker the kernel log is read. A PHP-FPM in a
+# container logs into a bind-mounted file in the time zone of the container, which
+# may be up to a day off the host's.
+KERNEL_LOG_MARGIN = 86400  # seconds
+# Time zones are whole multiples of a quarter of an hour apart.
+TIMEZONE_STEP = 900  # seconds
+# Stands in for the output of `journalctl` below `--config-root`.
+KERNEL_LOG_FIXTURE = '/var/log/journal/kernel.txt'
+
 # The levels that say something is wrong, worst first. Which of them raise which
 # state is left to `--critical-level` and `--warning-level`: a pool that logs one
 # `WARNING` about a single slow request is not a reason to get anybody out of
@@ -217,8 +248,8 @@ EVENTS = (
         'perfdata': 'php_fpm_worker_crashes',
         # `SIGQUIT` is how PHP-FPM ends a worker gracefully and `SIGTERM` is how
         # it terminates one that ran over `request_terminate_timeout` (which logs
-        # a line of its own), so both are ordinary. `SIGKILL` is counted as a
-        # killed worker below, because PHP-FPM sends it itself. Every other
+        # a line of its own), so both are ordinary. `SIGKILL` is looked at
+        # separately below, because PHP-FPM sends it itself. Every other
         # signal is one PHP-FPM never sends its workers, so the worker died on a
         # fault. The lookahead also lets the line through when PHP-FPM has no
         # name for the signal and prints an empty pair of brackets.
@@ -229,17 +260,40 @@ EVENTS = (
         ),
     },
     {
+        'key': 'oom_kills',
+        'label': 'OOM kill',
+        'perfdata': 'php_fpm_oom_kills',
+        # A killed worker the kernel log has an OOM kill for. Not matched by a
+        # pattern but by pairing the line with the kernel log, see main().
+        'regex': None,
+        'state': STATE_WARN,
+        'recommendation': (
+            'The kernel killed workers because memory ran out, and the requests'
+            ' they were serving are lost; compare `pm.max_children` times the'
+            ' memory one worker takes with what the host or its memory limit'
+            ' leaves for PHP-FPM, and look in the access log of the web server for'
+            ' the request that grew, at the timestamps above'
+        ),
+    },
+    {
         'key': 'worker_kills',
         'label': 'killed worker',
         'perfdata': 'php_fpm_worker_kills',
         # PHP-FPM sends `SIGKILL` itself to an idle worker that is still alive
         # one maintenance tick (a second) after the `SIGQUIT` that was to shrink
-        # the pool (`fpm_pctl_kill_idle_child()` in php-src): the worker did not
-        # end when told to, which is what a host short of memory looks like. The
-        # `SIGKILL` that ends a reload or stop never shows up here, because
-        # `fpm_children_bury()` logs every exit at `DEBUG` while the master is not
-        # in its normal state. The kernel's OOM killer sends the same signal, and
-        # the log line cannot tell the two apart (verified against php-8.3.31).
+        # the pool (`fpm_pctl_kill_idle_child()` in php-src, since php-8.0.19):
+        # the worker did not end when told to, which a large or swapped-out
+        # worker does not manage within a second. No request is lost, because
+        # only a worker waiting for one is picked. The `SIGKILL` that ends a
+        # reload or stop never shows up here, because `fpm_children_bury()` logs
+        # every exit at `DEBUG` while the master is not in its normal state. The
+        # kernel's OOM killer sends the same signal, and the log line is the
+        # same in both cases, followed by the same `child N started` (verified
+        # against php-8.3.31, both reproduced with php-fpm 8.0.30 on Rocky 9).
+        # Every such line starts out here. main() then asks the kernel log and
+        # moves it to the OOM kills above or to the idle kills among the
+        # lifecycle markers below; what stays is what the kernel log could not
+        # answer for, and that keeps alerting with both causes named.
         'regex': re.compile(r'exited on signal 9 \(SIGKILL'),
         'state': STATE_WARN,
         'recommendation': (
@@ -473,6 +527,17 @@ LIFECYCLE = (
         'perfdata': 'php_fpm_shutdowns',
         'regex': re.compile(r'^exiting, bye-bye!'),
         'verb': 'detected',
+    },
+    {
+        'key': 'idle_kills',
+        'label': 'worker',
+        'perfdata': 'php_fpm_idle_kills',
+        # A killed worker the kernel log has no OOM kill for, which leaves
+        # PHP-FPM shrinking the pool (see `worker_kills` above) and a `kill` by
+        # hand. Neither is a problem, so it is counted and shown without
+        # alerting. Not matched by a pattern, see main().
+        'regex': None,
+        'verb': 'killed with SIGKILL, not by the OOM killer',
     },
 )
 
@@ -824,6 +889,118 @@ def get_log_file_real_path(config_root=''):
             if lib.disk.file_exists(filename, allow_empty=True):
                 return filename
     return None
+
+
+def get_oom_kills(since, timeout, config_root=''):
+    """Return the OOM kills the kernel logged since `since`, or None.
+
+    None says the kernel log cannot answer: no journal on this host, a journal
+    that does not reach back to `since`, or one this account may not read in
+    full. An empty list is an answer, and it says nothing was killed.
+
+    Both commands are fixed apart from the timestamp, which this check formats
+    itself, so nothing a log holds reaches the command line.
+    """
+    if config_root:
+        success, stdout = lib.disk.read_file(f'{config_root}{KERNEL_LOG_FIXTURE}')
+        if not success:
+            return None
+    else:
+        if not lib.logsource.systemd_booted():
+            return None
+        cmd = ['journalctl', '--no-pager', '--output=short-iso', '--quiet']
+        stamp = f'{since:%Y-%m-%d %H:%M:%S}'
+        # An entry from before the window, whoever wrote it, says the journal
+        # reaches back that far. Without one, no OOM kill in the answer below
+        # could just as well mean that it has been rotated away.
+        success, result = lib.shell.shell_exec(
+            [*cmd, '--lines=1', f'--until={stamp}'], timeout=timeout
+        )
+        if not success or result[2] != 0 or result[1].strip() or not result[0].strip():
+            return None
+        # `err` and worse only: that is where the kernel logs the kill, and it
+        # keeps the packets a firewall logs by the thousand out of the answer.
+        # journalctl says on standard error when it shows only what this account
+        # may see, which is not the kernel log, so that counts as no answer.
+        # Verified against systemd 259 on Fedora 44.
+        success, result = lib.shell.shell_exec(
+            [*cmd, '--priority=err', f'--since={stamp}', '_TRANSPORT=kernel'],
+            timeout=timeout,
+        )
+        if not success or result[2] != 0 or result[1].strip():
+            return None
+        stdout = result[0]
+    kills = []
+    for line in stdout.splitlines():
+        match = OOM_KILL_REGEX.search(line)
+        killed_at = lib.logsource.timestamp(line)
+        if match and killed_at is not None:
+            kills.append(
+                {'at': killed_at, 'comm': match.group(2), 'pid': match.group(1)}
+            )
+    return kills
+
+
+def split_kills(lines, oom_kills):
+    """Tell the killed workers the OOM killer took from the ones it did not.
+
+    Returns the lines in three lists: OOM kills, idle kills, and those that
+    cannot be told apart.
+
+    A line pairs with an OOM kill the kernel logged around the same time, for
+    the same PID or for a process named like PHP-FPM. The name counts because a
+    PHP-FPM in a container knows its workers by other PIDs than the kernel does.
+    Such a container may also log in another time zone than the host. A line
+    that is a whole time zone offset away from an OOM kill of a PHP-FPM process
+    nothing else pairs with is therefore not declared harmless.
+    """
+    if oom_kills is None:
+        return [], [], lines
+    rest = []
+    for line in lines:
+        worker = KILLED_WORKER_REGEX.search(line)
+        rest.append(
+            {
+                'at': lib.logsource.timestamp(line, parse_timestamp),
+                'line': line,
+                'pid': worker.group(1) if worker else None,
+            }
+        )
+    oom, remaining = [], []
+    for kill in oom_kills:
+        # The kernel logs the kill first and PHP-FPM the exit after it, a second
+        # of rounding aside. Of several workers killed that close together, the
+        # one with the PID the kernel names is taken, else the first to exit.
+        candidates = [
+            item
+            for item in rest
+            if item['at'] is not None
+            and -1 <= (item['at'] - kill['at']).total_seconds() <= OOM_KILL_TOLERANCE
+            and (item['pid'] == kill['pid'] or kill['comm'].startswith(OOM_COMM_PREFIX))
+        ]
+        if not candidates:
+            remaining.append(kill)
+            continue
+        hit = min(candidates, key=lambda item: (item['pid'] != kill['pid'], item['at']))
+        rest.remove(hit)
+        oom.append(hit['line'])
+    shifted = [
+        kill['at'] for kill in remaining if kill['comm'].startswith(OOM_COMM_PREFIX)
+    ]
+    idle, unexplained = [], []
+    for item in rest:
+        if item['at'] is None or any(
+            abs(
+                (offset := (at - item['at']).total_seconds())
+                - round(offset / TIMEZONE_STEP) * TIMEZONE_STEP
+            )
+            <= OOM_KILL_TOLERANCE
+            for at in shifted
+        ):
+            unexplained.append(item['line'])
+        else:
+            idle.append(item['line'])
+    return oom, idle, unexplained
 
 
 def get_pool_error_logs(allowed_roots, config_root=''):
@@ -1240,7 +1417,7 @@ def main():
         ):
             levels[level].append(log_line)
         for item in LIFECYCLE:
-            if item['regex'].search(message):
+            if item['regex'] is not None and item['regex'].search(message):
                 found[item['key']].append(log_line)
         if ROTATION_REGEX.search(message):
             rotations.append(log_line)
@@ -1253,6 +1430,41 @@ def main():
         found[key] = lib.logsource.sort_by_time(lines, parse_timestamp)
     for level, lines in levels.items():
         levels[level] = lib.logsource.sort_by_time(lines, parse_timestamp)
+
+    # Who killed the workers that died on SIGKILL, asked only when there is one.
+    # A container has a kernel log of its own, or the one of another node, which
+    # is not the one this host's journal holds, so its lines are left as they are.
+    # The same goes for a fixture of the unit tests, the only file outside
+    # `/var/log` this check reads: it was written on another host.
+    kill_times = [
+        killed_at
+        for killed_at in (
+            lib.logsource.timestamp(line, parse_timestamp)
+            for line in found['worker_kills']
+        )
+        if killed_at is not None
+    ]
+    if kill_times and not any(
+        item['kind'] == lib.logsource.KIND_CONTAINER
+        or (
+            item['kind'] == lib.logsource.KIND_FILE
+            and not args.CONFIG_ROOT
+            and not lib.disk.is_within(item['label'], allowed_roots[:1])
+        )
+        for item in result['sources']
+    ):
+        (
+            found['oom_kills'],
+            found['idle_kills'],
+            found['worker_kills'],
+        ) = split_kills(
+            found['worker_kills'],
+            get_oom_kills(
+                min(kill_times) - datetime.timedelta(seconds=KERNEL_LOG_MARGIN),
+                args.TIMEOUT,
+                args.CONFIG_ROOT,
+            ),
+        )
 
     # `--match` narrowed the run down to nothing, so this run looked at no line at
     # all rather than at a quiet log. Only reachable when the operator set a
@@ -1514,8 +1726,9 @@ def main():
             label = lib.txt.pluralize(
                 event['label'], len(lines), event.get('suffix', 's')
             )
+            # not `capitalize()`, which would turn `OOM kill` into `Oom kill`
             sections.append(
-                f'{label.capitalize()}:\n'
+                f'{label[:1].upper()}{label[1:]}:\n'
                 + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(lines))
             )
 

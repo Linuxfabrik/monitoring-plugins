@@ -295,6 +295,35 @@ spec:
         key: metric
         operator: '='
         value: php_fpm_idle_connection_timeouts
+    - alias: php_fpm_oom_kills
+      refId: php_fpm_oom_kills
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - 'null'
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php_fpm_oom_kills
     - alias: php_fpm_pool_saturations
       refId: php_fpm_pool_saturations
       groupBy:
@@ -572,6 +601,35 @@ spec:
         sort: none
 
     targets:
+    - alias: php_fpm_idle_kills
+      refId: php_fpm_idle_kills
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - 'null'
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php_fpm_idle_kills
     - alias: php_fpm_log_rotations
       refId: php_fpm_log_rotations
       groupBy:

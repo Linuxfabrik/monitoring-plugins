@@ -16,6 +16,13 @@ after), and the trees under `config/` mirror what the RHEL and the Debian family
 install. That keeps the tests honest about the log format instead of confirming
 the plugin's own reading of it.
 
+The `kill-*` trees hold one such log with two workers that died on SIGKILL: an
+idle one PHP-FPM killed itself while the pool shrank (frozen with SIGSTOP, so it
+could not leave on SIGQUIT), and one the OOM killer took under a memory limit.
+`var/log/journal/kernel.txt` in them is what `journalctl` printed for the kernel
+log of that host (kernel 7.3 on Fedora 44), which the plugin reads below
+`--config-root` instead of running the command.
+
 Reading a systemd unit or a container log is left to the library and is not
 covered here.
 """
@@ -34,6 +41,13 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.join(HERE, '..', 'php-fpm-logfile')
+
+
+# PHP-FPM stamps its lines in local time without saying which, and the journal
+# names the offset (`+01:00` in the `kernel.txt` fixtures). The two only line up
+# on a host in the zone both were written in, so the tests that pair them pin it,
+# in the POSIX notation that needs no time zone database: UTC+1 all year.
+KERNEL_LOG_TZ = {'TZ': 'CET-1'}
 
 
 def fixture(name):
@@ -452,6 +466,64 @@ CASES = [
         'assert-in': ['error.log', '1 worker crash', '1 killed worker'],
     },
     {
+        # PHP-FPM writes the same line for both killed workers. The kernel log
+        # holds an OOM kill for one of them, a second after which PHP-FPM
+        # reaped it; the other one died nine seconds earlier and has none.
+        'id': 'warn-oom-kill-told-from-idle-kill',
+        'params': [f'--config-root={config_root("kill-oom-and-idle")}'],
+        'env': KERNEL_LOG_TZ,
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Found 1 OOM kill [WARNING]',
+            'OOM kill:\n* [12-Nov-2026 17:14:30] WARNING: [pool www] child 24'
+            ' exited on signal 9 (SIGKILL)',
+            '1 worker killed with SIGKILL, not by the OOM killer (last:'
+            ' [12-Nov-2026 17:14:21] WARNING: [pool www] child 21 exited',
+            'The kernel killed workers because memory ran out',
+            "'php_fpm_oom_kills'=1;0;;0",
+            "'php_fpm_worker_kills'=0;0;;0",
+            "'php_fpm_idle_kills'=1;;;0",
+        ],
+        'assert-not-in': ['Killed worker', 'either by PHP-FPM'],
+    },
+    {
+        # The kernel log answered and holds no OOM kill, so both workers were
+        # idle ones PHP-FPM ended while the pool shrank. No request is lost
+        # that way, and nobody has to look at it.
+        'id': 'ok-idle-kills-do-not-alert',
+        'params': [f'--config-root={config_root("kill-idle-only")}'],
+        'env': KERNEL_LOG_TZ,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '2 workers killed with SIGKILL, not by the OOM killer (last:'
+            ' [12-Nov-2026 17:14:30] WARNING: [pool www] child 24 exited',
+            "'php_fpm_oom_kills'=0;0;;0",
+            "'php_fpm_idle_kills'=2;;;0",
+        ],
+        'assert-not-in': [
+            'OOM kill:',
+            'Killed worker',
+            'Recommendations:',
+            '[WARNING]',
+        ],
+    },
+    {
+        # A PHP-FPM in a container that logs into a bind-mounted file in UTC
+        # while the host runs an hour ahead: the OOM kill is there, but an hour
+        # off every line. Nothing pairs, and nothing is declared harmless.
+        # The time in `kernel.txt` was moved by hand for this.
+        'id': 'warn-kernel-log-in-another-time-zone',
+        'params': [f'--config-root={config_root("kill-other-time-zone")}'],
+        'env': KERNEL_LOG_TZ,
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Found 2 killed workers [WARNING]',
+            'look for `Out of memory` in the kernel log',
+            "'php_fpm_worker_kills'=2;0;;0",
+        ],
+        'assert-not-in': ['OOM kill:', 'not by the OOM killer'],
+    },
+    {
         # Every pool names the file PHP writes its own errors to; `$pool` stands
         # for the name of the pool, and a pool that has not logged anything yet
         # has no file and is skipped without a word.
@@ -543,6 +615,7 @@ def _check_case(test, case):
         capture_output=True,
         text=True,
         check=False,
+        env={**os.environ, **case.get('env', {})},
     )
     combined = result.stdout + result.stderr
     test.assertEqual(
