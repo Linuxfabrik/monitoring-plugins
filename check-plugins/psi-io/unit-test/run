@@ -24,14 +24,19 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # Where the fixtures come from, all captured on this workstation (Fedora 44, kernel 7.1)
 # unless noted:
 #
+#   batch-job a VM with one CPU on a rotational disk (Rocky 9, kernel 5.14), read by
+#             the check while AIDE wrote its database and checked it right after, four
+#             minutes of reading at idle I/O priority on an otherwise idle host. The
+#             averages are what the check reported at that moment; the totals were
+#             read a few minutes later, and the check does not use them
 #   idle      an unloaded host
-#   loaded    six processes writing with direct I/O for eighty seconds. 18.57 % of the
-#             last minute with at least one task waiting, 9.76 % with every task
+#   loaded    six processes writing with direct I/O for eighty seconds. 7.63 % of the
+#             last five minutes with at least one task waiting, 4.22 % with every task
 #             waiting: the gap between the two lines is the work the host still got
 #             done while somebody was waiting
 #   burst     a cgroup limited to 128 MiB reading a 900 MiB file with six readers, so
 #             the kernel evicts and faults the same pages back in continuously, read
-#             fourteen seconds in. The ten second average has risen and the one minute
+#             fourteen seconds in. The ten second average has risen and the five minute
 #             average has not caught up yet, which is the shape --warning-avg10 and
 #             --critical-avg10 exist for. Captured at cgroup scope, which the kernel
 #             publishes in the same format as /proc/pressure
@@ -50,7 +55,12 @@ TESTS = [
         'test': '',
         'params': '--config-root=config/idle',
         'assert-retc': STATE_OK,
-        'assert-in': ['io pressure, last minute: ', "'full_avg60'="],
+        'assert-in': [
+            'io pressure, last five minutes: some 1.4%, full 0.81%',
+            "'full_avg300'=0.81%;40;60;0;100",
+            # the windows the check does not judge carry no thresholds
+            "'full_avg60'=0.03%;;;0;100",
+        ],
         'assert-not-in': ['[WARNING]', '[CRITICAL]'],
     },
     {
@@ -60,13 +70,39 @@ TESTS = [
         'test': '',
         'params': '--config-root=config/loaded',
         'assert-retc': STATE_OK,
-        'assert-in': ['io pressure, last minute: some 18.57%, full 9.76%'],
+        'assert-in': ['io pressure, last five minutes: some 7.63%, full 4.22%'],
         'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # A job that reads for four minutes and is alone on the host: the minute
+        # average stands at 66.7 % and the ten second average at 78.96 %, which is
+        # that one job waiting for its own reads. The five minute average stays within
+        # the default thresholds, and so does the check.
+        'id': 'ok-a-job-reading-for-minutes-does-not-alert',
+        'test': '',
+        'params': '--config-root=config/batch-job',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'io pressure, last five minutes: some 37.27%, full 35.35%',
+            "'full_avg60'=66.7%;;;0;100",
+            "'full_avg300'=35.35%;40;60;0;100",
+        ],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]', 'Work is stalling'],
+    },
+    {
+        # The same reading past the default thresholds would alert: the job above is
+        # let through by the window, not by a blind spot.
+        'id': 'warn-a-job-reading-for-minutes-past-a-lower-threshold',
+        'test': '',
+        'params': '--config-root=config/batch-job --warning=30',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['full 35.35% [WARNING]', 'Work is stalling on storage.'],
+        'assert-not-in': ['[CRITICAL]'],
     },
     {
         'id': 'warn-above-the-warning-threshold',
         'test': '',
-        'params': '--config-root=config/loaded --warning=5 --critical=50',
+        'params': '--config-root=config/loaded --warning=3 --critical=50',
         'assert-retc': STATE_WARN,
         'assert-in': ['[WARNING]'],
         'assert-not-in': ['[CRITICAL]'],
@@ -74,10 +110,10 @@ TESTS = [
     {
         'id': 'crit-the-host-is-stalling-on-storage',
         'test': '',
-        'params': '--config-root=config/loaded --warning=2 --critical=5',
+        'params': '--config-root=config/loaded --warning=2 --critical=4',
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            'io pressure, last minute: some 18.57%, full 9.76% [CRITICAL]',
+            'io pressure, last five minutes: some 7.63%, full 4.22% [CRITICAL]',
             'Work is stalling on storage.',
             'disk-io',
         ],
@@ -90,23 +126,23 @@ TESTS = [
         'test': '',
         'params': '--config-root=config/loaded --warning=~: --critical=~:',
         'assert-retc': STATE_OK,
-        'assert-in': ['io pressure, last minute: some 18.57%'],
+        'assert-in': ['io pressure, last five minutes: some 7.63%'],
         'assert-not-in': ['[WARNING]', '[CRITICAL]', 'Work is stalling'],
     },
     {
         'id': 'ok-always-ok-masks-the-crit',
         'test': '',
-        'params': '--config-root=config/loaded --warning=2 --critical=5 --always-ok',
+        'params': '--config-root=config/loaded --warning=2 --critical=4 --always-ok',
         'assert-retc': STATE_OK,
         'assert-in': ['[CRITICAL]'],
     },
     {
         'id': 'crit-no-perfdata-drops-the-perfdata-only',
         'test': '',
-        'params': '--config-root=config/loaded --warning=2 --critical=5 --no-perfdata',
+        'params': '--config-root=config/loaded --warning=2 --critical=4 --no-perfdata',
         'assert-retc': STATE_CRIT,
         'assert-in': ['[CRITICAL]'],
-        'assert-not-in': ["'full_avg60'="],
+        'assert-not-in': ["'full_avg300'="],
     },
     {
         'id': 'ok-every-window-is-reported',
@@ -121,7 +157,7 @@ TESTS = [
         ],
     },
     {
-        # The default leaves the ten second average unjudged, so a burst that the one
+        # The default leaves the ten second average unjudged, so a burst that the five
         # minute average smooths away stays in the graph and out of the alert.
         'id': 'ok-a-burst-is-not-judged-by-default',
         'test': '',
@@ -131,14 +167,14 @@ TESTS = [
         'assert-not-in': ['[WARNING]', '[CRITICAL]', 'last ten seconds'],
     },
     {
-        # The same reading with a threshold on the ten second average: the one minute
+        # The same reading with a threshold on the ten second average: the five minute
         # average is still inside its range, and the burst alerts on its own.
         'id': 'warn-a-burst-alerts-once-avg10-has-a-threshold',
         'test': '',
         'params': '--config-root=config/burst --warning-avg10=10',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'io pressure, last minute: some 5.32%, full 5.14%; '
+            'io pressure, last five minutes: some 1.2%, full 1.16%; '
             'last ten seconds: full 18.86% [WARNING]',
             "'full_avg10'=18.86%;10;;0;100",
         ],
@@ -165,13 +201,13 @@ TESTS = [
     },
     {
         # Both windows out of range at once: each is named with its own state.
-        'id': 'crit-the-minute-and-the-burst-alert-together',
+        'id': 'crit-the-five-minutes-and-the-burst-alert-together',
         'test': '',
-        'params': '--config-root=config/burst --warning=2 --critical=4 '
+        'params': '--config-root=config/burst --warning=0.5 --critical=1 '
         '--warning-avg10=10',
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            'full 5.14% [CRITICAL]',
+            'full 1.16% [CRITICAL]',
             'last ten seconds: full 18.86% [WARNING]',
         ],
     },

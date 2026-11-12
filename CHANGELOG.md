@@ -37,6 +37,7 @@ Monitoring Plugins:
 * mysql-tls: A server on loopback only no longer alerts about `require_secure_transport` and the certificate.
 * mysql-user-security: A legacy authentication plugin no longer alerts on MariaDB.
 * nextcloud-stats: The output says "enabled apps", since disabled apps are not part of the count.
+* psi-cpu, psi-io, psi-irq, psi-memory: Alert on the five minute average instead of the last minute, so a job running for a few minutes no longer alerts.
 * psi-io: Higher default thresholds, a single busy reader no longer alerts.
 * rpm-updates: Counts Rocky Linux `security` repo hot-fixes as security updates.
 * scanrootkit: Reports indicators instead of rootkits, generic paths and files any user can create only warn, detects 3 more implants.

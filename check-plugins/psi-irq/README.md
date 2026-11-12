@@ -3,7 +3,7 @@
 
 ## Overview
 
-Reports how much of its time a host loses to interrupt handling, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time no task could get on, because the CPUs were busy servicing hardware and software interrupts instead. The check alerts on that share, averaged over the last minute. It answers what neither CPU utilization nor packet counters can: whether the interrupt load is costing the workload its time on the CPU. The ten second average is reported but not judged, until `--warning-avg10` or `--critical-avg10` give it a threshold; those catch a burst that the one minute average smooths away. A host whose kernel does not account for interrupt pressure is reported as OK, because there is nothing to measure; raise `--severity-no-psi` to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.
+Reports how much of its time a host loses to interrupt handling, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time no task could get on, because the CPUs were busy servicing hardware and software interrupts instead. The check alerts on that share, averaged over the last five minutes. It answers what neither CPU utilization nor packet counters can: whether the interrupt load is costing the workload its time on the CPU. The five minute average keeps load that is over within a few minutes, a scheduled job for example, from alerting. The ten second average is reported but not judged, until `--warning-avg10` or `--critical-avg10` give it a threshold; those catch a burst that the five minute average smooths away. A host whose kernel does not account for interrupt pressure is reported as OK, because there is nothing to measure; raise `--severity-no-psi` to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.
 
 **What the numbers mean:**
 
@@ -13,14 +13,14 @@ The value is a share of wall clock time, not of the interrupts:
 
 Interrupts are the one resource the kernel reports with a `full` line only. The other three pressure files also carry a `some` line, for the time in which at least one task waited while the rest got on. An interrupt does not work that way: it takes the CPU away from whatever was running on it, so there is no partial state to report.
 
-The line comes as averages over the last 10, 60 and 300 seconds. The check alerts on the 60 second average because that is the window a check running every minute can actually see: 10 seconds is gone again before the next run, 300 seconds smears a burst until it no longer stands out. All three go into the performance data, so the graph keeps the short spike as well as the long trend.
+The line comes as averages over the last 10, 60 and 300 seconds. The check alerts on the 300 second average, so that load which is over within a few minutes does not alert, while pressure that keeps a host waiting still does. 10 seconds is gone again before the next run, which is why that window is judged on request only. All three go into the performance data, so the graph keeps the short spike as well as the long trend.
 
 **Important Notes:**
 
 * **Most kernels do not account for interrupt pressure at all.** It needs the interrupt time accounting compiled in, and the check reports plainly when a host does not have it. Measured against the shipped kernels: Rocky 9 and 10 and Fedora have it, Rocky 8 does not, and Debian 11, 12 and 13 as well as Ubuntu 22.04 and 24.04 do not build it in. See [Troubleshooting](#this-kernel-accounts-for-pressure-but-not-for-interrupts).
 * **Red Hat ships the pressure interface itself switched off.** Rocky, RHEL and their rebuilds compile pressure accounting in (`CONFIG_PSI=y`) but disable it by default (`CONFIG_PSI_DEFAULT_DISABLED=y`), verified against the shipped kernel configuration of Rocky 8, 9 and 10. The kernel then creates no `/proc/pressure` at all. See [Troubleshooting](#this-kernel-keeps-no-pressure-statistics) for how to switch it on.
 * **This is not the interrupt count.** `/proc/interrupts` counts events; a host can service millions of them per second without anybody waiting, and it can lose real time to far fewer of them on a slow handler. This check reports what the servicing costs the workload.
-* **The averages need time to rise.** The 60 second average needs about a minute of sustained pressure to reach the real level, so by default the check alerts on sustained pressure and not on the burst that lasted a moment. `--warning-avg10` and `--critical-avg10` put a threshold on the 10 second average where the bursts matter too; without them that value is graphed but never alerts.
+* **The averages need time to rise.** The 300 second average needs several minutes of sustained pressure to reach the real level, so by default the check alerts on sustained pressure and not on the burst that lasted a moment. `--warning-avg10` and `--critical-avg10` put a threshold on the 10 second average where the bursts matter too; without them that value is graphed but never alerts.
 * **The values are system-wide and cover every device together.** There is one figure for the host, not one per interrupt line. Where the pressure is high, `/proc/interrupts` says which device is behind it.
 * Related checks: `cpu-usage` reports how much of each CPU goes into hard and soft interrupt handling, `network-io` the packet rate that usually drives it, `network-errors` whether the interface is dropping what it cannot keep up with.
 
@@ -54,27 +54,29 @@ Reports how much of its time a host loses to interrupt handling, taken from
 the pressure stall information of the Linux kernel. A pressure of 10 percent
 means that for a tenth of the time no task could get on, because the CPUs were
 busy servicing hardware and software interrupts instead. The check alerts on
-that share, averaged over the last minute. It answers what neither CPU
+that share, averaged over the last five minutes. It answers what neither CPU
 utilization nor packet counters can: whether the interrupt load is costing the
-workload its time on the CPU. The ten second average is reported but not
-judged, until --warning-avg10 or --critical-avg10 give it a threshold; those
-catch a burst that the one minute average smooths away. A host whose kernel
-does not account for interrupt pressure is reported as OK, because there is
-nothing to measure; raise --severity-no-psi to flag it where the statistics
-are expected. Alerts when the pressure leaves the warning or critical range.
+workload its time on the CPU. The five minute average keeps load that is over
+within a few minutes, a scheduled job for example, from alerting. The ten
+second average is reported but not judged, until --warning-avg10 or
+--critical-avg10 give it a threshold; those catch a burst that the five minute
+average smooths away. A host whose kernel does not account for interrupt
+pressure is reported as OK, because there is nothing to measure; raise
+--severity-no-psi to flag it where the statistics are expected. Alerts when
+the pressure leaves the warning or critical range.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold for the interrupt pressure, in percent
-                        of wall clock time, measured over the last minute.
-                        Supports Nagios ranges. Example: `25` alerts where 25
-                        percent of the time is lost. Default: 25
+                        of wall clock time, measured over the last five
+                        minutes. Supports Nagios ranges. Example: `25` alerts
+                        where 25 percent of the time is lost. Default: 25
   --critical-avg10 CRIT_AVG10
                         CRIT threshold for the interrupt pressure, in percent
                         of wall clock time, measured over the last ten
-                        seconds. Catches a burst that the one minute average
+                        seconds. Catches a burst that the five minute average
                         smooths away, at the price of alerting on a stall that
                         is over before anybody looks. Supports Nagios ranges.
                         Example: `60` alerts where interrupt handling took six
@@ -88,13 +90,13 @@ options:
                         Severity for alerting if the kernel keeps no pressure
                         statistics. Default: ok
   -w, --warning WARN    WARN threshold for the interrupt pressure, in percent
-                        of wall clock time, measured over the last minute.
-                        Supports Nagios ranges. Example: `10` alerts where 10
-                        percent of the time is lost. Default: 10
+                        of wall clock time, measured over the last five
+                        minutes. Supports Nagios ranges. Example: `10` alerts
+                        where 10 percent of the time is lost. Default: 10
   --warning-avg10 WARN_AVG10
                         WARN threshold for the interrupt pressure, in percent
                         of wall clock time, measured over the last ten
-                        seconds. Catches a burst that the one minute average
+                        seconds. Catches a burst that the five minute average
                         smooths away, at the price of alerting on a stall that
                         is over before anybody looks. Supports Nagios ranges.
                         Example: `40` alerts where interrupt handling took
@@ -115,7 +117,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/psi-irq/
 Output on a host whose interrupt load costs it nothing:
 
 ```text
-irq pressure, last minute: full 0.0%
+irq pressure, last five minutes: full 0.78%
 full = every task with work to do waited for interrupt handling to finish
 
 Window ! Full
@@ -125,18 +127,18 @@ avg60  ! 0.0%
 avg300 ! 0.78%
 ```
 
-Output while thirty-two loopback connections wrote a kibibyte at a time, which saturates the machine on software interrupts:
+Output two minutes into thirty-two loopback connections writing a kibibyte at a time, which saturates the machine on software interrupts, with the warning threshold lowered to 5:
 
 ```text
-irq pressure, last minute: full 16.44% [WARNING]
+irq pressure, last five minutes: full 6.97% [WARNING]
 full = every task with work to do waited for interrupt handling to finish
 The CPUs are busy servicing interrupts instead of running work. `/proc/interrupts` names the device behind them, `network-io` reports the packet rate that usually drives them and `cpu-usage` how much of each CPU goes into interrupt handling.
 
 Window ! Full
--------+-----------------
+-------+----------------
 avg10  ! 19.12%
-avg60  ! 16.44% [WARNING]
-avg300 ! 6.97%
+avg60  ! 16.44%
+avg300 ! 6.97% [WARNING]
 ```
 
 A host that is expected to carry a heavy packet rate, a router or a firewall, wants the pressure graphed and nobody woken. `~:` is the Nagios range for "any value is fine":
@@ -145,14 +147,14 @@ A host that is expected to carry a heavy packet rate, a router or a firewall, wa
 ./psi-irq --warning=~: --critical=~:
 ```
 
-A host where a short interrupt storm already hurts wants the 10 second average judged as well. It alerts on its own, while the minute average stays inside its range:
+A host where a short interrupt storm already hurts wants the 10 second average judged as well. It alerts on its own, while the five minute average stays inside its range:
 
 ```bash
 ./psi-irq --warning-avg10=10
 ```
 
 ```text
-irq pressure, last minute: full 4.36%; last ten seconds: full 16.2% [WARNING]
+irq pressure, last five minutes: full 1.7%; last ten seconds: full 16.2% [WARNING]
 full = every task with work to do waited for interrupt handling to finish
 The CPUs are busy servicing interrupts instead of running work. `/proc/interrupts` names the device behind them, `network-io` reports the packet rate that usually drives them and `cpu-usage` how much of each CPU goes into interrupt handling.
 
@@ -172,9 +174,9 @@ Where interrupt pressure is expected on every host, a kernel that does not repor
 
 ## States
 
-* OK if the pressure over the last minute is within `--warning` and `--critical`.
+* OK if the pressure over the last five minutes is within `--warning` and `--critical`.
 * OK with an explanation if the kernel keeps no pressure statistics, or keeps them but does not account for interrupts. `--severity-no-psi` raises both to `warn`, `crit` or `unknown`.
-* WARN if the pressure over the last minute leaves the `--warning` range, 10 % by default.
+* WARN if the pressure over the last five minutes leaves the `--warning` range, 10 % by default.
 * CRIT if it leaves the `--critical` range, 25 % by default.
 * WARN or CRIT if the pressure over the last ten seconds leaves `--warning-avg10` or `--critical-avg10`. Neither is set by default, so that value does not alert until one of them is given. The worst of the two windows wins.
 * UNKNOWN if a value in `/proc/pressure/irq` is not a number, or if the file exists but cannot be read.
@@ -184,13 +186,13 @@ Where interrupt pressure is expected on every host, a kernel that does not repor
 
 ## Perfdata / Metrics
 
-Every value is a share of wall clock time in percent, as the kernel reports it. The thresholds sit on `full_avg60`, the value the check judges, and on `full_avg10` once `--warning-avg10` or `--critical-avg10` is given.
+Every value is a share of wall clock time in percent, as the kernel reports it. The thresholds sit on `full_avg300`, the value the check judges, and on `full_avg10` once `--warning-avg10` or `--critical-avg10` is given.
 
 | Name | Type | Description |
 |----|----|----|
 | full_avg10  | Percentage | Time in which every task with work to do waited for interrupt handling, over the last 10 seconds. |
-| full_avg60  | Percentage | The same over the last 60 seconds. This is the value the check alerts on. |
-| full_avg300 | Percentage | The same over the last 300 seconds. |
+| full_avg60  | Percentage | The same over the last 60 seconds. |
+| full_avg300 | Percentage | The same over the last 300 seconds. This is the value the check alerts on. |
 
 
 ## Troubleshooting
@@ -246,9 +248,9 @@ Correct and not a defect. Pressure counts the time the servicing costs the workl
 
 ### The pressure looks harmless although users complain
 
-The check alerts on the 60 second average, which needs about a minute of sustained pressure to reach the real level. A burst that lasts ten seconds barely moves it, which is deliberate: a stall that is over before anybody looks is rarely worth an alert. The `full_avg10` metric keeps those bursts, so the graph shows what the alert does not.
+The check alerts on the 300 second average, which needs several minutes of sustained pressure to reach the real level. A burst that lasts ten seconds barely moves it, which is deliberate: a stall that is over before anybody looks is rarely worth an alert. The `full_avg10` and `full_avg60` metrics keep those bursts, so the graph shows what the alert does not.
 
-Where the bursts do matter, give the 10 second average its own threshold with `--warning-avg10` and `--critical-avg10`. Pick it well above the 60 second threshold, because the short window swings much further on the same workload. Expect more alerts that have resolved themselves by the time somebody reads them.
+Where the bursts do matter, give the 10 second average its own threshold with `--warning-avg10` and `--critical-avg10`. Pick it well above the 300 second threshold, because the short window swings much further on the same workload. Expect more alerts that have resolved themselves by the time somebody reads them.
 
 
 ## Credits, License

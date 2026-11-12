@@ -104,7 +104,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Reports how much of its time a host loses to interrupt handling, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time no task could get on, because the CPUs were busy servicing hardware and software interrupts instead. The check alerts on that share, averaged over the last minute. It answers what neither CPU utilization nor packet counters can: whether the interrupt load is costing the workload its time on the CPU. The ten second average is reported but not judged, until --warning-avg10 or --critical-avg10 give it a threshold; those catch a burst that the one minute average smooths away. A host whose kernel does not account for interrupt pressure is reported as OK, because there is nothing to measure; raise --severity-no-psi to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.",
+            "notes": "Reports how much of its time a host loses to interrupt handling, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time no task could get on, because the CPUs were busy servicing hardware and software interrupts instead. The check alerts on that share, averaged over the last five minutes. It answers what neither CPU utilization nor packet counters can: whether the interrupt load is costing the workload its time on the CPU. The five minute average keeps load that is over within a few minutes, a scheduled job for example, from alerting. The ten second average is reported but not judged, until --warning-avg10 or --critical-avg10 give it a threshold; those catch a burst that the five minute average smooths away. A host whose kernel does not account for interrupt pressure is reported as OK, because there is nothing to measure; raise --severity-no-psi to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/psi-irq/",
             "object_name": "tpl-service-psi-irq",
             "object_type": "template",
@@ -172,7 +172,7 @@
         "2": {
             "varname": "psi_irq_critical",
             "caption": "Psi Irq: Critical",
-            "description": "CRIT threshold for the interrupt pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `25` alerts where 25 percent of the time is lost.",
+            "description": "CRIT threshold for the interrupt pressure, in percent of wall clock time, measured over the last five minutes. Supports Nagios ranges. Example: `25` alerts where 25 percent of the time is lost.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -183,7 +183,7 @@
         "3": {
             "varname": "psi_irq_critical_avg10",
             "caption": "Psi Irq: Critical Avg10",
-            "description": "CRIT threshold for the interrupt pressure, in percent of wall clock time, measured over the last ten seconds. Catches a burst that the one minute average smooths away, at the price of alerting on a stall that is over before anybody looks. Supports Nagios ranges. Example: `60` alerts where interrupt handling took six of the last ten seconds. Default: no critical threshold",
+            "description": "CRIT threshold for the interrupt pressure, in percent of wall clock time, measured over the last ten seconds. Catches a burst that the five minute average smooths away, at the price of alerting on a stall that is over before anybody looks. Supports Nagios ranges. Example: `60` alerts where interrupt handling took six of the last ten seconds. Default: no critical threshold",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -216,7 +216,7 @@
         "6": {
             "varname": "psi_irq_warning",
             "caption": "Psi Irq: Warning",
-            "description": "WARN threshold for the interrupt pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `10` alerts where 10 percent of the time is lost.",
+            "description": "WARN threshold for the interrupt pressure, in percent of wall clock time, measured over the last five minutes. Supports Nagios ranges. Example: `10` alerts where 10 percent of the time is lost.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -227,7 +227,7 @@
         "7": {
             "varname": "psi_irq_warning_avg10",
             "caption": "Psi Irq: Warning Avg10",
-            "description": "WARN threshold for the interrupt pressure, in percent of wall clock time, measured over the last ten seconds. Catches a burst that the one minute average smooths away, at the price of alerting on a stall that is over before anybody looks. Supports Nagios ranges. Example: `40` alerts where interrupt handling took four of the last ten seconds. Default: no warning threshold",
+            "description": "WARN threshold for the interrupt pressure, in percent of wall clock time, measured over the last ten seconds. Catches a burst that the five minute average smooths away, at the price of alerting on a stall that is over before anybody looks. Supports Nagios ranges. Example: `40` alerts where interrupt handling took four of the last ten seconds. Default: no warning threshold",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

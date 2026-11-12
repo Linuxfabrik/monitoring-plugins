@@ -26,14 +26,15 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #
 #   idle      an unloaded host
 #   loaded    thirty-two busy loops for eighty seconds, so four times as much runnable
-#             work as the host has CPUs. 47.23 % over the last minute
+#             work as the host has CPUs. 47.23 % over the last minute, and 17.28 %
+#             over the last five, which the load has not filled yet
 #   some-only derived from the loaded capture by cutting the "full" line. A kernel from
 #             before the upstream v5.13 change prints the CPU file that way, and RHEL 8
 #             carries a backport of an earlier state, so the shape has to be read
 #             without complaint. The check ignores that line either way, because the
 #             kernel fills it with a hardcoded zero at the system level
 #   burst     thirty-two busy loops read twelve seconds in, while the ten second
-#             average has risen and the one minute average has not caught up yet. That
+#             average has risen and the five minute average has not caught up yet. That
 #             is the shape --warning-avg10 and --critical-avg10 exist for
 #   no-psi    a host whose kernel keeps no pressure statistics: /proc is there,
 #             /proc/pressure is not. That is what the whole Red Hat family boots into,
@@ -50,23 +51,32 @@ TESTS = [
         'test': '',
         'params': '--config-root=config/idle',
         'assert-retc': STATE_OK,
-        'assert-in': ['cpu pressure, last minute: ', "'some_avg60'="],
+        'assert-in': [
+            'cpu pressure, last five minutes: some 2.79%',
+            "'some_avg300'=2.79%;50;80;0;100",
+            # the windows the check does not judge carry no thresholds
+            "'some_avg60'=0.95%;;;0;100",
+        ],
         'assert-not-in': ['[WARNING]', '[CRITICAL]'],
     },
     {
-        # Four times oversubscribed and still within the default threshold: half the
-        # time somebody queues, which is what a machine used to capacity looks like.
+        # Four times oversubscribed for eighty seconds: the minute average stands at
+        # 47.23 %, the five minute average at 17.28 %. Load that is over this soon does
+        # not alert.
         'id': 'ok-the-default-tolerates-a-busy-host',
         'test': '',
         'params': '--config-root=config/loaded',
         'assert-retc': STATE_OK,
-        'assert-in': ['cpu pressure, last minute: some 47.23%'],
+        'assert-in': [
+            'cpu pressure, last five minutes: some 17.28%',
+            "'some_avg60'=47.23%;;;0;100",
+        ],
         'assert-not-in': ['[WARNING]', '[CRITICAL]'],
     },
     {
         'id': 'warn-above-the-warning-threshold',
         'test': '',
-        'params': '--config-root=config/loaded --warning=40 --critical=90',
+        'params': '--config-root=config/loaded --warning=15 --critical=90',
         'assert-retc': STATE_WARN,
         'assert-in': ['[WARNING]'],
         'assert-not-in': ['[CRITICAL]'],
@@ -74,10 +84,10 @@ TESTS = [
     {
         'id': 'crit-work-is-queueing-for-a-cpu',
         'test': '',
-        'params': '--config-root=config/loaded --warning=10 --critical=30',
+        'params': '--config-root=config/loaded --warning=10 --critical=15',
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            'cpu pressure, last minute: some 47.23% [CRITICAL]',
+            'cpu pressure, last five minutes: some 17.28% [CRITICAL]',
             'Work is waiting for a CPU.',
         ],
     },
@@ -95,7 +105,7 @@ TESTS = [
         'test': '',
         'params': '--config-root=config/some-only',
         'assert-retc': STATE_OK,
-        'assert-in': ['cpu pressure, last minute: some 47.23%', 'avg300'],
+        'assert-in': ['cpu pressure, last five minutes: some 17.28%', 'avg10'],
         'assert-not-in': ['full'],
     },
     {
@@ -106,23 +116,23 @@ TESTS = [
         'test': '',
         'params': '--config-root=config/loaded --warning=~: --critical=~:',
         'assert-retc': STATE_OK,
-        'assert-in': ['cpu pressure, last minute: some 47.23%'],
+        'assert-in': ['cpu pressure, last five minutes: some 17.28%'],
         'assert-not-in': ['[WARNING]', '[CRITICAL]', 'Work is waiting'],
     },
     {
         'id': 'ok-always-ok-masks-the-crit',
         'test': '',
-        'params': '--config-root=config/loaded --warning=10 --critical=30 --always-ok',
+        'params': '--config-root=config/loaded --warning=10 --critical=15 --always-ok',
         'assert-retc': STATE_OK,
         'assert-in': ['[CRITICAL]'],
     },
     {
         'id': 'crit-no-perfdata-drops-the-perfdata-only',
         'test': '',
-        'params': '--config-root=config/loaded --warning=10 --critical=30 --no-perfdata',
+        'params': '--config-root=config/loaded --warning=10 --critical=15 --no-perfdata',
         'assert-retc': STATE_CRIT,
         'assert-in': ['[CRITICAL]'],
-        'assert-not-in': ["'some_avg60'="],
+        'assert-not-in': ["'some_avg300'="],
     },
     {
         'id': 'ok-every-window-is-reported',
@@ -136,7 +146,7 @@ TESTS = [
         ],
     },
     {
-        # The default leaves the ten second average unjudged, so a burst that the one
+        # The default leaves the ten second average unjudged, so a burst that the five
         # minute average smooths away stays in the graph and out of the alert.
         'id': 'ok-a-burst-is-not-judged-by-default',
         'test': '',
@@ -146,14 +156,14 @@ TESTS = [
         'assert-not-in': ['[WARNING]', '[CRITICAL]', 'last ten seconds'],
     },
     {
-        # The same reading with a threshold on the ten second average: the one minute
+        # The same reading with a threshold on the ten second average: the five minute
         # average is still inside its range, and the burst alerts on its own.
         'id': 'warn-a-burst-alerts-once-avg10-has-a-threshold',
         'test': '',
         'params': '--config-root=config/burst --warning-avg10=40',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'cpu pressure, last minute: some 11.74%; '
+            'cpu pressure, last five minutes: some 8.37%; '
             'last ten seconds: some 47.86% [WARNING]',
             "'some_avg10'=47.86%;40;;0;100",
         ],
@@ -180,13 +190,13 @@ TESTS = [
     },
     {
         # Both windows out of range at once: each is named with its own state.
-        'id': 'crit-the-minute-and-the-burst-alert-together',
+        'id': 'crit-the-five-minutes-and-the-burst-alert-together',
         'test': '',
-        'params': '--config-root=config/burst --warning=5 --critical=10 '
+        'params': '--config-root=config/burst --warning=5 --critical=8 '
         '--warning-avg10=40',
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            'some 11.74% [CRITICAL]',
+            'some 8.37% [CRITICAL]',
             'last ten seconds: some 47.86% [WARNING]',
         ],
     },

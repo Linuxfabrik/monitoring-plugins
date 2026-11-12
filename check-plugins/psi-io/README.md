@@ -3,7 +3,7 @@
 
 ## Overview
 
-Reports how much of its time a host loses waiting for storage, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time work could not go on because the storage was contended. The check alerts on the share of time in which every task that had work to do was stalled at once, averaged over the last minute. That is the state in which the machine spends its cycles waiting instead of working, and it answers what throughput and utilization cannot: a disk can be busy all day without anybody waiting for it. The ten second average is reported but not judged, until `--warning-avg10` or `--critical-avg10` give it a threshold; those catch a burst that the one minute average smooths away. A host whose kernel keeps no pressure statistics is reported as OK, because there is nothing to measure; raise `--severity-no-psi` to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.
+Reports how much of its time a host loses waiting for storage, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time work could not go on because the storage was contended. The check alerts on the share of time in which every task that had work to do was stalled at once, averaged over the last five minutes. That is the state in which the machine spends its cycles waiting instead of working, and it answers what throughput and utilization cannot: a disk can be busy all day without anybody waiting for it. The five minute average keeps a job that reads for a few minutes and is alone on the host, a backup or a file integrity scan, from alerting: nobody but the job itself waits there. The ten second average is reported but not judged, until `--warning-avg10` or `--critical-avg10` give it a threshold; those catch a burst that the five minute average smooths away. A host whose kernel keeps no pressure statistics is reported as OK, because there is nothing to measure; raise `--severity-no-psi` to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.
 
 **What the numbers mean:**
 
@@ -14,13 +14,14 @@ The kernel writes two lines, and both are a share of wall clock time, not of the
 
 Storage is the resource where the two numbers separate most clearly. Measured on this reference host, six processes writing with direct I/O produced 18.57 % `some` next to 9.76 % `full` over the same minute: somebody was always waiting, and the machine still got half of that time's work done.
 
-Both lines come as averages over the last 10, 60 and 300 seconds. The check alerts on the 60 second average because that is the window a check running every minute can actually see. All three go into the performance data, so the graph keeps the short spike as well as the long trend.
+Both lines come as averages over the last 10, 60 and 300 seconds. The check alerts on the 300 second average, because that is the window in which storage holding up a host stands apart from a job that reads for a few minutes. All three go into the performance data, so the graph keeps the short spike as well as the long trend.
 
 **Important Notes:**
 
 * **This is not disk utilization.** A device can run at 100 % busy while every task gets its data in time, and it can be nearly idle while one process waits on every single read. `disk-io` reports what the devices do, this check what the waiting costs the host.
 * **Paging counts as storage pressure.** The kernel counts a page fault that has to reach the swap device or the filesystem here as well, so a memory shortage shows up as I/O pressure. Where both this check and `psi-memory` alert, memory is the cause and storage is the symptom.
-* **The averages need time to rise.** The 60 second average needs about a minute of sustained pressure to reach the real level, so by default the check alerts on sustained pressure and not on the burst that lasted a moment. `--warning-avg10` and `--critical-avg10` put a threshold on the 10 second average where the bursts matter too; without them that value is graphed but never alerts.
+* **The averages need time to rise.** The 300 second average needs several minutes of sustained pressure to reach the real level, so by default the check alerts on sustained pressure and not on the burst that lasted a moment. `--warning-avg10` and `--critical-avg10` put a threshold on the 10 second average where the bursts matter too; without them that value is graphed but never alerts.
+* **A single job on a quiet host reads as `full`.** Where one task is the only one with work to do, that task waiting for the disk is every task waiting. A backup or a file integrity scan on an otherwise idle host therefore drives `full` as high as a real stall does, although it holds up nobody. `ionice` and `nice` change nothing about that, because the kernel counts the waiting regardless of priority. Such a job is over within minutes, which is why the check judges the 300 second average.
 * **The values are system-wide and cover every device together.** There is one figure for the host, not one per disk. Where the pressure is high, `disk-io` says which device is behind it, and the same statistics exist per cgroup and name the guilty service, see [Troubleshooting](#the-pressure-is-high-and-nothing-obvious-is-running).
 * **Red Hat ships the interface switched off.** Rocky, RHEL and their rebuilds compile pressure accounting in (`CONFIG_PSI=y`) but disable it by default (`CONFIG_PSI_DEFAULT_DISABLED=y`), verified against the shipped kernel configuration of Rocky 8, 9 and 10. The kernel then creates no `/proc/pressure` at all and the check reports that nothing can be measured. Debian 11, 12 and 13, Ubuntu 22.04, 24.04 and 26.04 and Fedora have it switched on out of the box. See [Troubleshooting](#this-kernel-keeps-no-pressure-statistics) for how to switch it on.
 * Related checks: `disk-io` reports throughput, busy time and latency per device, `disk-usage` how full the filesystems are, `memory-paging` whether the traffic is the host paging rather than the workload reading and writing.
@@ -55,28 +56,31 @@ Reports how much of its time a host loses waiting for storage, taken from the
 pressure stall information of the Linux kernel. A pressure of 10 percent means
 that for a tenth of the time work could not go on because the storage was
 contended. The check alerts on the share of time in which every task that had
-work to do was stalled at once, averaged over the last minute. That is the
-state in which the machine spends its cycles waiting instead of working, and
-it answers what throughput and utilization cannot: a disk can be busy all day
-without anybody waiting for it. The ten second average is reported but not
-judged, until --warning-avg10 or --critical-avg10 give it a threshold; those
-catch a burst that the one minute average smooths away. A host whose kernel
-keeps no pressure statistics is reported as OK, because there is nothing to
-measure; raise --severity-no-psi to flag it where the statistics are expected.
-Alerts when the pressure leaves the warning or critical range.
+work to do was stalled at once, averaged over the last five minutes. That is
+the state in which the machine spends its cycles waiting instead of working,
+and it answers what throughput and utilization cannot: a disk can be busy all
+day without anybody waiting for it. The five minute average keeps a job that
+reads for a few minutes and is alone on the host, a backup or a file integrity
+scan, from alerting: nobody but the job itself waits there. The ten second
+average is reported but not judged, until --warning-avg10 or --critical-avg10
+give it a threshold; those catch a burst that the five minute average smooths
+away. A host whose kernel keeps no pressure statistics is reported as OK,
+because there is nothing to measure; raise --severity-no-psi to flag it where
+the statistics are expected. Alerts when the pressure leaves the warning or
+critical range.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold for the storage pressure, in percent of
-                        wall clock time, measured over the last minute.
+                        wall clock time, measured over the last five minutes.
                         Supports Nagios ranges. Example: `30` alerts where 30
                         percent of the time is lost. Default: 60
   --critical-avg10 CRIT_AVG10
                         CRIT threshold for the storage pressure, in percent of
                         wall clock time, measured over the last ten seconds.
-                        Catches a burst that the one minute average smooths
+                        Catches a burst that the five minute average smooths
                         away, at the price of alerting on a stall that is over
                         before anybody looks. Supports Nagios ranges. Example:
                         `90` alerts where the storage stood still for nine of
@@ -89,13 +93,13 @@ options:
                         Severity for alerting if the kernel keeps no pressure
                         statistics. Default: ok
   -w, --warning WARN    WARN threshold for the storage pressure, in percent of
-                        wall clock time, measured over the last minute.
+                        wall clock time, measured over the last five minutes.
                         Supports Nagios ranges. Example: `15` alerts where 15
                         percent of the time is lost. Default: 40
   --warning-avg10 WARN_AVG10
                         WARN threshold for the storage pressure, in percent of
                         wall clock time, measured over the last ten seconds.
-                        Catches a burst that the one minute average smooths
+                        Catches a burst that the five minute average smooths
                         away, at the price of alerting on a stall that is over
                         before anybody looks. Supports Nagios ranges. Example:
                         `80` alerts where the storage stood still for eight of
@@ -115,7 +119,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/psi-io/
 Output on a host whose storage keeps up:
 
 ```text
-io pressure, last minute: some 0.03%, full 0.03%
+io pressure, last five minutes: some 1.4%, full 0.81%
 some = at least one task waited for storage, full = every task with work to do waited for storage
 
 Window ! Some  ! Full
@@ -128,7 +132,7 @@ avg300 ! 1.4%  ! 0.81%
 Output while six processes wrote with direct I/O:
 
 ```text
-io pressure, last minute: some 18.57%, full 9.76%
+io pressure, last five minutes: some 7.63%, full 4.22%
 some = at least one task waited for storage, full = every task with work to do waited for storage
 
 Window ! Some   ! Full
@@ -150,14 +154,14 @@ A latency-sensitive host, a database for example, is worth watching earlier than
 ./psi-io --warning=5 --critical=15
 ```
 
-A host where a short stall already hurts wants the 10 second average judged as well. It alerts on its own, while the minute average stays inside its range:
+A host where a short stall already hurts wants the 10 second average judged as well. It alerts on its own, while the five minute average stays inside its range:
 
 ```bash
 ./psi-io --warning-avg10=15
 ```
 
 ```text
-io pressure, last minute: some 5.32%, full 5.14%; last ten seconds: full 18.86% [WARNING]
+io pressure, last five minutes: some 1.2%, full 1.16%; last ten seconds: full 18.86% [WARNING]
 some = at least one task waited for storage, full = every task with work to do waited for storage
 Work is stalling on storage. `disk-io` reports which device is busy and how long it takes to answer, `memory-paging` whether the traffic is the host paging rather than the workload reading and writing.
 
@@ -171,9 +175,9 @@ avg300 ! 1.2%   ! 1.16%
 
 ## States
 
-* OK if the `full` pressure over the last minute is within `--warning` and `--critical`.
+* OK if the `full` pressure over the last five minutes is within `--warning` and `--critical`.
 * OK with an explanation if the kernel keeps no pressure statistics, which is the Red Hat default. `--severity-no-psi` raises that to `warn`, `crit` or `unknown`.
-* WARN if the `full` pressure over the last minute leaves the `--warning` range, 40 % by default.
+* WARN if the `full` pressure over the last five minutes leaves the `--warning` range, 40 % by default.
 * CRIT if it leaves the `--critical` range, 60 % by default.
 * WARN or CRIT if the `full` pressure over the last ten seconds leaves `--warning-avg10` or `--critical-avg10`. Neither is set by default, so that value does not alert until one of them is given. The worst of the two windows wins.
 * UNKNOWN if a value in `/proc/pressure/io` is not a number, or if the file exists but cannot be read.
@@ -183,13 +187,13 @@ avg300 ! 1.2%   ! 1.16%
 
 ## Perfdata / Metrics
 
-Every value is a share of wall clock time in percent, as the kernel reports it. The thresholds sit on `full_avg60`, the value the check judges, and on `full_avg10` once `--warning-avg10` or `--critical-avg10` is given.
+Every value is a share of wall clock time in percent, as the kernel reports it. The thresholds sit on `full_avg300`, the value the check judges, and on `full_avg10` once `--warning-avg10` or `--critical-avg10` is given.
 
 | Name | Type | Description |
 |----|----|----|
 | full_avg10  | Percentage | Time in which every task with work to do waited for storage, over the last 10 seconds. |
-| full_avg60  | Percentage | The same over the last 60 seconds. This is the value the check alerts on. |
-| full_avg300 | Percentage | The same over the last 300 seconds. |
+| full_avg60  | Percentage | The same over the last 60 seconds. |
+| full_avg300 | Percentage | The same over the last 300 seconds. This is the value the check alerts on. |
 | some_avg10  | Percentage | Time in which at least one task waited for storage, over the last 10 seconds. |
 | some_avg60  | Percentage | The same over the last 60 seconds. |
 | some_avg300 | Percentage | The same over the last 300 seconds. |
@@ -258,9 +262,9 @@ grep CONFIG_PSI /boot/config-$(uname --kernel-release)
 
 ### The pressure looks harmless although users complain
 
-The check alerts on the 60 second average, which needs about a minute of sustained pressure to reach the real level. A burst that lasts ten seconds barely moves it, which is deliberate: a stall that is over before anybody looks is rarely worth an alert. The `some_avg10` and `full_avg10` metrics keep those bursts, so the graph shows what the alert does not.
+The check alerts on the 300 second average, which needs several minutes of sustained pressure to reach the real level. A burst that lasts ten seconds barely moves it, which is deliberate: a stall that is over before anybody looks is rarely worth an alert. The `avg10` and `avg60` metrics keep those bursts, so the graph shows what the alert does not.
 
-Where the bursts do matter, give the 10 second average its own threshold with `--warning-avg10` and `--critical-avg10`. Pick it well above the 60 second threshold, because the short window swings much further on the same workload. Expect more alerts that have resolved themselves by the time somebody reads them.
+Where the bursts do matter, give the 10 second average its own threshold with `--warning-avg10` and `--critical-avg10`. Pick it well above the 300 second threshold, because the short window swings much further on the same workload. Expect more alerts that have resolved themselves by the time somebody reads them.
 
 
 ## Credits, License

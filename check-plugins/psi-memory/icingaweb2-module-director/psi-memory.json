@@ -104,7 +104,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Reports how much of its time a host loses waiting for memory, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time work could not go on because memory was contended. The check alerts on the share of time in which every task that had work to do was stalled at once, averaged over the last minute. That is the state in which the machine spends its cycles waiting instead of working, and it answers what neither memory usage nor swap usage can: whether the shortage costs anything. The ten second average is reported but not judged, until --warning-avg10 or --critical-avg10 give it a threshold; those catch a burst that the one minute average smooths away. A host whose kernel keeps no pressure statistics is reported as OK, because there is nothing to measure; raise --severity-no-psi to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.",
+            "notes": "Reports how much of its time a host loses waiting for memory, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time work could not go on because memory was contended. The check alerts on the share of time in which every task that had work to do was stalled at once, averaged over the last five minutes. That is the state in which the machine spends its cycles waiting instead of working, and it answers what neither memory usage nor swap usage can: whether the shortage costs anything. The five minute average keeps load that is over within a few minutes, a scheduled job for example, from alerting. The ten second average is reported but not judged, until --warning-avg10 or --critical-avg10 give it a threshold; those catch a burst that the five minute average smooths away. A host whose kernel keeps no pressure statistics is reported as OK, because there is nothing to measure; raise --severity-no-psi to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/psi-memory/",
             "object_name": "tpl-service-psi-memory",
             "object_type": "template",
@@ -172,7 +172,7 @@
         "2": {
             "varname": "psi_memory_critical",
             "caption": "Psi Memory: Critical",
-            "description": "CRIT threshold for the memory pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `10` alerts where 10 percent of the time is lost.",
+            "description": "CRIT threshold for the memory pressure, in percent of wall clock time, measured over the last five minutes. Supports Nagios ranges. Example: `10` alerts where 10 percent of the time is lost.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -183,7 +183,7 @@
         "3": {
             "varname": "psi_memory_critical_avg10",
             "caption": "Psi Memory: Critical Avg10",
-            "description": "CRIT threshold for the memory pressure, in percent of wall clock time, measured over the last ten seconds. Catches a burst that the one minute average smooths away, at the price of alerting on a stall that is over before anybody looks. Supports Nagios ranges. Example: `90` alerts where work waited for memory for nine of the last ten seconds. Default: no critical threshold",
+            "description": "CRIT threshold for the memory pressure, in percent of wall clock time, measured over the last ten seconds. Catches a burst that the five minute average smooths away, at the price of alerting on a stall that is over before anybody looks. Supports Nagios ranges. Example: `90` alerts where work waited for memory for nine of the last ten seconds. Default: no critical threshold",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -216,7 +216,7 @@
         "6": {
             "varname": "psi_memory_warning",
             "caption": "Psi Memory: Warning",
-            "description": "WARN threshold for the memory pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `5` alerts where 5 percent of the time is lost.",
+            "description": "WARN threshold for the memory pressure, in percent of wall clock time, measured over the last five minutes. Supports Nagios ranges. Example: `5` alerts where 5 percent of the time is lost.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -227,7 +227,7 @@
         "7": {
             "varname": "psi_memory_warning_avg10",
             "caption": "Psi Memory: Warning Avg10",
-            "description": "WARN threshold for the memory pressure, in percent of wall clock time, measured over the last ten seconds. Catches a burst that the one minute average smooths away, at the price of alerting on a stall that is over before anybody looks. Supports Nagios ranges. Example: `80` alerts where work waited for memory for eight of the last ten seconds. Default: no warning threshold",
+            "description": "WARN threshold for the memory pressure, in percent of wall clock time, measured over the last ten seconds. Catches a burst that the five minute average smooths away, at the price of alerting on a stall that is over before anybody looks. Supports Nagios ranges. Example: `80` alerts where work waited for memory for eight of the last ten seconds. Default: no warning threshold",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

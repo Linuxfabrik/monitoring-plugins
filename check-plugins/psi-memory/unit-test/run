@@ -28,10 +28,11 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #   thrash    a scope limited with MemoryHigh=150M walking a 900 MiB buffer for a minute
 #             and a half, so the kernel evicts and faults the same pages back in
 #             continuously. Both lines read 20.23 % over the last minute, which is the
-#             state the check exists for
+#             state the check exists for, and 6.34 % over the last five, which the
+#             load has not filled yet
 #   burst     a cgroup limited to 128 MiB reading a 900 MiB file with six readers, so
 #             the kernel evicts and faults the same pages back in continuously, read
-#             fourteen seconds in. The ten second average has risen and the one minute
+#             fourteen seconds in. The ten second average has risen and the five minute
 #             average has not caught up yet, which is the shape --warning-avg10 and
 #             --critical-avg10 exist for. Captured at cgroup scope, which the kernel
 #             publishes in the same format as /proc/pressure
@@ -50,20 +51,39 @@ TESTS = [
         'test': '',
         'params': '--config-root=config/idle',
         'assert-retc': STATE_OK,
-        'assert-in': ['memory pressure, last minute: ', "'full_avg60'="],
+        'assert-in': [
+            'memory pressure, last five minutes: some 0.57%, full 0.57%',
+            "'full_avg300'=0.57%;5;10;0;100",
+            # the windows the check does not judge carry no thresholds
+            "'full_avg60'=0.0%;;;0;100",
+        ],
         'assert-not-in': ['[WARNING]', '[CRITICAL]'],
     },
     {
         # The state the check exists for: the host spends a fifth of its time with
-        # every task that had work to do waiting for memory.
-        'id': 'crit-a-host-that-thrashes',
+        # every task that had work to do waiting for memory. A minute and a half of
+        # that has lifted the five minute average past the warning threshold and not
+        # yet past the critical one.
+        'id': 'warn-a-host-that-thrashes-for-a-minute-and-a-half',
         'test': '',
         'params': '--config-root=config/thrash',
-        'assert-retc': STATE_CRIT,
+        'assert-retc': STATE_WARN,
         'assert-in': [
-            'memory pressure, last minute: some 20.23%, full 20.23% [CRITICAL]',
+            'memory pressure, last five minutes: some 6.34%, full 6.34% [WARNING]',
             'Work is stalling on memory.',
             'memory-paging',
+            "'full_avg300'=6.34%;5;10;0;100",
+        ],
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'crit-above-the-critical-threshold',
+        'test': '',
+        'params': '--config-root=config/thrash --warning=2 --critical=5',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'memory pressure, last five minutes: some 6.34%, full 6.34% [CRITICAL]',
+            'Work is stalling on memory.',
         ],
     },
     {
@@ -81,23 +101,23 @@ TESTS = [
         'test': '',
         'params': '--config-root=config/thrash --warning=~: --critical=~:',
         'assert-retc': STATE_OK,
-        'assert-in': ['memory pressure, last minute: some 20.23%'],
+        'assert-in': ['memory pressure, last five minutes: some 6.34%'],
         'assert-not-in': ['[WARNING]', '[CRITICAL]', 'Work is stalling'],
     },
     {
         'id': 'ok-always-ok-masks-the-crit',
         'test': '',
-        'params': '--config-root=config/thrash --always-ok',
+        'params': '--config-root=config/thrash --warning=2 --critical=5 --always-ok',
         'assert-retc': STATE_OK,
         'assert-in': ['[CRITICAL]'],
     },
     {
         'id': 'crit-no-perfdata-drops-the-perfdata-only',
         'test': '',
-        'params': '--config-root=config/thrash --no-perfdata',
+        'params': '--config-root=config/thrash --warning=2 --critical=5 --no-perfdata',
         'assert-retc': STATE_CRIT,
         'assert-in': ['[CRITICAL]'],
-        'assert-not-in': ["'full_avg60'="],
+        'assert-not-in': ["'full_avg300'="],
     },
     {
         'id': 'ok-every-window-is-reported',
@@ -112,7 +132,7 @@ TESTS = [
         ],
     },
     {
-        # The default leaves the ten second average unjudged, so a burst that the one
+        # The default leaves the ten second average unjudged, so a burst that the five
         # minute average smooths away stays in the graph and out of the alert.
         'id': 'ok-a-burst-is-not-judged-by-default',
         'test': '',
@@ -122,14 +142,14 @@ TESTS = [
         'assert-not-in': ['[WARNING]', '[CRITICAL]', 'last ten seconds'],
     },
     {
-        # The same reading with a threshold on the ten second average: the one minute
+        # The same reading with a threshold on the ten second average: the five minute
         # average is still inside its range, and the burst alerts on its own.
         'id': 'warn-a-burst-alerts-once-avg10-has-a-threshold',
         'test': '',
         'params': '--config-root=config/burst --warning-avg10=5',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'memory pressure, last minute: some 1.65%, full 1.65%; '
+            'memory pressure, last five minutes: some 0.37%, full 0.37%; '
             'last ten seconds: full 6.23% [WARNING]',
             "'full_avg10'=6.23%;5;;0;100",
         ],
@@ -156,13 +176,13 @@ TESTS = [
     },
     {
         # Both windows out of range at once: each is named with its own state.
-        'id': 'crit-the-minute-and-the-burst-alert-together',
+        'id': 'crit-the-five-minutes-and-the-burst-alert-together',
         'test': '',
-        'params': '--config-root=config/burst --warning=1 --critical=1.5 '
+        'params': '--config-root=config/burst --warning=0.2 --critical=0.3 '
         '--warning-avg10=5',
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            'full 1.65% [CRITICAL]',
+            'full 0.37% [CRITICAL]',
             'last ten seconds: full 6.23% [WARNING]',
         ],
     },

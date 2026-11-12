@@ -19,17 +19,20 @@ import lib.psi
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110202'
+__version__ = '2026111201'
 
 DESCRIPTION = """Reports how much of its time a host loses waiting for storage, taken from the
 pressure stall information of the Linux kernel. A pressure of 10 percent means that for a
 tenth of the time work could not go on because the storage was contended.
 The check alerts on the share of time in which every task that had work to do was stalled
-at once, averaged over the last minute. That is the state in which the machine spends its
-cycles waiting instead of working, and it answers what throughput and utilization cannot:
-a disk can be busy all day without anybody waiting for it.
+at once, averaged over the last five minutes. That is the state in which the machine
+spends its cycles waiting instead of working, and it answers what throughput and
+utilization cannot: a disk can be busy all day without anybody waiting for it.
+The five minute average keeps a job that reads for a few minutes and is alone on the
+host, a backup or a file integrity scan, from alerting: nobody but the job itself waits
+there.
 The ten second average is reported but not judged, until --warning-avg10 or
---critical-avg10 give it a threshold; those catch a burst that the one minute average
+--critical-avg10 give it a threshold; those catch a burst that the five minute average
 smooths away.
 A host whose kernel keeps no pressure statistics is reported as OK, because there is
 nothing to measure; raise --severity-no-psi to flag it where the statistics are expected.
@@ -49,12 +52,16 @@ WAITING_FOR = 'storage'
 ALERT_KIND = 'full'
 
 # The averaging window the check alerts on by default. The kernel offers ten, sixty and
-# three hundred seconds; all three are reported, and the middle one is the one that
-# matches a check running every minute. Five minutes smears a burst until it no longer
-# stands out, and it never rises without the last minute having risen first, so it would
-# only repeat an alert late. Ten seconds is too short to survive a check interval, which
-# is why it is judged on request rather than by default.
-ALERT_WINDOW = 'avg60'
+# three hundred seconds; all three are reported. Storage is judged on the longest one,
+# because "full" cannot tell a host that is held up from a host whose only busy task
+# reads from a slow disk: where nothing else has work to do, that one task waiting is
+# every task waiting. A scheduled job of that kind is over within minutes, runs at idle
+# I/O priority and holds up nobody, yet it drives the minute average as high as a real
+# stall does. Pressure accounting knows no priorities, so `ionice` and `nice` change
+# nothing about it. Five minutes let such a job pass and still report storage that keeps
+# a host waiting, a few minutes later. Ten seconds is too short to survive a check
+# interval, which is why it is judged on request rather than by default.
+ALERT_WINDOW = 'avg300'
 
 # The window --warning-avg10 and --critical-avg10 judge.
 BURST_WINDOW = 'avg10'
@@ -67,9 +74,13 @@ REPORTED_KINDS = ('some', 'full')
 # writing with direct I/O never moved the value at all, while a cgroup doing nothing but
 # refaulting a file too large for it settled at a "full" minute average of 23 %, a case
 # psi-memory reports from 5 % on. On a nearly idle VM on network storage (Rocky 10), a
-# single AIDE run reaches 20 to 38 % for two minutes, because the one task that has work
-# to do waits for the disk, so "full" says nothing about anybody suffering there. The
-# thresholds sit above that, so that only storage that really holds up a host alerts.
+# single AIDE run reaches a minute average of 20 to 38 % for two minutes, because the
+# one task that has work to do waits for the disk, so "full" says nothing about anybody
+# suffering there. On a VM with one CPU on a rotational disk (Rocky 9, kernel 5.14),
+# AIDE writing its database and checking it right after, four minutes of reading at
+# idle I/O priority, drove the minute average to 67 % and the ten second average to
+# 79 %, while the five minute average stood at 35 %. The thresholds sit above that, so
+# that only storage that really holds up a host alerts.
 DEFAULT_CRIT = '60'
 DEFAULT_CRIT_AVG10 = None
 DEFAULT_SEVERITY_NO_PSI = 'ok'
@@ -113,7 +124,7 @@ def parse_args():
         '-c',
         '--critical',
         help='CRIT threshold for the storage pressure, in percent of wall clock time, '
-        'measured over the last minute. '
+        'measured over the last five minutes. '
         'Supports Nagios ranges. '
         'Example: `30` alerts where 30 percent of the time is lost. '
         'Default: %(default)s',
@@ -125,7 +136,7 @@ def parse_args():
         '--critical-avg10',
         help='CRIT threshold for the storage pressure, in percent of wall clock time, '
         'measured over the last ten seconds. '
-        'Catches a burst that the one minute average smooths away, at the price of '
+        'Catches a burst that the five minute average smooths away, at the price of '
         'alerting on a stall that is over before anybody looks. '
         'Supports Nagios ranges. '
         'Example: `90` alerts where the storage stood still for nine of the last ten '
@@ -156,7 +167,7 @@ def parse_args():
         '-w',
         '--warning',
         help='WARN threshold for the storage pressure, in percent of wall clock time, '
-        'measured over the last minute. '
+        'measured over the last five minutes. '
         'Supports Nagios ranges. '
         'Example: `15` alerts where 15 percent of the time is lost. '
         'Default: %(default)s',
@@ -168,7 +179,7 @@ def parse_args():
         '--warning-avg10',
         help='WARN threshold for the storage pressure, in percent of wall clock time, '
         'measured over the last ten seconds. '
-        'Catches a burst that the one minute average smooths away, at the price of '
+        'Catches a burst that the five minute average smooths away, at the price of '
         'alerting on a stall that is over before anybody looks. '
         'Supports Nagios ranges. '
         'Example: `80` alerts where the storage stood still for eight of the last ten '

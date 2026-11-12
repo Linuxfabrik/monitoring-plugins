@@ -19,17 +19,19 @@ import lib.psi
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082602'
+__version__ = '2026111201'
 
 DESCRIPTION = """Reports how much of its time a host loses to interrupt handling, taken from the
 pressure stall information of the Linux kernel. A pressure of 10 percent means that for a
 tenth of the time no task could get on, because the CPUs were busy servicing hardware and
 software interrupts instead.
-The check alerts on that share, averaged over the last minute. It answers what neither
-CPU utilization nor packet counters can: whether the interrupt load is costing the
-workload its time on the CPU.
+The check alerts on that share, averaged over the last five minutes. It answers what
+neither CPU utilization nor packet counters can: whether the interrupt load is costing
+the workload its time on the CPU.
+The five minute average keeps load that is over within a few minutes, a scheduled job
+for example, from alerting.
 The ten second average is reported but not judged, until --warning-avg10 or
---critical-avg10 give it a threshold; those catch a burst that the one minute average
+--critical-avg10 give it a threshold; those catch a burst that the five minute average
 smooths away.
 A host whose kernel does not account for interrupt pressure is reported as OK, because
 there is nothing to measure; raise --severity-no-psi to flag it where the statistics are
@@ -49,12 +51,12 @@ WAITING_FOR = 'interrupt handling to finish'
 ALERT_KIND = 'full'
 
 # The averaging window the check alerts on by default. The kernel offers ten, sixty and
-# three hundred seconds; all three are reported, and the middle one is the one that
-# matches a check running every minute. Five minutes smears a burst until it no longer
-# stands out, and it never rises without the last minute having risen first, so it would
-# only repeat an alert late. Ten seconds is too short to survive a check interval, which
-# is why it is judged on request rather than by default.
-ALERT_WINDOW = 'avg60'
+# three hundred seconds; all three are reported. The check judges the longest one, so
+# that load which is over within a few minutes, a scheduled job for example, does not
+# alert, while pressure that keeps a host waiting still does, a few minutes later. Ten
+# seconds is too short to survive a check interval, which is why it is judged on request
+# rather than by default.
+ALERT_WINDOW = 'avg300'
 
 # The window --warning-avg10 and --critical-avg10 judge.
 BURST_WINDOW = 'avg10'
@@ -110,7 +112,7 @@ def parse_args():
         '-c',
         '--critical',
         help='CRIT threshold for the interrupt pressure, in percent of wall clock '
-        'time, measured over the last minute. '
+        'time, measured over the last five minutes. '
         'Supports Nagios ranges. '
         'Example: `25` alerts where 25 percent of the time is lost. '
         'Default: %(default)s',
@@ -122,7 +124,7 @@ def parse_args():
         '--critical-avg10',
         help='CRIT threshold for the interrupt pressure, in percent of wall clock '
         'time, measured over the last ten seconds. '
-        'Catches a burst that the one minute average smooths away, at the price of '
+        'Catches a burst that the five minute average smooths away, at the price of '
         'alerting on a stall that is over before anybody looks. '
         'Supports Nagios ranges. '
         'Example: `60` alerts where interrupt handling took six of the last ten '
@@ -153,7 +155,7 @@ def parse_args():
         '-w',
         '--warning',
         help='WARN threshold for the interrupt pressure, in percent of wall clock '
-        'time, measured over the last minute. '
+        'time, measured over the last five minutes. '
         'Supports Nagios ranges. '
         'Example: `10` alerts where 10 percent of the time is lost. '
         'Default: %(default)s',
@@ -165,7 +167,7 @@ def parse_args():
         '--warning-avg10',
         help='WARN threshold for the interrupt pressure, in percent of wall clock '
         'time, measured over the last ten seconds. '
-        'Catches a burst that the one minute average smooths away, at the price of '
+        'Catches a burst that the five minute average smooths away, at the price of '
         'alerting on a stall that is over before anybody looks. '
         'Supports Nagios ranges. '
         'Example: `40` alerts where interrupt handling took four of the last ten '
