@@ -45,6 +45,7 @@ Monitoring Plugins:
 
 Icinga Director:
 
+* by-ssh, by-winrm: Run on the Icinga master instead of on the agent of the host.
 * deb-updates, rpm-updates: Check for updates every 8 hours instead of once a day.
 * FreeIPA Server Service Set: Also checks the result of ipa-healthcheck and its timer.
 * OS - \* Basic Service Sets: `Systemd Units Failed` no longer alerts on a failed `ipa-healthcheck.service`.
