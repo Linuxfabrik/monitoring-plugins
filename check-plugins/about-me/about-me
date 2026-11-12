@@ -44,7 +44,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026111001 / v8.1.0'
+__version__ = '2026111201 / v8.1.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -950,11 +950,13 @@ def get_lftags(distro):
         {
             'sw': 'MediaWiki',
             'package': [],
+            # LocalSettings.php only exists in a configured MediaWiki. The bare
+            # directory is not enough: `wiki` is a common name for any docroot.
             'expr': [
-                lib.disk.dir_exists('/var/www/html/mediawiki'),
-                lib.disk.dir_exists('/var/www/html/wiki'),
-                lib.disk.dir_exists('/var/www/mediawiki'),
-                lib.disk.dir_exists('/var/www/wiki'),
+                lib.disk.file_exists('/var/www/html/mediawiki/LocalSettings.php'),
+                lib.disk.file_exists('/var/www/html/wiki/LocalSettings.php'),
+                lib.disk.file_exists('/var/www/mediawiki/LocalSettings.php'),
+                lib.disk.file_exists('/var/www/wiki/LocalSettings.php'),
             ],
         },
         {
@@ -1670,9 +1672,13 @@ def get_software_found():
         },
         {
             'sw': 'MediaWiki',
+            # LocalSettings.php only exists in a configured MediaWiki. The bare
+            # directory is not enough: `wiki` is a common name for any docroot.
             'expr': [
-                lib.disk.dir_exists('/var/www/mediawiki'),
-                lib.disk.dir_exists('/var/www/html/mediawiki'),
+                lib.disk.file_exists('/var/www/html/mediawiki/LocalSettings.php'),
+                lib.disk.file_exists('/var/www/html/wiki/LocalSettings.php'),
+                lib.disk.file_exists('/var/www/mediawiki/LocalSettings.php'),
+                lib.disk.file_exists('/var/www/wiki/LocalSettings.php'),
             ],
         },
         {
