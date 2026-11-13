@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102501'
+__version__ = '2026111301'
 
 DESCRIPTION = """Checks PHP configuration and health, including startup errors, missing modules, and
 misconfigured php.ini directives. Optionally reads extended PHP information from a
@@ -487,6 +487,26 @@ def human_bytes_shorthand(value):
     return lib.human.bytes2human(num_bytes)
 
 
+def get_opcache_memory_usage(memory_usage):
+    """Return (occupied, total, percentage) for the OPcache shared memory, from the
+    `memory_usage` dict of `opcache_get_status()`.
+
+    OPcache splits `opcache.memory_consumption` into used, free and wasted memory.
+    Wasted memory holds the old bytecode of scripts that changed on disk and is only
+    given back by a restart of the cache, so it counts as occupied. Leaving it out
+    would shrink the total with every recompiled script and hide a cache that is
+    steadily filling up with wasted memory.
+    """
+    used = memory_usage.get('used_memory', 0)
+    free = memory_usage.get('free_memory', 0)
+    wasted = memory_usage.get('wasted_memory', 0)
+    occupied = used + wasted
+    total = occupied + free
+    if total <= 0:
+        return occupied, total, 0.0
+    return occupied, total, round(float(occupied) / float(total) * 100, 1)
+
+
 def render_ini_section(name, rows):
     """Render one (section, rows) pair as php.ini text. Each row is
     (key, shown_value, shown_default, warned). A "; default: ..." comment is
@@ -677,14 +697,17 @@ def main():
             msg += f'Opcache restarting{lib.base.state2str(STATE_WARN, prefix=" ")}, '
 
         # Opcache Memory Usage (opcache.memory_consumption)
+        # wasted memory counts as used, see get_opcache_memory_usage()
         mem_used = php.get('opcache_status').get('memory_usage').get('used_memory')
         mem_free = php.get('opcache_status').get('memory_usage').get('free_memory')
-        mem_total = mem_used + mem_free
-        mem_used_percentage = round(float(mem_used) / float(mem_total) * 100, 1)
+        mem_occupied, mem_total, mem_used_percentage = get_opcache_memory_usage(
+            php.get('opcache_status').get('memory_usage')
+        )
         opcache_state = lib.base.get_state(mem_used_percentage, args.WARN, args.CRIT)
         state = lib.base.get_worst(opcache_state, state)
         msg += (
-            f'Opcache Mem {mem_used_percentage}% used ({lib.human.bytes2human(mem_used)}/'
+            f'Opcache Mem {mem_used_percentage}% used incl. wasted '
+            f'({lib.human.bytes2human(mem_occupied)}/'
             f'{lib.human.bytes2human(mem_total)})'
             f'{lib.base.state2str(opcache_state, prefix=" ")}, '
         )
@@ -773,11 +796,13 @@ def main():
         restarts_hash = (
             php.get('opcache_status').get('opcache_statistics').get('hash_restarts')
         )
-        opcache_state = lib.base.get_state(restarts_oom + restarts_hash, 1, None)
-        state = lib.base.get_worst(opcache_state, state)
+        # one state per counter, so the marker sits next to the counter that fired
+        oom_state = lib.base.get_state(restarts_oom, 1, None)
+        hash_state = lib.base.get_state(restarts_hash, 1, None)
+        state = lib.base.get_worst(lib.base.get_worst(oom_state, hash_state), state)
         msg += (
-            f'{restarts_oom} OOM / {restarts_hash} hash'
-            f'{lib.base.state2str(opcache_state, prefix=" ")} / '
+            f'{restarts_oom} OOM{lib.base.state2str(oom_state, prefix=" ")} / '
+            f'{restarts_hash} hash{lib.base.state2str(hash_state, prefix=" ")} / '
             f'{restarts_manual} manual restarts, '
         )
 

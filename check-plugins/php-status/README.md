@@ -55,7 +55,7 @@ Within one FPM master, each **pool** can override php.ini directives via `php_va
 
 #### OPcache internals behind the thresholds
 
-* **used, free, wasted.** The OPcache shared memory holds live cached scripts (used), free space, and **wasted** memory: the old bytecode of scripts that changed on disk and were recompiled (with `opcache.validate_timestamps` on).
+* **used, free, wasted.** The OPcache shared memory holds live cached scripts (used), free space, and **wasted** memory: the old bytecode of scripts that changed on disk and were recompiled (with `opcache.validate_timestamps` on). Wasted memory is only given back when the cache restarts, so the plugin counts it as used: the memory usage percentage is `(used + wasted) / (used + free + wasted)`, measured against the whole `opcache.memory_consumption`.
 * **cache_full and restarts.** When a new script cannot be allocated (memory or hash table full), OPcache checks `wasted / memory_consumption >= opcache.max_wasted_percentage` (default 5%). If wasted is at or above that, it **restarts**: it flushes the whole cache and recompiles everything, a brief recompile storm counted as `oom_restarts` or `hash_restarts`. If wasted is below 5%, it instead sets **cache_full** and simply stops caching new scripts, which then run uncached (recompiled) on every request. Frequent restarts mean the cache is **thrashing**: too small, or churning too much.
 * **interned strings.** OPcache deduplicates identical strings (class and function names and so on) into a small buffer. When that buffer is full it returns the original, non-interned string (`/* no memory, return the same non-interned string */ return str;` in the source) and carries on. Nothing fails; the string still works, it is just no longer deduplicated, costing marginally more memory and a negligible amount of CPU. A full interned strings buffer is a lost optimization, not an error, which is why the plugin shows it but never alerts on it.
 * **hit rate.** `opcache_hit_rate = hits / (hits + misses)`, and `hits` and `misses` are reset to 0 on every restart. A low value therefore usually just means the cache recently (re)started or was deployed and is still warming up, not that anything is wrong. The plugin shows it but does not alert on it; the genuine "cache too small or thrashing" signal is the restart counters. If the hit rate stays low for a long time, the cache keeps restarting: raise `opcache.memory_consumption` or `opcache.max_accelerated_files`, or review `opcache.validate_timestamps` and `opcache.revalidate_freq` (constant recompilation of files that keep changing).
@@ -241,7 +241,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/
 Output (one PHP-FPM master, OPcache healthy). The first line is the summary; the long output adds the largest cached scripts and the active php.ini, each value shown next to PHP's own default when it deviates:
 
 ```text
-monitoring.php read (fpm-fcgi). PHP-FPM services and pools: /etc/php/8.4/fpm/php-fpm.conf (pool app1, app2, www). PHP v8.4.21 (/etc/php/8.4/fpm/php.ini), Opcache Mem 6.9% used (8.9MiB/128.0MiB), Wasted 0% (0.0B, max. 5.0%), Keys 0.0% used (7/16229), Hit Rate 89.4% (76.0 hits, 9.0 misses), Interned Strings 27.6% used (2.2MiB/8.0MiB, 4792 Strings), 0 OOM / 0 hash / 0 manual restarts. No startup errors were detected. No unexpected configurations detected. All expected modules were found.
+monitoring.php read (fpm-fcgi). PHP-FPM services and pools: /etc/php/8.4/fpm/php-fpm.conf (pool app1, app2, www). PHP v8.4.21 (/etc/php/8.4/fpm/php.ini), Opcache Mem 6.9% used incl. wasted (8.9MiB/128.0MiB), Wasted 0% (0.0B, max. 5.0%), Keys 0.0% used (7/16229), Hit Rate 89.4% (76.0 hits, 9.0 misses), Interned Strings 27.6% used (2.2MiB/8.0MiB, 4792 Strings), 0 OOM / 0 hash / 0 manual restarts. No startup errors were detected. No unexpected configurations detected. All expected modules were found.
 
 Top OPcache scripts by memory consumption:
 Memory  ! Mem% ! Hits ! Script
@@ -310,7 +310,7 @@ On a host with several PHP-FPM masters the first line confirms the read and then
 * WARN if OPcache is not installed or not enabled.
 * WARN if the OPcache is full, or a restart is pending or in progress.
 * WARN if there are OPcache OOM or hash restarts (the cache is thrashing). Manual restarts (for example from a deploy) are shown for information only and do not alert.
-* WARN or CRIT if OPcache memory usage is at or above the `--warning` / `--critical` percentage thresholds (default: 95/None).
+* WARN or CRIT if OPcache memory usage (including wasted memory) is at or above the `--warning` / `--critical` percentage thresholds (default: 95/None).
 * WARN or CRIT if OPcache key usage (cached scripts against `opcache.max_accelerated_files`) is at or above the same thresholds.
 * WARN if more than one PHP-FPM master is running, since only the one serving `--url` is inspected; pass `--ignore-multiple-masters` to make this informational instead.
 * The interned strings usage and the OPcache hit rate are shown for information only and never drive the check state.
@@ -329,7 +329,7 @@ On a host with several PHP-FPM masters the first line confirms the read and then
 | php-opcache-interned_strings_usage-used_memory | Bytes | Used interned strings buffer memory. |
 | php-opcache-memory_usage-current_wasted-percentage | Percentage | Current wasted memory, in percent. |
 | php-opcache-memory_usage-free_memory | Bytes | Free Opcache memory. |
-| php-opcache-memory_usage-percentage | Percentage | Opcache memory usage, in percent. |
+| php-opcache-memory_usage-percentage | Percentage | Opcache memory usage including wasted memory, in percent of `opcache.memory_consumption`. |
 | php-opcache-memory_usage-used_memory | Bytes | Used Opcache memory. |
 | php-opcache-memory_usage-wasted_memory | Bytes | Wasted Opcache memory. |
 | php-opcache-opcache_statistics-blacklist_miss_ratio | Percentage | Blacklist miss ratio. |
@@ -367,7 +367,7 @@ Each PHP-FPM master has its own separate OPcache, so a single check only covers 
 
 ### `Opcache Mem ... used` warning
 
-Memory usage crossed `--warning` / `--critical` (percent, default 95). This is a leading indicator that the cache is filling up. A cache that has plateaued just below the threshold on a stable app is harmless; one that keeps climbing toward 100% will eventually be unable to store new scripts. Increase `opcache.memory_consumption` (megabytes, minimum 8). See "Raising opcache.memory_consumption" below for the RAM impact.
+Memory usage crossed `--warning` / `--critical` (percent, default 95). This is a leading indicator that the cache is filling up. A cache that has plateaued just below the threshold on a stable app is harmless; one that keeps climbing toward 100% will eventually be unable to store new scripts. Check the `Wasted` value first: if it keeps growing, a PHP file is rewritten or touched over and over (for example a cache file of the application), and OPcache recompiles it every time. Exclude such files via `opcache.blacklist_filename` instead of adding memory. Otherwise increase `opcache.memory_consumption` (megabytes, minimum 8). See "Raising opcache.memory_consumption" below for the RAM impact.
 
 ### `Opcache is full`
 

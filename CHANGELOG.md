@@ -40,6 +40,7 @@ Monitoring Plugins:
 * mysql-user-security: A legacy authentication plugin no longer alerts on MariaDB.
 * nextcloud-stats: The output says "enabled apps", since disabled apps are not part of the count.
 * php-fpm-logfile: An idle worker PHP-FPM kills while the pool shrinks no longer alerts, and a worker the OOM killer took is named as such.
+* php-status: OPcache memory usage counts wasted memory, so a cache filling up with recompiled scripts alerts before it restarts. The restart warning sits next to the counter that triggered it.
 * psi-cpu, psi-io, psi-irq, psi-memory: Alert on the five minute average instead of the last minute, so a job running for a few minutes no longer alerts.
 * psi-io: Higher default thresholds, a single busy reader no longer alerts.
 * rpm-updates: Counts Rocky Linux `security` repo hot-fixes as security updates.

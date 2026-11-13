@@ -247,6 +247,60 @@ class TestHumanBytesShorthand(unittest.TestCase):
         self.assertEqual(php_status.human_bytes_shorthand('N/A'), 'N/A')
 
 
+class TestGetOpcacheMemoryUsage(unittest.TestCase):
+    """get_opcache_memory_usage() counts wasted memory as used, since only a
+    restart of the cache gives it back."""
+
+    MIB = 1024 * 1024
+
+    def test_without_wasted_memory(self):
+        usage = {
+            'used_memory': 32 * self.MIB,
+            'free_memory': 96 * self.MIB,
+            'wasted_memory': 0,
+        }
+        self.assertEqual(
+            php_status.get_opcache_memory_usage(usage),
+            (32 * self.MIB, 128 * self.MIB, 25.0),
+        )
+
+    def test_wasted_memory_counts_as_used(self):
+        # a cache whose scripts keep changing on disk: free shrinks while used
+        # stays put, the difference ends up as wasted memory
+        usage = {
+            'used_memory': 32 * self.MIB,
+            'free_memory': 32 * self.MIB,
+            'wasted_memory': 64 * self.MIB,
+        }
+        self.assertEqual(
+            php_status.get_opcache_memory_usage(usage),
+            (96 * self.MIB, 128 * self.MIB, 75.0),
+        )
+
+    def test_total_is_the_whole_shared_memory(self):
+        # the total must not shrink when wasted memory grows
+        for wasted in (0, 16, 64):
+            usage = {
+                'used_memory': 32 * self.MIB,
+                'free_memory': (96 - wasted) * self.MIB,
+                'wasted_memory': wasted * self.MIB,
+            }
+            self.assertEqual(
+                php_status.get_opcache_memory_usage(usage)[1], 128 * self.MIB
+            )
+
+    def test_full_cache(self):
+        usage = {
+            'used_memory': 100 * self.MIB,
+            'free_memory': 0,
+            'wasted_memory': 28 * self.MIB,
+        }
+        self.assertEqual(php_status.get_opcache_memory_usage(usage)[2], 100.0)
+
+    def test_empty_input(self):
+        self.assertEqual(php_status.get_opcache_memory_usage({}), (0, 0, 0.0))
+
+
 class TestRenderIniSection(unittest.TestCase):
     """render_ini_section() emits a php.ini section and appends a
     "; default: ..." comment only when the value deviates from its default."""
