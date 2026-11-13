@@ -25,6 +25,11 @@ this file holds only the happy-path integration test. A freshly
 booted, idle MariaDB with default buffer settings requests well
 under the plugin's memory thresholds, which is STATE_OK.
 
+The server runs with a 1 GiB `max_allowed_packet`, which must not
+show up in the per-connection buffers, and with the Performance
+Schema on, whose real footprint (several MiB, not a row size of a
+few bytes) must be counted.
+
 The test matrix is defined by the Containerfiles under
 `containerfiles/`. Each file is a Containerfile (typically a
 one-line `FROM`) and gets built once via testcontainers'
@@ -39,6 +44,7 @@ Requirements:
 """
 
 import os
+import re
 import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
 import unittest
@@ -97,8 +103,27 @@ def _check_image(test, containerfile):
     # across machines.
     with lib.lftest.run_mysql_compatible_from_containerfile(
         path,
-        extra_args='--max-connections=5',
-    ) as (_container, defaults_file):
+        extra_args=(
+            '--max-connections=5'
+            ' --max-allowed-packet=1073741824'
+            ' --performance-schema=ON'
+        ),
+    ) as (container, defaults_file):
+        # `SHOW ENGINE PERFORMANCE_SCHEMA STATUS` needs PROCESS, as documented
+        # for the shared monitoring user. lib.lftest only grants SELECT.
+        container.exec(
+            [
+                'sh',
+                '-c',
+                'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
+                'else C=mysql; fi; '
+                'GRANTS="GRANT PROCESS ON *.* TO '
+                "'test'@'%'"
+                '"; '
+                '"$C" -uroot -e "$GRANTS" 2>/dev/null '
+                '|| "$C" -uroot -ptest -e "$GRANTS"',
+            ]
+        )
         cmd = [
             'python3',
             '../mysql-memory',
@@ -116,6 +141,17 @@ def _check_image(test, containerfile):
 
         test.assertEqual(result.returncode, STATE_OK)
         test.assertIn("|'mysql_", combined)
+
+        def perfdata(name):
+            match = re.search(rf"'{name}'=(\d+)", combined)
+            test.assertIsNotNone(match, name)
+            return int(match.group(1))
+
+        # The 1 GiB `max_allowed_packet` is no per-connection buffer.
+        test.assertEqual(perfdata('mysql_max_allowed_packet'), 1024**3)
+        test.assertLess(perfdata('mysql_per_thread_buffers'), 512 * 1024**2)
+        # The Performance Schema footprint, not a row size.
+        test.assertGreater(perfdata('mysql_pf_memory'), 1024**2)
 
         # Overcommit: reached usage + other processes fit into the fake 4 GiB.
         def run_wrapped(other_bytes):

@@ -33,6 +33,7 @@ Monitoring Plugins:
 * lynis-logfile: Reports how many tests the lynis profile skips.
 * mysql-connections: Speaks of failed connection attempts instead of aborted connections, and points to the denied logins.
 * mysql-index-health: Redundant indexes no longer alert by default.
+* mysql-memory: Counts one temporary table per connection, so the peak memory rises on servers with many connections.
 * mysql-innodb-buffer-pool-size: No longer alerts just because the data is larger than the buffer pool.
 * mysql-perf-metrics: `innodb_snapshot_isolation` no longer alerts, and `--storage-type=auto` no longer judges virtual disks.
 * mysql-tls: A server on loopback only no longer alerts about `require_secure_transport` and the certificate.
@@ -61,6 +62,7 @@ Grafana:
 
 Monitoring Plugins:
 
+* mysql-memory: No longer counts the Galera GCache, including its perfdata.
 * mysql-system: No longer checks `sunrpc.tcp_slot_table_entries`, including its perfdata and Grafana panel.
 
 Icinga Director:
@@ -78,6 +80,7 @@ Monitoring Plugins:
 * graylog-version: No longer times out right after a reboot on RHEL 8.
 * mysql-index-health: Never suggests dropping a primary key as a redundant index.
 * mysql-logfile: A MariaDB restart counts as one shutdown, and denied logins no longer come with "No errors or warnings found".
+* mysql-memory: No more false alarms from a large `max_allowed_packet`, and the Performance Schema memory is counted.
 * needs-restarting: The first run after a reboot no longer breaks the RPM database on RHEL 8, and a broken RPM database returns UNKNOWN instead of a pending reboot.
 * nextcloud-status: An HTTP 404 names the wrong path in `--url`, and a web server error page is no longer quoted with its CSS.
 

@@ -1087,12 +1087,6 @@ spec:
         properties:
         - id: displayName
           value: Performance Schema memory
-      - matcher:
-          id: byName
-          options: mysql_gcache_memory
-        properties:
-        - id: displayName
-          value: Galera GCache (gcache.size)
     options:
       legend:
         calcs:
@@ -1259,33 +1253,3 @@ spec:
         key: metric
         operator: '='
         value: mysql_pf_memory
-
-    - alias: mysql_gcache_memory
-      refId: mysql_gcache_memory
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - 'null'
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: mysql_gcache_memory

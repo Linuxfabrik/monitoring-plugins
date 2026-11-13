@@ -10,16 +10,19 @@ Estimates MySQL/MariaDB memory consumption and compares it to the host's physica
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * Must run locally on the MySQL/MariaDB server (uses `os.sysconf` for physical RAM and `psutil` to discover other-process memory).
 * Run with `--lengthy` to see the per-buffer breakdown table when an alert needs investigation.
+* Both values are calculated upper bounds from the configured buffer sizes, not the measured RSS of the server. A connection allocates its per-connection buffers only while a query needs them, so the real usage is usually far lower.
+* `max_allowed_packet` is not counted: a connection's network buffer only grows to the largest packet the connection actually receives.
+* The Galera GCache is not counted: it is a memory-mapped file whose pages the kernel can write back and reclaim.
+* Reading the Performance Schema footprint needs the `PROCESS` privilege. Without it, the Performance Schema memory counts as 0.
 
 **Data Collection:**
 
-* Queries `SHOW GLOBAL VARIABLES` for the relevant buffer size variables (`innodb_buffer_pool_size`, `key_buffer_size`, `sort_buffer_size`, `join_buffer_size`, `max_connections`, `wsrep_provider_options` for Galera, ...).
+* Queries `SHOW GLOBAL VARIABLES` for the relevant buffer size variables (`innodb_buffer_pool_size`, `key_buffer_size`, `sort_buffer_size`, `join_buffer_size`, `binlog_cache_size` when `log_bin` is ON, `temptable_max_ram` on MySQL, `max_connections`, ...).
 * Queries `SHOW GLOBAL STATUS` for `Max_used_connections`.
-* Queries `SHOW ENGINE PERFORMANCE_SCHEMA STATUS` for the Performance Schema memory row when `performance_schema` is ON.
-* Parses `wsrep_provider_options` for `gcache.size` when `wsrep_on` is ON.
+* Queries `SHOW ENGINE PERFORMANCE_SCHEMA STATUS` for the `performance_schema.memory` row when `performance_schema` is ON.
 * Uses `psutil` (if installed) to total RSS of processes whose `name` is not `mysqld` / `mariadbd`.
 * Uses `os.sysconf` for total physical memory.
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats() ("Memory usage" section), verified in sync with v2.8.41.
+* Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl) (`calculations()`). Per connection, it counts `read_buffer_size`, `read_rnd_buffer_size`, `sort_buffer_size`, `thread_stack`, `join_buffer_size`, `binlog_cache_size` and one in-memory temporary table of `min(tmp_table_size, max_heap_table_size)`. On MySQL with the TempTable engine, all temporary tables together are capped at `temptable_max_ram`.
 
 
 ## Fact Sheet
@@ -43,16 +46,18 @@ usage: mysql-memory [-h] [-V] [--always-ok] [-c CRITICAL]
                     [--defaults-group DEFAULTS_GROUP] [--lengthy]
                     [--no-perfdata] [--timeout TIMEOUT] [-w WARNING]
 
-Estimates MySQL/MariaDB memory consumption and compares it to the host's
-physical RAM. Reports the currently-reached usage (server-wide buffers +
-per-thread buffers * `Max_used_connections` + Performance Schema memory +
-Galera GCache if present) and the theoretical worst-case peak (same formula
-but with `max_connections`). Also surfaces the RAM consumed by non-database
-processes on the host so admins can see when MySQL plus the rest of the system
-would exceed physical memory. Alerts when used or peak memory crosses the
-`--warning` / `--critical` thresholds, when reached + other-process memory
-exceeds physical RAM, and when MySQL would allocate more than 2 GiB on a
-32-bit system. Supports extended reporting via --lengthy.
+Estimates MySQL/MariaDB memory consumption from the configured buffer sizes
+and compares it to the host's physical RAM. Reports the footprint at the
+highest number of concurrent connections so far (server-wide buffers +
+per-connection buffers * `Max_used_connections` + Performance Schema memory)
+and the theoretical worst-case peak (same formula but with `max_connections`).
+Both are calculated upper bounds, not the measured RSS: a connection allocates
+its buffers only while a query needs them. Also surfaces the RAM consumed by
+non-database processes on the host so admins can see when MySQL plus the rest
+of the system would exceed physical memory. Alerts when used or peak memory
+crosses the `--warning` / `--critical` thresholds, when reached +
+other-process memory exceeds physical RAM, and when MySQL would allocate more
+than 2 GiB on a 32-bit system. Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -60,10 +65,11 @@ options:
   --always-ok           Always returns OK.
   -c, --critical CRITICAL
                         CRIT threshold for the percentage of physical RAM
-                        consumed by the reached MySQL memory footprint
+                        consumed by the MySQL memory footprint calculated from
+                        the highest number of concurrent connections so far
                         (server_buffers + per_thread_buffers *
-                        Max_used_connections + Performance Schema + Galera
-                        GCache). Supports Nagios ranges. Default: 95
+                        Max_used_connections + Performance Schema). Supports
+                        Nagios ranges. Default: 95
   --defaults-file DEFAULTS_FILE
                         MySQL/MariaDB cnf file to read user, host and password
                         from. Example: `--defaults-
@@ -85,7 +91,8 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARNING
                         WARN threshold for the percentage of physical RAM
-                        consumed by the reached MySQL memory footprint.
+                        consumed by the MySQL memory footprint calculated from
+                        the highest number of concurrent connections so far.
                         Supports Nagios ranges. Default: 85
 
 Documentation:
@@ -99,20 +106,26 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-memory/
 ./mysql-memory --defaults-file=/var/spool/icinga2/.my.cnf
 ```
 
-Output (short, default):
+Output (OK):
 
 ```text
-Max used memory: 67.6% (21.1GiB of 31.3GiB physical) [WARNING]. Peak possible: 99.5% (31.1GiB) [CRITICAL]. Other process memory: 11.2GiB [WARNING].
+Max used memory: 1.6% (513.4MiB of 30.6GiB physical). Peak possible: 2.2% (683.6MiB). Other process memory: 14.3GiB.
+```
+
+Output (short, with alerts):
+
+```text
+Max used memory: 67.6% (21.1GiB of 31.3GiB physical) [WARNING]. Peak possible: 100.6% (31.5GiB) [CRITICAL]. Other process memory: 11.2GiB [WARNING].
 
 Recommendations:
 * Reduce your overall MySQL memory footprint for system stability
 * Dedicate this server to MySQL/MariaDB: reached MySQL memory + other-process memory (21.1GiB + 11.2GiB = 32.3GiB) exceeds physical RAM (31.3GiB)
 * Top contributors to peak memory (largest first):
-  - `max_allowed_packet` (16.0MiB) * `max_connections` (676) = 10.6GiB
+  - `max_tmp_table_size` (32.0MiB, min of `tmp_table_size` and `max_heap_table_size`) * `max_connections` (676) = 21.1GiB
   - `innodb_buffer_pool_size` (8.0GiB)
   - `sort_buffer_size` (2.0MiB) * `max_connections` (676) = 1.3GiB
-  - `aria_pagecache_buffer_size` (128.0MiB)
-  - `key_buffer_size` (128.0MiB)
+  - `thread_stack` (292.0KiB) * `max_connections` (676) = 192.7MiB
+  - `read_rnd_buffer_size` (256.0KiB) * `max_connections` (676) = 169.0MiB
 ```
 
 For per-thread buffers the line reads as `<var> (per-conn value) * max_connections (N) = total`; for server-wide buffers the value is shown inline in parens (no multiplier).
@@ -124,24 +137,23 @@ Output (`--lengthy`, additionally):
 ```text
 Memory breakdown (sorted by contribution to peak memory):
 
-  `max_allowed_packet` (16.0MiB) * `max_connections` (676) = 10.6GiB
+  `max_tmp_table_size` (32.0MiB, min of `tmp_table_size` and `max_heap_table_size`) * `max_connections` (676) = 21.1GiB
   `innodb_buffer_pool_size` (8.0GiB)
   `sort_buffer_size` (2.0MiB) * `max_connections` (676) = 1.3GiB
   `thread_stack` (292.0KiB) * `max_connections` (676) = 192.7MiB
-  `aria_pagecache_buffer_size` (128.0MiB)
-  `key_buffer_size` (128.0MiB)
   `read_rnd_buffer_size` (256.0KiB) * `max_connections` (676) = 169.0MiB
   `join_buffer_size` (256.0KiB) * `max_connections` (676) = 169.0MiB
+  `aria_pagecache_buffer_size` (128.0MiB)
+  `key_buffer_size` (128.0MiB)
+  Performance Schema memory (94.0MiB)
   `read_buffer_size` (128.0KiB) * `max_connections` (676) = 84.5MiB
-  Performance Schema memory (50.0MiB)
+  `binlog_cache_size` (32.0KiB) * `max_connections` (676) = 21.1MiB
   `innodb_log_buffer_size` (16.0MiB)
-  `max_tmp_table_size` (16.0MiB, min of `tmp_table_size` and `max_heap_table_size`)
   `query_cache_size` (1.0MiB)
   `innodb_additional_mem_pool_size`
-  Galera GCache (`gcache.size`)
   ----------------------------------------------------------------------
-  max_peak_memory = 31.1GiB
-  max_used_memory (currently reached) = 21.1GiB
+  max_peak_memory = 31.5GiB
+  max_used_memory (calculated with `Max_used_connections` = 372) = 21.1GiB
   Physical RAM (host) = 31.3GiB
   Other process memory (host) = 11.2GiB
 ```
@@ -149,7 +161,7 @@ Memory breakdown (sorted by contribution to peak memory):
 
 ## States
 
-* WARN if reached memory footprint (`pct_max_used_memory`) crosses `--warning` (default 85%); CRIT at `--critical` (default 95%).
+* WARN if the memory footprint calculated from `Max_used_connections` (`pct_max_used_memory`) crosses `--warning` (default 85%); CRIT at `--critical` (default 95%).
 * WARN if theoretical peak (`pct_max_physical_memory`) crosses `--warning`; CRIT at `--critical`.
 * WARN if MySQL would allocate > 2 GiB on a 32-bit binary (address space limit).
 * WARN if reached MySQL memory (`max_used_memory`) + other-process memory exceeds physical RAM (dedicate-the-host hint). The theoretical peak is deliberately not part of this sum: it sits on the boundary on hosts shared with an application and would flip with every RSS fluctuation of the other processes.
@@ -168,26 +180,25 @@ Memory breakdown (sorted by contribution to peak memory):
 | mysql_max_allowed_packet | Bytes | Maximum size in bytes of a packet or a generated/intermediate string. |
 | mysql_max_connections | Number | The maximum number of simultaneous client connections. |
 | mysql_max_heap_table_size | Bytes | Maximum size in bytes for user-created MEMORY tables. |
-| mysql_gcache_memory | Bytes | Galera GCache size from `wsrep_provider_options` (`gcache.size`); 0 when wsrep is off. |
-| mysql_max_peak_memory | Bytes | `server_buffers + total_per_thread_buffers + pf_memory + gcache_memory` |
+| mysql_max_peak_memory | Bytes | `server_buffers + total_per_thread_buffers + pf_memory` |
 | mysql_max_tmp_table_size | Bytes | `min(tmp_table_size, max_heap_table_size)` |
-| mysql_max_total_per_thread_buffers | Bytes | `per_thread_buffers * Max_used_connections` |
+| mysql_max_total_per_thread_buffers | Bytes | `per_thread_buffers * Max_used_connections`, temporary tables capped at `temptable_max_ram` on MySQL |
 | mysql_max_used_connections | Number | Max number of connections ever open at the same time. |
-| mysql_max_used_memory | Bytes | `server_buffers + max_total_per_thread_buffers + pf_memory + gcache_memory` |
+| mysql_max_used_memory | Bytes | `server_buffers + max_total_per_thread_buffers + pf_memory` |
 | mysql_other_process_memory | Bytes | Total RSS of non-MySQL processes on this host. |
 | mysql_pct_max_physical_memory | Percentage | `max_peak_memory / physical_memory * 100` |
 | mysql_pct_max_used_memory | Percentage | `max_used_memory / physical_memory * 100` |
-| mysql_per_thread_buffers | Bytes | Sum of all per-thread buffer sizes (read_buffer_size + read_rnd_buffer_size + sort_buffer_size + thread_stack + max_allowed_packet + join_buffer_size). |
-| mysql_pf_memory | Bytes | Performance Schema memory (`SHOW ENGINE PERFORMANCE_SCHEMA STATUS` `memory` row); 0 when PFS is OFF. |
+| mysql_per_thread_buffers | Bytes | Sum of all per-thread buffer sizes (read_buffer_size + read_rnd_buffer_size + sort_buffer_size + thread_stack + join_buffer_size + binlog_cache_size when `log_bin` is ON + max_tmp_table_size). |
+| mysql_pf_memory | Bytes | Performance Schema memory (`SHOW ENGINE PERFORMANCE_SCHEMA STATUS` `performance_schema.memory` row); 0 when PFS is OFF or the `PROCESS` privilege is missing. |
 | mysql_physical_memory | Bytes | Total physical memory (exclusive swap). |
 | mysql_query_cache_size | Bytes | Size in bytes available to the query cache. |
 | mysql_read_buffer_size | Bytes | Each thread performing a sequential scan allocates a buffer of this size in bytes for each table scanned. |
 | mysql_read_rnd_buffer_size | Bytes | Size in bytes of the buffer used when reading rows from a MyISAM table in sorted order after a key sort. |
-| mysql_server_buffers | Bytes | Sum of all global buffer sizes (key_buffer_size + max_tmp_table_size + innodb_buffer_pool_size + innodb_additional_mem_pool_size + innodb_log_buffer_size + query_cache_size + aria_pagecache_buffer_size). |
+| mysql_server_buffers | Bytes | Sum of all global buffer sizes (key_buffer_size + innodb_buffer_pool_size + innodb_additional_mem_pool_size + innodb_log_buffer_size + query_cache_size + aria_pagecache_buffer_size). |
 | mysql_sort_buffer_size | Bytes | Each session performing a sort allocates a buffer with this amount of memory. |
 | mysql_thread_stack | Bytes | Stack size for each thread. |
 | mysql_tmp_table_size | Bytes | The largest size for temporary tables in memory (not MEMORY tables). |
-| mysql_total_per_thread_buffers | Bytes | per_thread_buffers * max_connections |
+| mysql_total_per_thread_buffers | Bytes | `per_thread_buffers * max_connections`, temporary tables capped at `temptable_max_ram` on MySQL |
 
 
 ## Troubleshooting

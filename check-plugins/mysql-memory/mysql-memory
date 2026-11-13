@@ -12,7 +12,6 @@
 
 import argparse
 import os
-import re
 import sys
 
 import lib.args
@@ -30,12 +29,14 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026101501'
+__version__ = '2026111301'
 
-DESCRIPTION = """Estimates MySQL/MariaDB memory consumption and compares it to the host's
-physical RAM. Reports the currently-reached usage (server-wide buffers + per-thread
-buffers * `Max_used_connections` + Performance Schema memory + Galera GCache if
-present) and the theoretical worst-case peak (same formula but with `max_connections`).
+DESCRIPTION = """Estimates MySQL/MariaDB memory consumption from the configured buffer
+sizes and compares it to the host's physical RAM. Reports the footprint at the highest
+number of concurrent connections so far (server-wide buffers + per-connection buffers *
+`Max_used_connections` + Performance Schema memory) and the theoretical worst-case
+peak (same formula but with `max_connections`). Both are calculated upper bounds, not
+the measured RSS: a connection allocates its buffers only while a query needs them.
 Also surfaces the RAM consumed by non-database processes on the host so admins can
 see when MySQL plus the rest of the system would exceed physical memory.
 Alerts when used or peak memory crosses the `--warning` / `--critical` thresholds,
@@ -46,8 +47,8 @@ Supports extended reporting via --lengthy."""
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
-# % of physical RAM at which `pct_max_used_memory` (the currently-reached
-# footprint) turns WARN / CRIT. Default 85/95 matches mysqltuner.
+# % of physical RAM at which `pct_max_used_memory` (the footprint calculated
+# from `Max_used_connections`) turns WARN / CRIT. Default 85/95 matches mysqltuner.
 DEFAULT_WARN = '85'
 DEFAULT_CRIT = '95'
 
@@ -84,9 +85,9 @@ def parse_args():
         '-c',
         '--critical',
         help='CRIT threshold for the percentage of physical RAM consumed by '
-        'the reached MySQL memory footprint (server_buffers + '
-        'per_thread_buffers * Max_used_connections + Performance Schema + '
-        'Galera GCache). '
+        'the MySQL memory footprint calculated from the highest number of '
+        'concurrent connections so far (server_buffers + per_thread_buffers * '
+        'Max_used_connections + Performance Schema). '
         'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='CRITICAL',
@@ -141,7 +142,8 @@ def parse_args():
         '-w',
         '--warning',
         help='WARN threshold for the percentage of physical RAM consumed by '
-        'the reached MySQL memory footprint. '
+        'the MySQL memory footprint calculated from the highest number of '
+        'concurrent connections so far. '
         'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='WARNING',
@@ -159,11 +161,14 @@ def get_vars(conn):
     sql = """
         show global variables
         where variable_name like 'aria_pagecache_buffer_size'
+            or variable_name like 'binlog_cache_size'
             or variable_name like 'innodb_additional_mem_pool_size'
             or variable_name like 'innodb_buffer_pool_size'
             or variable_name like 'innodb_log_buffer_size'
+            or variable_name like 'internal_tmp_mem_storage_engine'
             or variable_name like 'join_buffer_size'
             or variable_name like 'key_buffer_size'
+            or variable_name like 'log_bin'
             or variable_name like 'max_allowed_packet'
             or variable_name like 'max_connections'
             or variable_name like 'max_heap_table_size'
@@ -172,10 +177,10 @@ def get_vars(conn):
             or variable_name like 'read_buffer_size'
             or variable_name like 'read_rnd_buffer_size'
             or variable_name like 'sort_buffer_size'
+            or variable_name like 'temptable_max_ram'
             or variable_name like 'thread_stack'
             or variable_name like 'tmp_table_size'
-            or variable_name like 'wsrep_on'
-            or variable_name like 'wsrep_provider_options'
+            or variable_name like 'version'
             ;
           """
     return lib.base.coe(lib.db_mysql.select(conn, sql))
@@ -192,8 +197,14 @@ def get_status(conn):
 
 def get_pf_memory(conn, myvar):
     """Return Performance Schema memory usage in bytes, or 0 when PFS is
-    OFF / unavailable. PFS reports its own footprint as the `memory`
-    row of `SHOW ENGINE PERFORMANCE_SCHEMA STATUS`. MySQL requires the
+    OFF / unavailable. PFS reports its own footprint as the
+    `performance_schema.memory` row of `SHOW ENGINE PERFORMANCE_SCHEMA
+    STATUS`, always the last row and the sum of all `*.memory` rows. The
+    name has to match exactly: rows such as
+    `memory_summary_by_thread_by_event_name.row_size` come first and hold a
+    row size, not memory. Verified against the MariaDB 13.0 and MySQL 26.7
+    sources (`storage/perfschema/pfs_engine_table.cc` and
+    `storage/perfschema/ha_perfschema.cc`). MySQL requires the
     `PROCESS` privilege for `SHOW ENGINE`; without it the query fails
     with a 1227 access-denied error. The monitoring user usually only
     has `SELECT`, so we treat that as a soft skip and report PFS
@@ -206,31 +217,12 @@ def get_pf_memory(conn, myvar):
     if not success:
         return 0
     for item in rows or []:
-        if item['Type'] == 'performance_schema' and item['Name'].startswith('memory'):
+        if (
+            item['Type'] == 'performance_schema'
+            and item['Name'] == 'performance_schema.memory'
+        ):
             return int(item['Status'])
     return 0
-
-
-def get_gcache_memory(myvar):
-    """Return the Galera GCache size in bytes if this is a wsrep node with a
-    parseable `gcache.size` in `wsrep_provider_options`, else 0.
-
-    `wsrep_provider_options` looks like a long `;`-separated key=value blob:
-        gmcast.listen_addr = tcp://0.0.0.0:4567; gcache.size = 128M; ...
-    """
-    if myvar.get('wsrep_on', 'OFF') != 'ON':
-        return 0
-    options = myvar.get('wsrep_provider_options') or ''
-    match = re.search(r'gcache\.size\s*=\s*([^;\s]+)', options)
-    if not match:
-        return 0
-    raw = match.group(1).strip()
-    # gcache.size can be expressed with a SI/IEC suffix (e.g. "128M", "1G")
-    # or as a raw byte count. lib.human.human2bytes handles both.
-    try:
-        return lib.human.human2bytes(raw)
-    except (ValueError, TypeError):
-        return 0
 
 
 def get_other_process_memory():
@@ -284,17 +276,27 @@ def build_contributions(myvar, mycalc):
             return (f'{label}', 0, False)
         return (f'{label} ({bh(value)})', value, False)
 
+    tmp_label = (
+        f'`max_tmp_table_size` ({bh(mycalc["max_tmp_table_size"])},'
+        f' min of `tmp_table_size` and `max_heap_table_size`)'
+        f' * `max_connections` ({max_conn})'
+    )
+    if mycalc['temptable_max_ram'] is not None:
+        tmp_label += (
+            f', capped at `temptable_max_ram` ({bh(mycalc["temptable_max_ram"])})'
+        )
+
     contributions = [
         server_wide(
             '`innodb_buffer_pool_size`',
             int(myvar.get('innodb_buffer_pool_size', 0)),
         ),
-        per_thread('max_allowed_packet'),
         per_thread('sort_buffer_size'),
         per_thread('read_buffer_size'),
         per_thread('read_rnd_buffer_size'),
         per_thread('join_buffer_size'),
         per_thread('thread_stack'),
+        (tmp_label, mycalc['total_tmp_tables'], True),
         server_wide('`key_buffer_size`', int(myvar['key_buffer_size'])),
         server_wide(
             '`aria_pagecache_buffer_size`',
@@ -312,15 +314,11 @@ def build_contributions(myvar, mycalc):
             '`query_cache_size`',
             int(myvar.get('query_cache_size', 0)),
         ),
-        (
-            f'`max_tmp_table_size` ({bh(mycalc["max_tmp_table_size"])},'
-            f' min of `tmp_table_size` and `max_heap_table_size`)',
-            mycalc['max_tmp_table_size'],
-            False,
-        ),
         server_wide('Performance Schema memory', mycalc['pf_memory']),
-        server_wide('Galera GCache (`gcache.size`)', mycalc['gcache_memory']),
     ]
+    # The binlog caches only exist while the binary log is on.
+    if mycalc['binlog_cache_size']:
+        contributions.append(per_thread('binlog_cache_size'))
     contributions.sort(key=lambda item: -item[1])
     return contributions
 
@@ -352,7 +350,8 @@ def render_breakdown(myvar, mycalc):
     lines.append('  ' + '-' * 70)
     lines.append(f'  max_peak_memory = {bh(mycalc["max_peak_memory"])}')
     lines.append(
-        f'  max_used_memory (currently reached) = {bh(mycalc["max_used_memory"])}'
+        f'  max_used_memory (calculated with `Max_used_connections`'
+        f' = {mycalc["max_used_connections"]}) = {bh(mycalc["max_used_memory"])}'
     )
     lines.append(f'  Physical RAM (host) = {bh(mycalc["physical_memory"])}')
     lines.append(
@@ -364,8 +363,10 @@ def render_breakdown(myvar, mycalc):
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_stats(), section "Memory usage",
-    # verified in sync with MySQLTuner
+    # logic taken from mysqltuner.pl:calculations(), verified in sync with
+    # MySQLTuner 2.9.2. Deliberate deviations: the binlog cache only counts
+    # with `log_bin=ON`, and the overcommit check uses the reached instead of
+    # the peak memory (see there).
 
     # parse the command line
     try:
@@ -384,6 +385,8 @@ def main():
 
     myvar = lib.db_mysql.lod2dict(get_vars(conn))
     mystat = lib.db_mysql.lod2dict(get_status(conn))
+    pf_memory = get_pf_memory(conn, myvar)
+    lib.db_mysql.close(conn)
 
     # init some vars
     state = STATE_OK
@@ -399,45 +402,83 @@ def main():
     # The effective size of an internal in-memory temp table is the *minimum*
     # of these two settings (mysql docs:
     # https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_tmp_table_size).
-    # The plugin used to take max() here, which over-estimated server_buffers.
+    # Every connection can hold such a temp table (and a query several), so it
+    # counts per connection, like in MySQLTuner. MariaDB limits each in-memory
+    # temp table to min(tmp_memory_table_size, max_heap_table_size)
+    # (`sql/sql_select.cc`, MariaDB 13.0).
     mycalc['max_tmp_table_size'] = min(
         int(myvar['tmp_table_size']),
         int(myvar['max_heap_table_size']),
     )
-    mycalc['server_buffers'] = (
-        int(myvar['key_buffer_size']) + mycalc['max_tmp_table_size']
-    )
+    # MySQL's TempTable engine additionally caps all in-memory temp tables of
+    # the server at `temptable_max_ram` (`sql/sys_vars.cc`, MySQL 26.7).
+    # MariaDB has no TempTable engine.
+    mycalc['temptable_max_ram'] = None
+    if (
+        'mariadb' not in myvar.get('version', '').lower()
+        and myvar.get('internal_tmp_mem_storage_engine', 'TempTable') == 'TempTable'
+        and str(myvar.get('temptable_max_ram', '')).isdigit()
+    ):
+        mycalc['temptable_max_ram'] = int(myvar['temptable_max_ram'])
+    # A session creates its binlog caches on its first write to the binary
+    # log (`THD::binlog_setup_trx_data()` in `sql/log.cc`, MariaDB 13.0);
+    # without a binary log there are none.
+    mycalc['binlog_cache_size'] = 0
+    if myvar.get('log_bin', 'OFF') == 'ON':
+        mycalc['binlog_cache_size'] = int(myvar.get('binlog_cache_size', 0))
+
+    mycalc['server_buffers'] = int(myvar['key_buffer_size'])
     mycalc['server_buffers'] += int(myvar.get('innodb_buffer_pool_size', 0))
     mycalc['server_buffers'] += int(myvar.get('innodb_additional_mem_pool_size', 0))
     mycalc['server_buffers'] += int(myvar.get('innodb_log_buffer_size', 0))
     mycalc['server_buffers'] += int(myvar.get('query_cache_size', 0))
     mycalc['server_buffers'] += int(myvar.get('aria_pagecache_buffer_size', 0))
-    mycalc['per_thread_buffers'] = int(myvar['read_buffer_size'])
-    mycalc['per_thread_buffers'] += int(myvar['read_rnd_buffer_size'])
-    mycalc['per_thread_buffers'] += int(myvar['sort_buffer_size'])
-    mycalc['per_thread_buffers'] += int(myvar['thread_stack'])
-    mycalc['per_thread_buffers'] += int(myvar['max_allowed_packet'])
-    mycalc['per_thread_buffers'] += int(myvar['join_buffer_size'])
-    mycalc['max_total_per_thread_buffers'] = mycalc['per_thread_buffers'] * int(
-        mystat['Max_used_connections']
-    )
-    mycalc['total_per_thread_buffers'] = mycalc['per_thread_buffers'] * int(
-        myvar['max_connections']
+    # `max_allowed_packet` is deliberately missing: a connection's network
+    # buffer starts at `net_buffer_length` and only grows to the largest
+    # packet it actually receives (`net_realloc()` in `sql/net_serv.cc`,
+    # MariaDB 13.0; `sql-common/net_serv.cc`, MySQL 26.7).
+    # `max_allowed_packet` is just the size at which a packet is rejected.
+    # MySQLTuner dropped it for the same reason.
+    mycalc['per_thread_buffers_without_tmp'] = int(myvar['read_buffer_size'])
+    mycalc['per_thread_buffers_without_tmp'] += int(myvar['read_rnd_buffer_size'])
+    mycalc['per_thread_buffers_without_tmp'] += int(myvar['sort_buffer_size'])
+    mycalc['per_thread_buffers_without_tmp'] += int(myvar['thread_stack'])
+    mycalc['per_thread_buffers_without_tmp'] += int(myvar['join_buffer_size'])
+    mycalc['per_thread_buffers_without_tmp'] += mycalc['binlog_cache_size']
+    mycalc['per_thread_buffers'] = (
+        mycalc['per_thread_buffers_without_tmp'] + mycalc['max_tmp_table_size']
     )
 
-    mycalc['pf_memory'] = get_pf_memory(conn, myvar)
-    mycalc['gcache_memory'] = get_gcache_memory(myvar)
+    def tmp_tables(connections):
+        total = mycalc['max_tmp_table_size'] * connections
+        if mycalc['temptable_max_ram'] is not None:
+            total = min(total, mycalc['temptable_max_ram'])
+        return total
+
+    mycalc['max_used_connections'] = int(mystat['Max_used_connections'])
+    mycalc['max_total_per_thread_buffers'] = mycalc[
+        'per_thread_buffers_without_tmp'
+    ] * mycalc['max_used_connections'] + tmp_tables(mycalc['max_used_connections'])
+    mycalc['total_tmp_tables'] = tmp_tables(int(myvar['max_connections']))
+    mycalc['total_per_thread_buffers'] = (
+        mycalc['per_thread_buffers_without_tmp'] * int(myvar['max_connections'])
+        + mycalc['total_tmp_tables']
+    )
+
+    mycalc['pf_memory'] = pf_memory
+    # The Galera GCache is deliberately missing: its ring buffer is a file
+    # mapped with MAP_SHARED (`gu::MMap` in `galerautils/src/gu_mmap.cpp`,
+    # Galera 26.4.27), i.e. page cache the kernel can write back and reclaim,
+    # not heap memory. MySQLTuner leaves it out as well.
     mycalc['max_used_memory'] = (
         mycalc['server_buffers']
         + mycalc['max_total_per_thread_buffers']
         + mycalc['pf_memory']
-        + mycalc['gcache_memory']
     )
     mycalc['max_peak_memory'] = (
         mycalc['server_buffers']
         + mycalc['total_per_thread_buffers']
         + mycalc['pf_memory']
-        + mycalc['gcache_memory']
     )
     mycalc['physical_memory'] = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
     mycalc['pct_max_used_memory'] = round(
@@ -448,12 +489,10 @@ def main():
     )
     mycalc['other_process_memory'] = get_other_process_memory()
 
-    lib.db_mysql.close(conn)
-
     # build the message
     bh = lib.human.bytes2human
 
-    # used memory (currently reached)
+    # used memory (calculated from Max_used_connections)
     if not lib.base.IS_64BIT and mycalc['max_used_memory'] > ADDR_LIMIT_32BIT:
         used_state = STATE_WARN
         recommendations.append(
@@ -554,12 +593,6 @@ def main():
     perfdata += lib.base.get_perfdata(
         'mysql_aria_pagecache_buffer_size',
         myvar.get('aria_pagecache_buffer_size', 0),
-        uom='B',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'mysql_gcache_memory',
-        mycalc['gcache_memory'],
         uom='B',
         _min=0,
     )

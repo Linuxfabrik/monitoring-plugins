@@ -24315,7 +24315,7 @@
         "2331": {
             "varname": "mysql_memory_critical",
             "caption": "MySQL Memory: Critical",
-            "description": "CRIT threshold for the percentage of physical RAM consumed by the reached MySQL memory footprint (server_buffers + per_thread_buffers * Max_used_connections + Performance Schema + Galera GCache). Supports Nagios ranges.",
+            "description": "CRIT threshold for the percentage of physical RAM consumed by the MySQL memory footprint calculated from the highest number of concurrent connections so far (server_buffers + per_thread_buffers * Max_used_connections + Performance Schema). Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -24377,7 +24377,7 @@
         "2337": {
             "varname": "mysql_memory_warning",
             "caption": "MySQL Memory: Warning",
-            "description": "WARN threshold for the percentage of physical RAM consumed by the reached MySQL memory footprint. Supports Nagios ranges.",
+            "description": "WARN threshold for the percentage of physical RAM consumed by the MySQL memory footprint calculated from the highest number of concurrent connections so far. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -160674,7 +160674,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Estimates MySQL/MariaDB memory consumption and compares it to the host's physical RAM. Reports the currently-reached usage (server-wide buffers + per-thread buffers * `Max_used_connections` + Performance Schema memory + Galera GCache if present) and the theoretical worst-case peak (same formula but with `max_connections`). Also surfaces the RAM consumed by non-database processes on the host so admins can see when MySQL plus the rest of the system would exceed physical memory. Alerts when used or peak memory crosses the `--warning` / `--critical` thresholds, when reached + other-process memory exceeds physical RAM, and when MySQL would allocate more than 2 GiB on a 32-bit system. Supports extended reporting via --lengthy.",
+            "notes": "Estimates MySQL/MariaDB memory consumption from the configured buffer sizes and compares it to the host's physical RAM. Reports the footprint at the highest number of concurrent connections so far (server-wide buffers + per-connection buffers * `Max_used_connections` + Performance Schema memory) and the theoretical worst-case peak (same formula but with `max_connections`). Both are calculated upper bounds, not the measured RSS: a connection allocates its buffers only while a query needs them. Also surfaces the RAM consumed by non-database processes on the host so admins can see when MySQL plus the rest of the system would exceed physical memory. Alerts when used or peak memory crosses the `--warning` / `--critical` thresholds, when reached + other-process memory exceeds physical RAM, and when MySQL would allocate more than 2 GiB on a 32-bit system. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-memory/",
             "object_name": "tpl-service-mysql-memory",
             "object_type": "template",
