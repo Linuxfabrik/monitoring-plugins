@@ -33,6 +33,7 @@ Monitoring Plugins:
 * lynis-logfile: Reports how many tests the lynis profile skips.
 * mysql-connections: Speaks of failed connection attempts instead of aborted connections, and points to the denied logins.
 * mysql-index-health: Redundant indexes no longer alert by default.
+* mysql-innodb-buffer-pool-size: No longer alerts just because the data is larger than the buffer pool.
 * mysql-perf-metrics: `innodb_snapshot_isolation` no longer alerts, and `--storage-type=auto` no longer judges virtual disks.
 * mysql-tls: A server on loopback only no longer alerts about `require_secure_transport` and the certificate.
 * mysql-user-security: A legacy authentication plugin no longer alerts on MariaDB.
@@ -50,6 +51,10 @@ Icinga Director:
 * deb-updates, rpm-updates: Check for updates every 8 hours instead of once a day.
 * FreeIPA Server Service Set: Also checks the result of ipa-healthcheck and its timer.
 * OS - \* Basic Service Sets: `Systemd Units Failed` no longer alerts on a failed `ipa-healthcheck.service`.
+
+Grafana:
+
+* re-import all dashboards and re-deploy the `icingaweb2-module-grafana` assets
 
 
 ### Removed

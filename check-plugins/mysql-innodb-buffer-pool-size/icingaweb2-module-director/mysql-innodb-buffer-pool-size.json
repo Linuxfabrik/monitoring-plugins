@@ -22,6 +22,9 @@
                 },
                 "--warning": {
                     "value": "$mysql_innodb_buffer_pool_size_warning$"
+                },
+                "--warning-miss-ratio": {
+                    "value": "$mysql_innodb_buffer_pool_size_warning_miss_ratio$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/mysql-innodb-buffer-pool-size",
@@ -59,6 +62,11 @@
                 },
                 {
                     "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -104,7 +112,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the InnoDB buffer pool and redo log sizing in MySQL/MariaDB. Compares the configured `innodb_buffer_pool_size` against the actual InnoDB data and index sizes, and reports how far the checkpoint has run through the redo log, which is what tells a redo log that is too small for its workload from one that is merely small. On a server that publishes `Innodb_checkpoint_age` and `Innodb_checkpoint_max_age` those decide the state; on one that publishes neither, the average redo write rate since startup is compared against the redo log size instead, and a workload that writes through the whole log within an hour is reported. The redo log knob is `innodb_redo_log_capacity` on MySQL 8.0.30+ and `innodb_log_file_size` (times `innodb_log_files_in_group`, where that variable still exists) on MariaDB and older MySQL. Also flags `innodb_file_per_table = OFF` and architecture-related buffer-pool size limits. Alerts if the buffer pool is undersized relative to the data, or if the checkpoint runs closer to the end of the redo log than the thresholds allow. The redo log size mysqltuner would recommend for the host's RAM is reported as advice without raising a state, because it is a floor for the RAM tier rather than a measurement of this server. On freshly booted servers (less than one hour of uptime) the write-rate comparison is deferred, because the rate is an average since startup and not yet meaningful.",
+            "notes": "Checks the InnoDB buffer pool and redo log sizing in MySQL/MariaDB. Measures how many of the pages InnoDB requested since the last check had to be read from disk because they were not in the buffer pool, and reports how far the checkpoint has run through the redo log, which is what tells a redo log that is too small for its workload from one that is merely small. The buffer pool does not have to hold the whole database: InnoDB keeps the pages that are read again and lets pages from a one-off scan age out first, so a pool far smaller than the data is fine as long as the working set fits. The InnoDB data and index size is therefore reported for reference only and never raises a state. Pages InnoDB prefetches by read-ahead are not counted as misses, and fewer than 10 misses per second are not worth an alert on any storage. On MariaDB 11.4.9 and newer the page requests of a transaction are only counted once it ends, so while long transactions run, the miss ratio of a single check can read too high, or cannot be computed at all when more pages were read than requested. On a server that publishes `Innodb_checkpoint_age` and `Innodb_checkpoint_max_age` those decide the state; on one that publishes neither, the average redo write rate since startup is compared against the redo log size instead, and a workload that writes through the whole log within an hour is reported. The redo log knob is `innodb_redo_log_capacity` on MySQL 8.0.30+ and `innodb_log_file_size` (times `innodb_log_files_in_group`, where that variable still exists) on MariaDB and older MySQL. Also flags `innodb_file_per_table = OFF` and architecture-related buffer-pool size limits. Alerts if the buffer pool miss ratio exceeds its threshold, or if the checkpoint runs closer to the end of the redo log than the thresholds allow. The redo log size mysqltuner would recommend for the host's RAM is reported as advice without raising a state, because it is a floor for the RAM tier rather than a measurement of this server. On freshly booted servers (less than one hour of uptime) the write-rate comparison is deferred, because the rate is an average since startup and not yet meaningful.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-innodb-buffer-pool-size/",
             "object_name": "tpl-service-mysql-innodb-buffer-pool-size",
             "object_type": "template",
@@ -121,7 +129,8 @@
                 "mysql_innodb_buffer_pool_size_defaults_group": "client",
                 "mysql_innodb_buffer_pool_size_no_perfdata": false,
                 "mysql_innodb_buffer_pool_size_timeout": 3,
-                "mysql_innodb_buffer_pool_size_warning": "87.5"
+                "mysql_innodb_buffer_pool_size_warning": "87.5",
+                "mysql_innodb_buffer_pool_size_warning_miss_ratio": "20"
             },
             "volatile": null,
             "zone": null,
@@ -201,6 +210,17 @@
                 "visibility": "visible"
             },
             "uuid": "0b737be7-9028-4fb0-8b48-4c1bb8fbb2a1"
+        },
+        "8": {
+            "varname": "mysql_innodb_buffer_pool_size_warning_miss_ratio",
+            "caption": "MySQL Innodb Buffer Pool Size: Warning Miss Ratio",
+            "description": "WARN threshold for the buffer pool miss ratio, in percent of the pages InnoDB requested since the last check that had to be read from disk. Pages prefetched by read-ahead do not count as misses. Only evaluated from 10 misses per second. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "d7a4836d-7c43-4d57-b932-359de134005b"
         }
     }
 }

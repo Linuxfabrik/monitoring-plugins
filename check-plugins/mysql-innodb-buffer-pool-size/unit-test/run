@@ -20,9 +20,16 @@ deterministic size, and let the plugin talk to it over TCP.
 
 Per CONTRIBUTING's "Combine container tests with fixtures" rule,
 this file holds only the happy-path integration test. A freshly
-booted MariaDB with 32 MiB buffer pool and no user data is far
-below the `buffer_pool_size <= data size` warning threshold, so the
-plugin returns STATE_OK.
+booted server with 32 MiB buffer pool and no user data has nothing
+to miss, so the plugin returns STATE_OK. The first run only records
+the buffer pool counters as a baseline, the second one reports the
+miss ratio since the first.
+
+On MariaDB the same container then gets a table about four times the
+size of the buffer pool, and the plugin has to tell the two workloads
+apart that a size comparison cannot: a hot set that fits into the pool
+(OK) and random lookups across the whole table (WARN). The table is
+filled from the `seq` engine, which MySQL does not ship.
 
 The test matrix is defined by the Containerfiles under
 `containerfiles/`. Each file is a Containerfile (typically a
@@ -40,12 +47,15 @@ Requirements:
 import os
 import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
+import time
 import unittest
 
 sys.path.insert(0, '..')
 
+import pymysql
+
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_OK, STATE_WARN
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
@@ -56,8 +66,68 @@ CONTAINERFILES = sorted(
 )
 
 
+# About 120 MiB of rows in front of the 32 MiB buffer pool.
+WORKLOAD_ROWS = 300000
+# The first rows, a few hundred pages, which fit into the buffer pool.
+WORKLOAD_HOT_ROWS = 2000
+WORKLOAD_LOOKUPS = 20000
+
+
 class TestCheck(unittest.TestCase):
     pass
+
+
+def _run_plugin(cmd):
+    # The rate helper stores whole seconds, and two runs in the same second have
+    # no interval to compute a rate over.
+    time.sleep(2)
+    print(f'Run plugin: {" ".join(cmd)}', flush=True)
+    result = subprocess.run(  # nosec B603 - argv list, no shell
+        cmd,
+        cwd=os.path.dirname(os.path.abspath(__file__)),
+        capture_output=True,
+        text=True,
+    )
+    combined = result.stdout + result.stderr
+    print(f'Script output:\n{combined.strip()}', flush=True)
+    return result.returncode, combined
+
+
+def _lookups(cursor, id_range):
+    for i in range(WORKLOAD_LOOKUPS):
+        # A fixed stride instead of random numbers keeps the test reproducible
+        # and still spreads the lookups evenly over the range.
+        cursor.execute('select pad from t where id = %s', (i * 7919 % id_range + 1,))
+        cursor.fetchall()
+
+
+def _check_workloads(test, defaults_file, cmd):
+    conn = pymysql.connect(read_default_file=defaults_file, autocommit=True)
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'create table t (id int primary key, pad char(255)) engine=innodb'
+            )
+            cursor.execute(
+                f"insert into t select seq, repeat('x', 255)"  # nosec B608 - constant
+                f' from seq_1_to_{WORKLOAD_ROWS}'
+            )
+            # Warm up the hot set, then measure it on its own.
+            _lookups(cursor, WORKLOAD_HOT_ROWS)
+            _run_plugin(cmd)
+            _lookups(cursor, WORKLOAD_HOT_ROWS)
+            retc, combined = _run_plugin(cmd)
+            test.assertEqual(retc, STATE_OK)
+            test.assertRegex(combined, r'Buffer pool miss ratio: \d+\.\d% since')
+
+            _lookups(cursor, WORKLOAD_ROWS)
+            retc, combined = _run_plugin(cmd)
+            test.assertEqual(retc, STATE_WARN)
+            test.assertRegex(
+                combined, r'Buffer pool miss ratio: \d+\.\d% since.*\[WARNING\]'
+            )
+    finally:
+        conn.close()
 
 
 def _check_image(test, containerfile):
@@ -79,18 +149,19 @@ def _check_image(test, containerfile):
             '../mysql-innodb-buffer-pool-size',
             f'--defaults-file={defaults_file}',
         ]
-        print(f'Run plugin: {" ".join(cmd)}', flush=True)
-        result = subprocess.run(  # nosec B603 - argv list, no shell
-            cmd,
-            cwd=os.path.dirname(os.path.abspath(__file__)),
-            capture_output=True,
-            text=True,
+        for _run in ('baseline', 'interval'):
+            retc, combined = _run_plugin(cmd)
+            test.assertEqual(retc, STATE_OK)
+            test.assertRegex(combined, r'`innodb_buffer_pool_size`\s*\(32\.0+\s*MiB\)')
+        # Every container gets its own temporary defaults file, and the plugin
+        # keeps one baseline per defaults file, so the second run always has one.
+        test.assertRegex(
+            combined,
+            r'Buffer pool miss ratio: (\d+\.\d% since|no page requests)',
         )
-        combined = result.stdout + result.stderr
-        print(f'Script output:\n{combined.strip()}', flush=True)
 
-        test.assertEqual(result.returncode, STATE_OK)
-        test.assertRegex(combined, r'`innodb_buffer_pool_size`\s*\(32\.0+\s*MiB\)')
+        if containerfile.startswith('mariadb-'):
+            _check_workloads(test, defaults_file, cmd)
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)

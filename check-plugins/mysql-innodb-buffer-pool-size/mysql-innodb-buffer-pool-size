@@ -17,23 +17,32 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.db_sqlite
 import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026111301'
 
-DESCRIPTION = """Checks the InnoDB buffer pool and redo log sizing in MySQL/MariaDB. Compares
-the configured `innodb_buffer_pool_size` against the actual InnoDB data and index sizes, and
-reports how far the checkpoint has run through the redo log, which is what tells a redo log
-that is too small for its workload from one that is merely small. On a server that publishes
-`Innodb_checkpoint_age` and `Innodb_checkpoint_max_age` those decide the state; on one that
+DESCRIPTION = """Checks the InnoDB buffer pool and redo log sizing in MySQL/MariaDB. Measures
+how many of the pages InnoDB requested since the last check had to be read from disk because
+they were not in the buffer pool, and reports how far the checkpoint has run through the redo
+log, which is what tells a redo log that is too small for its workload from one that is merely
+small. The buffer pool does not have to hold the whole database: InnoDB keeps the pages that
+are read again and lets pages from a one-off scan age out first, so a pool far smaller than the
+data is fine as long as the working set fits. The InnoDB data and index size is therefore
+reported for reference only and never raises a state. Pages InnoDB prefetches by read-ahead
+are not counted as misses, and fewer than 10 misses per second are not worth an alert on any
+storage. On MariaDB 11.4.9 and newer the page requests of a transaction are only counted once
+it ends, so while long transactions run, the miss ratio of a single check can read too high,
+or cannot be computed at all when more pages were read than requested. On a server that
+publishes `Innodb_checkpoint_age` and `Innodb_checkpoint_max_age` those decide the state; on one that
 publishes neither, the average redo write rate since startup is compared against the redo log
 size instead, and a workload that writes through the whole log within an hour is reported. The
 redo log knob is `innodb_redo_log_capacity` on MySQL 8.0.30+ and `innodb_log_file_size` (times
 `innodb_log_files_in_group`, where that variable still exists) on MariaDB and older MySQL.
 Also flags `innodb_file_per_table = OFF` and architecture-related buffer-pool size limits.
-Alerts if the buffer pool is undersized relative to the data, or if the checkpoint runs closer
+Alerts if the buffer pool miss ratio exceeds its threshold, or if the checkpoint runs closer
 to the end of the redo log than the thresholds allow. The redo log size mysqltuner would
 recommend for the host's RAM is reported as advice without raising a state, because it is a
 floor for the RAM tier rather than a measurement of this server. On freshly booted servers
@@ -49,9 +58,16 @@ LIMIT_32BIT = 4294967295
 # 64-bit theoretical ceiling for innodb_buffer_pool_size (`2**64 - 1`).
 LIMIT_64BIT = 18446744073709551615
 
+# Below this many buffer pool misses per second the miss ratio does not raise a state. A
+# lightly used server shows a high ratio from a handful of reads that any storage serves
+# without anyone noticing.
+MIN_MISSES_PER_SECOND = 10
+
 # The hourly `Innodb_os_log_written` rate is an average since startup, so it needs at
 # least an hour of uptime to mean anything.
 REDO_LOG_MIN_UPTIME = 3600
+
+SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-innodb-buffer-pool-size.db'
 
 # How full the redo log is allowed to get before it is worth reporting, as a percentage
 # of `Innodb_checkpoint_max_age`. Both numbers come from InnoDB itself rather than from
@@ -74,6 +90,12 @@ REDO_LOG_MIN_UPTIME = 3600
 # that to be missed.
 DEFAULT_CRIT = '99'
 DEFAULT_WARN = '87.5'
+# In percent of the page requests since the last check. Not mysqltuner's 10% (a lifetime
+# read efficiency below 90%): a full table scan through a pool smaller than the table
+# measured 9.5 to 9.9% on MariaDB 10.6 to 11.8 even after subtracting read-ahead, and
+# more RAM does not help a scan until the whole table fits. Random lookups across a
+# working set ten times the pool measured 33%.
+DEFAULT_WARN_MISS_RATIO = '20'
 
 
 def parse_args():
@@ -157,6 +179,18 @@ def parse_args():
         default=DEFAULT_WARN,
     )
 
+    parser.add_argument(
+        '--warning-miss-ratio',
+        help='WARN threshold for the buffer pool miss ratio, in percent of the pages '
+        'InnoDB requested since the last check that had to be read from disk. '
+        'Pages prefetched by read-ahead do not count as misses. '
+        f'Only evaluated from {MIN_MISSES_PER_SECOND} misses per second. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='WARN_MISS_RATIO',
+        default=DEFAULT_WARN_MISS_RATIO,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -180,7 +214,12 @@ def get_vars(conn):
 def get_status(conn):
     sql = """
         show global status
-        where variable_name like 'Innodb_checkpoint_age'
+        where variable_name like 'Innodb_buffer_pool_read_ahead'
+            or variable_name like 'Innodb_buffer_pool_read_ahead_rnd'
+            or variable_name like 'Innodb_buffer_pool_read_requests'
+            or variable_name like 'Innodb_buffer_pool_reads'
+            or variable_name like 'Innodb_buffer_pool_wait_free'
+            or variable_name like 'Innodb_checkpoint_age'
             or variable_name like 'Innodb_checkpoint_max_age'
             or variable_name like 'Innodb_os_log_written'
             or variable_name like 'Uptime'
@@ -315,6 +354,22 @@ def main():
     checkpoint_max_age = int(mystat.get('Innodb_checkpoint_max_age') or 0)
     physical_memory = get_physical_memory()
 
+    # Buffer pool traffic since the last run. The counters are cumulative since
+    # startup, and a lifetime average says nothing about whether the working set
+    # fits today. One baseline per server, so two instances checked from the same
+    # host do not compute a rate from each other's counters.
+    pool_rates = lib.db_sqlite.per_second_deltas(
+        SQLITE_DB,
+        f'{args.DEFAULTS_FILE}:{args.DEFAULTS_GROUP}',
+        {
+            'read_ahead': int(mystat.get('Innodb_buffer_pool_read_ahead') or 0),
+            'read_ahead_rnd': int(mystat.get('Innodb_buffer_pool_read_ahead_rnd') or 0),
+            'read_requests': int(mystat.get('Innodb_buffer_pool_read_requests') or 0),
+            'reads': int(mystat.get('Innodb_buffer_pool_reads') or 0),
+            'wait_free': int(mystat.get('Innodb_buffer_pool_wait_free') or 0),
+        },
+    )
+
     state = STATE_OK
     sections = []
 
@@ -364,24 +419,92 @@ def main():
             ' lives in `ibdata1`)'
         )
 
-    # 3. Buffer pool vs data size. mysqltuner emits a goodprint here too when
-    #    buffer >= data; we mirror that so the OK output shows the comparison.
-    if buffer_size <= innodb_data_size and innodb_data_size > 0:
-        state = lib.base.get_worst(state, STATE_WARN)
-        sections.append(
-            f'`innodb_buffer_pool_size` ({buffer_h}) is smaller than the InnoDB'
-            f' data + index size ({data_h})'
-            f'{lib.base.state2str(STATE_WARN, prefix=" ")}.'
-        )
-        recommendations.append(
-            f'Set `innodb_buffer_pool_size` >= {data_h} so the working set fits'
-            f' in memory'
-        )
+    # 3. Buffer pool misses. Deliberate deviation from mysqltuner, which warns
+    #    whenever the pool is smaller than the InnoDB data + index size and asks
+    #    for a pool at least that large, without looking at the host's RAM.
+    #    InnoDB does not need the whole database in memory. It inserts every page
+    #    read from disk into the "old" end of its LRU list and only moves it to
+    #    the "new" end if it is accessed again after `innodb_old_blocks_time`
+    #    (`buf_LRU_add_block(bpage, true)` in `buf0rea.cc`,
+    #    `buf_page_peek_if_too_old()` in `buf0buf.inl`), so a one-off scan ages
+    #    out without evicting the pages that are in use. Whether the pool is too
+    #    small is answered by how often a requested page was not there.
+    #    Verified on MariaDB 10.6.28, 10.11.19, 11.4.13 and 11.8.9 with a 64 MiB
+    #    pool in front of 550 to 680 MiB of data: a hot set of 20'000 rows ran at
+    #    0 disk reads, and still at 306 reads after a full table scan, while
+    #    random lookups across the whole table missed 32% of their pages.
+    #
+    #    `Innodb_buffer_pool_reads` counts every page read from disk, including
+    #    the ones read-ahead prefetched without anyone asking for them. A full
+    #    scan measured 108.5% of `Innodb_buffer_pool_read_requests` that way, on
+    #    all four versions, and 9% after subtracting the read-ahead counters.
+    #
+    #    MariaDB 11.4.9 and newer only add a transaction's page requests to
+    #    `Innodb_buffer_pool_read_requests` when it ends (MDEV-37152,
+    #    `trx_t::commit_cleanup()` in `trx0trx.cc`), while the disk reads count
+    #    right away. Measured on 11.4.13 and 11.8.9: a full scan inside an open
+    #    transaction added 49'000 reads and 0 requests until the commit. An
+    #    interval with more misses than requests is therefore not measurable.
+    miss_ratio = None
+    misses_per_second = None
+    if pool_rates is None:
+        miss_msg = 'Buffer pool miss ratio: waiting for more data.'
     else:
-        sections.append(
-            f'`innodb_buffer_pool_size` ({buffer_h}) >= InnoDB data + index size'
-            f' ({data_h}).'
+        # The read-ahead counters are reported when a batch completes, so they
+        # can run slightly ahead of the reads in a single interval.
+        misses_per_second = max(
+            pool_rates['reads']
+            - pool_rates['read_ahead']
+            - pool_rates['read_ahead_rnd'],
+            0,
         )
+        requests_per_second = pool_rates['read_requests']
+        if requests_per_second == 0 and misses_per_second == 0:
+            miss_msg = 'Buffer pool miss ratio: no page requests since the last check.'
+        elif misses_per_second > requests_per_second:
+            miss_msg = (
+                f'Buffer pool miss ratio: not measurable since the last check, more'
+                f' pages were read from disk'
+                f' ({lib.human.number2human(misses_per_second)}/s) than requested'
+                f' ({lib.human.number2human(requests_per_second)}/s). MariaDB'
+                f' 11.4.9+ only counts the requests of a transaction once it ends,'
+                f' so this happens while long transactions are running.'
+            )
+        else:
+            miss_ratio = misses_per_second / requests_per_second * 100
+            if misses_per_second >= MIN_MISSES_PER_SECOND:
+                item_state = lib.base.get_state(
+                    miss_ratio, args.WARN_MISS_RATIO, None, _operator='range'
+                )
+            else:
+                item_state = STATE_OK
+            state = lib.base.get_worst(state, item_state)
+            miss_msg = (
+                f'Buffer pool miss ratio: {miss_ratio:.1f}% since the last check'
+                f' ({lib.human.number2human(misses_per_second)} of'
+                f' {lib.human.number2human(requests_per_second)} page requests/s'
+                f' read from disk){lib.base.state2str(item_state, prefix=" ")}.'
+            )
+            if item_state != STATE_OK:
+                ram_hint = ''
+                if physical_memory is not None:
+                    ram_hint = (
+                        f", leaving enough of the host's"
+                        f' {lib.human.bytes2human(physical_memory)} of RAM for the'
+                        f' operating system and the other server buffers'
+                    )
+                recommendations.append(
+                    f'Raise `innodb_buffer_pool_size` above {buffer_h} until the'
+                    f' miss ratio stays below {args.WARN_MISS_RATIO}% under load'
+                    f'{ram_hint}. The working set does not fit into the buffer'
+                    f' pool, so InnoDB keeps reading pages back from disk that it'
+                    f' had to evict'
+                )
+    # The miss ratio first, so it lands in the first line of the output.
+    sections.append(miss_msg)
+    sections.append(
+        f'`innodb_buffer_pool_size` ({buffer_h}), InnoDB data + index size ({data_h}).'
+    )
 
     # 4. Redo log pressure. What "the redo log is too small" means is that the
     #    checkpoint cannot keep up with it, and MariaDB publishes exactly that:
@@ -508,6 +631,31 @@ def main():
         uom='B',
         _min=0,
     )
+    if miss_ratio is not None:
+        perfdata += lib.base.get_perfdata(
+            'mysql_innodb_buffer_pool_miss_ratio',
+            round(miss_ratio, 1),
+            uom='%',
+            warn=args.WARN_MISS_RATIO,
+            _min=0,
+            _max=100,
+        )
+    if pool_rates is not None:
+        perfdata += lib.base.get_perfdata(
+            'mysql_innodb_buffer_pool_misses_per_second',
+            round(misses_per_second, 1),
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_innodb_buffer_pool_read_requests_per_second',
+            round(pool_rates['read_requests'], 1),
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_innodb_buffer_pool_wait_free_per_second',
+            round(pool_rates['wait_free'], 2),
+            _min=0,
+        )
     if log_file_size is not None:
         # Absent on MySQL >= 9.3.0 (removed there in favour of
         # `innodb_redo_log_capacity`).
