@@ -33,7 +33,7 @@ Monitoring Plugins:
 * lynis-logfile: Reports how many tests the lynis profile skips.
 * mysql-connections: Speaks of failed connection attempts instead of aborted connections, and points to the denied logins.
 * mysql-index-health: Redundant indexes no longer alert by default.
-* mysql-innodb-buffer-pool-size: No longer alerts just because the data is larger than the buffer pool.
+* mysql-innodb-buffer-pool-size: No longer alerts just because the data is larger than the buffer pool, and warns when sessions found no free page in it.
 * mysql-memory: Alerts on the memory the database server really uses, the calculated worst case and other processes no longer alert.
 * mysql-perf-metrics: `innodb_snapshot_isolation` no longer alerts, and `--storage-type=auto` no longer judges virtual disks.
 * mysql-temp-tables: No longer alerts by default, and no longer advises raising `tmp_table_size`.

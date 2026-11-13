@@ -22,7 +22,7 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026111301'
+__version__ = '2026111302'
 
 DESCRIPTION = """Checks the InnoDB buffer pool and redo log sizing in MySQL/MariaDB. Measures
 how many of the pages InnoDB requested since the last check had to be read from disk because
@@ -42,7 +42,10 @@ size instead, and a workload that writes through the whole log within an hour is
 redo log knob is `innodb_redo_log_capacity` on MySQL 8.0.30+ and `innodb_log_file_size` (times
 `innodb_log_files_in_group`, where that variable still exists) on MariaDB and older MySQL.
 Also flags `innodb_file_per_table = OFF` and architecture-related buffer-pool size limits.
-Alerts if the buffer pool miss ratio exceeds its threshold, or if the checkpoint runs closer
+Also reports how much of the buffer pool is in use; a pool that is not full yet is still
+filling up after a restart, and a low value is no reason to shrink it. Alerts if the buffer
+pool miss ratio exceeds its threshold, if sessions found no free page in the buffer pool
+more often than `--warning-waits` allows (default: at all), or if the checkpoint runs closer
 to the end of the redo log than the thresholds allow. The redo log size mysqltuner would
 recommend for the host's RAM is reported as advice without raising a state, because it is a
 floor for the RAM tier rather than a measurement of this server. On freshly booted servers
@@ -96,6 +99,8 @@ DEFAULT_WARN = '87.5'
 # more RAM does not help a scan until the whole table fits. Random lookups across a
 # working set ten times the pool measured 33%.
 DEFAULT_WARN_MISS_RATIO = '20'
+# Any wait at all, see the comment at the buffer pool waits for what a wait is.
+DEFAULT_WARN_WAITS = '0'
 
 
 def parse_args():
@@ -191,6 +196,18 @@ def parse_args():
         default=DEFAULT_WARN_MISS_RATIO,
     )
 
+    parser.add_argument(
+        '--warning-waits',
+        help='WARN threshold for the times per second a session found no free page '
+        'in the buffer pool. '
+        'Raise it where bulk loads are allowed to run into this. '
+        'Supports Nagios ranges. '
+        'Example: `--warning-waits=5`. '
+        'Default: %(default)s',
+        dest='WARN_WAITS',
+        default=DEFAULT_WARN_WAITS,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -201,10 +218,12 @@ def get_vars(conn):
     # the current connection to MariaDB.
     sql = """
         show global variables
-        where variable_name like 'innodb_buffer_pool_size'
+        where variable_name like 'innodb_buffer_pool_instances'
+            or variable_name like 'innodb_buffer_pool_size'
             or variable_name like 'innodb_file_per_table'
             or variable_name like 'innodb_log_file_size'
             or variable_name like 'innodb_log_files_in_group'
+            or variable_name like 'innodb_lru_scan_depth'
             or variable_name like 'innodb_redo_log_capacity'
             ;
           """
@@ -214,7 +233,10 @@ def get_vars(conn):
 def get_status(conn):
     sql = """
         show global status
-        where variable_name like 'Innodb_buffer_pool_read_ahead'
+        where variable_name like 'Innodb_buffer_pool_bytes_data'
+            or variable_name like 'Innodb_buffer_pool_pages_free'
+            or variable_name like 'Innodb_buffer_pool_pages_total'
+            or variable_name like 'Innodb_buffer_pool_read_ahead'
             or variable_name like 'Innodb_buffer_pool_read_ahead_rnd'
             or variable_name like 'Innodb_buffer_pool_read_requests'
             or variable_name like 'Innodb_buffer_pool_reads'
@@ -346,6 +368,40 @@ def main():
         redo_size = None
         redo_knob = None
     file_per_table = myvar.get('innodb_file_per_table', '').upper()
+    pages_free = int(mystat.get('Innodb_buffer_pool_pages_free') or 0)
+    pages_total = int(mystat.get('Innodb_buffer_pool_pages_total') or 0)
+    bytes_data = int(mystat.get('Innodb_buffer_pool_bytes_data') or 0)
+    # InnoDB does not let the free list run empty: the page cleaner evicts pages
+    # from the end of the LRU list until about `innodb_lru_scan_depth` pages are
+    # free again, per buffer pool instance on MySQL (MariaDB has a single
+    # instance since 10.5 and no `innodb_buffer_pool_instances` since 10.6). A
+    # pool whose free list is down to that reserve is full, the reserve never
+    # fills up.
+    # Verified with a 64 MiB pool (4056 pages) and 75 to 150 MiB of data: on
+    # MariaDB 10.6.28, 10.11, 11.4 and 11.8.9 `Innodb_buffer_pool_pages_free`
+    # moved between 792 and 1549 for a scan depth of 1536, never towards 0. On
+    # MySQL 8.0, 8.4.13 and 9.3 it moved between 0 and 1110 for a scan depth of
+    # 1024. Both overshoot the scan depth by a few pages when the load stops,
+    # hence the 25% on top. The reserve is per instance: MySQL 8.0.46 and 8.4.13
+    # with a 1 GiB pool (65536 pages) in 8 instances and 2.3 GiB of data moved
+    # between 0 free pages under read load and 8192 to 9586 when idle, which is
+    # 8 times the scan depth and a little more.
+    free_reserve = (
+        int(myvar.get('innodb_lru_scan_depth') or 0)
+        * (int(myvar.get('innodb_buffer_pool_instances') or 1) or 1)
+        * 1.25
+    )
+    # A pool smaller than twice its reserve never gets below it, so the reserve
+    # alone would call a freshly started 16 MiB pool full at 1% usage. Seen
+    # exactly like that on MariaDB 10.6.28. The price is that such a pool is not
+    # reliably recognised as full: a 32 MiB pool (2028 pages) with 120 MiB of
+    # data settled between 24% and 55% in use on MariaDB 10.6 to 11.8.
+    pool_full = pages_total > 0 and pages_free <= min(free_reserve, pages_total / 2)
+    pct_used = (
+        round((pages_total - pages_free) / pages_total * 100, 1)
+        if pages_total
+        else None
+    )
     uptime = int(mystat.get('Uptime') or 0)
     os_log_written = int(mystat.get('Innodb_os_log_written') or 0)
     # MariaDB publishes both, MySQL neither (`ha_innodb.cc`). Absent means this
@@ -502,8 +558,60 @@ def main():
                 )
     # The miss ratio first, so it lands in the first line of the output.
     sections.append(miss_msg)
+
+    # Waits for a free page. `Innodb_buffer_pool_wait_free` counts the times a
+    # session found no free page (`buf0lru.cc`, `buf_LRU_get_free_block()`). What
+    # a count costs the session differs:
+    #
+    # - MariaDB from 10.6.18, 10.11.8 and 11.4.2 counts once the free list is
+    #   empty and nothing at the end of the LRU list can be evicted, and then
+    #   waits up to a second for the page cleaner. Every count is a session that
+    #   stood still.
+    # - MariaDB before that (10.6.17 and 10.11.7 read from the source) and MySQL
+    #   count every pass that found no free block. The first passes cost nothing,
+    #   MySQL sleeps 10 ms from the third pass on.
+    #
+    # On all of them it takes sessions that change pages faster than InnoDB
+    # frees them; four sessions scanning a table larger than the pool did not
+    # move the counter on either server. With 24 sessions updating rows through
+    # a 64 MiB pool it moved by 107 to 217 in 40 s on MariaDB 10.6.28, which also
+    # logs "Could not free any blocks in the buffer pool!", and by 256/s on MySQL
+    # 8.4.13. The same load through 256 MiB caused no waits at all, measured
+    # twice. Loading 75 MiB of rows into the 64 MiB pool is enough to move it on
+    # MySQL.
+    #
+    # The default warns on any movement, as `mysql-innodb-log-waits` does for the
+    # redo log buffer. No other default was measured, and a rate that suits the
+    # servers counting every pass would hide real stalls on the ones that wait a
+    # second per count: 60 of those within five minutes are 0.2 per second.
+    if pool_rates is not None and pool_rates['wait_free']:
+        item_state = lib.base.get_state(
+            pool_rates['wait_free'], args.WARN_WAITS, None, _operator='range'
+        )
+        state = lib.base.get_worst(state, item_state)
+        sections.append(
+            f'Sessions found no free page in the buffer pool'
+            f' {round(pool_rates["wait_free"], 2)} times/s since the last check'
+            f'{lib.base.state2str(item_state, prefix=" ")}.'
+        )
+        if item_state != STATE_OK:
+            recommendations.append(
+                f'Raise `innodb_buffer_pool_size` above {buffer_h} if the RAM'
+                f' allows it: sessions found no free page in the buffer pool and'
+                f' were held up until InnoDB had written changed pages to disk. If'
+                f' a bulk load is the cause and may run into this, raise'
+                f' `--warning-waits`'
+            )
+
+    # How full the pool is, for reference: a pool that is not full yet is still
+    # filling up after a restart, and what it holds is what was touched since,
+    # not what is needed.
+    usage = ''
+    if pct_used is not None:
+        usage = f', full, {pct_used}% in use' if pool_full else f', {pct_used}% in use'
     sections.append(
-        f'`innodb_buffer_pool_size` ({buffer_h}), InnoDB data + index size ({data_h}).'
+        f'`innodb_buffer_pool_size` ({buffer_h}{usage}), InnoDB data + index size'
+        f' ({data_h}).'
     )
 
     # 4. Redo log pressure. What "the redo log is too small" means is that the
@@ -631,6 +739,21 @@ def main():
         uom='B',
         _min=0,
     )
+    if pct_used is not None:
+        perfdata += lib.base.get_perfdata(
+            'mysql_innodb_buffer_pool_bytes_data',
+            bytes_data,
+            uom='B',
+            _min=0,
+            _max=buffer_size,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_innodb_buffer_pool_pct_used',
+            pct_used,
+            uom='%',
+            _min=0,
+            _max=100,
+        )
     if miss_ratio is not None:
         perfdata += lib.base.get_perfdata(
             'mysql_innodb_buffer_pool_miss_ratio',
@@ -654,6 +777,7 @@ def main():
         perfdata += lib.base.get_perfdata(
             'mysql_innodb_buffer_pool_wait_free_per_second',
             round(pool_rates['wait_free'], 2),
+            warn=args.WARN_WAITS,
             _min=0,
         )
     if log_file_size is not None:
