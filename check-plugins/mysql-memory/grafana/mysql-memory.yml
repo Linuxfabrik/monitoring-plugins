@@ -71,16 +71,22 @@ spec:
       overrides:
       - matcher:
           id: byName
+          options: mysql_rss
+        properties:
+        - id: displayName
+          value: rss (measured)
+      - matcher:
+          id: byName
           options: mysql_max_used_memory
         properties:
         - id: displayName
-          value: max_used_memory (currently reached)
+          value: max_used_memory (calculated, Max_used_connections)
       - matcher:
           id: byName
           options: mysql_max_peak_memory
         properties:
         - id: displayName
-          value: max_peak_memory (theoretical peak)
+          value: max_peak_memory (calculated worst case)
       - matcher:
           id: byName
           options: mysql_physical_memory
@@ -109,6 +115,36 @@ spec:
         sort: none
 
     targets:
+
+    - alias: mysql_rss
+      refId: mysql_rss
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - 'null'
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_rss
 
     - alias: mysql_max_used_memory
       refId: mysql_max_used_memory
@@ -249,22 +285,27 @@ spec:
           showPoints: always
           spanNulls: 900000
         decimals: 1
-        max: 100
         min: 0
         unit: percent
       overrides:
       - matcher:
           id: byName
+          options: mysql_pct_rss
+        properties:
+        - id: displayName
+          value: pct_rss (measured / physical)
+      - matcher:
+          id: byName
           options: mysql_pct_max_used_memory
         properties:
         - id: displayName
-          value: pct_max_used_memory (reached / physical)
+          value: pct_max_used_memory (calculated, Max_used_connections / physical)
       - matcher:
           id: byName
           options: mysql_pct_max_physical_memory
         properties:
         - id: displayName
-          value: pct_max_physical_memory (peak / physical)
+          value: pct_max_physical_memory (calculated worst case / physical)
     options:
       legend:
         calcs:
@@ -281,6 +322,36 @@ spec:
         sort: none
 
     targets:
+
+    - alias: mysql_pct_rss
+      refId: mysql_pct_rss
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - 'null'
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_pct_rss
 
     - alias: mysql_pct_max_used_memory
       refId: mysql_pct_max_used_memory

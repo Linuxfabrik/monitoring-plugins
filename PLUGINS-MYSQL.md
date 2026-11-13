@@ -29,7 +29,7 @@ listings and the monitoring host's shell history.
 * `mysql-storage-engines`: which storage engines are in use.
 * `mysql-system`: server uptime and basic stats.
 * `mysql-table-cache`: `table_open_cache` hit rate.
-* `mysql-table-definition-cache`: `table_definition_cache` hit rate.
+* `mysql-table-definition-cache`: `table_definition_cache` against the number of tables.
 * `mysql-table-indexes`: tables without primary keys.
 * `mysql-table-locks`: table-lock waits.
 * `mysql-temp-tables`: on-disk vs. in-memory temp tables.
@@ -182,14 +182,16 @@ role; activate several sets on the same host when appropriate.
 * **MySQL InnoDB Service Set**: InnoDB-specific counters (buffer pool, log
   waits). For servers using InnoDB as the main engine.
 * **MySQL Metrics Service Set**: server-wide metrics (connections,
-  memory, open files, perf metrics, storage engines, traffic, logfile,
-  thread cache).
+  long-running queries, memory, open files, perf metrics, storage
+  engines, traffic, logfile, thread cache). A query that hangs blocks
+  the application and the backup no matter who wrote it, so long-running
+  queries are watched here and not in the Schemas set.
 * **MySQL Replication Service Set**: replica-specific health
   (`mysql-replica-status`). Activate on asynchronous replicas.
 * **MySQL Schemas Service Set**: per-database / per-query metrics
-  (database metrics, index health, joins, long-running queries, slow
-  queries, sorts, table cache, table definition cache, table indexes,
-  table locks, temp tables). Meant for databases whose schema and
+  (database metrics, index health, joins, slow queries, sorts, table
+  cache, table definition cache, table indexes, table locks, temp
+  tables). Meant for databases whose schema and
   queries the admin or their developers control. Do not activate it on
   hosts that only run third-party applications such as Nextcloud,
   Icinga DB or Icinga Director: their findings, like the indexes such

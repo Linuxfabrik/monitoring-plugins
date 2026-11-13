@@ -21,34 +21,36 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110202'
+__version__ = '2026111301'
 
-DESCRIPTION = """Checks the percentage of MySQL/MariaDB temporary tables that had to spill to disk
-(`Created_tmp_disk_tables` divided by `Created_tmp_tables`). A high percentage means
-queries are materialising temporary tables larger than the smaller of `tmp_table_size` and
-`max_heap_table_size`, and the server falls back to a disk-based temporary table. Alerts
-when the percentage crosses `--warning` / `--critical`. On freshly-booted servers (uptime < 1 hour)
-the percentage is reported but not evaluated, because it is a lifetime average over only a handful
-of queries then."""
+DESCRIPTION = """Reports the percentage of MySQL/MariaDB temporary tables that were created on disk
+(`Created_tmp_disk_tables` divided by `Created_tmp_tables`). A temporary table goes to disk when it
+outgrows the smaller of `tmp_table_size` and `max_heap_table_size`, but on MariaDB also at any size
+when it holds a `TEXT` or `BLOB` column, which includes many `information_schema` queries. The
+counters cannot tell the two apart, so the percentage is a tuning hint for databases whose queries
+the admin controls, not an operational state. Alerts only when `--warning` / `--critical` are
+given, and not during the first hour of uptime, because the percentage is a lifetime average over
+only a handful of queries then."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
-# mysqltuner alerts when > 25% of temp tables spill to disk. We keep
-# that as WARN (Nagios range `25` = alert if value > 25) and add a CRIT
-# escalation at > 50% so the plugin state actually goes red when the workload
-# is severely temp-table-bound.
-DEFAULT_WARN = '25'
-DEFAULT_CRIT = '50'
+# mysqltuner flags more than 25% temp tables on disk. Here the percentage is
+# only reported unless `--warning` / `--critical` ask for it: the global
+# counters mix temp tables that outgrow the limits with those that go to disk
+# at any size (`TEXT`/`BLOB` columns, `information_schema`). Measured on a
+# Nextcloud host (MariaDB 11.4): 85% of the disk temp tables came from the
+# monitoring user's and mariadb-dump's `information_schema` queries, and the
+# processlist query still went to disk with both limits at 1 GiB. Following
+# mysqltuner's "raise the limits" advice there only grew the peak memory,
+# since every connection may hold such a temp table.
+DEFAULT_WARN = None
+DEFAULT_CRIT = None
 DEFAULT_TIMEOUT = 3
 
 # Below this uptime we skip the percentage alert because it is a lifetime
 # average over only a handful of queries (same window as `mysql-table-cache`
 # and `mysql-thread-cache`).
 WARMUP_UPTIME_SECONDS = 3600
-
-# mysqltuner's cut-off: above this, raising `tmp_table_size` /
-# `max_heap_table_size` further is not the right action.
-TMP_TABLE_LARGE_THRESHOLD = 256 * 1024 * 1024
 
 SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-temp-tables.db'
 
@@ -79,8 +81,9 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help=lib.args.help('--critical')
-        + ' Supports Nagios ranges. Default: %(default)s',
+        help=lib.args.help('--critical') + ' Supports Nagios ranges. '
+        'Example: `--critical=50`. '
+        'Default: not evaluated, the percentage is only reported.',
         dest='CRIT',
         default=DEFAULT_CRIT,
     )
@@ -120,8 +123,9 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help=lib.args.help('--warning')
-        + ' Supports Nagios ranges. Default: %(default)s',
+        help=lib.args.help('--warning') + ' Supports Nagios ranges. '
+        'Example: `--warning=25`. '
+        'Default: not evaluated, the percentage is only reported.',
         dest='WARN',
         default=DEFAULT_WARN,
     )
@@ -154,13 +158,10 @@ def get_status(conn):
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_stats(), section "Temporary tables",
-    # verified in sync with MySQLTuner (the > 25% threshold, the
-    # 256 MiB cut-off between "raise the cap" and "the cap is already large
-    # enough" recommendation paths, and the `max_tmp_table_size` formula are
-    # unchanged upstream since the original port). Our --warning default
-    # matches mysqltuner; --critical 50 is a Linuxfabrik addition so the
-    # plugin state actually goes red on severe temp-table churn.
+    # logic taken from mysqltuner.pl:mysql_stats(), section "Temporary tables"
+    # (percentage and `max_tmp_table_size` formula). Deliberately not taken
+    # over: the default 25% alert and the advice to raise the limits towards
+    # 256 MiB, see DEFAULT_WARN.
 
     # parse the command line
     try:
@@ -194,6 +195,7 @@ def main():
     created_tmp_disk_tables = int(mystat['Created_tmp_disk_tables'])
     uptime = int(mystat.get('Uptime') or 0)
     warming_up = uptime < WARMUP_UPTIME_SECONDS
+    evaluated = bool(args.WARN or args.CRIT)
     tmp_table_size = int(myvar['tmp_table_size'])
     max_heap_table_size = int(myvar['max_heap_table_size'])
     # The effective in-memory limit for an internal temp table is the
@@ -221,7 +223,7 @@ def main():
     # addition): right after a restart the lifetime percentage rests on a few
     # hundred temp tables (seen: 140 on disk / 453 total = 30.9% -> WARN, gone
     # after 44 minutes).
-    if created_tmp_tables > 0 and not warming_up:
+    if created_tmp_tables > 0 and evaluated and not warming_up:
         state = lib.base.get_state(
             pct_temp_disk,
             args.WARN,
@@ -229,48 +231,37 @@ def main():
             _operator='range',
         )
         if state != STATE_OK:
-            if effective_cap < TMP_TABLE_LARGE_THRESHOLD:
-                # MariaDB puts a temp table with a BLOB or TEXT column on disk at any
-                # size (create_tmp_table() in sql/sql_select.cc, 11.8), so the limits
-                # only help if that is not the cause. sys.statements_with_temp_tables
-                # refuses a plain monitoring account with ERROR 1356, the table below
-                # does not.
-                recommendations.append(
-                    'Find the queries behind this first: `SELECT DIGEST_TEXT, '
-                    'COUNT_STAR, SUM_CREATED_TMP_DISK_TABLES FROM '
-                    'performance_schema.events_statements_summary_by_digest ORDER '
-                    'BY SUM_CREATED_TMP_DISK_TABLES DESC LIMIT 10;`. A query with '
-                    'as many disk tables as executions usually reads a `TEXT` or '
-                    '`BLOB` column. MariaDB puts such a temp table on disk at any '
-                    'size, so raising the limits does not help there'
-                )
-                recommendations.append(
-                    f'If oversized temp tables are the cause, raise both '
-                    f'`tmp_table_size` (currently '
-                    f'{lib.human.bytes2human(tmp_table_size)}) and '
-                    f'`max_heap_table_size` (currently '
-                    f'{lib.human.bytes2human(max_heap_table_size)}) toward '
-                    f'{lib.human.bytes2human(TMP_TABLE_LARGE_THRESHOLD)} '
-                    f'(mysqltuner cut-off); keep them equal because the '
-                    f'effective per-table cap is the smaller of the two'
-                )
-                recommendations.append(
-                    'These limits apply per implicit temp table, not as a '
-                    'shared pool. Size them just above the largest single '
-                    'temp table your workload actually generates; going '
-                    'higher does not help. Plan RAM headroom for that limit '
-                    'multiplied by the number of concurrent sessions '
-                    'building temp tables, so the server does not run out '
-                    'of memory under load'
-                )
-            else:
-                recommendations.append(
-                    f'The effective temp-table cap '
-                    f'({lib.human.bytes2human(effective_cap)}) is already at '
-                    f'or above the {lib.human.bytes2human(TMP_TABLE_LARGE_THRESHOLD)} '
-                    f'mysqltuner cut-off. Raising it further will not help; '
-                    f'reduce the working set of the queries instead'
-                )
+            # MariaDB puts a temp table with a BLOB or TEXT column on disk at any
+            # size (create_tmp_table() in sql/sql_select.cc, 11.8), so the limits
+            # only help if that is not the cause. sys.statements_with_temp_tables
+            # refuses a plain monitoring account with ERROR 1356, the tables below
+            # do not.
+            recommendations.append(
+                'Find the queries behind this first: `SELECT DIGEST_TEXT, '
+                'COUNT_STAR, SUM_CREATED_TMP_DISK_TABLES FROM '
+                'performance_schema.events_statements_summary_by_digest ORDER '
+                'BY SUM_CREATED_TMP_DISK_TABLES DESC LIMIT 10;`, and the users '
+                'behind it: `SELECT USER, SUM(SUM_CREATED_TMP_DISK_TABLES) FROM '
+                'performance_schema.events_statements_summary_by_user_by_event_name '
+                'GROUP BY USER;`'
+            )
+            recommendations.append(
+                'A query with as many disk tables as executions reads a `TEXT` '
+                'or `BLOB` column or `information_schema`, including the queries '
+                'of monitoring checks and backups. MariaDB puts such a temp table '
+                'on disk at any size, so raising `tmp_table_size` and '
+                '`max_heap_table_size` does not help there'
+            )
+            recommendations.append(
+                f'Raise `tmp_table_size` (currently '
+                f'{lib.human.bytes2human(tmp_table_size)}) and '
+                f'`max_heap_table_size` (currently '
+                f'{lib.human.bytes2human(max_heap_table_size)}) only for queries '
+                f'with fewer disk tables than executions, both to the same value '
+                f'just above their largest temp table. Every connection may hold '
+                f'such a temp table, so the limit counts `max_connections` times '
+                f'in the peak memory (see the mysql-memory check)'
+            )
             recommendations.append(
                 'Audit `SELECT DISTINCT` and `GROUP BY` queries that run '
                 'without a `LIMIT` clause; those are the classic source of '
@@ -285,7 +276,7 @@ def main():
             f'/ {lib.human.number2human(created_tmp_tables)} total)'
             f'{lib.base.state2str(state, prefix=" ")}'
         )
-        if warming_up:
+        if evaluated and warming_up:
             facts.append(
                 f'Server is warming up (uptime {lib.human.seconds2human(uptime)}'
                 f' < 1 h); percentage alert suppressed'

@@ -11,14 +11,14 @@
 """Integration tests for the mysql-memory check plugin.
 
 The plugin opens a real `pymysql` connection and reads buffer and
-cache sizes from `SHOW VARIABLES` / `SHOW STATUS`, calculates a
-total expected memory footprint, and compares it against the
-host's free memory. A static fixture cannot drive it - we spin up
+cache sizes from `SHOW VARIABLES` / `SHOW STATUS`, calculates the
+worst-case memory footprint, and measures the RSS of the server
+processes on the host. A static fixture cannot drive it - we spin up
 an actual MariaDB server and let the plugin talk to it over TCP.
 
-The overcommit check (reached usage + other-process memory > physical
-RAM) is driven by running the plugin through a small wrapper that fakes
-the host's RAM and the other processes' RSS.
+The thresholds on the measured RSS, and that the calculated worst case
+does not alert, are driven by running the plugin through a small
+wrapper that fakes the host's RAM and the processes' RSS.
 
 Per CONTRIBUTING's "Combine container tests with fixtures" rule,
 this file holds only the happy-path integration test. A freshly
@@ -52,7 +52,7 @@ import unittest
 sys.path.insert(0, '..')
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
@@ -63,25 +63,30 @@ CONTAINERFILES = sorted(
 )
 
 
-# Runs the plugin with a fake host: 4 GiB of RAM, and one other process
-# with `argv[1]` bytes of RSS.
+# Runs the plugin with a fake host: `argv[1]` MiB of RAM, a `mariadbd`
+# process with `argv[2]` MiB of RSS and one other process with 1 GiB.
 WRAPPER = """
 import os, runpy, sys, types
 import psutil
 
 sys.path.insert(0, '..')
 
-other = int(sys.argv.pop(1))
+ram_mib = int(sys.argv.pop(1))
+db_mib = int(sys.argv.pop(1))
 _sysconf = os.sysconf
 os.sysconf = lambda name: (
-    1048576 if name == 'SC_PAGE_SIZE' else 4096 if name == 'SC_PHYS_PAGES'
+    1048576 if name == 'SC_PAGE_SIZE' else ram_mib if name == 'SC_PHYS_PAGES'
     else _sysconf(name)
 )
-psutil.process_iter = lambda attrs=None: [
-    types.SimpleNamespace(
-        info={'name': 'app', 'memory_info': types.SimpleNamespace(rss=other)}
+
+
+def proc(name, mib):
+    return types.SimpleNamespace(
+        info={'name': name, 'memory_info': types.SimpleNamespace(rss=mib * 1048576)}
     )
-]
+
+
+psutil.process_iter = lambda attrs=None: [proc('mariadbd', db_mib), proc('app', 1024)]
 runpy.run_path('../mysql-memory', run_name='__main__')
 """
 
@@ -153,26 +158,47 @@ def _check_image(test, containerfile):
         # The Performance Schema footprint, not a row size.
         test.assertGreater(perfdata('mysql_pf_memory'), 1024**2)
 
-        # Overcommit: reached usage + other processes fit into the fake 4 GiB.
-        def run_wrapped(other_bytes):
+        # The RSS of the container's server process, seen from the host.
+        test.assertGreater(perfdata('mysql_rss'), 1024**2)
+
+        def run_wrapped(ram_mib, db_mib, *extra, wrapper=WRAPPER):
             res = subprocess.run(  # nosec B603, B607 - test tool from PATH; argv list, no shell
-                ['python3', '-c', WRAPPER, str(other_bytes), *cmd[2:]],
+                ['python3', '-c', wrapper, str(ram_mib), str(db_mib), *cmd[2:], *extra],
                 cwd=os.path.dirname(os.path.abspath(__file__)),
                 capture_output=True,
                 text=True,
             )
             out = res.stdout + res.stderr
-            print(f'Script output (other={other_bytes}):\n{out.strip()}', flush=True)
+            print(
+                f'Script output (RAM {ram_mib} MiB, server {db_mib} MiB):\n'
+                f'{out.strip()}',
+                flush=True,
+            )
             return res.returncode, out
 
-        retc, out = run_wrapped(1 * 1024**3)
+        # Thresholds apply to the measured RSS: 25%, 90% and 97.5% of 4 GiB.
+        retc, out = run_wrapped(4096, 1024)
         test.assertEqual(retc, STATE_OK)
-        test.assertNotIn('Dedicate this server', out)
-
-        # ... and does not once the other processes fill the RAM.
-        retc, out = run_wrapped(4 * 1024**3)
+        test.assertNotIn('Recommendations', out)
+        retc, out = run_wrapped(4096, 3686)
         test.assertEqual(retc, STATE_WARN)
-        test.assertIn('Dedicate this server', out)
+        test.assertIn('innodb_buffer_pool_size', out)
+        retc, out = run_wrapped(4096, 3994)
+        test.assertEqual(retc, STATE_CRIT)
+
+        # The calculated worst case is far above 100% of 64 MiB RAM, but it
+        # is only reported. --lengthy adds its breakdown.
+        retc, out = run_wrapped(64, 1, '--lengthy')
+        test.assertEqual(retc, STATE_OK)
+        test.assertRegex(out, r'Calculated worst case: \S+ \(\d{3,}\.\d% of RAM\)')
+        test.assertIn('Total (max_peak_memory)', out)
+
+        # Without a server process on the host the check cannot measure.
+        retc, out = run_wrapped(
+            4096, 0, wrapper=WRAPPER.replace("proc('mariadbd', db_mib), ", '')
+        )
+        test.assertEqual(retc, STATE_UNKNOWN)
+        test.assertIn('No `mysqld` or `mariadbd` process', out)
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)

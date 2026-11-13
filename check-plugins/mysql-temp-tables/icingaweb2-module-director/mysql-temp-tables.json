@@ -104,7 +104,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the percentage of MySQL/MariaDB temporary tables that had to spill to disk (`Created_tmp_disk_tables` divided by `Created_tmp_tables`). A high percentage means queries are materialising temporary tables larger than the smaller of `tmp_table_size` and `max_heap_table_size`, and the server falls back to a disk-based temporary table. Alerts when the percentage crosses `--warning` / `--critical`. On freshly-booted servers (uptime < 1 hour) the percentage is reported but not evaluated, because it is a lifetime average over only a handful of queries then.",
+            "notes": "Reports the percentage of MySQL/MariaDB temporary tables that were created on disk (`Created_tmp_disk_tables` divided by `Created_tmp_tables`). A temporary table goes to disk when it outgrows the smaller of `tmp_table_size` and `max_heap_table_size`, but on MariaDB also at any size when it holds a `TEXT` or `BLOB` column, which includes many `information_schema` queries. The counters cannot tell the two apart, so the percentage is a tuning hint for databases whose queries the admin controls, not an operational state. Alerts only when `--warning` / `--critical` are given, and not during the first hour of uptime, because the percentage is a lifetime average over only a handful of queries then.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-temp-tables/",
             "object_name": "tpl-service-mysql-temp-tables",
             "object_type": "template",
@@ -116,12 +116,10 @@
             "vars": {
                 "criticality": "C",
                 "mysql_temp_tables_always_ok": false,
-                "mysql_temp_tables_critical": "50",
                 "mysql_temp_tables_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_temp_tables_defaults_group": "client",
                 "mysql_temp_tables_no_perfdata": false,
-                "mysql_temp_tables_timeout": 3,
-                "mysql_temp_tables_warning": "25"
+                "mysql_temp_tables_timeout": 3
             },
             "volatile": null,
             "zone": null,
@@ -141,7 +139,7 @@
         "2": {
             "varname": "mysql_temp_tables_critical",
             "caption": "MySQL Temp Tables: Critical",
-            "description": "CRIT threshold in percent. Supports Nagios ranges.",
+            "description": "CRIT threshold in percent. Supports Nagios ranges. Example: `--critical=50`. Default: not evaluated, the percentage is only reported.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -194,7 +192,7 @@
         "7": {
             "varname": "mysql_temp_tables_warning",
             "caption": "MySQL Temp Tables: Warning",
-            "description": "WARN threshold in percent. Supports Nagios ranges.",
+            "description": "WARN threshold in percent. Supports Nagios ranges. Example: `--warning=25`. Default: not evaluated, the percentage is only reported.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

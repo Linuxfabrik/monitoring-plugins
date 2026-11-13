@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the table definition cache size in MySQL/MariaDB against the current total number of tables in `information_schema.tables`. When `table_definition_cache` is smaller than the table count, definitions get evicted and re-read on each access, which costs `.frm` parses on disk-heavy workloads. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner.
+Checks the table definition cache size in MySQL/MariaDB against the number of tables, views and system tables outside `information_schema`, which never takes a slot in the cache. When `table_definition_cache` is smaller than the table count, definitions get evicted and re-read on each access, which costs `.frm` parses on disk-heavy workloads. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats(). Unlike MySQLTuner, the `information_schema` tables are not counted.
 
 **Important Notes:**
 
@@ -16,7 +16,7 @@ Checks the table definition cache size in MySQL/MariaDB against the current tota
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `table_definition_cache`
-* Counts total tables via `SELECT COUNT(*) FROM information_schema.tables`
+* Counts tables via `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema != 'information_schema'`. The `mysql`, `performance_schema` and `sys` tables take a slot in the cache as soon as they are used, so they are counted
 
 
 ## Fact Sheet
@@ -41,12 +41,12 @@ usage: mysql-table-definition-cache [-h] [-V] [--always-ok]
                                     [--defaults-group DEFAULTS_GROUP]
                                     [--no-perfdata] [--timeout TIMEOUT]
 
-Checks the table definition cache size in MySQL/MariaDB against the current
-total number of tables in `information_schema.tables`. When
-`table_definition_cache` is smaller than the table count, definitions get
-evicted and re-read on each access, which costs `.frm` parses on disk-heavy
-workloads. Alerts when `table_definition_cache` is below the total table
-count.
+Checks the table definition cache size in MySQL/MariaDB against the number of
+tables, views and system tables outside `information_schema`, which never
+takes a slot in the cache. When `table_definition_cache` is smaller than the
+table count, definitions get evicted and re-read on each access, which costs
+`.frm` parses on disk-heavy workloads. Alerts when `table_definition_cache` is
+below the table count.
 
 options:
   -h, --help            show this help message and exit
@@ -95,7 +95,7 @@ Recommendations:
 
 ## States
 
-* WARN if `table_definition_cache` is below the total number of tables.
+* WARN if `table_definition_cache` is below the number of tables outside `information_schema`.
 * OK if `table_definition_cache >= total_tables`.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -105,7 +105,7 @@ Recommendations:
 | Name | Type | Description |
 |----|----|----|
 | mysql_table_definition_cache | Number | Number of table definitions that can be cached. |
-| mysql_total_tables | Number | Total number of tables. |
+| mysql_total_tables | Number | Number of tables, views and system tables outside `information_schema`. |
 
 
 ## Credits, License

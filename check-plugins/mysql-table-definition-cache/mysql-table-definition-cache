@@ -19,12 +19,13 @@ import lib.db_mysql
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026111301'
 
-DESCRIPTION = """Checks the table definition cache size in MySQL/MariaDB against the current total
-number of tables in `information_schema.tables`. When `table_definition_cache` is smaller than
-the table count, definitions get evicted and re-read on each access, which costs `.frm` parses
-on disk-heavy workloads. Alerts when `table_definition_cache` is below the total table count."""
+DESCRIPTION = """Checks the table definition cache size in MySQL/MariaDB against the number of
+tables, views and system tables outside `information_schema`, which never takes a slot in the
+cache. When `table_definition_cache` is smaller than the table count, definitions get evicted and
+re-read on each access, which costs `.frm` parses on disk-heavy workloads. Alerts when
+`table_definition_cache` is below the table count."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -129,7 +130,19 @@ def main():
     lib.base.coe(lib.db_mysql.check_privileges(conn, 'SELECT'))
 
     myvar = lib.db_mysql.lod2dict(get_vars(conn))
-    sql = 'select count(*) as cnt from information_schema.tables'
+    # `information_schema` tables never take a slot in the table definition
+    # cache: MariaDB builds them as temporary tables for each query
+    # (create_tmp_table_for_schema() in `sql/sql_show.cc`, MariaDB 13.0), MySQL
+    # serves them as system views over the data dictionary. MySQLTuner counts
+    # them anyway. Measured on MariaDB 11.4 and 11.8: the table count without
+    # them equals `Open_table_definitions` exactly (476 and 694). On MySQL 8.4
+    # counting the 78 `information_schema` views did not grow the cache.
+    # `mysql`, `performance_schema` and `sys` take slots and stay counted.
+    sql = """
+        select count(*) as cnt
+        from information_schema.tables
+        where table_schema != 'information_schema'
+        """
     nbtables = lib.base.coe(lib.db_mysql.select(conn, sql, fetchone=True))
     lib.db_mysql.close(conn)
 
@@ -154,8 +167,8 @@ def main():
         # branch is essentially unreachable on a modern server.
         sections.append(
             'Everything is ok. `table_definition_cache` variable not exposed'
-            f' by this server. {total_tables} tables in'
-            ' `information_schema.tables`.'
+            f' by this server. {total_tables} tables outside'
+            ' `information_schema`.'
         )
     elif cache_value < total_tables:
         state = STATE_WARN

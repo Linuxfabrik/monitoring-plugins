@@ -22,33 +22,28 @@ from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 try:
     import psutil
-
-    HAVE_PSUTIL = True
 except ImportError:
-    HAVE_PSUTIL = False
+    print('Python module "psutil" is not installed.')
+    sys.exit(STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026111301'
+__version__ = '2026111302'
 
-DESCRIPTION = """Estimates MySQL/MariaDB memory consumption from the configured buffer
-sizes and compares it to the host's physical RAM. Reports the footprint at the highest
-number of concurrent connections so far (server-wide buffers + per-connection buffers *
-`Max_used_connections` + Performance Schema memory) and the theoretical worst-case
-peak (same formula but with `max_connections`). Both are calculated upper bounds, not
-the measured RSS: a connection allocates its buffers only while a query needs them.
-Also surfaces the RAM consumed by non-database processes on the host so admins can
-see when MySQL plus the rest of the system would exceed physical memory.
-Alerts when used or peak memory crosses the `--warning` / `--critical` thresholds,
-when reached + other-process memory exceeds physical RAM, and when MySQL would allocate
-more than 2 GiB on a 32-bit system.
+DESCRIPTION = """Measures the memory (RSS) of the MySQL/MariaDB server processes on the
+host and compares it to the physical RAM. Also calculates the worst case from the configured
+buffer sizes (server-wide buffers + per-connection buffers * `max_connections` + Performance
+Schema memory), in which every connection fills all its buffers at once. The server allocates
+none of these buffers in advance, a connection takes memory only while a query needs it, so
+the worst case is reported, but does not alert. Alerts when the measured memory crosses
+`--warning` / `--critical`, and when MySQL would allocate more than 2 GiB on a 32-bit system.
 Supports extended reporting via --lengthy."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
-# % of physical RAM at which `pct_max_used_memory` (the footprint calculated
-# from `Max_used_connections`) turns WARN / CRIT. Default 85/95 matches mysqltuner.
+# % of physical RAM at which the measured RSS of the server processes turns
+# WARN / CRIT. MySQLTuner uses 85% for its calculated footprint.
 DEFAULT_WARN = '85'
 DEFAULT_CRIT = '95'
 
@@ -84,10 +79,8 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for the percentage of physical RAM consumed by '
-        'the MySQL memory footprint calculated from the highest number of '
-        'concurrent connections so far (server_buffers + per_thread_buffers * '
-        'Max_used_connections + Performance Schema). '
+        help='CRIT threshold for the percentage of physical RAM used by the '
+        'MySQL/MariaDB server processes (RSS). '
         'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='CRITICAL',
@@ -112,11 +105,8 @@ def parse_args():
 
     parser.add_argument(
         '--lengthy',
-        help='Append a full memory breakdown table to the output (each '
-        'contributing buffer + the calculation that produces server_buffers, '
-        'per_thread_buffers, max_used_memory and max_peak_memory). Useful '
-        'when a WARNING/CRITICAL fires and you need to see which buffer '
-        'dominates the footprint.',
+        help='Append the breakdown of the calculated worst case to the output, '
+        'every buffer with its share, largest first.',
         dest='LENGTHY',
         action='store_true',
         default=False,
@@ -141,9 +131,8 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for the percentage of physical RAM consumed by '
-        'the MySQL memory footprint calculated from the highest number of '
-        'concurrent connections so far. '
+        help='WARN threshold for the percentage of physical RAM used by the '
+        'MySQL/MariaDB server processes (RSS). '
         'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='WARNING',
@@ -167,11 +156,13 @@ def get_vars(conn):
             or variable_name like 'innodb_log_buffer_size'
             or variable_name like 'internal_tmp_mem_storage_engine'
             or variable_name like 'join_buffer_size'
+            or variable_name like 'join_buffer_space_limit'
             or variable_name like 'key_buffer_size'
             or variable_name like 'log_bin'
             or variable_name like 'max_allowed_packet'
             or variable_name like 'max_connections'
             or variable_name like 'max_heap_table_size'
+            or variable_name like 'optimizer_switch'
             or variable_name like 'performance_schema'
             or variable_name like 'query_cache_size'
             or variable_name like 'read_buffer_size'
@@ -225,137 +216,118 @@ def get_pf_memory(conn, myvar):
     return 0
 
 
-def get_other_process_memory():
-    """Total RSS of processes that are *not* MySQL/MariaDB. Used to detect
-    whether MySQL's reached usage plus the rest of the host's footprint
-    exceeds physical RAM.
+def get_process_memory():
+    """Return `(found, db_rss, other_rss)`: whether a MySQL/MariaDB server
+    process runs on this host, the summed RSS of all `mysqld` / `mariadbd`
+    processes, and the summed RSS of all other processes, in bytes.
     """
-    if not HAVE_PSUTIL:
-        return 0
-    db_names = {'mysqld', 'mariadbd'}
-    total = 0
-    try:
-        for proc in psutil.process_iter(attrs=['name', 'memory_info']):
-            name = proc.info.get('name') or ''
-            if name in db_names:
-                continue
-            mem = proc.info.get('memory_info')
-            if mem is None:
-                continue
-            total += mem.rss
-    except psutil.NoSuchProcess:
-        pass
-    return total
+    db_names = {'mariadbd', 'mysqld'}
+    found = False
+    db_rss = 0
+    other_rss = 0
+    # With `attrs`, psutil skips processes that vanish meanwhile and sets
+    # `memory_info` to None where access is denied.
+    for proc in psutil.process_iter(attrs=['name', 'memory_info']):
+        mem = proc.info.get('memory_info')
+        if mem is None:
+            continue
+        if (proc.info.get('name') or '') in db_names:
+            found = True
+            db_rss += mem.rss
+        else:
+            other_rss += mem.rss
+    return found, db_rss, other_rss
 
 
 def build_contributions(myvar, mycalc):
-    """Return a list of (label, bytes, multiplied) tuples describing every
-    knob's contribution to `max_peak_memory`, sorted by bytes descending.
-    `multiplied` is True when the entry is a per-thread buffer multiplied by
-    `max_connections` (so the label already encodes the math and the total
-    bytes deserve an explicit `= total` on the right). Single-value entries
-    have `multiplied=False` and the label already carries the value, so the
-    renderer can omit the redundant `= value` tail.
-
-    Used both for the top-N hint in the Recommendations block and the full
-    `--lengthy` ranked breakdown.
+    """Return a list of `(factor, total, label)` tuples describing every
+    knob's contribution to `max_peak_memory`, largest first. `factor` is
+    `'<size> * <connections> ='` for a per-connection buffer and empty for a
+    server-wide one. Buffers of size 0 are left out.
     """
     bh = lib.human.bytes2human
     max_conn = int(myvar['max_connections'])
 
-    def per_thread(varname):
-        size = int(myvar[varname])
+    def per_thread(label, size, total=None):
         return (
-            f'`{varname}` ({bh(size)}) * `max_connections` ({max_conn})',
-            size * max_conn,
-            True,
+            f'{bh(size)} * {max_conn} =',
+            size * max_conn if total is None else total,
+            label,
         )
 
-    def server_wide(label, value):
-        if value == 0:
-            return (f'{label}', 0, False)
-        return (f'{label} ({bh(value)})', value, False)
-
     tmp_label = (
-        f'`max_tmp_table_size` ({bh(mycalc["max_tmp_table_size"])},'
-        f' min of `tmp_table_size` and `max_heap_table_size`)'
-        f' * `max_connections` ({max_conn})'
+        'max_tmp_table_size * max_connections'
+        ' (min of tmp_table_size and max_heap_table_size)'
     )
     if mycalc['temptable_max_ram'] is not None:
         tmp_label += (
-            f', capped at `temptable_max_ram` ({bh(mycalc["temptable_max_ram"])})'
+            f', capped at temptable_max_ram ({bh(mycalc["temptable_max_ram"])})'
         )
+    join_buffer_size = int(myvar['join_buffer_size'])
+    if mycalc['join_buffer'] < join_buffer_size:
+        join_label = (
+            f'join_buffer_space_limit * max_connections'
+            f' (caps join_buffer_size = {bh(join_buffer_size)})'
+        )
+    else:
+        join_label = 'join_buffer_size * max_connections'
 
     contributions = [
-        server_wide(
-            '`innodb_buffer_pool_size`',
-            int(myvar.get('innodb_buffer_pool_size', 0)),
-        ),
-        per_thread('sort_buffer_size'),
-        per_thread('read_buffer_size'),
-        per_thread('read_rnd_buffer_size'),
-        per_thread('join_buffer_size'),
-        per_thread('thread_stack'),
-        (tmp_label, mycalc['total_tmp_tables'], True),
-        server_wide('`key_buffer_size`', int(myvar['key_buffer_size'])),
-        server_wide(
-            '`aria_pagecache_buffer_size`',
-            int(myvar.get('aria_pagecache_buffer_size', 0)),
-        ),
-        server_wide(
-            '`innodb_log_buffer_size`',
-            int(myvar.get('innodb_log_buffer_size', 0)),
-        ),
-        server_wide(
-            '`innodb_additional_mem_pool_size`',
-            int(myvar.get('innodb_additional_mem_pool_size', 0)),
-        ),
-        server_wide(
-            '`query_cache_size`',
-            int(myvar.get('query_cache_size', 0)),
-        ),
-        server_wide('Performance Schema memory', mycalc['pf_memory']),
+        per_thread(tmp_label, mycalc['max_tmp_table_size'], mycalc['total_tmp_tables']),
+        per_thread(join_label, mycalc['join_buffer']),
+        ('', mycalc['pf_memory'], 'Performance Schema'),
     ]
+    for varname in (
+        'read_buffer_size',
+        'read_rnd_buffer_size',
+        'sort_buffer_size',
+        'thread_stack',
+    ):
+        contributions.append(
+            per_thread(f'{varname} * max_connections', int(myvar[varname]))
+        )
+    for varname in (
+        'aria_pagecache_buffer_size',
+        'innodb_additional_mem_pool_size',
+        'innodb_buffer_pool_size',
+        'innodb_log_buffer_size',
+        'key_buffer_size',
+        'query_cache_size',
+    ):
+        contributions.append(('', int(myvar.get(varname, 0)), varname))
     # The binlog caches only exist while the binary log is on.
     if mycalc['binlog_cache_size']:
-        contributions.append(per_thread('binlog_cache_size'))
+        contributions.append(
+            per_thread(
+                'binlog_cache_size * max_connections', mycalc['binlog_cache_size']
+            )
+        )
+    contributions = [c for c in contributions if c[1] > 0]
     contributions.sort(key=lambda item: -item[1])
     return contributions
 
 
-def format_contribution(label, value, multiplied):
-    """One bullet line for a contribution entry. Multiplied entries get an
-    explicit `= total` because their label only shows the operands; single
-    values have the bytes already inline in the label, so a trailing total
-    would be redundant.
-    """
-    bh = lib.human.bytes2human
-    if multiplied:
-        return f'{label} = {bh(value)}'
-    return label
-
-
 def render_breakdown(myvar, mycalc):
-    """Render the verbose --lengthy memory-breakdown block: every knob and its
-    contribution to `max_peak_memory`, sorted by impact (largest first). The
-    sort lets admins immediately see which knob to focus on instead of having
-    to scan a categorical list.
+    """Render the --lengthy breakdown of the calculated worst case as a
+    right-aligned sum: the factors, the amount, and what it is, largest
+    first, closed by the total.
     """
     bh = lib.human.bytes2human
     contributions = build_contributions(myvar, mycalc)
-
-    lines = ['Memory breakdown (sorted by contribution to peak memory):', '']
-    for label, value, multiplied in contributions:
-        lines.append(f'  {format_contribution(label, value, multiplied)}')
-    lines.append('  ' + '-' * 70)
-    lines.append(f'  max_peak_memory = {bh(mycalc["max_peak_memory"])}')
-    lines.append(
-        f'  max_used_memory (calculated with `Max_used_connections`'
-        f' = {mycalc["max_used_connections"]}) = {bh(mycalc["max_used_memory"])}'
+    total_label = 'Total (max_peak_memory)'
+    factor_width = max(len(factor) for factor, _, _ in contributions)
+    value_width = max(
+        len(bh(value))
+        for value in [mycalc['max_peak_memory']]
+        + [total for _, total, _ in contributions]
     )
-    lines.append(f'  Physical RAM (host) = {bh(mycalc["physical_memory"])}')
+    lines = ['Calculated worst case (largest first):', '']
+    for factor, total, label in contributions:
+        lines.append(f'  {factor:>{factor_width}} {bh(total):>{value_width}}  {label}')
+    lines.append('  ' + '=' * (factor_width + value_width + 3 + len(total_label)))
     lines.append(
-        f'  Other process memory (host) = {bh(mycalc["other_process_memory"])}'
+        f'  {"":>{factor_width}} {bh(mycalc["max_peak_memory"]):>{value_width}}'
+        f'  {total_label}'
     )
     return '\n'.join(lines)
 
@@ -363,10 +335,14 @@ def render_breakdown(myvar, mycalc):
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:calculations(), verified in sync with
-    # MySQLTuner 2.9.2. Deliberate deviations: the binlog cache only counts
-    # with `log_bin=ON`, and the overcommit check uses the reached instead of
-    # the peak memory (see there).
+    # The calculated worst case follows mysqltuner.pl:calculations(),
+    # verified in sync with MySQLTuner 2.9.2. Deliberate deviations: the
+    # binlog cache only counts with `log_bin=ON`, the join buffers on MariaDB
+    # follow `join_buffer_space_limit` (see there), and nothing of it alerts.
+    # MySQLTuner prints it once on request; as a check running every few
+    # minutes it alerted on a sum no server ever allocates (measured on
+    # MariaDB 11.4: 2.8 GiB calculated for 7 connections, 205 MiB RSS).
+    # Alerts follow the measured RSS of the server processes instead.
 
     # parse the command line
     try:
@@ -375,6 +351,14 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
+    found, db_rss, other_process_memory = get_process_memory()
+    if not found:
+        lib.base.cu(
+            'No `mysqld` or `mariadbd` process found on this host. The check'
+            ' measures the memory of the database server, so it has to run on'
+            ' the database host.'
+        )
+
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -382,7 +366,6 @@ def main():
     }
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_privileges(conn))
-
     myvar = lib.db_mysql.lod2dict(get_vars(conn))
     mystat = lib.db_mysql.lod2dict(get_status(conn))
     pf_memory = get_pf_memory(conn, myvar)
@@ -392,13 +375,21 @@ def main():
     state = STATE_OK
     sections = []
     facts = []
-    # All recommendations from all WARN/CRIT paths land here and render once
-    # at the end as a `Recommendations:\n* ...` bulleted block, regardless of
-    # which combinations of WARN paths fire.
     recommendations = []
+    is_mariadb = 'mariadb' in myvar.get('version', '').lower()
+    product = 'MariaDB' if is_mariadb else 'MySQL'
 
     # analyze data
     mycalc = {}
+
+    # None of the buffers below is allocated in advance, they are upper
+    # bounds a connection grows into while a query needs them: a MEMORY/HEAP
+    # temp table takes its blocks row by row (`hp_get_new_block()` in
+    # `storage/heap/hp_block.c`, MariaDB 13.0), MySQL's TempTable engine,
+    # hash join buffer and sort buffer grow block by block
+    # (`storage/temptable`, `sql/iterators/hash_join_buffer.cc`,
+    # `Filesort_buffer::allocate_block()`, MySQL 26.7).
+
     # The effective size of an internal in-memory temp table is the *minimum*
     # of these two settings (mysql docs:
     # https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_tmp_table_size).
@@ -415,11 +406,28 @@ def main():
     # MariaDB has no TempTable engine.
     mycalc['temptable_max_ram'] = None
     if (
-        'mariadb' not in myvar.get('version', '').lower()
+        not is_mariadb
         and myvar.get('internal_tmp_mem_storage_engine', 'TempTable') == 'TempTable'
         and str(myvar.get('temptable_max_ram', '')).isdigit()
     ):
         mycalc['temptable_max_ram'] = int(myvar['temptable_max_ram'])
+
+    # With `optimize_join_buffer_size=on`, MariaDB sizes each join buffer for
+    # the estimated rows and shrinks all join buffers of a query together to
+    # `join_buffer_space_limit` (`JOIN_CACHE::alloc_buffer()` in
+    # `sql/sql_join_cache.cc`, MariaDB 13.0). The switch is on by default
+    # since MariaDB 11.0 (MDEV-30812); before, and on MySQL, every join
+    # buffer may reach `join_buffer_size`.
+    mycalc['join_buffer'] = int(myvar['join_buffer_size'])
+    if (
+        is_mariadb
+        and 'optimize_join_buffer_size=on' in myvar.get('optimizer_switch', '')
+        and str(myvar.get('join_buffer_space_limit', '')).isdigit()
+    ):
+        mycalc['join_buffer'] = min(
+            mycalc['join_buffer'], int(myvar['join_buffer_space_limit'])
+        )
+
     # A session creates its binlog caches on its first write to the binary
     # log (`THD::binlog_setup_trx_data()` in `sql/log.cc`, MariaDB 13.0);
     # without a binary log there are none.
@@ -433,6 +441,7 @@ def main():
     mycalc['server_buffers'] += int(myvar.get('innodb_log_buffer_size', 0))
     mycalc['server_buffers'] += int(myvar.get('query_cache_size', 0))
     mycalc['server_buffers'] += int(myvar.get('aria_pagecache_buffer_size', 0))
+
     # `max_allowed_packet` is deliberately missing: a connection's network
     # buffer starts at `net_buffer_length` and only grows to the largest
     # packet it actually receives (`net_realloc()` in `sql/net_serv.cc`,
@@ -443,7 +452,7 @@ def main():
     mycalc['per_thread_buffers_without_tmp'] += int(myvar['read_rnd_buffer_size'])
     mycalc['per_thread_buffers_without_tmp'] += int(myvar['sort_buffer_size'])
     mycalc['per_thread_buffers_without_tmp'] += int(myvar['thread_stack'])
-    mycalc['per_thread_buffers_without_tmp'] += int(myvar['join_buffer_size'])
+    mycalc['per_thread_buffers_without_tmp'] += mycalc['join_buffer']
     mycalc['per_thread_buffers_without_tmp'] += mycalc['binlog_cache_size']
     mycalc['per_thread_buffers'] = (
         mycalc['per_thread_buffers_without_tmp'] + mycalc['max_tmp_table_size']
@@ -464,8 +473,8 @@ def main():
         mycalc['per_thread_buffers_without_tmp'] * int(myvar['max_connections'])
         + mycalc['total_tmp_tables']
     )
-
     mycalc['pf_memory'] = pf_memory
+
     # The Galera GCache is deliberately missing: its ring buffer is a file
     # mapped with MAP_SHARED (`gu::MMap` in `galerautils/src/gu_mmap.cpp`,
     # Galera 26.4.27), i.e. page cache the kernel can write back and reclaim,
@@ -480,6 +489,7 @@ def main():
         + mycalc['total_per_thread_buffers']
         + mycalc['pf_memory']
     )
+
     mycalc['physical_memory'] = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
     mycalc['pct_max_used_memory'] = round(
         mycalc['max_used_memory'] / mycalc['physical_memory'] * 100, 1
@@ -487,105 +497,61 @@ def main():
     mycalc['pct_max_physical_memory'] = round(
         mycalc['max_peak_memory'] / mycalc['physical_memory'] * 100, 1
     )
-    mycalc['other_process_memory'] = get_other_process_memory()
+    mycalc['rss'] = db_rss
+    mycalc['pct_rss'] = round(db_rss / mycalc['physical_memory'] * 100, 1)
+    mycalc['other_process_memory'] = other_process_memory
 
     # build the message
     bh = lib.human.bytes2human
 
-    # used memory (calculated from Max_used_connections)
-    if not lib.base.IS_64BIT and mycalc['max_used_memory'] > ADDR_LIMIT_32BIT:
-        used_state = STATE_WARN
-        recommendations.append(
-            f'Reduce MySQL buffer sizes: > {bh(ADDR_LIMIT_32BIT)} of allocations'
-            f' on a 32-bit binary can cause instability'
-        )
-    else:
-        used_state = lib.base.get_state(
-            mycalc['pct_max_used_memory'],
-            args.WARNING,
-            args.CRITICAL,
-            _operator='range',
-        )
-        if used_state != STATE_OK:
-            recommendations.append(
-                'Reduce your overall MySQL memory footprint for system stability'
-            )
-    state = lib.base.get_worst(state, used_state)
-    facts.append(
-        f'Max used memory: {mycalc["pct_max_used_memory"]}%'
-        f' ({bh(mycalc["max_used_memory"])} of {bh(mycalc["physical_memory"])}'
-        f' physical)'
-        f'{lib.base.state2str(used_state, prefix=" ")}'
-    )
-
-    # peak memory (theoretical)
-    peak_state = lib.base.get_state(
-        mycalc['pct_max_physical_memory'],
+    # measured memory
+    rss_state = lib.base.get_state(
+        mycalc['pct_rss'],
         args.WARNING,
         args.CRITICAL,
         _operator='range',
     )
-    if peak_state != STATE_OK:
-        rec = 'Reduce your overall MySQL memory footprint for system stability'
-        if rec not in recommendations:
-            recommendations.append(rec)
-    state = lib.base.get_worst(state, peak_state)
+    if rss_state != STATE_OK:
+        recommendations.append(
+            f'Reduce the largest server-wide buffers (usually'
+            f' `innodb_buffer_pool_size`, currently'
+            f' {bh(int(myvar.get("innodb_buffer_pool_size", 0)))}), or add RAM'
+        )
+    state = lib.base.get_worst(state, rss_state)
     facts.append(
-        f'Peak possible: {mycalc["pct_max_physical_memory"]}%'
-        f' ({bh(mycalc["max_peak_memory"])})'
-        f'{lib.base.state2str(peak_state, prefix=" ")}'
+        f'{product} uses {bh(mycalc["rss"])}'
+        f' ({mycalc["pct_rss"]}% of {bh(mycalc["physical_memory"])} RAM)'
+        f'{lib.base.state2str(rss_state, prefix=" ")}.'
+        f' Other processes: {bh(mycalc["other_process_memory"])}.'
     )
 
-    # overcommit check (reached usage + other processes > physical)
-    # Deliberately compares the reached usage (`max_used_memory`), not the
-    # theoretical peak: MySQLTuner flags `peak + other > physical` as well, but
-    # it only evaluates other-process memory with `--tbstat`/`--verbose` and is
-    # run on request. This plugin runs every minute on hosts that share the
-    # machine with an application; there the theoretical sum sits on the
-    # boundary and flips with every RSS fluctuation of the other processes,
-    # while the reached usage is what actually risks the OOM killer. The
-    # theoretical peak stays visible as its own fact, evaluated against
-    # `--warning` / `--critical`. Verified against MySQLTuner 2.9.2.
-    overcommit_state = STATE_OK
-    overcommit_total = mycalc['max_used_memory'] + mycalc['other_process_memory']
-    if mycalc['physical_memory'] < overcommit_total:
-        overcommit_state = STATE_WARN
-        # Show the actual sums so the admin doesn't have to mentally compute
-        # whether the numbers from the facts line above add up.
-        recommendations.append(
-            f'Dedicate this server to MySQL/MariaDB: reached MySQL memory'
-            f' + other-process memory ({bh(mycalc["max_used_memory"])}'
-            f' + {bh(mycalc["other_process_memory"])}'
-            f' = {bh(overcommit_total)}) exceeds physical RAM'
-            f' ({bh(mycalc["physical_memory"])})'
-        )
-    state = lib.base.get_worst(state, overcommit_state)
+    # calculated worst case, reported only
     facts.append(
-        f'Other process memory: {bh(mycalc["other_process_memory"])}'
-        f'{lib.base.state2str(overcommit_state, prefix=" ")}'
+        f'Calculated worst case: {bh(mycalc["max_peak_memory"])}'
+        f' ({mycalc["pct_max_physical_memory"]}% of RAM) with all'
+        f' {myvar["max_connections"]} connections filling all buffers at once,'
+        f' {bh(mycalc["max_used_memory"])} with the'
+        f' {mycalc["max_used_connections"]} connections seen so far.'
     )
+    if not lib.base.IS_64BIT and mycalc['max_used_memory'] > ADDR_LIMIT_32BIT:
+        state = lib.base.get_worst(state, STATE_WARN)
+        facts.append(f'More than {bh(ADDR_LIMIT_32BIT)} on a 32-bit binary [WARNING].')
+        recommendations.append(
+            f'Reduce MySQL buffer sizes: > {bh(ADDR_LIMIT_32BIT)} of allocations'
+            f' on a 32-bit binary can cause instability'
+        )
 
     # performance schema info note
     if myvar.get('performance_schema', 'OFF') != 'ON':
-        facts.append('Performance Schema is OFF (pfs memory not counted)')
+        facts.append('Performance Schema is OFF (pfs memory not counted).')
 
-    sections.append('. '.join(facts) + '.')
-
+    sections.append('\n'.join(facts))
     if args.LENGTHY:
         sections.append(render_breakdown(myvar, mycalc))
-
-    # When any memory-related recommendation fired, surface the top
-    # contributors to peak memory so admins immediately see which knobs to
-    # focus on instead of having to guess or re-run with --lengthy.
     if recommendations:
-        rec_lines = [f'* {r}' for r in recommendations]
-        top = [c for c in build_contributions(myvar, mycalc) if c[1] > 0][:5]
-        if top:
-            rec_lines.append('* Top contributors to peak memory (largest first):')
-            for label, value, multiplied in top:
-                rec_lines.append(f'  - {format_contribution(label, value, multiplied)}')
-        sections.append('Recommendations:\n' + '\n'.join(rec_lines))
-
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
     msg = '\n\n'.join(sections)
 
     # perfdata
@@ -687,6 +653,12 @@ def main():
     )
 
     perfdata += lib.base.get_perfdata(
+        'mysql_rss',
+        mycalc['rss'],
+        uom='B',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
         'mysql_physical_memory',
         mycalc['physical_memory'],
         uom='B',
@@ -726,14 +698,19 @@ def main():
         'mysql_pct_max_physical_memory',
         mycalc['pct_max_physical_memory'],
         uom='%',
-        warn=args.WARNING,
-        crit=args.CRITICAL,
         _min=0,
         _max=100,
     )
     perfdata += lib.base.get_perfdata(
         'mysql_pct_max_used_memory',
         mycalc['pct_max_used_memory'],
+        uom='%',
+        _min=0,
+        _max=100,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_pct_rss',
+        mycalc['pct_rss'],
         uom='%',
         warn=args.WARNING,
         crit=args.CRITICAL,

@@ -33,9 +33,10 @@ Monitoring Plugins:
 * lynis-logfile: Reports how many tests the lynis profile skips.
 * mysql-connections: Speaks of failed connection attempts instead of aborted connections, and points to the denied logins.
 * mysql-index-health: Redundant indexes no longer alert by default.
-* mysql-memory: Counts one temporary table per connection, so the peak memory rises on servers with many connections.
 * mysql-innodb-buffer-pool-size: No longer alerts just because the data is larger than the buffer pool.
+* mysql-memory: Alerts on the memory the database server really uses, the calculated worst case and other processes no longer alert.
 * mysql-perf-metrics: `innodb_snapshot_isolation` no longer alerts, and `--storage-type=auto` no longer judges virtual disks.
+* mysql-temp-tables: No longer alerts by default, and no longer advises raising `tmp_table_size`.
 * mysql-tls: A server on loopback only no longer alerts about `require_secure_transport` and the certificate.
 * mysql-user-security: A legacy authentication plugin no longer alerts on MariaDB.
 * nextcloud-stats: The output says "enabled apps", since disabled apps are not part of the count.
@@ -52,6 +53,7 @@ Icinga Director:
 
 * deb-updates, rpm-updates: Check for updates every 8 hours instead of once a day.
 * FreeIPA Server Service Set: Also checks the result of ipa-healthcheck and its timer.
+* MariaDB and MySQL Metrics Service Sets: Also check long-running queries, which moved there from the Schemas Service Sets.
 * OS - \* Basic Service Sets: `Systemd Units Failed` no longer alerts on a failed `ipa-healthcheck.service`.
 
 Grafana:
@@ -81,7 +83,8 @@ Monitoring Plugins:
 * graylog-version: No longer times out right after a reboot on RHEL 8.
 * mysql-index-health: Never suggests dropping a primary key as a redundant index.
 * mysql-logfile: A MariaDB restart counts as one shutdown, and denied logins no longer come with "No errors or warnings found".
-* mysql-memory: No more false alarms from a large `max_allowed_packet`, and the Performance Schema memory is counted.
+* mysql-memory: No more false alarms from a large `max_allowed_packet` or `join_buffer_size` on MariaDB 11, and the Performance Schema memory is counted.
+* mysql-table-definition-cache: No longer counts the `information_schema` tables, which never take a slot in the cache.
 * needs-restarting: The first run after a reboot no longer breaks the RPM database on RHEL 8, and a broken RPM database returns UNKNOWN instead of a pending reboot.
 * nextcloud-status: An HTTP 404 names the wrong path in `--url`, and a web server error page is no longer quoted with its CSS.
 
