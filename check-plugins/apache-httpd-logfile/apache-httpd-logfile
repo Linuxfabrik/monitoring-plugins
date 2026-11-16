@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110201'
+__version__ = '2026111601'
 
 DESCRIPTION = """Scans the Apache HTTP Server error log for the events an administrator
 has to act on: children that died on a signal or had to be killed at a stop, a server that
@@ -41,12 +41,13 @@ them, so a server that keeps restarting is visible.
 Alerts when one of those events shows up, when the lines one client provokes cross
 the rates the thresholds set, and when a line arrives at a level `--critical-level`
 or `--warning-level` covers.
-What Apache logged about one request and one client - a denied access, a password that did
-not match, a request line it refused to parse - is counted within `--lookback` and judged
-by how many of them arrived, not by the fact that they did: one is a bot or a bad link,
-hundreds within ten minutes is somebody walking the site or guessing passwords. Those
-lines are counted there and nowhere else, so the background noise every internet-facing
-server produces does not keep the check permanently yellow.
+What Apache logged about one request and one client - a password that did not match, a
+request line it refused to parse, a denied access - is counted within `--lookback` and
+judged by how many of them arrived, not by the fact that they did: one is a bot or a bad
+link, hundreds within ten minutes is somebody guessing passwords or scanning the site. A
+denied access is a `Require` doing its job and raises no state unless its thresholds are
+set. Those lines are counted there and nowhere else, so the background noise every
+internet-facing server produces does not keep the check permanently yellow.
 What is left is what Apache said about itself, and that is counted by the level it wrote
 at the head of the line: `emerg`, `alert` and `crit` return CRITICAL, `error` returns
 WARNING, and `--critical-level` and `--warning-level` move that split. The events named
@@ -84,10 +85,18 @@ LEVEL_NONE = 'none'
 # The window they are counted in is `--lookback`, whose default is those same ten
 # minutes. A host without such a system collects far more and wants them raised;
 # the README says by how much.
+#
+# Denied requests are the exception and are counted, but not judged, by default.
+# `client denied by server configuration` is a `Require` doing what it was
+# written for, typically against a crawler the site blocks by its user agent,
+# and nothing an administrator can act on: one such crawler keeps a site that
+# blocks it above any threshold for days. Whether real users are locked out is
+# what a check of the site itself answers, and a password being guessed is the
+# authentication failure counter.
 DEFAULT_AUTH_FAILURES_CRITICAL = 60
 DEFAULT_AUTH_FAILURES_WARNING = 6
-DEFAULT_CLIENT_DENIALS_CRITICAL = 60
-DEFAULT_CLIENT_DENIALS_WARNING = 6
+DEFAULT_CLIENT_DENIALS_CRITICAL = 0
+DEFAULT_CLIENT_DENIALS_WARNING = 0
 DEFAULT_CRITICAL_LEVEL = 'crit'
 DEFAULT_ICINGA_CALLBACK = False
 DEFAULT_INSECURE = True
@@ -464,10 +473,12 @@ EVENTS = (
 # What Apache writes once per rejected request rather than once per problem: an
 # access somebody is not allowed, and a password that did not match. One of them
 # is a misconfigured link or a bot, and no reason to get anybody out of bed;
-# hundreds of them in ten minutes is somebody walking the site or guessing
-# passwords. They are therefore counted against a rate rather than reported line
-# by line, and they are kept out of the per-level counts above, so the background
-# noise every internet-facing server produces leaves the check green.
+# hundreds of failed passwords in ten minutes is somebody guessing them. Denied
+# requests only raise a state where their thresholds are set (see
+# DEFAULT_CLIENT_DENIALS_WARNING). They are therefore counted against a rate
+# rather than reported line by line, and they are kept out of the per-level
+# counts above, so the background noise every internet-facing server produces
+# leaves the check green.
 #
 # `mod_auth_digest` carries no message codes at all and is not matched; it is
 # also not what a site set up today uses.

@@ -685,11 +685,16 @@ lib.lftest.attach_each(TestCheck, CASES, _check_case, id_func=lambda it: it['id'
 class TestArrivalRate(unittest.TestCase):
     """A burst of denied requests alerts, the same burst an hour ago does not.
 
+    Denied requests are not judged by default, so the tests that exercise the
+    rate set the thresholds a site that wants them would set.
+
     The log is written here rather than taken from `fixtures/`, because a
     timestamp stored in the repository sits inside the rate window on the day it
     was captured and outside it on every day after. It goes below `unit-test/`,
     which is where the plugin allows itself to read outside /var/log.
     """
+
+    THRESHOLDS = ('--client-denials-warning=6', '--client-denials-critical=60')
 
     def setUp(self):
         self.scratch_dir = tempfile.mkdtemp(prefix='burst-', dir=HERE)
@@ -713,9 +718,19 @@ class TestArrivalRate(unittest.TestCase):
                 )
         return path
 
+    def test_burst_within_the_window_is_reported_but_quiet_by_default(self):
+        # A crawler the configuration blocks by its user agent: the count is in
+        # the output and the perfdata, the state stays OK.
+        path = self._write_denials(count=200, minutes_ago=5)
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_OK, combined)
+        self.assertIn('Last 10m: 200 client denials from 198.51.100.7', combined)
+        self.assertIn("'apache_httpd_client_denials'=200", combined)
+        self.assertNotIn('walking the site', combined)
+
     def test_burst_within_the_window_warns(self):
         path = self._write_denials(count=20, minutes_ago=5)
-        returncode, combined = _run([f'--server-log={path}'])
+        returncode, combined = _run([f'--server-log={path}', *self.THRESHOLDS])
         self.assertEqual(returncode, STATE_WARN, combined)
         self.assertIn('Last 10m: 20 client denials from 198.51.100.7', combined)
         self.assertIn('walking the site', combined)
@@ -723,7 +738,11 @@ class TestArrivalRate(unittest.TestCase):
     def test_burst_within_the_window_crits_above_the_threshold(self):
         path = self._write_denials(count=20, minutes_ago=5)
         returncode, combined = _run(
-            [f'--server-log={path}', '--client-denials-critical=10']
+            [
+                f'--server-log={path}',
+                '--client-denials-warning=6',
+                '--client-denials-critical=10',
+            ]
         )
         self.assertEqual(returncode, STATE_CRIT, combined)
 
@@ -732,27 +751,31 @@ class TestArrivalRate(unittest.TestCase):
         # network going past, and what an intrusion prevention system answers
         # long before this check would have anything to say.
         path = self._write_denials(count=20, minutes_ago=5, peers=10)
-        returncode, combined = _run([f'--server-log={path}'])
+        returncode, combined = _run([f'--server-log={path}', *self.THRESHOLDS])
         self.assertEqual(returncode, STATE_OK, combined)
         self.assertIn('2 client denials from 198.51.100.', combined)
         self.assertIn('(20 in total from 10 addresses)', combined)
 
     def test_the_total_is_what_no_per_source_judges(self):
         path = self._write_denials(count=20, minutes_ago=5, peers=10)
-        returncode, combined = _run([f'--server-log={path}', '--no-per-source'])
+        returncode, combined = _run(
+            [f'--server-log={path}', '--no-per-source', *self.THRESHOLDS]
+        )
         self.assertEqual(returncode, STATE_WARN, combined)
         self.assertIn('Last 10m: 20 client denials', combined)
 
     def test_the_same_burst_an_hour_ago_is_quiet(self):
         path = self._write_denials(count=20, minutes_ago=60)
-        returncode, combined = _run([f'--server-log={path}'])
+        returncode, combined = _run([f'--server-log={path}', *self.THRESHOLDS])
         self.assertEqual(returncode, STATE_OK, combined)
         self.assertIn('Last 10m: 0 client denials', combined)
         self.assertIn('(20 in the whole window)', combined)
 
     def test_a_wider_window_sees_the_older_burst(self):
         path = self._write_denials(count=20, minutes_ago=60)
-        returncode, combined = _run([f'--server-log={path}', '--lookback=7200'])
+        returncode, combined = _run(
+            [f'--server-log={path}', '--lookback=7200', *self.THRESHOLDS]
+        )
         self.assertEqual(returncode, STATE_WARN, combined)
         self.assertIn('Last 2h: 20 client denials from 198.51.100.7', combined)
 
