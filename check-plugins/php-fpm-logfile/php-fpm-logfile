@@ -29,7 +29,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026111201'
+__version__ = '2026111601'
 
 DESCRIPTION = """Scans the PHP-FPM error log for the events an administrator has to act
 on: rejected configurations, worker crashes, workers killed by the kernel's OOM killer,
@@ -174,6 +174,22 @@ LEVEL_REGEX = re.compile(
 # transport's.
 TIMESTAMP_REGEX = re.compile(r'\[(\d{2}-\w{3}-\d{4} \d{2}:\d{2}:\d{2})\]')
 TIMESTAMP_FORMAT = '%d-%b-%Y %H:%M:%S'
+
+# What differs between two lines saying the same thing, for grouping them in a
+# listing: the time at the head, in either of the two shapes above, the process
+# a worker runs as, how long it ran, and the figures of the spawn message. The
+# pool, the script and the request stay, because they are what tells one problem
+# from another.
+LEADING_TIMESTAMP_REGEX = re.compile(r'^\[\d{2}-\w{3}-\d{4} [\d:.]+(?: [^\]\s]+)?\]\s*')
+MESSAGE_MASKS = (
+    (re.compile(r'\b(child|pid) \d+'), r'\1 *'),
+    (re.compile(r'\(\d+(?:\.\d+)? sec\)'), '(* sec)'),
+    (re.compile(r'after \d+(?:\.\d+)? seconds'), 'after * seconds'),
+    (
+        re.compile(r'spawning \d+ children, there are \d+ idle, and \d+ total'),
+        'spawning * children, there are * idle, and * total',
+    ),
+)
 
 # What PHP itself writes into the `error_log` of a pool: `[05-Oct-2026 04:03:05
 # Europe/Zurich] PHP Fatal error:  Uncaught ...`, and the same prefix in front of
@@ -1039,6 +1055,16 @@ def get_pool_error_logs(allowed_roots, config_root=''):
     return found
 
 
+def get_message(log_line):
+    """Return what a line says, with everything that differs between two lines
+    saying the same thing masked, see MESSAGE_MASKS."""
+    message = lib.logsource.strip_syslog_prefix(log_line)
+    message = LEADING_TIMESTAMP_REGEX.sub('', message)
+    for regex, replacement in MESSAGE_MASKS:
+        message = regex.sub(replacement, message)
+    return message
+
+
 def parse_timestamp(log_line):
     """Return the moment PHP-FPM stamped a line with, or None when it carries none.
 
@@ -1576,7 +1602,10 @@ def main():
         )
         rate_counts[event['key']] = window['count']
         rate_states[event['key']] = STATE_OK
-        if not hits:
+        # Only what arrived within the rate window is worth a sentence: what the
+        # rest of the window read holds is history, and the performance data
+        # trends it.
+        if not window['total'] and not window['undated']:
             continue
         rate_state = lib.base.get_state(
             window['count'],
@@ -1591,8 +1620,6 @@ def main():
             f' {lib.human.seconds2human(args.LOOKBACK)}'
             f'{lib.base.state2str(rate_state, prefix=" ")}'
         )
-        if len(hits) != window['count']:
-            fact += f' ({len(hits)} in the window read)'
         if window['undated']:
             fact += (
                 f', {window["undated"]} of them without a timestamp and therefore'
@@ -1614,7 +1641,6 @@ def main():
             f'{len(lines)} {item["level"]} '
             f'{lib.txt.pluralize("line", len(lines))} found'
             f'{lib.base.state2str(level_state, prefix=" ")}'
-            f' (last: {lines[-1]})'
         )
     if (
         not any(counts.values())
@@ -1662,12 +1688,18 @@ def main():
     for item in LIFECYCLE:
         lines = found[item['key']]
         # A counter at zero says nothing the performance data does not, and a
-        # sentence about it would only push the verdict further right.
+        # sentence about it would only push the verdict further right. The
+        # moment of the last one rather than its line: the line is in the log,
+        # the summary only has to say when to look.
         if lines:
-            facts.append(
+            fact = (
                 f'{len(lines)} {lib.txt.pluralize(item["label"], len(lines))}'
-                f' {item["verb"]} (last: {lines[-1]})'
+                f' {item["verb"]}'
             )
+            last = lib.logsource.timestamp(lines[-1], parse_timestamp)
+            if last is not None:
+                fact += f' (last: {last:%Y-%m-%d %H:%M:%S})'
+            facts.append(fact)
 
     # A few lines without a level are normal where the application logs into the
     # same file; a majority of them means the source is mostly something else.
@@ -1705,51 +1737,67 @@ def main():
     # against a week.
     sections.append(covered + '. '.join(facts) + '.')
 
+    # What the check alerts on, grouped by what the lines say, so a burst of a
+    # few hundred reads as the two or three things that happened, each with its
+    # count and the moment of the last one.
     for item in LEVELS:
         lines = levels[item['level']]
         if lines:
+            groups = lib.logsource.group_lines(
+                lines, parse_line=parse_timestamp, group=get_message
+            )
             sections.append(
                 f'{item["level"].capitalize()} lines:\n'
-                + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(lines))
+                + '\n'.join(
+                    f'* {text}'
+                    for text in lib.logsource.describe_groups(groups, last=True)
+                )
             )
 
     # The lines behind the named events. They are kept out of the per-level
     # counts above, so without this they are the one thing the check alerts on
     # that it never shows: "1 pool saturation" says that a pool ran dry, not
     # when, not which one, and not whether it was five minutes ago or a burst
-    # from yesterday still sitting in the rotated file. The timestamp is what
-    # lets the access log be read for the same minute, which is where the cause
-    # of a saturation is.
+    # from yesterday still sitting in the rotated file. The moment of the last
+    # one is what lets the access log be read for the same minute, which is
+    # where the cause of a saturation is.
     for event in EVENTS:
         lines = found[event['key']]
         if lines:
-            label = lib.txt.pluralize(
-                event['label'], len(lines), event.get('suffix', 's')
+            groups = lib.logsource.group_lines(
+                lines, parse_line=parse_timestamp, group=get_message
             )
+            label = lib.txt.pluralize(event['label'], 2, event.get('suffix', 's'))
             # not `capitalize()`, which would turn `OOM kill` into `Oom kill`
             sections.append(
                 f'{label[:1].upper()}{label[1:]}:\n'
-                + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(lines))
+                + '\n'.join(
+                    f'* {text}'
+                    for text in lib.logsource.describe_groups(groups, last=True)
+                )
             )
 
     # The lines behind a counted event that raised a state, from within the rate
     # window. The recommendation points at them: the scripts that timed out say
-    # whether one page is slow or a backend stalled under all of them.
+    # whether one page is slow or a backend stalled under all of them. PHP-FPM
+    # names no client, so they are grouped by what they say.
     for event in RATE_EVENTS:
         if rate_states[event['key']] == STATE_OK:
             continue
-        lines = [
-            line
-            for line in found[event['key']]
-            if (lib.logsource.timestamp(line, parse_timestamp) or rate_since)
-            >= rate_since
-        ]
-        if lines:
-            label = lib.txt.pluralize(event['label'], len(lines))
+        groups = lib.logsource.group_lines(
+            found[event['key']],
+            since=rate_since,
+            parse_line=parse_timestamp,
+            group=get_message,
+        )
+        if groups:
+            label = lib.txt.pluralize(event['label'], 2)
             sections.append(
                 f'{label[:1].upper()}{label[1:]} in the last'
                 f' {lib.human.seconds2human(args.LOOKBACK)}:\n'
-                + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(lines))
+                + '\n'.join(
+                    f'* {text}' for text in lib.logsource.describe_groups(groups)
+                )
             )
 
     # What was read, last of the sections: the verdict and the lines behind it

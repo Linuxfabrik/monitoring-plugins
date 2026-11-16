@@ -29,7 +29,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110201'
+__version__ = '2026111601'
 
 DESCRIPTION = """Scans the log of the OpenSSH server for the events an administrator has to
 act on: a server that refused to start, a host key it could not load, a key file it refused
@@ -204,6 +204,23 @@ SOURCE_KEYWORD_REGEX = re.compile(
 # Nothing behind it names the peer, and everything behind it can hold what the
 # client sent, so the search stops here.
 SOURCE_TAIL_REGEX = re.compile(r'\sssh\d*:\s')
+
+# The account a line is about, which is what says whether a source works through
+# a name list or keeps mistyping one account. sshd writes it behind `user`, behind
+# `for` and behind `invalid`, `illegal` and `authenticating user`, and always in
+# front of `from`, `by PAM`, the peer and its port, or `not allowed`. The
+# lookahead is what keeps `for 198.51.100.7 port 22` from reading as an account.
+# Verified against the lines of OpenSSH 8.0p1 (Rocky 8), 9.9p1 (Rocky 9) and
+# 10.0p2 (Debian 13) in the fixtures.
+ACCOUNT_REGEX = re.compile(
+    r'(?:\b(?:invalid|illegal|authenticating) user|\buser'
+    r'|\bfor(?: (?:invalid|illegal) user)?)\s(\S+)\s'
+    r'(?=from\s|by pam\b|\S+\s+port\b|not allowed\b)',
+    re.IGNORECASE,
+)
+# The account is what the client sent, so a long one is cut rather than allowed
+# to push the listing off the screen.
+ACCOUNT_MAX_LEN = 32
 
 # The events worth naming on their own. sshd writes no severity into a line - the
 # `error:` and `fatal:` prefixes it does write say how the message was logged and
@@ -941,6 +958,34 @@ def get_source(log_line):
     return None
 
 
+def get_account(log_line):
+    """Return the account a line is about, or None where it names none.
+
+    Looked for only in front of the ` ssh2: ` that `auth_log()` puts in front of
+    what was offered, for the same reason as in get_source().
+    """
+    tail = SOURCE_TAIL_REGEX.search(log_line)
+    head = log_line[: tail.start()] if tail else log_line
+    match = ACCOUNT_REGEX.search(head)
+    if not match:
+        return None
+    return lib.txt.shorten(match.group(1), ACCOUNT_MAX_LEN)
+
+
+def get_message(log_line):
+    """Return what a line says, with everything that differs between two lines
+    saying the same thing taken out: the prefix of the transport and the port of
+    the peer.
+
+    Only the port behind an address, which is the peer's: `Bind to port 22`
+    names the port sshd failed to take, and that is the point of the line.
+    `*` rather than a placeholder in angle brackets, which the output escapes.
+    """
+    return SOURCE_PORT_REGEX.sub(
+        r'\1 port *', lib.logsource.strip_syslog_prefix(log_line)
+    )
+
+
 def get_log_level(config_root=''):
     """Return the server-wide `LogLevel` of the sshd configuration, or None.
 
@@ -1431,6 +1476,7 @@ def main():
     # the rate window, not from the fact that they arrived at all.
     rate_counts = {}
     rate_facts = []
+    rate_states = {}
     for event in RATE_EVENTS:
         hits = found[event['key']]
         # Counted per peer where the lines name one, because that is what makes
@@ -1452,13 +1498,18 @@ def main():
             else None,
         )
         rate_counts[event['key']] = window['count']
-        if not hits:
+        rate_states[event['key']] = STATE_OK
+        # Only what arrived within the rate window is worth a sentence: what the
+        # rest of the window read holds is history, and the performance data
+        # trends it.
+        if not window['total'] and not window['undated']:
             continue
         rate_state = lib.base.get_state(
             window['count'],
             getattr(args, event['warning']) or None,
             getattr(args, event['critical']) or None,
         )
+        rate_states[event['key']] = rate_state
         state = lib.base.get_worst(state, rate_state)
         fact = f'{window["count"]} {lib.txt.pluralize(event["label"], window["count"])}'
         if window['busiest']:
@@ -1467,16 +1518,6 @@ def main():
             f' in the last {lib.human.seconds2human(args.LOOKBACK)}'
             f'{lib.base.state2str(rate_state, prefix=" ")}'
         )
-        extras = []
-        if window['total'] != window['count']:
-            extras.append(
-                f'{window["total"]} in total from {window["sources"]}'
-                f' {lib.txt.pluralize("address", window["sources"], "es")}'
-            )
-        if len(hits) != window['total']:
-            extras.append(f'{len(hits)} in the window read')
-        if extras:
-            fact += ' (' + ', '.join(extras) + ')'
         if window['undated']:
             fact += (
                 f', {window["undated"]} of them without a timestamp and therefore'
@@ -1490,7 +1531,10 @@ def main():
     if not named and not rate_facts:
         # Naming every quiet counter one by one would bury the one sentence a
         # healthy host is supposed to be.
-        facts.append('No failed logins and nothing else worth reporting found')
+        facts.append(
+            f'No failed logins in the last {lib.human.seconds2human(args.LOOKBACK)}'
+            f' and nothing else worth reporting found'
+        )
 
     lifecycle_counts = {}
     for item in LIFECYCLE:
@@ -1501,18 +1545,21 @@ def main():
             count = lib.logsource.count_within(lines, rate_since)['total']
             within = f' in the last {lib.human.seconds2human(args.LOOKBACK)}'
         lifecycle_counts[item['key']] = count
-        if not lines:
+        if not count:
             # Nothing happened, which is what the counter in the performance data
             # says; a sentence about it would only push the verdict further right.
             continue
         # A counter over the whole window reads as `2 restarts detected`, one
-        # over `--lookback` as `0 successful logins in the last 10m`, where the
-        # window says what the verb otherwise would.
+        # over `--lookback` as `3 successful logins in the last 10m`, where the
+        # window says what the verb otherwise would. The moment of the last one
+        # rather than its line: the line is in the log, the summary only has to
+        # say when to look.
         fact = f'{count} {lib.txt.pluralize(item["label"], count)}'
         fact += within or f' {item["verb"]}'
-        if len(lines) != count:
-            fact += f' ({len(lines)} in the window read)'
-        facts.append(f'{fact} (last: {lines[-1]})')
+        last = lib.logsource.timestamp(lines[-1])
+        if last is not None:
+            fact += f' (last: {last:%Y-%m-%d %H:%M:%S})'
+        facts.append(fact)
 
     # A `LogLevel` below `INFO` keeps sshd from writing what this check counts,
     # so a quiet report would say nothing about the host. It goes first, ahead of
@@ -1557,13 +1604,50 @@ def main():
     # against a week.
     sections.append(covered + '. '.join(facts) + '.')
 
+    # What the check alerts on, grouped by what the lines say, so a burst of a
+    # few hundred reads as the two or three things that happened, each with its
+    # count and the moment of the last one.
     for event in EVENTS:
         lines = found[event['key']]
         if lines:
             label = lib.txt.pluralize(event['label'], 2, event.get('suffix', 's'))
+            groups = lib.logsource.group_lines(lines, group=get_message)
             sections.append(
                 f'{label.capitalize()}:\n'
-                + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(lines))
+                + '\n'.join(
+                    f'* {item}'
+                    for item in lib.logsource.describe_groups(groups, last=True)
+                )
+            )
+
+    # The lines behind a counted event that raised a state, from within the rate
+    # window. Grouped per peer where the state was judged per peer, with the
+    # accounts each one tried, because that is what tells a scanner working
+    # through a name list from a colleague mistyping their own; otherwise by what
+    # the lines say.
+    for event in RATE_EVENTS:
+        if rate_states[event['key']] == STATE_OK:
+            continue
+        per_source = args.PER_SOURCE and event.get('per_source', True)
+        groups = lib.logsource.group_lines(
+            found[event['key']],
+            since=rate_since,
+            group=get_source if per_source else get_message,
+            detail=get_account if per_source else None,
+        )
+        if groups:
+            label = lib.txt.pluralize(event['label'], 2)
+            sections.append(
+                f'{label.capitalize()} in the last'
+                f' {lib.human.seconds2human(args.LOOKBACK)}:\n'
+                + '\n'.join(
+                    f'* {item}'
+                    for item in lib.logsource.describe_groups(
+                        groups,
+                        detail_label='account' if per_source else None,
+                        unnamed='no address',
+                    )
+                )
             )
 
     # What was read, last of the sections: the verdict and the lines behind it

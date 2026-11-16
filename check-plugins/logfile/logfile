@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102501'
+__version__ = '2026111601'
 
 DESCRIPTION = """Scans a logfile for matching patterns or regular expressions and alerts based on the
 number of matches found. Only the lines added since the previous run are scanned, and the
@@ -940,28 +940,33 @@ def main():
             f' from previous runs.'
         )
 
+    # The matching lines, grouped by what they say, so a line that repeats a
+    # few hundred times reads as one entry with its count and the moment of the
+    # last one, rather than pushing everything else off the screen. A match
+    # printed with its context spans several lines, and the moment would then
+    # follow the last line of the context while coming from the first, so those
+    # go without it; their lines carry their own timestamps anyway.
     if not args.SUPPRESS_OUTPUT:
-        if warn_matches:
-            msg += '\n\nWarning matches:\n* ' + '\n* '.join(
-                match['text'] for match in warn_matches
-            )
-
-        if crit_matches:
-            msg += '\n\nCritical matches:\n* ' + '\n* '.join(
-                match['text'] for match in crit_matches
-            )
-
-        if old_warn_matches:
-            msg += (
-                '\n\nUnacknowledged warning matches from previous runs:\n* '
-                + '\n* '.join(match['line'] for match in old_warn_matches)
-            )
-
-        if old_crit_matches:
-            msg += (
-                '\n\nUnacknowledged critical matches from previous runs:\n* '
-                + '\n* '.join(match['line'] for match in old_crit_matches)
-            )
+        for heading, lines in (
+            ('Warning matches', [match['text'] for match in warn_matches]),
+            ('Critical matches', [match['text'] for match in crit_matches]),
+            (
+                'Unacknowledged warning matches from previous runs',
+                [match['line'] for match in old_warn_matches],
+            ),
+            (
+                'Unacknowledged critical matches from previous runs',
+                [match['line'] for match in old_crit_matches],
+            ),
+        ):
+            if lines:
+                msg += f'\n\n{heading}:\n' + '\n'.join(
+                    f'* {text}'
+                    for text in lib.logsource.describe_groups(
+                        lib.logsource.group_lines(lines),
+                        last=not any('\n' in line for line in lines),
+                    )
+                )
 
     perfdata = lib.base.get_perfdata(
         'scanned_lines',

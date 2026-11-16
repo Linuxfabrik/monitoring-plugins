@@ -266,28 +266,17 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-logfile/
 Output:
 
 ```text
-2 errors found [CRITICAL] (last: 220503 11:21:43 [ERROR] Aborting). 1 warning found [WARNING] (last: 220502 14:59:58 [Warning] Plugin 'FEEDBACK' is disabled.). 2 startups detected (last: 220503 11:24:54). 4 shutdowns detected (last: 220503 11:21:48). Read 61 lines from `/var/log/mariadb/mariadb.log` (size: 5.8KiB < 32.0MiB).
+2026-05-02 14:59 .. 2026-05-03 11:24 (20h 24m): 2 error lines found [CRITICAL]. 1 warning line found [WARNING]. 3 startups detected (last: 2026-05-03 11:24:54). 2 shutdowns detected (last: 2026-05-03 11:21:42).
 
-Errors:
-* 220503 11:21:43 [ERROR] /usr/libexec/mysqld: unknown variable 'myvar2=myvalue2'
-* 220503 11:21:43 [ERROR] Aborting
+Error lines:
+* 1x [ERROR] /usr/libexec/mariadbd: unknown variable 'myvar2=myvalue2' (last: 2026-05-03 11:21:43)
+* 1x [ERROR] Aborting (last: 2026-05-03 11:21:43)
 
-Warnings:
-* 220502 14:59:58 [Warning] Plugin 'FEEDBACK' is disabled.
+Warning lines:
+* 1x [Warning] Plugin 'FEEDBACK' is disabled. (last: 2026-05-02 14:59:58)
 
-Startups:
-* 220503 11:07:38 [Note] /usr/libexec/mysqld: ready for connections.
-* 220503 11:24:54 [Note] /usr/libexec/mysqld: ready for connections.
-
-Shutdowns:
-* 220503 11:07:07 [Note] /usr/libexec/mysqld: Shutdown complete
-* 220503 11:07:12 [Note] /usr/libexec/mysqld: Shutdown complete
-* 220503 11:21:42 [Note] /usr/libexec/mysqld: Shutdown complete
-* 220503 11:21:48 [Note] /usr/libexec/mysqld: Shutdown complete
-
-Recommendations:
-* Check the errors in `/var/log/mariadb/mariadb.log`
-* Check the warning in `/var/log/mariadb/mariadb.log`
+Read 9 lines from 1 source:
+* `/var/log/mariadb/mariadb.log` (size: 649.0B < 32.0MiB)
 ```
 
 

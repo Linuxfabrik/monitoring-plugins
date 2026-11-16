@@ -75,12 +75,15 @@ CASES = [
         'assert_in': [
             '1 warning line found',
             '[WARNING]',
-            'Warning lines:',
+            # grouped, without the moment and the thread at the head
+            'Warning lines:\n* 1x [Warning] [MY-010068] [Server] CA certificate'
+            ' ca.pem is self signed. (last: ',
         ],
         # A plain level count gets no recommendation: the lines are listed, and
         # "check the warnings" is what that listing is for. Only the named
         # situations say what to do about them.
-        'assert_not_in': ['Recommendations:'],
+        # the line is listed below rather than quoted in the summary
+        'assert_not_in': ['Recommendations:', '(last: 2026-05-09T'],
     },
     {
         'id': 'crit-one-error-one-warning',
@@ -209,7 +212,6 @@ CASES = [
         'retc': STATE_OK,
         'assert_in': [
             '4 denied logins from localhost in the last',
-            '(7 in total from 2 addresses)',
         ],
         # The denied logins are `[Warning]` lines, so claiming there were none
         # right before reporting them would contradict the next sentence.
@@ -322,12 +324,13 @@ class TestAbortedConnections(unittest.TestCase):
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603 - argv list, no shell
         combined = result.stdout + result.stderr
         self.assertEqual(result.returncode, STATE_OK, combined)
-        self.assertNotIn('No errors or warnings found', combined)
-        self.assertIn('0 aborted connections in the last 10m', combined)
-        self.assertIn('(4 in the window read)', combined)
+        # All of them hours old: history, which the summary leaves out, so the
+        # quiet sentence stands and contradicts nothing.
+        self.assertIn('No errors or warnings found', combined)
+        self.assertNotIn('aborted connection', combined)
         self.assertIn("'mysql_aborted_connections'=0;20;200;0", combined)
         # Nothing to act on, so the lines stay out of the output.
-        self.assertNotIn('Aborted connections:', combined)
+        self.assertNotIn('Aborted connections', combined)
 
     def test_a_burst_alerts_and_names_the_host_it_came_from(self):
         cmd = [
@@ -340,7 +343,13 @@ class TestAbortedConnections(unittest.TestCase):
         combined = result.stdout + result.stderr
         self.assertEqual(result.returncode, STATE_WARN, combined)
         self.assertIn('from localhost', combined)
-        self.assertIn('Aborted connections:', combined)
+        # per host, with the databases and accounts each one used
+        self.assertIn(
+            'Aborted connections in the last 1Y:\n'
+            '* localhost: 3x, 2 databases (`icinga_director` as `mariadb-admin`,'
+            ' `icingaweb2` as `mariadb-admin`)',
+            combined,
+        )
 
 
 class TestSeveralSources(unittest.TestCase):

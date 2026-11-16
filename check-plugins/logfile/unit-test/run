@@ -192,6 +192,24 @@ TESTS = [
         'assert-not-in': ['[WARNING]', '[CRITICAL]'],
     },
     {
+        # A line that repeats is one entry with its count, the process id the
+        # syslog daemon put in front of it notwithstanding, and what goes beyond
+        # five entries is counted rather than listed.
+        'id': 'crit-repeated-lines-are-grouped',
+        'test': 'stdout/syslog-repeated-errors,,0',
+        'params': (
+            '--filename=stdout/syslog-repeated-errors --critical-regex=" ERROR "'
+        ),
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '(matched 14 lines) [CRITICAL]',
+            'Critical matches:\n* 8x ERROR database connection lost (last: ',
+            '* 1x ERROR job 5 failed (last: ',
+            '* ... and 2 more',
+        ],
+        'assert-not-in': ['ERROR job 0 failed'],
+    },
+    {
         'id': 'crit-no-context-by-default',
         'test': 'stdout/django-app-traceback,,0',
         'params': (
@@ -200,7 +218,7 @@ TESTS = [
             '--critical-regex=" ERROR "'
         ),
         'assert-retc': STATE_CRIT,
-        'assert-in': ['* 2026-09-21 10:00:02 ERROR Request failed'],
+        'assert-in': ['* 1x 2026-09-21 10:00:02 ERROR Request failed'],
         'assert-not-in': ['>>> ', 'Traceback'],
     },
     {
@@ -217,13 +235,13 @@ TESTS = [
         ),
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            '* 2026-09-21 10:00:00 INFO GET /\n'
+            '* 1x 2026-09-21 10:00:00 INFO GET /\n'
             '  2026-09-21 10:00:01 INFO POST /api/order\n'
             '  >>> 2026-09-21 10:00:02 ERROR Request failed\n'
             '  Traceback (most recent call last):\n'
             '    File "app.py", line 12, in handle\n'
             '  ValueError: order id missing',
-            '* >>> 2026-09-21 10:00:03 WARNING Slow response\n'
+            '* 1x >>> 2026-09-21 10:00:03 WARNING Slow response\n'
             '  2026-09-21 10:00:04 INFO GET /health\n'
             '  2026-09-21 10:00:05 INFO GET /',
         ],
@@ -238,7 +256,7 @@ TESTS = [
         ),
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            '* 2026-09-21 10:00:01 INFO POST /api/order\n'
+            '* 1x 2026-09-21 10:00:01 INFO POST /api/order\n'
             '  >>> 2026-09-21 10:00:02 ERROR Request failed',
         ],
         'assert-not-in': ['Traceback'],
@@ -256,7 +274,7 @@ TESTS = [
         ),
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            '* >>> 2026-09-21 10:00:02 ERROR Request failed\n'
+            '* 1x >>> 2026-09-21 10:00:02 ERROR Request failed\n'
             '  Traceback (most recent call last):'
         ],
     },
@@ -737,7 +755,7 @@ class TestContextAcrossRuns(unittest.TestCase):
             'crit-leading-context-from-previous-run',
             '--before-context=2',
             assert_in=[
-                '* line 2\n  line 3\n  >>> ERROR only new line',
+                '* 1x line 2\n  line 3\n  >>> ERROR only new line',
             ],
             assert_not_in=['line 1'],
         )
@@ -750,14 +768,14 @@ class TestContextAcrossRuns(unittest.TestCase):
             'crit-first-trailing-line',
             '--after-context=2',
             assert_in=[
-                '* >>> ERROR last line of the run\n  trace 1',
+                '* 1x >>> ERROR last line of the run\n  trace 1',
             ],
         )
         self._append('trace 2\ntrace 3\n')
         self._run(
             'crit-trailing-context-complete',
             '--after-context=2',
-            assert_in=['* >>> ERROR last line of the run\n  trace 1\n  trace 2'],
+            assert_in=['* 1x >>> ERROR last line of the run\n  trace 1\n  trace 2'],
             assert_not_in=['trace 3'],
         )
 
@@ -769,7 +787,7 @@ class TestContextAcrossRuns(unittest.TestCase):
         self._run(
             'crit-no-context-across-rotation',
             '--before-context=2',
-            assert_in=['* ERROR first line after rotation'],
+            assert_in=['* 1x ERROR first line after rotation'],
             assert_not_in=['before rotation', '>>> '],
         )
 

@@ -31,7 +31,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110301'
+__version__ = '2026111601'
 
 DESCRIPTION = """Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table
@@ -90,7 +90,9 @@ LOGFILE_BIG_THRESHOLD = 32 * 1024 * 1024  # 32 MiB - matches mysqltuner's cutoff
 # The host it names is what the rate is counted per. It is whatever the server
 # resolved the peer to, an address or a name, and it is taken as it stands.
 # Verified against MariaDB 11.8 and MySQL 8.4.
-ACCESS_DENIED_REGEX = re.compile(r"Access denied for user '[^']*'@'(?P<source>[^']*)'")
+ACCESS_DENIED_REGEX = re.compile(
+    r"Access denied for user '(?P<user>[^']*)'@'(?P<source>[^']*)'"
+)
 
 # A client that went away without saying goodbye. The server writes one of these
 # for every connection that ends without `COM_QUIT`, which every application that
@@ -99,8 +101,21 @@ ACCESS_DENIED_REGEX = re.compile(r"Access denied for user '[^']*'@'(?P<source>[^
 # its level leaves the check permanently yellow on a host where nothing is wrong;
 # a burst of them, on the other hand, is a network or an application falling over.
 ABORTED_CONNECTION_REGEX = re.compile(
-    r"Aborted connection \d+ to db: '[^']*' user: '[^']*' host: '(?P<source>[^']*)'"
+    r"Aborted connection \d+ to db: '(?P<db>[^']*)' user: '(?P<user>[^']*)'"
+    r" host: '(?P<source>[^']*)'"
 )
+
+# What differs between two lines saying the same thing, for grouping them in a
+# listing: the moment and the thread at the head (`2026-08-29  0:00:07 33332`,
+# `2026-05-09T08:00:00.000000Z 0`), and the connection id of an aborted
+# connection.
+LEADING_TIMESTAMP_REGEX = re.compile(
+    r'^\d{4}-\d{2}-\d{2}[ T]\s?\d{1,2}:\d{2}:\d{2}\S*\s+(?:\d+\s+)?'
+)
+CONNECTION_ID_REGEX = re.compile(r'\b(Aborted connection) \d+')
+# The account a client used is what it sent, so a long one is cut rather than
+# allowed to push the listing off the screen.
+ACCOUNT_MAX_LEN = 32
 
 # The server's own last word on a shutdown: `/usr/sbin/mariadbd: Shutdown complete`,
 # on MySQL `/usr/sbin/mysqld: Shutdown complete (mysqld 8.0.36)`. InnoDB reports its
@@ -579,6 +594,34 @@ def get_source(log_line):
     return lib.net.normalize_address(source) or source or None
 
 
+def get_message(log_line):
+    """Return what a line says, with the moment, the thread and the connection
+    id taken out, which differ between two lines saying the same thing."""
+    message = lib.logsource.strip_syslog_prefix(log_line)
+    message = LEADING_TIMESTAMP_REGEX.sub('', message)
+    return CONNECTION_ID_REGEX.sub(r'\1 *', message)
+
+
+def get_account(log_line):
+    """Return the account a denied login tried, or None."""
+    match = ACCESS_DENIED_REGEX.search(log_line)
+    if not match:
+        return None
+    return lib.txt.shorten(match.group('user'), ACCOUNT_MAX_LEN)
+
+
+def get_database(log_line):
+    """Return the database and account an aborted connection was using, or None,
+    which is what tells one application from another on the same host."""
+    match = ABORTED_CONNECTION_REGEX.search(log_line)
+    if not match:
+        return None
+    return (
+        f'`{lib.txt.shorten(match.group("db"), ACCOUNT_MAX_LEN)}` as'
+        f' `{lib.txt.shorten(match.group("user"), ACCOUNT_MAX_LEN)}`'
+    )
+
+
 def get_units(config_root=''):
     """Return the the database server units this host has a unit file for.
 
@@ -1048,7 +1091,6 @@ def main():
         facts.append(
             f'{n_err} error {lib.txt.pluralize("line", n_err)} found'
             f'{lib.base.state2str(STATE_CRIT, prefix=" ")}'
-            f' (last: {last_errs[-1]})'
         )
 
     n_warn = len(last_warns)
@@ -1057,10 +1099,14 @@ def main():
         facts.append(
             f'{n_warn} warning {lib.txt.pluralize("line", n_warn)} found'
             f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
-            f' (last: {last_warns[-1]})'
         )
 
-    if not n_err and not n_warn and not last_denied and not last_aborted:
+    if (
+        not n_err
+        and not n_warn
+        and not lib.logsource.count_within(last_denied, rate_since)['total']
+        and not lib.logsource.count_within(last_aborted, rate_since)['total']
+    ):
         # Naming both levels one by one would bury the one sentence a healthy
         # host is supposed to be. Denied logins and aborted connections are
         # `[Warning]` lines on MariaDB, too, so with them reported below the
@@ -1077,7 +1123,10 @@ def main():
         rate_since,
         key=get_source if args.PER_SOURCE else None,
     )
-    if last_denied:
+    denied_state = STATE_OK
+    # Only what arrived within the rate window is worth a sentence: what the rest
+    # of the window read holds is history, and the performance data trends it.
+    if denied_window['total']:
         denied_state = lib.base.get_state(
             denied_window['count'],
             args.ACCESS_DENIED_WARNING or None,
@@ -1094,16 +1143,6 @@ def main():
             f' in the last {lib.human.seconds2human(args.LOOKBACK)}'
             f'{lib.base.state2str(denied_state, prefix=" ")}'
         )
-        extras = []
-        if denied_window['total'] != denied_window['count']:
-            extras.append(
-                f'{denied_window["total"]} in total from {denied_window["sources"]}'
-                f' {lib.txt.pluralize("address", denied_window["sources"], "es")}'
-            )
-        if len(last_denied) != denied_window['total']:
-            extras.append(f'{len(last_denied)} in the window read')
-        if extras:
-            fact += ' (' + ', '.join(extras) + ')'
         facts.append(fact)
         if denied_state != STATE_OK:
             recommendations.append(
@@ -1121,7 +1160,8 @@ def main():
         rate_since,
         key=get_source if args.PER_SOURCE else None,
     )
-    if last_aborted:
+    aborted_state = STATE_OK
+    if aborted_window['total']:
         aborted_state = lib.base.get_state(
             aborted_window['count'],
             args.ABORTED_CONNECTIONS_WARNING or None,
@@ -1138,17 +1178,6 @@ def main():
             f' in the last {lib.human.seconds2human(args.LOOKBACK)}'
             f'{lib.base.state2str(aborted_state, prefix=" ")}'
         )
-        extras = []
-        if aborted_window['total'] != aborted_window['count']:
-            extras.append(
-                f'{aborted_window["total"]} in total from '
-                f'{aborted_window["sources"]}'
-                f' {lib.txt.pluralize("host", aborted_window["sources"])}'
-            )
-        if len(last_aborted) != aborted_window['total']:
-            extras.append(f'{len(last_aborted)} in the window read')
-        if extras:
-            fact += ' (' + ', '.join(extras) + ')'
         facts.append(fact)
         if aborted_state != STATE_OK:
             recommendations.append(
@@ -1161,18 +1190,17 @@ def main():
     # A counter at zero says nothing the performance data does not, and a
     # sentence about it would only push the verdict further right.
     n_start = len(last_starts)
-    if n_start:
-        facts.append(
-            f'{n_start} {lib.txt.pluralize("startup", n_start)} detected'
-            f' (last: {last_starts[-1]})'
-        )
-
     n_shut = len(last_shutdowns)
-    if n_shut:
-        facts.append(
-            f'{n_shut} {lib.txt.pluralize("shutdown", n_shut)} detected'
-            f' (last: {last_shutdowns[-1]})'
-        )
+    # The moment of the last one rather than its line: the line is in the log,
+    # the summary only has to say when to look.
+    for label, lines in (('startup', last_starts), ('shutdown', last_shutdowns)):
+        if not lines:
+            continue
+        fact = f'{len(lines)} {lib.txt.pluralize(label, len(lines))} detected'
+        last = lib.logsource.timestamp(lines[-1])
+        if last is not None:
+            fact += f' (last: {last:%Y-%m-%d %H:%M:%S})'
+        facts.append(fact)
 
     # A server told to keep quiet writes no denied login at all, so a report
     # without any says nothing about the host. It goes first, ahead of the
@@ -1227,32 +1255,58 @@ def main():
     # against a week.
     sections.append(covered + '. '.join(facts) + '.')
 
-    # The lines behind the counts, under the headings the rest of the family
-    # uses. A startup and a shutdown get none: the fact above names the last of
-    # each, and listing them again is a list of things that went right.
-    if last_errs:
-        sections.append(
-            'Error lines:\n'
-            + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(last_errs))
+    # What the check alerts on, grouped by what the lines say, so a burst of a
+    # few hundred reads as the two or three things that happened, each with its
+    # count and the moment of the last one. A startup and a shutdown get none:
+    # the fact above names the last of each, and listing them again is a list of
+    # things that went right.
+    for heading, lines in (('Error lines', last_errs), ('Warning lines', last_warns)):
+        if lines:
+            groups = lib.logsource.group_lines(lines, group=get_message)
+            sections.append(
+                f'{heading}:\n'
+                + '\n'.join(
+                    f'* {text}'
+                    for text in lib.logsource.describe_groups(groups, last=True)
+                )
+            )
+
+    # The lines behind a counted event that raised a state, from within the rate
+    # window, and only then: a handful of them is what every application that
+    # lets a connection fall out of scope produces, and listing them under a
+    # green check is noise. Grouped per host where the state was judged per
+    # host, with the accounts or databases each one used, which is what tells a
+    # guessing run from an application still using an old password.
+    for heading, lines, rate_state, detail, detail_label in (
+        ('Denied logins', last_denied, denied_state, get_account, 'account'),
+        (
+            'Aborted connections',
+            last_aborted,
+            aborted_state,
+            get_database,
+            'database',
+        ),
+    ):
+        if rate_state == STATE_OK:
+            continue
+        groups = lib.logsource.group_lines(
+            lines,
+            since=rate_since,
+            group=get_source if args.PER_SOURCE else get_message,
+            detail=detail if args.PER_SOURCE else None,
         )
-    if last_warns:
-        sections.append(
-            'Warning lines:\n'
-            + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(last_warns))
-        )
-    if last_denied:
-        sections.append(
-            'Denied logins:\n'
-            + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(last_denied))
-        )
-    if last_aborted and aborted_state != STATE_OK:
-        # Only once the rate says something: a handful of them is what every
-        # application that lets a connection fall out of scope produces, and
-        # listing ten of those under a green check is noise.
-        sections.append(
-            'Aborted connections:\n'
-            + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(last_aborted))
-        )
+        if groups:
+            sections.append(
+                f'{heading} in the last {lib.human.seconds2human(args.LOOKBACK)}:\n'
+                + '\n'.join(
+                    f'* {text}'
+                    for text in lib.logsource.describe_groups(
+                        groups,
+                        detail_label=detail_label if args.PER_SOURCE else None,
+                        unnamed='no host',
+                    )
+                )
+            )
 
     # What was read, last of the sections: the verdict and the lines behind it
     # come first, the provenance after them.

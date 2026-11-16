@@ -319,7 +319,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/sshd-logfile/
 Output of a healthy host:
 
 ```text
-2026-08-28 19:25 .. 2026-08-28 19:25 (47s): No failed logins and nothing else worth reporting found. 1 startup detected (last: Aug 28 19:25:03 host sshd[231]: Server listening on 0.0.0.0 port 22.). 1 shutdown detected (last: Aug 28 19:25:50 host sshd[231]: Received signal 15; terminating.). 0 successful logins in the last 10m (1 in the window read) (last: Aug 28 19:25:05 host sshd-session[236]: Accepted password for alice from 127.0.0.1 port 54876 ssh2).
+2026-08-28 19:25 .. 2026-08-28 19:25 (47s): No failed logins in the last 10m and nothing else worth reporting found. 1 startup detected (last: 2026-08-28 19:25:03). 1 shutdown detected (last: 2026-08-28 19:25:50).
 
 Read 9 lines from 1 source:
 * `/var/log/secure` (size: 909.0B)
@@ -328,15 +328,15 @@ Read 9 lines from 1 source:
 Output of a host whose sshd could not take its port, and whose users cannot get in with their keys:
 
 ```text
-2026-08-28 19:25 .. 2026-08-28 19:25 (51s): Found 3 startup failures [CRITICAL], 1 refused key file [WARNING]. 0 authentication failures in the last 10m (5 in the window read). 0 invalid-user attempts in the last 10m (1 in the window read). 0 access denials in the last 10m (1 in the window read). 0 throttled connections in the last 10m (2 in the window read). 0 aborted connections in the last 10m (12 in the window read). 6 startups detected (last: Aug 28 19:25:52 host sshd[367]: Server listening on 0.0.0.0 port 22.). 4 restarts detected (last: Aug 28 19:25:48 host sshd[231]: Received SIGHUP; restarting.). 2 shutdowns detected (last: Aug 28 19:25:54 host sshd[367]: Received signal 15; terminating.). 0 successful logins in the last 10m (1 in the window read) (last: Aug 28 19:25:05 host sshd-session[236]: Accepted password for alice from 127.0.0.1 port 54876 ssh2).
+2026-08-28 19:25 .. 2026-08-28 19:25 (51s): Found 3 startup failures [CRITICAL], 1 refused key file [WARNING]. 6 startups detected (last: 2026-08-28 19:25:52). 4 restarts detected (last: 2026-08-28 19:25:48). 2 shutdowns detected (last: 2026-08-28 19:25:54).
 
 Startup failures:
-* Aug 28 19:25:53 host sshd[371]: error: Bind to port 22 on 0.0.0.0 failed: Address already in use.
-* Aug 28 19:25:53 host sshd[371]: error: Bind to port 22 on :: failed: Address already in use.
-* Aug 28 19:25:53 host sshd[371]: fatal: Cannot bind any address.
+* 1x error: Bind to port 22 on 0.0.0.0 failed: Address already in use. (last: 2026-08-28 19:25:53)
+* 1x error: Bind to port 22 on :: failed: Address already in use. (last: 2026-08-28 19:25:53)
+* 1x fatal: Cannot bind any address. (last: 2026-08-28 19:25:53)
 
 Refused key files:
-* Aug 28 19:25:41 host sshd-session[329]: Authentication refused: bad ownership or modes for file /home/alice/.ssh/authorized_keys
+* 1x Authentication refused: bad ownership or modes for file /home/alice/.ssh/authorized_keys (last: 2026-08-28 19:25:41)
 
 Read 73 lines from 1 source:
 * `/var/log/secure` (size: 7.4KiB)
@@ -349,7 +349,14 @@ Recommendations:
 Output of a host somebody is guessing passwords on:
 
 ```text
-2026-08-28 01:33 .. 2026-08-29 07:53 (1D 6h): 147 authentication failures from 198.51.100.7 in the last 10m [WARNING] (2841 in the window read). 173 invalid-user attempts from 198.51.100.7 in the last 10m (3277 in the window read). 0 successful logins in the last 10m (4 in the window read) (last: Aug 29 07:44:11 host sshd-session[4711]: Accepted publickey for alice from 198.51.100.9 port 51234 ssh2: RSA SHA256:linuxfabrik).
+2026-08-28 01:33 .. 2026-08-29 07:53 (1D 6h): 14 authentication failures from 198.51.100.7 in the last 10m [WARNING]. 36 invalid-user attempts from 203.0.113.5 in the last 10m [WARNING]. 2 successful logins in the last 10m (last: 2026-08-29 07:44:11).
+
+Authentication failures in the last 10m:
+* 198.51.100.7: 14x, 2 accounts (root, alice)
+
+Invalid-user attempts in the last 10m:
+* 203.0.113.5: 36x, 36 accounts (admin, ansible, oracle, postgres, test and 31 more)
+* 198.51.100.7: 3x, 2 accounts (git, deploy)
 
 Read the most recent 30K lines from 2 sources:
 * `/var/log/secure` (size: 25.0KiB) + `/var/log/secure-20260828` (size: 1.2MiB)
@@ -357,6 +364,7 @@ Read the most recent 30K lines from 2 sources:
 
 Recommendations:
 * Authentications are failing in bulk for accounts that exist, which is what a guessing run against known user names looks like; the names and addresses in the log say whether it is that or an automation still using a password that was changed
+* Logins are being attempted for accounts that do not exist, which is what a scanner working through a name list looks like; an intrusion prevention system or the firewall is where that is answered, and a look at the names says whether the list is generic or made for this host
 ```
 
 

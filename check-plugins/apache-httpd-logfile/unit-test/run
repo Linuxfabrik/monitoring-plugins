@@ -26,13 +26,11 @@ covered here; the journal fixture is a file holding what `journalctl` printed.
 """
 
 import datetime
-import glob
 import importlib.machinery
 import importlib.util
 import os
-import re
 import shutil
-import subprocess  # nosec B404 - runs the plugin and grep, argv lists only
+import subprocess  # nosec B404 - runs the plugin, argv lists only
 import sys
 import tempfile
 import time
@@ -127,20 +125,20 @@ CASES = [
         'assert-in': [
             '1 child crash',
             '1 worker saturation',
-            # An unreachable backend is a rate, not a single event: these two are
-            # a backend that was restarted, and they are hours old by now.
-            # one refused request: the connection attempt names the backend and is
-            # not counted a second time
-            '0 proxy failures (1 in the whole window)',
-            '2 startups detected',
+            '2 startups detected (last: 2026-08-28 17:12:08)',
             '1 restart detected',
             '1 shutdown detected',
             'Recommendations:',
             "'apache_httpd_child_crashes'=1",
-            # the log is readable by root only, so the command to reproduce a
-            # count carries sudo
-            "  sudo grep -n -e '\\bAH00050\\b'",
+            # what the state is about, one entry per message, with its moment
+            'Child crashes:\n* 1x [core:notice] AH00051: child pid 1837 exit signal'
+            ' Segmentation fault (11), possible coredump in /etc/httpd'
+            ' (last: 2026-08-28 17:12:07)',
+            'Error lines:\n* 1x [cgid:error] AH01239: cgid daemon process died',
         ],
+        # An unreachable backend is a rate, not a single event: the one refused
+        # request is hours old by now, so it is history the summary leaves out.
+        'assert-not-in': ['proxy failure', 'Where the numbers come from'],
     },
     {
         # Apache repeats `scoreboard is full` about once a second for as long as
@@ -170,13 +168,11 @@ CASES = [
         'assert-in': [
             '1 child crash',
             '1 worker saturation',
-            # one refused request: the connection attempt names the backend and is
-            # not counted a second time
-            '0 proxy failures (1 in the whole window)',
             '2 startups detected',
             '1 restart detected',
             '1 shutdown detected',
         ],
+        'assert-not-in': ['proxy failure'],
     },
     {
         # A run that only produced `error` lines about the server itself is
@@ -244,7 +240,6 @@ CASES = [
             'Read 9 lines from ',
             # the predecessor is named, so the fact says where they came from
             'error_log-20260828`',
-            '(1 in the whole window)',
         ],
     },
     {
@@ -254,8 +249,8 @@ CASES = [
         'id': 'ok-a-single-failed-request-is-not-an-alert',
         'params': [f'--config-root={config_root("just-rotated")}'],
         'assert-retc': STATE_OK,
-        'assert-in': ['Last 10m: 0 request errors'],
-        'assert-not-in': ['error line found'],
+        'assert-in': ["'apache_httpd_request_errors'=0;"],
+        'assert-not-in': ['error line found', 'request error'],
     },
     {
         # Scanner traffic: five requests Apache refused, all of them carrying a
@@ -265,11 +260,8 @@ CASES = [
         'id': 'ok-scanner-noise-is-counted-not-reported',
         'params': [f'--server-log={fixture("rocky9-scanner-noise.txt")}'],
         'assert-retc': STATE_OK,
-        'assert-in': [
-            '(5 in the whole window)',
-            "'apache_httpd_request_errors'=0;6;60;0",
-        ],
-        'assert-not-in': ['error line found', 'invalid URI path'],
+        'assert-in': ["'apache_httpd_request_errors'=0;6;60;0"],
+        'assert-not-in': ['error line found', 'invalid URI path', 'request error'],
     },
     {
         'id': 'crit-scanner-noise-above-the-threshold',
@@ -328,11 +320,8 @@ CASES = [
             '--auth-failures-critical=0',
         ],
         'assert-retc': STATE_OK,
-        'assert-in': [
-            '4 in the whole window',
-            '2 in the whole window',
-            "'apache_httpd_error_lines'=0",
-        ],
+        'assert-in': ["'apache_httpd_error_lines'=0"],
+        'assert-not-in': ['client denial', 'authentication failure'],
     },
     {
         'id': 'unknown-source-is-an-access-log',
@@ -386,7 +375,10 @@ CASES = [
         'assert-retc': STATE_WARN,
         'assert-in': [
             '7 request errors from 192.0.2.66 [WARNING]',
-            'all of them requests for PHP files that do not exist',
+            # who, how often, and what each client ran into, known causes in
+            # words
+            'Request errors in the last 31Y 8M:\n* 192.0.2.66: 7x, 1 message'
+            ' (requests for PHP files that do not exist)',
             '`<If "-f %{REQUEST_FILENAME}">`',
             "pool's `error_log` is unset or the pool user cannot write it",
             # the client that went away while sending its body is explained by
@@ -407,7 +399,7 @@ CASES = [
         ],
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '4 of them `AH10244: invalid URI path (/../../../etc/passwd)`',
+            '`AH10244: invalid URI path (/../../../etc/passwd)`',
             'Requests are failing in bulk',
         ],
     },
@@ -537,7 +529,6 @@ CASES = [
         'assert-in': [
             'from 2 sources',
             'www.example.com-error.log',
-            '(1 in the whole window)',
         ],
     },
     {
@@ -550,7 +541,6 @@ CASES = [
         'assert-in': [
             'from 2 sources',
             'www.example.com-error.log',
-            '(1 in the whole window)',
         ],
     },
     {
@@ -754,7 +744,8 @@ class TestArrivalRate(unittest.TestCase):
         returncode, combined = _run([f'--server-log={path}', *self.THRESHOLDS])
         self.assertEqual(returncode, STATE_OK, combined)
         self.assertIn('2 client denials from 198.51.100.', combined)
-        self.assertIn('(20 in total from 10 addresses)', combined)
+        # a quiet counter lists nothing
+        self.assertNotIn('Client denials in the last 10m:', combined)
 
     def test_the_total_is_what_no_per_source_judges(self):
         path = self._write_denials(count=20, minutes_ago=5, peers=10)
@@ -768,8 +759,8 @@ class TestArrivalRate(unittest.TestCase):
         path = self._write_denials(count=20, minutes_ago=60)
         returncode, combined = _run([f'--server-log={path}', *self.THRESHOLDS])
         self.assertEqual(returncode, STATE_OK, combined)
-        self.assertIn('Last 10m: 0 client denials', combined)
-        self.assertIn('(20 in the whole window)', combined)
+        self.assertNotIn('client denial', combined)
+        self.assertIn("'apache_httpd_client_denials'=0;", combined)
 
     def test_a_wider_window_sees_the_older_burst(self):
         path = self._write_denials(count=20, minutes_ago=60)
@@ -955,7 +946,11 @@ class TestReverseProxy(unittest.TestCase):
         self.assertEqual(returncode, STATE_WARN, combined)
         self.assertIn(
             'Last 10m: 21 request errors from 10.0.0.4 (probably a reverse proxy)'
-            ' [WARNING], all of them requests for PHP files that do not exist',
+            ' [WARNING].',
+            combined,
+        )
+        self.assertIn(
+            '* 10.0.0.4: 21x, 1 message (requests for PHP files that do not exist)',
             combined,
         )
         self.assertIn('`RemoteIPInternalProxy 10.0.0.4`', combined)
@@ -1227,60 +1222,69 @@ class TestSourceAddress(unittest.TestCase):
         self.assertIsNone(apache_httpd_logfile.get_source(line))
 
 
-class TestMatchingIsReproducible(unittest.TestCase):
-    """The commands the check prints have to find exactly the lines it counted.
+class TestListing(unittest.TestCase):
+    """What the listings group the lines under, and what they name per client."""
 
-    A command that comes back with a different number than the one it stands next
-    to is worse than no command at all: it sends an administrator looking for a
-    discrepancy that only exists in the check's own output.
-    """
+    LINE = (
+        '[Fri Aug 28 17:12:05.140464 2026] [authz_core:error] [pid 1838:tid 1860]'
+        ' [client ::1:36888] AH01630: client denied by server configuration:'
+        ' /var/www/html/private/index.html, referer: https://example.com/'
+    )
 
-    def test_no_printed_command_carries_a_pipe(self):
-        """`lib.base.oao()` turns every `|` in the message into `!`, so a printed
-        expression that relies on alternation arrives broken and finds nothing."""
-        for group in ('EVENTS', 'RATE_EVENTS', 'LIFECYCLE'):
-            for event in getattr(apache_httpd_logfile, group):
-                if not event.get('regex'):
-                    continue
-                args = apache_httpd_logfile.to_grep_args(event['regex'].pattern)
-                for arg in args or []:
-                    self.assertNotIn('|', arg, f'{event["key"]}: {arg}')
-
-    def test_grep_finds_what_the_check_counted(self):
-        fixtures = sorted(
-            glob.glob(os.path.join(os.path.dirname(__file__), 'fixtures', '*.txt'))
+    def test_the_message_loses_what_differs_between_occurrences(self):
+        self.assertEqual(
+            apache_httpd_logfile.get_message(self.LINE),
+            '[authz_core:error] AH01630: client denied by server configuration:'
+            ' /var/www/html/private/index.html',
         )
-        self.assertTrue(fixtures, 'no fixtures to check against')
-        for group in ('EVENTS', 'RATE_EVENTS', 'LIFECYCLE'):
-            for event in getattr(apache_httpd_logfile, group):
-                regex = event.get('regex')
-                if not regex:
-                    continue
-                args = apache_httpd_logfile.to_grep_args(regex.pattern)
-                if not args:
-                    # Deliberate: a pattern this cannot take apart gets its
-                    # source named without a command.
-                    continue
-                command = ['grep', '-c', '-n']
-                for arg in args:
-                    command += ['-e', arg]
-                for fixture_path in fixtures:
-                    with open(fixture_path, encoding='utf-8', errors='replace') as fh:
-                        counted = sum(1 for line in fh if regex.search(line))
-                    # grep from the command the plugin prints, on a fixture
-                    # of this directory, no shell.
-                    completed = subprocess.run(  # nosec B603
-                        [*command, fixture_path],
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                    )
-                    found = int(completed.stdout.strip() or 0)
-                    self.assertEqual(
-                        counted,
-                        found,
-                        f'{event["key"]} on {os.path.basename(fixture_path)}',
-                    )
+
+    def test_the_message_of_a_journal_line_loses_the_transport_prefix(self):
+        self.assertEqual(
+            apache_httpd_logfile.get_message(
+                '2026-10-15T16:08:46+0200 proxy01 httpd[872]: [mpm_event:error]'
+                ' [pid 872:tid 139715603177152] AH03490: scoreboard is full'
+            ),
+            '[mpm_event:error] AH03490: scoreboard is full',
+        )
+
+    def test_the_detail_keeps_the_message_code_and_the_path(self):
+        # cut in the middle: the end of a denial is the path a scanner asked for
+        self.assertEqual(
+            apache_httpd_logfile.get_detail(self.LINE),
+            '`AH01630: client denied by se...r/www/html/private/index.html`',
+        )
+
+    def test_the_detail_of_a_known_cause_is_its_name(self):
+        self.assertEqual(
+            apache_httpd_logfile.get_detail(
+                '[proxy_fcgi:error] [pid 1:tid 2] [client 192.0.2.66:1] AH01071:'
+                " Got error 'Primary script unknown'"
+            ),
+            'requests for PHP files that do not exist',
+        )
+
+    def test_one_file_and_the_journal_name_no_origin(self):
+        sources = [
+            {'label': '/var/log/httpd/error_log', 'lines': [self.LINE]},
+            {'label': 'systemd:httpd.service', 'lines': [self.LINE]},
+        ]
+        origins = apache_httpd_logfile.get_origins(sources, several_files=False)
+        self.assertEqual(origins, {})
+        self.assertNotIn('(in ', apache_httpd_logfile.get_group(self.LINE, origins))
+
+    def test_several_files_name_the_one_a_line_came_from(self):
+        sources = [
+            {'label': '/var/log/httpd/error_log', 'lines': ['a']},
+            {'label': '/var/log/httpd/site-error.log', 'lines': [self.LINE, 'a']},
+        ]
+        origins = apache_httpd_logfile.get_origins(sources, several_files=True)
+        # the first source holding a line is the one it was counted from
+        self.assertEqual(origins['a'], 'error_log')
+        self.assertTrue(
+            apache_httpd_logfile.get_group(self.LINE, origins).endswith(
+                ' (in `site-error.log`)'
+            )
+        )
 
 
 class TestPathConfinement(unittest.TestCase):
@@ -1346,29 +1350,6 @@ class TestLogSize(unittest.TestCase):
         result = self._run(fixture('missing.log'))
         self.assertEqual(result.returncode, STATE_WARN, result.stdout)
         self.assertIn('does not seem to be an existing regular file', result.stdout)
-
-
-class TestDescribeMatching(unittest.TestCase):
-    """Each source kind gets the command that reads it."""
-
-    def test_a_container_gets_its_logs_command_not_journalctl(self):
-        event = {
-            'label': 'segfault',
-            'regex': re.compile(r'exit signal Segmentation fault'),
-        }
-        lines = apache_httpd_logfile.describe_matching(
-            event, ['a', 'b'], {'a': 'podman:web', 'b': 'systemd:httpd'}
-        )
-        self.assertIn(
-            "  grep -n -e 'exit signal Segmentation fault' <(sudo podman logs web 2>&1)",
-            lines,
-        )
-        self.assertIn(
-            "  grep -n -e 'exit signal Segmentation fault'"
-            ' <(sudo journalctl --unit=httpd)',
-            lines,
-        )
-        self.assertNotIn('--unit=web', ' '.join(lines))
 
 
 if __name__ == '__main__':

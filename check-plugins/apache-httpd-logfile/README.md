@@ -335,7 +335,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-logf
 Output of a healthy host:
 
 ```text
-2026-08-28 17:12 .. 2026-08-28 17:12 (3s): No errors or warnings found. 1 startup detected (last: [Fri Aug 28 17:12:25.860583 2026] [mpm_event:notice] [pid 1929:tid 1929] AH00489: Apache/2.4.62 (Rocky Linux) configured -- resuming normal operations). 1 shutdown detected (last: [Fri Aug 28 17:12:28.865860 2026] [mpm_event:notice] [pid 1929:tid 1929] AH00491: caught SIGTERM, shutting down).
+2026-08-28 17:12 .. 2026-08-28 17:12 (3s): No errors or warnings found. 1 startup detected (last: 2026-08-28 17:12:25). 1 shutdown detected (last: 2026-08-28 17:12:28).
 
 Read 6 lines from 1 source:
 * `/var/log/httpd/error_log` (size: 815.0B)
@@ -344,42 +344,38 @@ Read 6 lines from 1 source:
 Output of a host that ran out of workers, lost a child to a segfault and could not reach its backend:
 
 ```text
-2026-08-28 17:11 .. 2026-08-28 17:12 (27s): 1 error line found [WARNING] (last: [Fri Aug 28 17:12:07.128098 2026] [cgid:error] [pid 1835:tid 1835] AH01239: cgid daemon process died, restarting). Found 1 child crash [WARNING], 1 worker saturation [CRITICAL]. 2 startups detected (last: [Fri Aug 28 17:12:08.167550 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00489: Apache/2.4.62 (Rocky Linux) configured -- resuming normal operations). 1 restart detected (last: [Fri Aug 28 17:12:08.157150 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00493: SIGUSR1 received.  Doing graceful restart). 1 shutdown detected (last: [Fri Aug 28 17:12:11.175839 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00491: caught SIGTERM, shutting down); Last 10m: 0 client denials (1 in the whole window). 0 proxy failures (1 in the whole window).
+2026-08-28 17:11 .. 2026-08-28 17:12 (27s): 1 error line found [WARNING]. Found 1 child crash [WARNING], 1 worker saturation [CRITICAL]. 2 startups detected (last: 2026-08-28 17:12:08). 1 restart detected (last: 2026-08-28 17:12:08). 1 shutdown detected (last: 2026-08-28 17:12:11).
 
 Error lines:
-* [Fri Aug 28 17:12:07.128098 2026] [cgid:error] [pid 1835:tid 1835] AH01239: cgid daemon process died, restarting
+* 1x [cgid:error] AH01239: cgid daemon process died, restarting (last: 2026-08-28 17:12:07)
+
+Child crashes:
+* 1x [core:notice] AH00051: child pid 1837 exit signal Segmentation fault (11), possible coredump in /etc/httpd (last: 2026-08-28 17:12:07)
+
+Worker saturations:
+* 1x [mpm_event:error] AH00484: server reached MaxRequestWorkers setting, consider raising the MaxRequestWorkers setting (last: 2026-08-28 17:11:47)
 
 Read 17 lines from 1 source:
 * `/var/log/httpd/error_log` (size: 2.4KiB)
-
-Where the numbers come from:
-* 1 child crash:
-  sudo grep -n -e '\bAH00050\b' -e '\bAH00051\b' -e '\bAH00052\b' -e '\bAH00060\b' /var/log/httpd/error_log
-* 1 worker saturation:
-  sudo grep -n -e '\bAH00161\b' -e '\bAH00286\b' -e '\bAH00484\b' -e '\bAH00288\b' -e '\bAH03490\b' /var/log/httpd/error_log
-* 1 client denial:
-  sudo grep -n -e '\bAH01630\b' -e '\bAH01797\b' /var/log/httpd/error_log
-* 1 proxy failure:
-  sudo grep -n -e '\bAH00860\b' -e '\bAH00866\b' -e '\bAH00896\b' -e '\bAH00898\b' -e '\bAH00940\b' -e '\bAH01075\b' -e '\bAH01079\b' -e '\bAH01110\b' -e '\bAH01114\b' -e '\bAH02452\b' -e '\bAH10101\b' /var/log/httpd/error_log
 
 Recommendations:
 * Children died on a signal Apache did not send them; look for a core dump, a faulty module, or the OOM killer in the kernel log
 * The server ran out of workers; raise `MaxRequestWorkers` (and `ServerLimit` with it) or shorten the requests, otherwise clients wait in the listen queue
 ```
 
-Output of a host somebody is walking:
+Output of a host somebody is walking, with `--client-denials-warning=6`:
 
 ```text
-2026-08-28 17:34 .. 2026-08-28 17:34 (4s): 1 startup detected (last: [Fri Aug 28 17:34:38.859461 2026] [mpm_event:notice] [pid 2335:tid 2335] AH00489: Apache/2.4.62 (Rocky Linux) configured -- resuming normal operations). 1 shutdown detected (last: [Fri Aug 28 17:34:42.936750 2026] [mpm_event:notice] [pid 2335:tid 2335] AH00491: caught SIGTERM, shutting down); Last 10m: 0 client denials (4 in the whole window). 0 authentication failures (2 in the whole window).
+2026-08-28 17:34 .. 2026-08-28 17:34 (4s): 1 startup detected (last: 2026-08-28 17:34:38). 1 shutdown detected (last: 2026-08-28 17:34:42); Last 10m: 14 client denials from 198.51.100.7 [WARNING]. 2 authentication failures from 203.0.113.5.
+
+Client denials in the last 10m:
+* 198.51.100.7: 14x, 4 messages (`AH01630: client denied by se...iguration: /var/www/html/.env`, `AH01630: client denied by se...on: /var/www/html/.git/config`, `AH01630: client denied by se...r/www/html/private/index.html`, `AH01797: client denied by se...: /var/www/html/server-status`)
 
 Read 12 lines from 1 source:
 * `/var/log/httpd/error_log` (size: 1.8KiB)
 
-Where the numbers come from:
-* 4 client denials:
-  sudo grep -n -e '\bAH01630\b' -e '\bAH01797\b' /var/log/httpd/error_log
-* 2 authentication failures:
-  sudo grep -n -e '\bAH01614\b' -e '\bAH01617\b' -e '\bAH01618\b' -e '\bAH01631\b' -e '\bAH01807\b' -e '\bAH01808\b' /var/log/httpd/error_log
+Recommendations:
+* Clients are being denied access in bulk; the paths in the log say whether somebody is walking the site, and an intrusion prevention system or the firewall is where that is answered
 ```
 
 ## States
@@ -460,7 +456,7 @@ A scanner probing for PHP files reached the server through a reverse proxy. Apac
 
 ### The check does not alert although the log is full of `error` lines
 
-Read the lines. If they carry a `[client ...]` field, Apache logged them about one request and this check counts them as a rate rather than by their level, which is what keeps a scanned server green. The `Last ...:` group says how many arrived recently, and the `... in the whole window` note next to each how many the whole window holds.
+Read the lines. If they carry a `[client ...]` field, Apache logged them about one request and this check counts them as a rate rather than by their level, which is what keeps a scanned server green. The `Last ...:` group says how many arrived recently; what arrived before that is history the output leaves out and the performance data trends.
 
 1. Lower `--request-errors-warning` to have a smaller number of them reported. On a server nobody but the application talks to, `--request-errors-warning=1` is reasonable.
 2. Widen `--lookback` to judge over a longer stretch, for instance `--lookback=3600`.

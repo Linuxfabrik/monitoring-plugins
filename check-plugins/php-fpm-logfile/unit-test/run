@@ -138,26 +138,25 @@ CASES = [
             '1 worker crash',
             '1 killed worker',
             '1 pool saturation',
-            # A request that ran long is judged by how many of them arrived, and
-            # these are hours old by now.
-            '0 request timeouts in the last 10m (2 in the window read)',
-            '0 slow requests in the last 10m (3 in the window read)',
-            '2 startups detected',
+            '2 startups detected (last: 2026-08-28 15:20:22)',
             '1 reload detected',
             '1 shutdown detected',
             # A named event is kept out of the per-level counts, so its own
             # section is the only place its lines appear. Without them the
             # summary says a pool saturated without saying when or which one,
-            # and the access log cannot be read for the same minute.
-            'Pool saturation:\n* [28-Aug-2026 15:20:09] WARNING: [pool www] server'
-            ' reached pm.max_children setting (2), consider raising it',
-            'Worker crash:\n* [28-Aug-2026 15:20:17] WARNING: [pool www] child 178'
-            ' exited on signal 11 (SIGSEGV - core dumped)',
+            # and the access log cannot be read for the same minute. Grouped by
+            # what they say, the worker's process id masked.
+            'Pool saturations:\n* 1x WARNING: [pool www] server reached'
+            ' pm.max_children setting (2), consider raising it'
+            ' (last: 2026-08-28 15:20:09)',
+            'Worker crashes:\n* 1x WARNING: [pool www] child * exited on signal 11'
+            ' (SIGSEGV - core dumped)',
             # PHP-FPM sends SIGKILL itself to a worker that does not end in time,
             # and so does the OOM killer, so it is no crash; the recommendation
             # names both.
-            'Killed worker:\n* [28-Aug-2026 15:20:19] WARNING: [pool www] child 179'
-            ' exited on signal 9 (SIGKILL)',
+            'Killed workers:\n* 1x WARNING: [pool www] child * exited on signal 9'
+            ' (SIGKILL)',
+            'Error lines:\n* 3x ERROR: failed to ptrace(ATTACH) child *',
             'look for `Out of memory` in the kernel log',
             'Recommendations:',
             # Raising the cap is the wrong lever to reach for first, because
@@ -181,8 +180,14 @@ CASES = [
         'id': 'ok-request-timeouts-are-not-warning-lines',
         'params': [f'--server-log={fixture("rocky8-request-timeouts.txt")}'],
         'assert-retc': STATE_OK,
-        'assert-in': ['0 request timeouts in the last 10m (3 in the window read)'],
-        'assert-not-in': ['WARNING line', 'idle connection timeout', 'killed worker'],
+        'assert-in': ["'php_fpm_request_timeouts'=0;"],
+        'assert-not-in': [
+            'WARNING line',
+            'idle connection timeout',
+            'killed worker',
+            # judged by how many arrived, and these are hours old by now
+            'request timeout',
+        ],
     },
     {
         # A worker kept on a connection the web server holds open for reuse times
@@ -194,8 +199,8 @@ CASES = [
         'assert-retc': STATE_WARN,
         'assert-in': [
             'Found 3 idle connection timeouts [WARNING]',
-            'Idle connection timeouts:\n* [01-Oct-2026 04:01:57] WARNING: [pool www]'
-            ' child 764180, script \'\' (request: " ") execution timed out',
+            'Idle connection timeouts:\n* 3x WARNING: [pool www] child *, script'
+            ' \'\' (request: " ") execution timed out (* sec), terminating',
             '`enablereuse=on` in Apache `mod_proxy_fcgi`',
         ],
         'assert-not-in': ['request timeouts in the last', 'WARNING line'],
@@ -211,8 +216,6 @@ CASES = [
             '1 worker crash',
             '1 killed worker',
             '1 pool saturation',
-            '0 request timeouts in the last 10m (2 in the window read)',
-            '0 slow requests in the last 10m (3 in the window read)',
             '2 startups detected',
             '1 reload detected',
             '1 shutdown detected',
@@ -239,10 +242,8 @@ CASES = [
         'id': 'ok-spawn-pressure-that-is-over',
         'params': [f'--server-log={fixture("rocky9-spawn-pressure.txt")}'],
         'assert-retc': STATE_OK,
-        'assert-in': [
-            '0 spawn pressure warnings in the last 10m (9 in the window read)'
-        ],
-        'assert-not-in': ['pool saturation', 'Recommendations:'],
+        'assert-in': ["'php_fpm_spawn_pressure'=0;"],
+        'assert-not-in': ['pool saturation', 'Recommendations:', 'spawn pressure'],
     },
     {
         'id': 'warn-spawn-pressure-inside-the-window',
@@ -310,8 +311,12 @@ CASES = [
         'id': 'ok-pool-error-log-is-read',
         'params': [f'--server-log={fixture("php-application-error-log.txt")}'],
         'assert-retc': STATE_OK,
-        'assert-in': ['0 PHP fatal errors in the last 10m (2 in the window read)'],
-        'assert-not-in': ['without a PHP-FPM log level', 'does not look like'],
+        'assert-in': ["'php_fpm_fatal_errors'=0;"],
+        'assert-not-in': [
+            'without a PHP-FPM log level',
+            'does not look like',
+            'PHP fatal error',
+        ],
     },
     {
         'id': 'warn-pool-fatal-errors-above-the-threshold',
@@ -334,9 +339,9 @@ CASES = [
         'assert-retc': STATE_OK,
         'assert-in': [
             '1 startup detected',
-            '0 PHP fatal errors in the last 10m (1 in the window read)',
+            "'php_fpm_fatal_errors'=0;",
         ],
-        'assert-not-in': ['without a PHP-FPM log level'],
+        'assert-not-in': ['without a PHP-FPM log level', 'PHP fatal error'],
     },
     {
         # A worker reported as timed out a second time survived the SIGTERM;
@@ -347,10 +352,13 @@ CASES = [
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'Found 2 hung workers [CRITICAL], 1 pool saturation [WARNING]',
-            'Hung workers:\n* [27-Sep-2026 16:48:52] WARNING: [pool www] child 2101',
+            'Hung workers:\n* 1x WARNING: [pool www] child *, script'
+            " '/var/www/nextcloud/index.php'",
             'state `D`',
         ],
-        'assert-not-in': ['child 2103, script'],
+        # the worker that exited on SIGTERM did not hang, so its script is not
+        # among them
+        'assert-not-in': ["script '/var/www/nextcloud/cron.php'"],
     },
     {
         # Next to hung workers within the window, a full pool stays full.
@@ -406,7 +414,9 @@ CASES = [
         'assert-retc': STATE_WARN,
         'assert-in': [
             'Request timeouts in the last',
-            "child 764183, script '/var/www/html/report.php'",
+            # grouped by what they say: one slow page, not one line per worker
+            "* 2x WARNING: [pool www] child *, script '/var/www/html/report.php'"
+            ' (request: "GET /report.php") execution timed out (* sec), terminating',
             'when many different scripts timed out at once a backend',
         ],
     },
@@ -475,10 +485,9 @@ CASES = [
         'assert-retc': STATE_WARN,
         'assert-in': [
             'Found 1 OOM kill [WARNING]',
-            'OOM kill:\n* [12-Nov-2026 17:14:30] WARNING: [pool www] child 24'
-            ' exited on signal 9 (SIGKILL)',
+            'OOM kills:\n* 1x WARNING: [pool www] child * exited on signal 9 (SIGKILL)',
             '1 worker killed with SIGKILL, not by the OOM killer (last:'
-            ' [12-Nov-2026 17:14:21] WARNING: [pool www] child 21 exited',
+            ' 2026-11-12 17:14:21)',
             'The kernel killed workers because memory ran out',
             "'php_fpm_oom_kills'=1;0;;0",
             "'php_fpm_worker_kills'=0;0;;0",
@@ -496,7 +505,7 @@ CASES = [
         'assert-retc': STATE_OK,
         'assert-in': [
             '2 workers killed with SIGKILL, not by the OOM killer (last:'
-            ' [12-Nov-2026 17:14:30] WARNING: [pool www] child 24 exited',
+            ' 2026-11-12 17:14:30)',
             "'php_fpm_oom_kills'=0;0;;0",
             "'php_fpm_idle_kills'=2;;;0",
         ],
@@ -534,7 +543,6 @@ CASES = [
             'from 3 sources',
             'shop-error.log',
             'www-error.log',
-            '0 PHP fatal errors in the last 10m (3 in the window read)',
         ],
         'assert-not-in': ['report-error.log', 'could not be read'],
     },

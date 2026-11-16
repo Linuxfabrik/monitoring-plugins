@@ -234,11 +234,11 @@ Output:
 Scanned /tmp/test-logfile (8 lines) using patterns 'warn' (matched 1 line) [WARNING] and 'error' (matched 2 lines) [CRITICAL].
 
 Warning matches:
-* warning
+* 1x warning
 
 Critical matches:
-* error1
-* error2
+* 1x error1
+* 1x error2
 ```
 
 The `(N lines)` figure counts the lines that are **new** since the previous run, not the length of the logfile. Both are the same on the first run and after a rotation.
@@ -255,7 +255,7 @@ Output:
 Scanned /var/log/myapp/app.log (9 lines) using patterns ' ERROR ' (matched 1 line) [CRITICAL].
 
 Critical matches:
-* 2026-09-21 10:00:00 INFO GET /
+* 1x 2026-09-21 10:00:00 INFO GET /
   2026-09-21 10:00:01 INFO POST /api/order
   >>> 2026-09-21 10:00:02 ERROR Request failed
   Traceback (most recent call last):

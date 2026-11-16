@@ -153,16 +153,19 @@ CASES = [
         'assert-in': [
             '2 startup failures [CRITICAL]',
             '1 refused credential [WARNING]',
-            # A connection to the next hop that did not come off is counted, not
-            # reported: a host without an IPv6 route logs one for the AAAA
-            # record of its relay and delivers over IPv4 in the same second.
-            '0 unreachable next hops in the last 10m (3 in the window read)',
-            '0 TLS failures in the last 10m (3 in the window read)',
             'chdir(/var/spool/postfix-nonexistent)',
             '3 startups detected',
             '2 shutdowns detected',
             "'postfix_startup_failures'=2;;0;0",
+            # grouped by what they say, with the moment of the last one
+            'Startup failures:\n* 2x fatal: chdir(/var/spool/postfix-nonexistent):'
+            ' No such file or directory (last: ',
         ],
+        # A connection to the next hop that did not come off is counted, not
+        # reported: a host without an IPv6 route logs one for the AAAA record of
+        # its relay and delivers over IPv4 in the same second. These are hours
+        # old, so they are history the summary leaves out.
+        'assert-not-in': ['unreachable next hop', 'TLS failure'],
     },
     {
         # The same situations on the Debian family, where the syslog daemon
@@ -171,10 +174,11 @@ CASES = [
         'params': [f'--server-log={aged("debian13-busy-server.txt")}'],
         'assert-retc': STATE_OK,
         'assert-in': [
-            '0 unreachable next hops in the last 10m (3 in the window read)',
-            '0 bounced deliveries in the last 10m (1 in the window read)',
             '2 startups detected',
+            "'postfix_relay_failures'=0;",
+            "'postfix_bounced'=0;",
         ],
+        'assert-not-in': ['unreachable next hop', 'bounced deliver'],
     },
     {
         # A rate that stays under its threshold says nothing but how much the
@@ -183,11 +187,17 @@ CASES = [
         'params': [f'--server-log={aged("rocky9-inbound-attack.txt")}'],
         'assert-retc': STATE_OK,
         'assert-in': [
-            '0 failed logins in the last 10m (6 in the window read)',
-            '0 rejected messages in the last 10m (2 in the window read)',
-            '0 aborted connections in the last 10m (5 in the window read)',
+            "'postfix_auth_failures'=0;",
+            "'postfix_rejects'=0;",
+            "'postfix_aborted_connections'=0;",
         ],
-        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+        'assert-not-in': [
+            '[WARNING]',
+            '[CRITICAL]',
+            'failed login',
+            'rejected message',
+            'aborted connection',
+        ],
     },
     {
         # The same fixture judged over a window that holds all of it: six failed
@@ -201,7 +211,12 @@ CASES = [
         'assert-in': [
             '6 failed logins from 198.51.100.7 in the last 1Y [WARNING]',
             'Logins are failing in bulk',
+            # who, how often, and what each peer ran into
+            'Failed logins in the last 1Y:\n* 198.51.100.7: 6x, 3 messages'
+            ' (`SASL LOGIN authentication failed: Password:`,',
         ],
+        # the counters that stayed under their threshold list nothing
+        'assert-not-in': ['Rejected messages in the last', 'Aborted connections in'],
     },
     {
         # Counting them host-wide instead: the same six, plus what the other two
@@ -395,9 +410,8 @@ class TestArrivalRate(unittest.TestCase):
         moments = [now - datetime.timedelta(seconds=30 * i) for i in range(6)]
         returncode, combined = _run([f'--server-log={self._write("old.log", moments)}'])
         self.assertEqual(returncode, STATE_OK, combined)
-        self.assertIn(
-            '0 failed logins in the last 10m (6 in the window read)', combined
-        )
+        self.assertNotIn('failed login', combined)
+        self.assertIn("'postfix_auth_failures'=0;", combined)
 
     def test_the_same_burst_spread_over_six_addresses_does_not(self):
         # Six failures from six addresses is the open network going past, and
@@ -415,7 +429,8 @@ class TestArrivalRate(unittest.TestCase):
                 )
         returncode, combined = _run([f'--server-log={path}'])
         self.assertEqual(returncode, STATE_OK, combined)
-        self.assertIn('6 in total from 6 addresses', combined)
+        self.assertIn('1 failed login from 198.51.100.', combined)
+        self.assertNotIn('Failed logins in the last', combined)
 
 
 class TestSourceExtraction(unittest.TestCase):

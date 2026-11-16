@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026111601'
+__version__ = '2026111602'
 
 DESCRIPTION = """Scans the Apache HTTP Server error log for the events an administrator
 has to act on: children that died on a signal or had to be killed at a stop, a server that
@@ -773,8 +773,14 @@ INTERNAL_NETWORKS = tuple(
     )
 )
 
-# How much of a message the summary quotes when no cause above names it.
+# How much of a message a listing quotes next to the others of the same client.
 MESSAGE_MAX_LEN = 60
+
+# The process and thread Apache writes into every line, which differ between two
+# lines saying the same thing.
+PID_REGEX = re.compile(r'\[pid [^\]]*\]\s*')
+# The module and level Apache writes in front of a message, `[proxy_fcgi:error]`.
+MODULE_REGEX = re.compile(r'^\[[\w-]+:\w+\]\s*')
 
 # The levels at which a request-scoped line is counted as a rate instead of by
 # its level. `crit` and above stay level-driven whatever their scope: across the
@@ -1220,186 +1226,73 @@ def get_proxy(lines):
 
 
 def get_message(log_line):
-    """Return what a request-scoped line says, without the head Apache puts in
-    front of it and without the referer it appends."""
-    match = SCOPE_REGEX.search(log_line)
-    message = log_line[match.end() :] if match else log_line
-    return message.split(', referer: ', 1)[0].strip()
+    """Return what a line says, with everything that differs between two lines
+    saying the same thing taken out: the prefix of the transport, the timestamp,
+    the process and thread, the client and the referer.
 
-
-def describe_lines(lines):
-    """Return what most of the lines are about, for the summary, or ''.
-
-    A known cause is named in words, anything else by the message code and the
-    beginning of the most recent message carrying it, because the rest of a
-    message (a path, a host name) differs from line to line.
+    The client is taken out because a listing grouped by message would otherwise
+    hold one entry per client and port; where the client matters, the listing is
+    grouped by it instead, see get_detail().
     """
-    if not lines:
-        return ''
-    groups = {}
-    for line in lines:
-        cause = next(
-            (item for item in REQUEST_CAUSES if item['regex'].search(line)), None
-        )
-        if cause:
-            key, text = cause['label'], cause['label']
-        else:
-            message = get_message(line)
-            code = CODE_REGEX.search(message)
-            key = code.group(0) if code else message
-            if len(message) > MESSAGE_MAX_LEN:
-                message = message[:MESSAGE_MAX_LEN].rstrip() + '...'
-            text = f'`{message}`'
-        # The text of the most recent line wins, the lines are in time order.
-        groups[key] = (groups.get(key, (0, ''))[0] + 1, text)
-    count, text = max(groups.values(), key=lambda item: item[0])
-    share = 'all of them' if count == len(lines) else f'{count} of them'
-    return f'{share} {text}'
+    message = lib.logsource.strip_syslog_prefix(log_line)
+    message = LEADING_DATE_REGEX.sub('', message)
+    message = PID_REGEX.sub('', message)
+    message = SCOPE_REGEX.sub('', message)
+    message = message.split(', referer: ', 1)[0]
+    return ' '.join(message.split())
 
 
-def split_alternatives(pattern):
-    """Split a pattern at every `|` that is not inside a group."""
-    parts = []
-    depth = 0
-    current = ''
-    escaped = False
-    for char in pattern:
-        if escaped:
-            current += char
-            escaped = False
-            continue
-        if char == '\\':
-            current += char
-            escaped = True
-            continue
-        if char == '(':
-            depth += 1
-        elif char == ')':
-            depth -= 1
-        elif char == '|' and depth == 0:
-            parts.append(current)
-            current = ''
-            continue
-        current += char
-    parts.append(current)
-    return parts
+def get_detail(log_line):
+    """Return what a request-scoped line is about, short enough to stand in a
+    list next to the others of the same client.
 
-
-def to_grep_args(pattern):
-    """Return a Python pattern as `-e` arguments for `grep`, or None where it has
-    no form this can take apart.
-
-    Not one expression with alternation, because `lib.base.oao()` replaces every
-    `|` in the message with `!`: the character separates the message from the
-    performance data and cannot survive in it. A command carrying `AH(00860!...)`
-    would be printed, copied and find nothing, which is worse than printing no
-    command at all. `grep` takes each alternative as its own `-e` instead and
-    needs no `|` anywhere.
-
-    Every pattern here is a list of alternatives, each of them either a literal
-    or of the shape `prefix(?:a|b|c)suffix`. Anything else returns None and the
-    caller names the source without a command, rather than printing one that
-    looks right and matches something else.
+    A known cause is named in words. Anything else by its message, without the
+    module and level in front of it, shortened in the middle: the beginning with
+    its message code says what happened, the end says to what - the path a
+    scanner asked for, the backend a proxy could not reach. Cut at the end, every
+    `client denied by server configuration` of a scanner reads the same.
     """
-    args = []
-    for part in split_alternatives(pattern):
-        if '(' not in part:
-            args.append(part)
-            continue
-        match = re.fullmatch(r'([^()|]*)\(\?:([^()|]*(?:\|[^()|]*)*)\)([^()|]*)', part)
-        if not match:
-            return None
-        prefix, alternatives, suffix = match.groups()
-        args.extend(f'{prefix}{item}{suffix}' for item in alternatives.split('|'))
-    return args
+    for cause in REQUEST_CAUSES:
+        if cause['regex'].search(log_line):
+            return cause['label']
+    message = MODULE_REGEX.sub('', get_message(log_line), count=1)
+    return f'`{lib.txt.shorten(message, MESSAGE_MAX_LEN)}`'
 
 
-def get_origins(sources):
-    """Map every log line to the source it was read from.
+def get_origins(sources, several_files):
+    """Map every log line to the name of the source it was read from, where that
+    is worth saying.
+
+    A reverse proxy reads a log per site, and which of them a line came from is
+    where an administrator goes looking. On a host that reads one file and the
+    journal of the unit, every line is in the file and saying so is noise, so
+    only where more than one file was read does a line get its origin.
 
     `read_many()` drops a line an earlier source already delivered and keeps that
     earlier one, so the first source holding a line is the one it was counted
     from, and the one an administrator finds it in.
     """
     origins = {}
+    if not several_files:
+        return origins
     for source in sources:
+        success, parsed = lib.logsource.parse(source['label'])
+        name = source['label']
+        if success and parsed[0] == lib.logsource.KIND_FILE:
+            name = os.path.basename(name)
         for line in source['lines']:
-            origins.setdefault(line, source['label'])
+            origins.setdefault(line, name)
     return origins
 
 
-def describe_matching(event, hits, origins):
-    """Return the lines that say where an event was counted and what matched it.
-
-    A count nobody can reproduce is a number to be believed rather than checked.
-    The sources named are the ones the counted lines actually came from, not
-    every source read: a reverse proxy reads a dozen logs and the events are
-    usually in one of them.
-
-    Each source kind gets the command that reads it, because a path handed to
-    `grep` and a unit handed to `journalctl` are not interchangeable, and an
-    event whose criterion is not a pattern at all gets its criterion spelled out
-    instead of a command that would count something else.
-    """
-    files = []
-    units = []
-    containers = []
-    for line in hits:
-        origin = origins.get(line)
-        if origin is None:
-            continue
-        success, parsed = lib.logsource.parse(origin)
-        if not success:
-            continue
-        kind, engine, target = parsed
-        if kind == lib.logsource.KIND_FILE:
-            bucket, item = files, target
-        elif kind == lib.logsource.KIND_JOURNALD:
-            bucket, item = units, target
-        else:
-            bucket, item = containers, (engine, target)
-        if item not in bucket:
-            bucket.append(item)
-    if not files and not units and not containers:
-        return []
-
-    label = lib.txt.pluralize(event['label'], len(hits), event.get('suffix', 's'))
-    heading = f'{len(hits)} {label}'
-    where = ', '.join(
-        f'`{item}`'
-        for item in files
-        + [f'systemd:{u}' for u in units]
-        + [f'{engine}:{target}' for engine, target in containers]
-    )
-
-    # A criterion that is not a pattern is described rather than run: the
-    # request-scoped fallback holds the lines no named counter claimed, and no
-    # single command can express that subtraction.
-    if event.get('criterion'):
-        return [f'{heading} in {where}: {event["criterion"]}']
-
-    args = to_grep_args(event['regex'].pattern) if event['regex'] else None
-    if not args:
-        return [f'{heading} in {where}']
-    expression = ' '.join(f"-e '{item}'" for item in args)
-    commands = []
-    # The logs and the journal of the unit are readable by root only on most
-    # distributions, so the commands carry `sudo`.
-    if files:
-        commands.append(f'sudo grep -n {expression} {" ".join(files)}')
-    # Process substitution rather than a pipe: `lib.base.oao()` replaces every
-    # `|` in the message, and the command would no longer run. `sudo` goes inside
-    # it, because sudo closes the descriptor the substitution hands to `grep`.
-    commands.extend(
-        f'grep -n {expression} <(sudo journalctl --unit={unit})' for unit in units
-    )
-    # A container writes its error log to standard error, which `logs` hands on as
-    # its own standard error.
-    commands.extend(
-        f'grep -n {expression} <(sudo {engine} logs {target} 2>&1)'
-        for engine, target in containers
-    )
-    return [f'{heading}:'] + [f'  {item}' for item in commands]
+def get_group(log_line, origins):
+    """Return what a line is grouped under in a listing: its message, and the
+    source it came from where get_origins() named one."""
+    message = get_message(log_line)
+    origin = origins.get(log_line)
+    if origin is None:
+        return message
+    return f'{message} (in `{origin}`)'
 
 
 def get_proxy_recommendations(lines):
@@ -2225,6 +2118,12 @@ def main():
         for item in result['sources']
     ]
     sources = f'{len(described)} {lib.txt.pluralize("source", len(described))}'
+    file_cnt = 0
+    for item in result['sources']:
+        success, parsed = lib.logsource.parse(item['label'])
+        if success and parsed[0] == lib.logsource.KIND_FILE:
+            file_cnt += 1
+    several_files = file_cnt > 1
 
     if result['duplicates']:
         # Named rather than silently dropped: an administrator who sees two
@@ -2245,6 +2144,7 @@ def main():
     # something to say about them is not the quiet one the literal below claims.
     rate_counts = {}
     rate_facts = []
+    rate_states = {}
     # Behind a reverse proxy every client counts as the proxy. Only the counters
     # judged per source are affected, so only their lines decide.
     proxy = None
@@ -2279,13 +2179,18 @@ def main():
             key=get_source if per_source else None,
         )
         rate_counts[event['key']] = window['count']
-        if not hits:
+        rate_states[event['key']] = STATE_OK
+        # Only what arrived within the rate window is worth a sentence: what the
+        # rest of the window read holds is history, and the performance data
+        # trends it.
+        if not window['total'] and not window['undated']:
             continue
         rate_state = lib.base.get_state(
             window['count'],
             getattr(args, event['warning']) or None,
             getattr(args, event['critical']) or None,
         )
+        rate_states[event['key']] = rate_state
         state = lib.base.get_worst(state, rate_state)
         recent = [
             line
@@ -2299,32 +2204,11 @@ def main():
             if window['busiest'] == proxy:
                 fact += ' (probably a reverse proxy)'
         fact += lib.base.state2str(rate_state, prefix=' ')
-        extras = []
-        if window['total'] != window['count']:
-            extras.append(
-                f'{window["total"]} in total from {window["sources"]}'
-                f' {lib.txt.pluralize("address", window["sources"], "es")}'
-            )
-        if len(hits) != window['total']:
-            extras.append(f'{len(hits)} in the whole window')
-        if extras:
-            fact += ' (' + ', '.join(extras) + ')'
         if window['undated']:
             fact += (
                 f', {window["undated"]} of them without a timestamp and therefore'
                 f' not counted'
             )
-        # The fallback counter holds whatever Apache logged about a request, so
-        # its number alone does not say what failed. What the counted lines are
-        # about does, and it is the first thing an administrator reads.
-        if event['key'] == SCOPE_FALLBACK_KEY and window['count']:
-            what_failed = describe_lines(
-                [line for line in recent if get_source(line) == window['busiest']]
-                if window['busiest']
-                else recent
-            )
-            if what_failed:
-                fact += f', {what_failed}'
         rate_facts.append(fact)
         if rate_state == STATE_OK:
             continue
@@ -2383,7 +2267,6 @@ def main():
             f'{len(lines)} {item["level"]} '
             f'{lib.txt.pluralize("line", len(lines))} found'
             f'{lib.base.state2str(level_state, prefix=" ")}'
-            f' (last: {lines[-1]})'
         )
     if (
         not any(counts.values())
@@ -2427,12 +2310,18 @@ def main():
     for item in LIFECYCLE:
         lines = found[item['key']]
         # A counter at zero says nothing the performance data does not, and a
-        # sentence about it would only push the verdict further right.
+        # sentence about it would only push the verdict further right. The
+        # moment of the last one rather than its line: the line is in the log,
+        # the summary only has to say when to look.
         if lines:
-            facts.append(
+            fact = (
                 f'{len(lines)} {lib.txt.pluralize(item["label"], len(lines))}'
-                f' {item["verb"]} (last: {lines[-1]})'
+                f' {item["verb"]}'
             )
+            last = lib.logsource.timestamp(lines[-1], parse_timestamp)
+            if last is not None:
+                fact += f' (last: {last:%Y-%m-%d %H:%M:%S})'
+            facts.append(fact)
 
     # A few lines without a level and without a message code are normal where
     # something else logs into the same file; a majority of them means the source
@@ -2496,12 +2385,71 @@ def main():
         )
     sections.append(covered + '; '.join(summary) + '.')
 
+    # What the check alerts on, grouped by what the lines say, so a burst of a
+    # few hundred reads as the two or three things that happened, each with its
+    # count and the moment of the last one.
+    origins = get_origins(result['sources'], several_files)
     for item in LEVELS:
         lines = levels[item['level']]
         if lines:
+            groups = lib.logsource.group_lines(
+                lines,
+                parse_line=parse_timestamp,
+                group=lambda line: get_group(line, origins),
+            )
             sections.append(
                 f'{item["level"].capitalize()} lines:\n'
-                + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(lines))
+                + '\n'.join(
+                    f'* {text}'
+                    for text in lib.logsource.describe_groups(groups, last=True)
+                )
+            )
+    for event in EVENTS:
+        lines = found[event['key']]
+        if lines:
+            groups = lib.logsource.group_lines(
+                lines,
+                parse_line=parse_timestamp,
+                group=lambda line: get_group(line, origins),
+            )
+            label = lib.txt.pluralize(event['label'], 2, event.get('suffix', 's'))
+            # Not `capitalize()`, which lowercases the rest of an acronym.
+            sections.append(
+                f'{label[:1].upper()}{label[1:]}:\n'
+                + '\n'.join(
+                    f'* {text}'
+                    for text in lib.logsource.describe_groups(groups, last=True)
+                )
+            )
+
+    # The lines behind a counted event that raised a state, from within the rate
+    # window. Grouped per client where the state was judged per client, with
+    # what each one ran into, because that is what tells a scanner probing paths
+    # from one broken page; otherwise by what the lines say.
+    for event in RATE_EVENTS:
+        if rate_states[event['key']] == STATE_OK:
+            continue
+        per_source = args.PER_SOURCE and event.get('per_source', True)
+        groups = lib.logsource.group_lines(
+            found[event['key']],
+            since=rate_since,
+            parse_line=parse_timestamp,
+            group=get_source if per_source else lambda line: get_group(line, origins),
+            detail=get_detail if per_source else None,
+        )
+        if groups:
+            label = lib.txt.pluralize(event['label'], 2)
+            sections.append(
+                f'{label[:1].upper()}{label[1:]} in the last'
+                f' {lib.human.seconds2human(args.LOOKBACK)}:\n'
+                + '\n'.join(
+                    f'* {text}'
+                    for text in lib.logsource.describe_groups(
+                        groups,
+                        detail_label='message' if per_source else None,
+                        unnamed='no client',
+                    )
+                )
             )
 
     # What was read, last of the sections: the verdict and the lines behind it
@@ -2509,25 +2457,6 @@ def main():
     sections.append(
         source_heading + '\n' + '\n'.join(f'* {item}' for item in described)
     )
-
-    # And how every count above was arrived at. A number in a check is only worth
-    # something if the administrator can go and look at the lines behind it, and
-    # with a dozen sites logging into a dozen files, finding them means knowing
-    # which file and which pattern. Only counts that actually fired are listed,
-    # so a quiet host does not carry a block of commands nobody needs to run.
-    origins = get_origins(result['sources'])
-    matching = []
-    for event in list(EVENTS) + list(RATE_EVENTS):
-        hits = found[event['key']]
-        if hits:
-            matching.extend(describe_matching(event, hits, origins))
-    if matching:
-        sections.append(
-            'Where the numbers come from:\n'
-            + '\n'.join(
-                f'* {item}' if not item.startswith('  ') else item for item in matching
-            )
-        )
 
     # Last, because it is about what this check can see rather than about what
     # raised the state.

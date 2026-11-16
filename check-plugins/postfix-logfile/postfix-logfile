@@ -29,7 +29,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110201'
+__version__ = '2026111601'
 
 DESCRIPTION = """Scans the Postfix mail log for the events an administrator has to act on,
 on both sides of the server. Outbound: mail that could not be delivered, a relay host that
@@ -175,6 +175,26 @@ SOURCE_HEAD_REGEX = re.compile(
     rf'^(?:\w+: )?(?:warning: )?[^\[\s]*'
     rf'\[({lib.net.IPV4_REGEX}|{lib.net.IPV6_REGEX})\](?::\d+)?:'
 )
+
+# What differs between two lines saying the same thing, for grouping them in a
+# listing: the queue id at the head of a message (hex in the short format, with
+# a digit in the long one, which keeps `warning:` and `NOQUEUE:` in place),
+# the addresses in angle brackets, the figures of a delivery, and a port.
+# The relay, the status and its reason stay, because they are what tells one
+# problem from another.
+QUEUE_ID_REGEX = re.compile(r'^(?=\w*\d)[0-9A-Za-z]{6,20}: ')
+MESSAGE_MASKS = (
+    (re.compile(r'<[^<>]*>'), '<*>'),
+    (re.compile(r'\b(delay|delays|nrcpt|size)=[\d./]+'), r'\1=*'),
+    (re.compile(r'\]:\d+'), ']:*'),
+)
+# The peer a line names, taken out of a listing grouped by peer, in both places
+# Postfix writes it, see SOURCE_REGEX and SOURCE_HEAD_REGEX.
+PEER_REGEX = re.compile(
+    r'\s*\bfrom\s+\S*\[[^\]]*\](?::\S+)?|^(?:warning: )?\S*\[[^\]]*\](?::\S+)?: '
+)
+# How much of a message a listing quotes next to the others of the same peer.
+MESSAGE_MAX_LEN = 60
 
 
 # The events worth naming on their own, because the level alone does not say what
@@ -919,6 +939,28 @@ def get_source(log_line):
     return None
 
 
+def get_message(log_line):
+    """Return what a line says, with everything that differs between two lines
+    saying the same thing masked, see MESSAGE_MASKS."""
+    message = QUEUE_ID_REGEX.sub('', lib.logsource.strip_syslog_prefix(log_line))
+    for regex, replacement in MESSAGE_MASKS:
+        message = regex.sub(replacement, message)
+    return message
+
+
+def get_detail(log_line):
+    """Return what a line says without the peer it names, short enough to
+    stand in a list next to the others of the same peer.
+
+    The beginning of a message is what says what happened; the rest of a reject
+    is the envelope, which differs from attempt to attempt.
+    """
+    message = PEER_REGEX.sub('', get_message(log_line))
+    if len(message) > MESSAGE_MAX_LEN:
+        message = message[:MESSAGE_MAX_LEN].rstrip() + '...'
+    return f'`{message}`'
+
+
 def get_configured_log_file(config_root=''):
     """Return the `maillog_file` the Postfix configuration names, or None.
 
@@ -1395,7 +1437,6 @@ def main():
             f'{len(lines)} {item["level"]} '
             f'{lib.txt.pluralize("line", len(lines))} found'
             f'{lib.base.state2str(level_state, prefix=" ")}'
-            f' (last: {lines[-1]})'
         )
 
     # The named events, whose state comes from the situation itself. Quiet ones
@@ -1419,6 +1460,7 @@ def main():
     # the rate window, not from the fact that they arrived at all.
     rate_counts = {}
     rate_facts = []
+    rate_states = {}
     for event in RATE_EVENTS:
         hits = found[event['key']]
         # Counted per peer where the lines name one, because that is what makes
@@ -1440,13 +1482,18 @@ def main():
             else None,
         )
         rate_counts[event['key']] = window['count']
-        if not hits:
+        rate_states[event['key']] = STATE_OK
+        # Only what arrived within the rate window is worth a sentence: what the
+        # rest of the window read holds is history, and the performance data
+        # trends it.
+        if not window['total'] and not window['undated']:
             continue
         rate_state = lib.base.get_state(
             window['count'],
             getattr(args, event['warning']) or None,
             getattr(args, event['critical']) or None,
         )
+        rate_states[event['key']] = rate_state
         state = lib.base.get_worst(state, rate_state)
         fact = (
             f'{window["count"]} '
@@ -1458,16 +1505,6 @@ def main():
             f' in the last {lib.human.seconds2human(args.LOOKBACK)}'
             f'{lib.base.state2str(rate_state, prefix=" ")}'
         )
-        extras = []
-        if window['total'] != window['count']:
-            extras.append(
-                f'{window["total"]} in total from {window["sources"]}'
-                f' {lib.txt.pluralize("address", window["sources"], "es")}'
-            )
-        if len(hits) != window['total']:
-            extras.append(f'{len(hits)} in the window read')
-        if extras:
-            fact += ' (' + ', '.join(extras) + ')'
         if window['undated']:
             fact += (
                 f', {window["undated"]} of them without a timestamp and therefore'
@@ -1492,18 +1529,21 @@ def main():
             count = lib.logsource.count_within(lines, rate_since)['total']
             within = f' in the last {lib.human.seconds2human(args.LOOKBACK)}'
         lifecycle_counts[item['key']] = count
-        if not lines:
+        if not count:
             # Nothing happened, which is what the counter in the performance data
             # says; a sentence about it would only push the verdict further right.
             continue
+        # The moment of the last one rather than its line: the line is in the
+        # log, the summary only has to say when to look.
         fact = (
             f'{count} '
             f'{lib.txt.pluralize(item["label"], count, item.get("suffix", "s"))}'
         )
         fact += within or f' {item["verb"]}'
-        if len(lines) != count:
-            fact += f' ({len(lines)} in the window read)'
-        facts.append(f'{fact} (last: {lines[-1]})')
+        last = lib.logsource.timestamp(lines[-1])
+        if last is not None:
+            fact += f' (last: {last:%Y-%m-%d %H:%M:%S})'
+        facts.append(fact)
 
     if result['notice']:
         facts.append(result['notice'].rstrip('.'))
@@ -1527,23 +1567,63 @@ def main():
     # against a week.
     sections.append(covered + '. '.join(facts) + '.')
 
+    # What the check alerts on, grouped by what the lines say, so a burst of a
+    # few hundred reads as the two or three things that happened, each with its
+    # count and the moment of the last one.
     for item in LEVELS:
         lines = levels[item['level']]
         if lines:
+            groups = lib.logsource.group_lines(lines, group=get_message)
             sections.append(
                 f'{item["level"].capitalize()} lines:\n'
-                + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(lines))
+                + '\n'.join(
+                    f'* {text}'
+                    for text in lib.logsource.describe_groups(groups, last=True)
+                )
             )
 
     for event in EVENTS:
         lines = found[event['key']]
         if lines:
+            groups = lib.logsource.group_lines(lines, group=get_message)
             label = lib.txt.pluralize(event['label'], 2, event.get('suffix', 's'))
             # Not `capitalize()`: it lowercases the rest of the word, and `TLS`
             # is an acronym.
             sections.append(
                 f'{label[0].upper() + label[1:]}:\n'
-                + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(lines))
+                + '\n'.join(
+                    f'* {text}'
+                    for text in lib.logsource.describe_groups(groups, last=True)
+                )
+            )
+
+    # The lines behind a counted event that raised a state, from within the rate
+    # window. Grouped per peer where the state was judged per peer, with what
+    # each one ran into; otherwise by what the lines say, which for a delivery
+    # of ours names the relay and why it failed.
+    for event in RATE_EVENTS:
+        if rate_states[event['key']] == STATE_OK:
+            continue
+        per_source = args.PER_SOURCE and event.get('per_source', True)
+        groups = lib.logsource.group_lines(
+            found[event['key']],
+            since=rate_since,
+            group=get_source if per_source else get_message,
+            detail=get_detail if per_source else None,
+        )
+        if groups:
+            label = lib.txt.pluralize(event['label'], 2, event.get('suffix', 's'))
+            sections.append(
+                f'{label[0].upper() + label[1:]} in the last'
+                f' {lib.human.seconds2human(args.LOOKBACK)}:\n'
+                + '\n'.join(
+                    f'* {text}'
+                    for text in lib.logsource.describe_groups(
+                        groups,
+                        detail_label='message' if per_source else None,
+                        unnamed='no address',
+                    )
+                )
             )
 
     # What was read, last of the sections: the verdict and the lines behind it

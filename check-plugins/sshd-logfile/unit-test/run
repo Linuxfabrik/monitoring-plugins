@@ -145,15 +145,19 @@ CASES = [
         'params': [f'--server-log={aged("rocky9-clean-start.txt")}'],
         'assert-retc': STATE_OK,
         'assert-in': [
-            'No failed logins and nothing else worth reporting found',
-            '1 startup detected',
-            '1 shutdown detected',
-            # counted within `--lookback`, so an aged fixture reads zero and
-            # says how many the window holds
-            '0 successful logins in the last 10m (1 in the window read)',
+            'No failed logins in the last 10m and nothing else worth reporting found',
+            '1 startup detected (last: ',
+            '1 shutdown detected (last: ',
+            # counted within `--lookback`, so an aged fixture reads zero, which
+            # the performance data says and the summary leaves out
             "'sshd_logins'=0;;;0",
         ],
-        'assert-not-in': ['Recommendations:', '[WARNING]', '[CRITICAL]'],
+        'assert-not-in': [
+            'Recommendations:',
+            '[WARNING]',
+            '[CRITICAL]',
+            'successful login',
+        ],
     },
     {
         'id': 'ok-empty-log-is-a-rotation',
@@ -177,15 +181,21 @@ CASES = [
         'assert-in': [
             '3 startup failures [CRITICAL]',
             '1 refused key file [WARNING]',
-            'Address already in use',
-            'bad ownership or modes',
-            # everything a client provoked stays quiet, because it is counted by
-            # the rate and this log is three hours old
-            '0 authentication failures in the last 10m (5 in the window read)',
-            '0 invalid-user attempts in the last 10m (1 in the window read)',
-            '0 access denials in the last 10m (1 in the window read)',
+            # grouped by what the lines say; the local port stays, it is the
+            # one sshd failed to take
+            'Startup failures:\n* 1x error: Bind to port 22 on 0.0.0.0 failed:'
+            ' Address already in use. (last: ',
+            'Refused key files:\n* 1x Authentication refused: bad ownership or modes',
             '6 startups detected',
             '4 restarts detected',
+        ],
+        # everything a client provoked stays quiet, because it is counted by the
+        # rate and this log is three hours old
+        'assert-not-in': [
+            'authentication failure',
+            'invalid-user attempt',
+            'access denial',
+            'in the last 10m:',
         ],
     },
     {
@@ -196,10 +206,9 @@ CASES = [
         'assert-retc': STATE_CRIT,
         'assert-in': [
             '3 startup failures [CRITICAL]',
-            '0 aborted connections in the last 10m (11 in the window read)',
-            '0 access denials in the last 10m (2 in the window read)',
             '6 startups detected',
         ],
+        'assert-not-in': ['aborted connection', 'access denial'],
     },
     {
         'id': 'crit-debian13-busy-server',
@@ -491,6 +500,12 @@ class TestArrivalRate(unittest.TestCase):
             '20 authentication failures from 198.51.100.7 in the last 10m', combined
         )
         self.assertIn('guessing run', combined)
+        # what the warning is about: who, how often, and which accounts
+        self.assertIn(
+            'Authentication failures in the last 10m:\n'
+            '* 198.51.100.7: 20x, 1 account (alice)',
+            combined,
+        )
 
     def test_burst_within_the_window_crits_above_the_threshold(self):
         path = self._write_failures(count=20, minutes_ago=5)
@@ -518,21 +533,28 @@ class TestArrivalRate(unittest.TestCase):
         returncode, combined = _run([f'--server-log={path}'])
         self.assertEqual(returncode, STATE_OK, combined)
         self.assertIn('2 authentication failures from 198.51.100.', combined)
-        self.assertIn('(20 in total from 10 addresses)', combined)
+        # a quiet counter lists nothing
+        self.assertNotIn('Authentication failures in the last 10m:', combined)
 
     def test_the_total_is_what_no_per_source_judges(self):
         path = self._write_failures(count=20, minutes_ago=5, peers=10)
         returncode, combined = _run([f'--server-log={path}', '--no-per-source'])
         self.assertEqual(returncode, STATE_WARN, combined)
         self.assertIn('20 authentication failures in the last 10m', combined)
-        self.assertNotIn('in total from', combined)
+        # judged as a whole, so grouped by what the lines say, the peer port
+        # masked
+        self.assertRegex(
+            combined,
+            r'\* 2x Failed password for alice from 198\.51\.100\.\d+ port \* ssh2',
+        )
+        self.assertIn('* ... and 5 more', combined)
 
     def test_the_same_burst_an_hour_ago_is_quiet(self):
         path = self._write_failures(count=20, minutes_ago=60)
         returncode, combined = _run([f'--server-log={path}'])
         self.assertEqual(returncode, STATE_OK, combined)
-        self.assertIn('0 authentication failures in the last 10m', combined)
-        self.assertIn('(20 in the window read)', combined)
+        self.assertNotIn('authentication failure', combined)
+        self.assertIn("'sshd_auth_failures'=0;", combined)
 
     def test_a_wider_window_sees_the_older_burst(self):
         path = self._write_failures(count=20, minutes_ago=60)

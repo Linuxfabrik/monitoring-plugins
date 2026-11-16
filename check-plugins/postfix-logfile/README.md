@@ -352,23 +352,28 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/postfix-logfile/
 Output of a host that only sends its own mail, with somebody working through a mailbox on it:
 
 ```text
-2026-08-29 09:00 .. 2026-08-29 09:15 (14m 59s): 0 failed logins in the last 10m (6 in the window read). 0 rejected messages in the last 10m (2 in the window read). 0 aborted connections in the last 10m (5 in the window read). 1 startup detected (last: Aug 29 09:00:01 mail postfix/postfix-script[1101]: starting the Postfix mail system). 0 deliveries in the last 10m (1 in the window read) (last: Aug 29 09:15:00 mail postfix/smtp[2220]: 3F2A14804001: to=<user@example.org>, relay=mail.example.org[198.51.100.20]:25, delay=0.4, delays=0.1/0/0.2/0.1, dsn=2.0.0, status=sent (250 2.0.0 Ok: queued)).
+2026-08-29 09:00 .. 2026-08-29 09:15 (14m 59s): 6 failed logins from 198.51.100.7 in the last 10m [WARNING]. 2 rejected messages from 198.51.100.9 in the last 10m. 3 aborted connections from 198.51.100.11 in the last 10m. 1 startup detected (last: 2026-08-29 09:00:01). 1 delivery in the last 10m (last: 2026-08-29 09:15:00).
+
+Failed logins in the last 10m:
+* 198.51.100.7: 6x, 3 messages (`SASL LOGIN authentication failed: Password:`, `SASL PLAIN authentication failed: Invalid password`, `SASL login authentication failed: UGFzc3dvcmQ6`)
 
 Read 20 lines from 1 source:
 * `/var/log/maillog` (size: 2.5KiB)
+
+Recommendations:
+* Logins are failing in bulk, which is what a run against a mailbox looks like; the addresses and the `sasl_username` in the log say whether one account is being worked on
 ```
 
 Output of a host whose relay is unreachable, refuses the credentials and speaks no TLS, and whose mail system then failed to start:
 
 ```text
-2026-08-29 17:17 .. 2026-08-29 17:19 (1m 55s): Found 2 startup failures [CRITICAL], 1 refused credential [WARNING]. 0 rejected messages in the last 10m (1 in the window read). 0 aborted connections in the last 10m (9 in the window read). 0 unreachable next hops in the last 10m (3 in the window read). 0 TLS failures in the last 10m (3 in the window read). 0 deferred deliveries in the last 10m (3 in the window read). 0 bounced deliveries in the last 10m (1 in the window read). 3 startups detected (last: Aug 29 17:18:20 mail postfix/postfix-script[1182]: starting the Postfix mail system). 5 reloads detected (last: Aug 29 17:19:46 mail postfix/postfix-script[1323]: refreshing the Postfix mail system). 2 shutdowns detected (last: Aug 29 17:18:15 mail postfix/master[1093]: terminating on signal 15). 0 deliveries in the last 10m (2 in the window read) (last: Aug 29 17:17:57 mail postfix/local[943]: C5E354804356: to=<root@mail.example.com>, relay=local, delay=0, delays=0/0/0/0, dsn=2.0.0, status=sent (delivered to mailbox)).
+2026-08-29 17:17 .. 2026-08-29 17:19 (1m 55s): Found 2 startup failures [CRITICAL], 1 refused credential [WARNING]. 3 startups detected (last: 2026-08-29 17:18:20). 5 reloads detected (last: 2026-08-29 17:19:46). 2 shutdowns detected (last: 2026-08-29 17:18:15).
 
 Startup failures:
-* Aug 29 17:18:14 mail postfix[1099]: fatal: chdir(/var/spool/postfix-nonexistent): No such file or directory
-* Aug 29 17:18:15 mail postfix[1106]: fatal: chdir(/var/spool/postfix-nonexistent): No such file or directory
+* 2x fatal: chdir(/var/spool/postfix-nonexistent): No such file or directory (last: 2026-08-29 17:18:15)
 
 Refused credentials:
-* Aug 29 17:19:48 mail postfix/smtp[1338]: warning: SASL authentication failure: No worthy mechs found
+* 1x warning: SASL authentication failure: No worthy mechs found (last: 2026-08-29 17:19:48)
 
 Read 74 lines from 1 source:
 * `/var/log/maillog` (size: 8.2KiB)

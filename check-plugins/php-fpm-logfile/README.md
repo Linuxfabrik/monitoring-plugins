@@ -288,7 +288,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-logfile/
 Output of a healthy host:
 
 ```text
-2026-08-28 15:21 .. 2026-08-28 15:21 (0s): No errors or warnings found. 1 startup detected (last: [28-Aug-2026 15:21:20] NOTICE: fpm is running, pid 205).
+2026-08-28 15:21 .. 2026-08-28 15:21 (0s): No errors or warnings found. 1 startup detected (last: 2026-08-28 15:21:20).
 
 Read 3 lines from 1 source:
 * `/var/log/php-fpm/error.log` (size: 185.0B)
@@ -297,27 +297,25 @@ Read 3 lines from 1 source:
 Output of a host whose pool ran out of workers and whose application crashed a worker:
 
 ```text
-2026-08-28 15:20 .. 2026-08-28 15:20 (20s): 3 ERROR lines found [CRITICAL] (last: [28-Aug-2026 15:20:15] ERROR: failed to ptrace(ATTACH) child 178: Operation not permitted (1)). 4 WARNING lines found [WARNING] (last: [28-Aug-2026 15:20:21] WARNING: [pool www] child 184 said into stderr: "  thrown in /srv/fatal.php on line 3"). Found 1 worker crash [WARNING], 1 killed worker [WARNING], 1 pool saturation [WARNING]. 0 request timeouts in the last 10m (2 in the window read). 0 slow requests in the last 10m (3 in the window read). 2 startups detected (last: [28-Aug-2026 15:20:22] NOTICE: fpm is running, pid 194). 1 reload detected (last: [28-Aug-2026 15:20:22] NOTICE: reloading: execvp("/usr/sbin/php-fpm", {"/usr/sbin/php-fpm", "--daemonize"})). 1 shutdown detected (last: [28-Aug-2026 15:20:25] NOTICE: exiting, bye-bye!).
+2026-08-28 15:20 .. 2026-08-28 15:20 (20s): 3 ERROR lines found [CRITICAL]. 4 WARNING lines found [WARNING]. Found 1 worker crash [WARNING], 1 killed worker [WARNING], 1 pool saturation [WARNING]. 2 startups detected (last: 2026-08-28 15:20:22). 1 reload detected (last: 2026-08-28 15:20:22). 1 shutdown detected (last: 2026-08-28 15:20:25).
 
 Error lines:
-* [28-Aug-2026 15:20:10] ERROR: failed to ptrace(ATTACH) child 171: Operation not permitted (1)
-* [28-Aug-2026 15:20:10] ERROR: failed to ptrace(ATTACH) child 177: Operation not permitted (1)
-* [28-Aug-2026 15:20:15] ERROR: failed to ptrace(ATTACH) child 178: Operation not permitted (1)
+* 3x ERROR: failed to ptrace(ATTACH) child *: Operation not permitted (1) (last: 2026-08-28 15:20:15)
 
 Warning lines:
-* [28-Aug-2026 15:20:21] WARNING: [pool www] child 184 said into stderr: "NOTICE: PHP message: PHP Fatal error:  Uncaught Error: Call to undefined function undefined_function_call() in /srv/fatal.php:3"
-* [28-Aug-2026 15:20:21] WARNING: [pool www] child 184 said into stderr: "Stack trace:"
-* [28-Aug-2026 15:20:21] WARNING: [pool www] child 184 said into stderr: "#0 {main}"
-* [28-Aug-2026 15:20:21] WARNING: [pool www] child 184 said into stderr: "  thrown in /srv/fatal.php on line 3"
+* 1x WARNING: [pool www] child * said into stderr: "NOTICE: PHP message: PHP Fatal error:  Uncaught Error: Call to undefined function undefined_function_call() in /srv/fatal.php:3" (last: 2026-08-28 15:20:21)
+* 1x WARNING: [pool www] child * said into stderr: "Stack trace:" (last: 2026-08-28 15:20:21)
+* 1x WARNING: [pool www] child * said into stderr: "#0 {main}" (last: 2026-08-28 15:20:21)
+* 1x WARNING: [pool www] child * said into stderr: "  thrown in /srv/fatal.php on line 3" (last: 2026-08-28 15:20:21)
 
-Worker crash:
-* [28-Aug-2026 15:20:17] WARNING: [pool www] child 178 exited on signal 11 (SIGSEGV - core dumped) after 4.769535 seconds from start
+Worker crashes:
+* 1x WARNING: [pool www] child * exited on signal 11 (SIGSEGV - core dumped) after * seconds from start (last: 2026-08-28 15:20:17)
 
-Killed worker:
-* [28-Aug-2026 15:20:19] WARNING: [pool www] child 179 exited on signal 9 (SIGKILL) after 5.345946 seconds from start
+Killed workers:
+* 1x WARNING: [pool www] child * exited on signal 9 (SIGKILL) after * seconds from start (last: 2026-08-28 15:20:19)
 
-Pool saturation:
-* [28-Aug-2026 15:20:09] WARNING: [pool www] server reached pm.max_children setting (2), consider raising it
+Pool saturations:
+* 1x WARNING: [pool www] server reached pm.max_children setting (2), consider raising it (last: 2026-08-28 15:20:09)
 
 Read 33 lines from 1 source:
 * `/var/log/php-fpm/error.log` (size: 3.1KiB)
@@ -331,10 +329,10 @@ Recommendations:
 Output of a host where the OOM killer took a worker, next to an idle worker PHP-FPM ended itself:
 
 ```text
-2026-11-12 17:14 .. 2026-11-12 17:14 (21s): Found 1 OOM kill [WARNING]. 0 spawn pressure warnings in the last 10m (1 in the window read). 1 startup detected (last: [12-Nov-2026 17:14:09] NOTICE: fpm is running, pid 1). 1 worker killed with SIGKILL, not by the OOM killer (last: [12-Nov-2026 17:14:21] WARNING: [pool www] child 21 exited on signal 9 (SIGKILL) after 9.009506 seconds from start).
+2026-11-12 17:14 .. 2026-11-12 17:14 (21s): Found 1 OOM kill [WARNING]. 1 startup detected (last: 2026-11-12 17:14:09). 1 worker killed with SIGKILL, not by the OOM killer (last: 2026-11-12 17:14:21).
 
-OOM kill:
-* [12-Nov-2026 17:14:30] WARNING: [pool www] child 24 exited on signal 9 (SIGKILL) after 15.122709 seconds from start
+OOM kills:
+* 1x WARNING: [pool www] child * exited on signal 9 (SIGKILL) after * seconds from start (last: 2026-11-12 17:14:30)
 
 Read 9 lines from 1 source:
 * `/var/log/php-fpm/error.log` (size: 780.0B)
