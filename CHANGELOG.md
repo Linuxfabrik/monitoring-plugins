@@ -30,6 +30,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * about-me: `--tags` proposes the new `data-partition` tag on hosts with a partition mounted at `/data`, and the new `icinga-director` tag.
+* apache-httpd-logfile: Denied requests no longer alert by default, for example from crawlers a site blocks.
 * lynis-logfile: Reports how many tests the lynis profile skips.
 * mysql-connections: Speaks of failed connection attempts instead of aborted connections, and points to the denied logins.
 * mysql-index-health: Redundant indexes no longer alert by default.

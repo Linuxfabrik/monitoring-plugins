@@ -3,7 +3,7 @@
 
 ## Overview
 
-Scans the Apache HTTP Server error log for the events an administrator has to act on: children that died on a signal or had to be killed at a stop, a server that ran out of workers, processes it failed to fork, backends a reverse proxy or PHP-FPM could not reach or that dropped requests, and stapling switched on for a certificate it cannot work for. Startups, restarts and shutdowns are counted alongside them, so a server that keeps restarting is visible. Alerts when one of those events shows up, when the lines one client provokes cross the rates the thresholds set, and when a line arrives at a level `--critical-level` or `--warning-level` covers. What Apache logged about one request and one client - a denied access, a password that did not match, a request line it refused to parse - is counted within `--lookback` and judged by how many of them arrived, not by the fact that they did: one is a bot or a bad link, hundreds within ten minutes is somebody walking the site or guessing passwords. Those lines are counted there and nowhere else, so the background noise every internet-facing server produces does not keep the check permanently yellow. What is left is what Apache said about itself, and that is counted by the level it wrote at the head of the line: `emerg`, `alert` and `crit` return CRITICAL, `error` returns WARNING, and `--critical-level` and `--warning-level` move that split. The events named above carry their own state and are counted there and nowhere else, because the level says nothing about what happened and Apache logs some of them at `notice` anyway. A message that merely contains the word "error" never counts, and a `LogLevel` below `warn` hides a line from this check just as it hides it from the file. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times, and everything named is then read as one window. Without it the check follows the configuration from the main file through its `Include`/`IncludeOptional` files and reads the server's `ErrorLog` together with every `ErrorLog` a virtual host sets, so a host whose sites log to their own files is watched where the sites write and not only where the server does; where no configuration can be read, the common locations of the distributions are probed instead. The journal of the Apache unit is read along with them, because a server which fails to start writes to its standard error instead of into the error log, and a rejected configuration or an address already in use is in the journal only. What the sources hold in common is counted once. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. A problem Apache reports while loading its configuration counts until the next start or reload that no longer reports it. Requires root or sudo.
+Scans the Apache HTTP Server error log for the events an administrator has to act on: children that died on a signal or had to be killed at a stop, a server that ran out of workers, processes it failed to fork, backends a reverse proxy or PHP-FPM could not reach or that dropped requests, and stapling switched on for a certificate it cannot work for. Startups, restarts and shutdowns are counted alongside them, so a server that keeps restarting is visible. Alerts when one of those events shows up, when the lines one client provokes cross the rates the thresholds set, and when a line arrives at a level `--critical-level` or `--warning-level` covers. What Apache logged about one request and one client - a password that did not match, a request line it refused to parse, a denied access - is counted within `--lookback` and judged by how many of them arrived, not by the fact that they did: one is a bot or a bad link, hundreds within ten minutes is somebody guessing passwords or scanning the site. A denied access is a `Require` doing its job and raises no state unless its thresholds are set. Those lines are counted there and nowhere else, so the background noise every internet-facing server produces does not keep the check permanently yellow. What is left is what Apache said about itself, and that is counted by the level it wrote at the head of the line: `emerg`, `alert` and `crit` return CRITICAL, `error` returns WARNING, and `--critical-level` and `--warning-level` move that split. The events named above carry their own state and are counted there and nowhere else, because the level says nothing about what happened and Apache logs some of them at `notice` anyway. A message that merely contains the word "error" never counts, and a `LogLevel` below `warn` hides a line from this check just as it hides it from the file. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times, and everything named is then read as one window. Without it the check follows the configuration from the main file through its `Include`/`IncludeOptional` files and reads the server's `ErrorLog` together with every `ErrorLog` a virtual host sets, so a host whose sites log to their own files is watched where the sites write and not only where the server does; where no configuration can be read, the common locations of the distributions are probed instead. The journal of the Apache unit is read along with them, because a server which fails to start writes to its standard error instead of into the error log, and a rejected configuration or an address already in use is in the journal only. What the sources hold in common is counted once. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. A problem Apache reports while loading its configuration counts until the next start or reload that no longer reports it. Requires root or sudo.
 
 **Important Notes:**
 
@@ -16,6 +16,7 @@ Scans the Apache HTTP Server error log for the events an administrator has to ac
 * **A client does not get to choose which source it is counted under.** Parts of the lines this check reads are the client's own text - the account it asked for, the identification string it sent - and a client that writes an address into them would otherwise move its own lines into somebody else's count, or spread them out to stay below a threshold. The address is therefore taken from where the server writes the peer and nowhere else, and the two spellings of one client (`198.51.100.7` and `::ffff:198.51.100.7`) are counted as the one client they are.
 * **A rate is counted per source address, not as a total.** Six failures from one address within the window is somebody working on this host; six failures spread over six addresses is the open network going past, and only the first is worth reporting. What the state follows is therefore the busiest single source, which is also the quantity an intrusion prevention system counts before it blocks one - so the thresholds compare against the same thing that system does. The summary names that source and, where they differ, the total and how many addresses it came from. Lines that name no source are counted together as one, so a burst of unattributable lines still reports. `--no-per-source` goes back to judging everything that arrived, for a log that reaches this check through something that rewrites or drops the address of the peer. Behind a reverse proxy every client is the proxy, so a crowd is judged against the rate meant for one client: where every request-scoped line in the window names the same internal address, the summary calls it probably a reverse proxy, and once it raises a state the recommendation names the `mod_remoteip` directives that let Apache log the client instead. Counters that are not about who caused them - a backend that could not be reached, connections refused for want of slots - always judge the total, because the address on such a line says nothing about the cause.
 * **The rate thresholds assume an intrusion prevention system in front of this check.** A host reachable from the internet collects failed logins and probes around the clock, and the answer to those is a system that reads the same log, counts what a single source fails within a few minutes and blocks it. Such a system commonly lets five failures per source through before it steps in, so the defaults here sit just above that: what this check reports is what got past the blocking, not what the blocking is already handling. The window is `--lookback`, ten minutes by default, which is the same window those systems count in. On a host without one, the counters see every attempt of every source and the defaults are far too tight - raise them until they sit clear of what the host collects on a quiet day, and keep the ratio rather than the absolute number: a threshold is useful when it is a multiple of the normal rate, not when it is a fraction of it. `0` switches a threshold off entirely.
+* **Denied requests are counted, but raise no state by default.** `client denied by server configuration` is a `Require` doing what it was written for, typically against a crawler the site blocks by its user agent, and one such crawler keeps a site above any threshold for days without anything to act on. The count stays in the summary and the perfdata. Whether real users are locked out is what a check of the site itself answers; set `--client-denials-warning` / `--client-denials-critical` to be told about a walk of the site anyway.
 * **A failed backend request is counted, not reported, and counted once.** Apache writes two or three lines about one request a backend failed (the connection attempt and the request, or the FastCGI header that did not arrive and the request); the check counts the request. A restart of PHP-FPM removes its socket for a moment and fails the requests arriving meanwhile, a reload keeps the socket but cuts off the requests that are running unless `process_control_timeout` is set, and a backend that is really gone fails every request. A handful across a day is maintenance and must not page anybody; dozens within minutes is an outage. They are therefore judged by `--proxy-failures-warning` and `--proxy-failures-critical` over `--lookback`, and the recommendation says for each cause - refused, timed out, dropped - which backend it hit and what to do. Whether the site answers at all is the job of an HTTP check, not of a log check.
 * **Some lines look like problems and are not.** PHP-FPM's `the log buffer is full` notice (its own access log line was shortened), the `INFO` and `DEBUG` lines a mod_wsgi application such as FreeIPA or a Django project writes to its standard error (mod_wsgi relays all of it at `error`), the streams mod_http2 still waits for when a client connection closes (`h2_stream(...,CLEANUP)`, the symptom of a slow backend the proxy counter already reports) and a client mod_perl lost (`Broken pipe`) are left out of every count.
 * **One failing request is one event, however many lines it takes to say so.** mod_wsgi relays what an application writes to its standard error line by line, each at `error` and each with the client's address, so a Python traceback of seventeen lines arrives as seventeen lines from one thread within a few microseconds. Lines of the same thread that follow each other within a second count once.
@@ -93,36 +94,37 @@ counted alongside them, so a server that keeps restarting is visible. Alerts
 when one of those events shows up, when the lines one client provokes cross
 the rates the thresholds set, and when a line arrives at a level
 `--critical-level` or `--warning-level` covers. What Apache logged about one
-request and one client - a denied access, a password that did not match, a
-request line it refused to parse - is counted within `--lookback` and judged
+request and one client - a password that did not match, a request line it
+refused to parse, a denied access - is counted within `--lookback` and judged
 by how many of them arrived, not by the fact that they did: one is a bot or a
-bad link, hundreds within ten minutes is somebody walking the site or guessing
-passwords. Those lines are counted there and nowhere else, so the background
-noise every internet-facing server produces does not keep the check
-permanently yellow. What is left is what Apache said about itself, and that is
-counted by the level it wrote at the head of the line: `emerg`, `alert` and
-`crit` return CRITICAL, `error` returns WARNING, and `--critical-level` and
-`--warning-level` move that split. The events named above carry their own
-state and are counted there and nowhere else, because the level says nothing
-about what happened and Apache logs some of them at `notice` anyway. A message
-that merely contains the word "error" never counts, and a `LogLevel` below
-`warn` hides a line from this check just as it hides it from the file. The log
-is read either from a file, from a systemd unit (`systemd:`) or from a
-container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given
-several times, and everything named is then read as one window. Without it the
-check follows the configuration from the main file through its
-`Include`/`IncludeOptional` files and reads the server's `ErrorLog` together
-with every `ErrorLog` a virtual host sets, so a host whose sites log to their
-own files is watched where the sites write and not only where the server does;
-where no configuration can be read, the common locations of the distributions
-are probed instead. The journal of the Apache unit is read along with them,
-because a server which fails to start writes to its standard error instead of
-into the error log, and a rejected configuration or an address already in use
-is in the journal only. What the sources hold in common is counted once. The
-most recent rotated file is read along with the live one, so the window does
-not end where logrotate last ran. A problem Apache reports while loading its
-configuration counts until the next start or reload that no longer reports it.
-Requires root or sudo.
+bad link, hundreds within ten minutes is somebody guessing passwords or
+scanning the site. A denied access is a `Require` doing its job and raises no
+state unless its thresholds are set. Those lines are counted there and nowhere
+else, so the background noise every internet-facing server produces does not
+keep the check permanently yellow. What is left is what Apache said about
+itself, and that is counted by the level it wrote at the head of the line:
+`emerg`, `alert` and `crit` return CRITICAL, `error` returns WARNING, and
+`--critical-level` and `--warning-level` move that split. The events named
+above carry their own state and are counted there and nowhere else, because
+the level says nothing about what happened and Apache logs some of them at
+`notice` anyway. A message that merely contains the word "error" never counts,
+and a `LogLevel` below `warn` hides a line from this check just as it hides it
+from the file. The log is read either from a file, from a systemd unit
+(`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`).
+`--server-log` may be given several times, and everything named is then read
+as one window. Without it the check follows the configuration from the main
+file through its `Include`/`IncludeOptional` files and reads the server's
+`ErrorLog` together with every `ErrorLog` a virtual host sets, so a host whose
+sites log to their own files is watched where the sites write and not only
+where the server does; where no configuration can be read, the common
+locations of the distributions are probed instead. The journal of the Apache
+unit is read along with them, because a server which fails to start writes to
+its standard error instead of into the error log, and a rejected configuration
+or an address already in use is in the journal only. What the sources hold in
+common is counted once. The most recent rotated file is read along with the
+live one, so the window does not end where logrotate last ran. A problem
+Apache reports while loading its configuration counts until the next start or
+reload that no longer reports it. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -139,11 +141,11 @@ options:
   --client-denials-critical CLIENT_DENIALS_CRITICAL
                         Number of denied requests within `--lookback` that
                         returns CRITICAL. 0 turns the threshold off. Example:
-                        `--client-denials-critical=200`. Default: 60
+                        `--client-denials-critical=200`. Default: 0
   --client-denials-warning CLIENT_DENIALS_WARNING
                         Number of denied requests within `--lookback` that
                         returns WARNING. 0 turns the threshold off. Example:
-                        `--client-denials-warning=50`. Default: 6
+                        `--client-denials-warning=50`. Default: 0
   --critical-level {emerg,alert,crit,error,warn,none}
                         Least severe Apache log level that returns CRITICAL.
                         Each level includes everything more severe than
@@ -304,8 +306,8 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-logf
 # and no application logs through Apache.
 ./apache-httpd-logfile --critical-level=error
 
-# An internet-facing site behind a WAF that already answers scans. Report a walk of the
-# site only once it is large enough to matter, and never at night.
+# A site where a denied request is rare enough to be worth a look. Report a walk of the
+# site once it is large enough to matter, and never at night.
 ./apache-httpd-logfile --client-denials-warning=1000 --client-denials-critical=0
 
 # A login form that is being guessed at should be seen within the hour rather than
@@ -386,7 +388,7 @@ Where the numbers come from:
 * WARN if the window holds `error` lines, and with `--warning-level` also on `warn`.
 * CRIT if the window holds a saturated server, a process Apache could not fork, or a start Apache refused to complete. Apache logs a saturated server at `error` and a refused start without any level at all, so neither of them would be reported by level alone.
 * WARN if the window holds a child that died on a signal, a child Apache had to kill with SIGKILL because it did not exit within 10 seconds of a stop or restart, or a server that came within `MinSpareThreads` of `MaxRequestWorkers`. Apache logs a dead child at `notice`.
-* WARN or CRIT if more denied requests, failed passwords, unreachable backends or other failed requests arrived within `--lookback` than `--proxy-failures-warning` / `--proxy-failures-critical`, `--client-denials-warning` / `--client-denials-critical`, `--auth-failures-warning` / `--auth-failures-critical` and `--request-errors-warning` / `--request-errors-critical` allow. A single one of any of them never alerts, and none of them is counted by its level.
+* WARN or CRIT if more denied requests, failed passwords, unreachable backends or other failed requests arrived within `--lookback` than `--proxy-failures-warning` / `--proxy-failures-critical`, `--client-denials-warning` / `--client-denials-critical` (off by default), `--auth-failures-warning` / `--auth-failures-critical` and `--request-errors-warning` / `--request-errors-critical` allow. A single one of any of them never alerts, and none of them is counted by its level.
 * WARN if OCSP stapling is switched on for a certificate it cannot be set up for, or its responder could not be reached. Apache says so once per certificate on every start and then serves TLS without stapling; a line older than the last start or reload that no longer reported it does not count.
 * WARN if the log file is configured but is not an existing regular file.
 * UNKNOWN if not a single line in the window carries an Apache log level or message code. The source is then something else, the access log for example.
