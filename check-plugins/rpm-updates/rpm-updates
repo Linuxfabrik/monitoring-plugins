@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026110601'
+__version__ = '2026111701'
 
 DESCRIPTION = """Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 systems. Reports the number and type of available advisories (bugfix, enhancement,
@@ -351,8 +351,8 @@ def join_packages_updates(yum_installed, yum_upgrades):
     Returns
     -------
     dict[str, dict]
-        A dictionary mapping each base package name
-        (the portion before the first `.` in the RPM filename) to a sub-dictionary with keys:
+        A dictionary mapping each package name
+        (the portion before the last `.` in the first column) to a sub-dictionary with keys:
 
           - **"package"** (`str`): Base package name (e.g., `"bash"`).
           - **"arch"** (`str`): Architecture suffix extracted from the RPM filename
@@ -368,9 +368,8 @@ def join_packages_updates(yum_installed, yum_upgrades):
 
     Notes
     -----
-    - Package name splitting logic assumes RPM filenames formatted as
-      `<name>-<version>.<release>.<arch>`. If a package name contains additional dots or
-      unexpected formatting, the splitting heuristic may misidentify the base name.
+    - The first column is `<name>.<arch>`. It is split at the last dot, since a
+      package name may contain dots (`python3.13`), while an architecture never does.
     - Lines in the YUM output that are headers, separators, or otherwise do not have exactly
       three whitespace-separated columns are silently ignored.
     - If there is an upgrade entry for a package not present in `yum_installed`, a `KeyError`
@@ -383,9 +382,13 @@ def join_packages_updates(yum_installed, yum_upgrades):
         if len(installed) != 3:
             continue
         package_installed, version_installed, repo_installed = installed
-        packages[package_installed.split('.')[0]] = {
-            'package': package_installed.split('.')[0],
-            'arch': package_installed.split('.')[-1],
+        # Split `<name>.<arch>` at the last dot: a name may contain dots itself
+        # (`python3.13.x86_64`, `python3.13-libs.x86_64`), an architecture never
+        # does. Verified with dnf 4.20 on Rocky 10.3.
+        name_installed, _, arch_installed = package_installed.rpartition('.')
+        packages[name_installed] = {
+            'package': name_installed,
+            'arch': arch_installed,
             # Version and release are kept exactly as yum reports them. Dropping
             # the last dotted segment shortens `2.56.4-170.el8_10` nicely, but a
             # z-stream release carries its counter behind the dist tag, so the
@@ -403,7 +406,7 @@ def join_packages_updates(yum_installed, yum_upgrades):
         if len(upgrade) != 3:
             continue
         package_upgrade, version_upgrade, repo_upgrade = upgrade
-        packages[package_upgrade.split('.')[0]].update(
+        packages[package_upgrade.rpartition('.')[0]].update(
             {
                 'version_upgrade': version_upgrade,
                 'repo_upgrade': repo_upgrade,

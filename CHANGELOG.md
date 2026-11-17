@@ -89,6 +89,7 @@ Monitoring Plugins:
 * mysql-table-definition-cache: No longer counts the `information_schema` tables, which never take a slot in the cache.
 * needs-restarting: The first run after a reboot no longer breaks the RPM database on RHEL 8, and a broken RPM database returns UNKNOWN instead of a pending reboot.
 * nextcloud-status: An HTTP 404 names the wrong path in `--url`, and a web server error page is no longer quoted with its CSS.
+* rpm-updates: Lists packages with a dot in their name, such as `python3.13`, under their own name and version.
 
 
 ## [v8.1.0] - 2026-10-27

@@ -225,6 +225,25 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': ['7.61.1-34.el8_10.2', '7.61.1-34.el8_10.11'],
     },
+    # A package name may contain dots itself. Captured on Rocky 10.3 with
+    # `python3.13`, `python3.13-libs`, `python3.13-pip-wheel` and
+    # `python3.13-setuptools-wheel` from EPEL installed next to the system
+    # `python3`, the first two of them with an upgrade pending. Each has to keep
+    # its own row with its own versions, and must not end up under `python3`.
+    {
+        'id': 'warn-dotted-package-names-stay-distinct',
+        'test': 'stdout/rocky10-dotted-package-names,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '16 updates available, 7 of them critical',
+            'python3.13-libs ! 3.13.18-1.el10_2     ! 3.13.18-1.el10_3.1     ! B ',
+        ],
+        'assert-not-in': ['python3 ', '78.1.1'],
+        'assert-regex': (
+            r'python3\.13 +! 3\.13\.18-1\.el10_2 +! 3\.13\.18-1\.el10_3\.1 +! B '
+        ),
+    },
 ]
 
 
