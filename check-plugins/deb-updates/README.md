@@ -31,7 +31,7 @@ bind9-dnsutils/stable,stable-security 1:9.18.33-1~deb12u2 amd64 [upgradable from
 * Classifies an update as security-critical when it matches `--critical-pattern`, which by default keys on the suite an update is offered from. This covers a package offered by the security archive alone (`aom-tools/stable-security`), which is what a fresh CVE fix looks like before the next point release folds it into the main suite, as well as one offered by both (`gzip/noble-updates,noble-security`)
 * Optionally narrows the report down to those updates (`--only-critical`); the security count is reported either way
 * Every listed package says whether it is `overdue` or still counting down (`due in 1W 23h`), and the ones a WARNING or CRITICAL hangs on are marked, so an alert can be traced back to the packages responsible for it
-* Records when an update for a package first showed up, so `--grace-updates` and `--grace-security` can hold the alert back until the host has had a patch window. An update inside its grace period is still listed and still counted in the performance data, it just does not drive the check state yet. The clock keys on the package name, so a newer candidate version does not restart it, and it starts over if the package drops off the list and comes back. A security update is governed by `--grace-security` alone, which by default is `0D`, so security never waits. Both are `0D` out of the box; the shipped Icinga Director service template sets `--grace-updates=8D` to cover a weekly patch window
+* Records when an update for a package first showed up, so `--grace-updates` and `--grace-security` can hold the alert back until the host has had a patch window. An update inside its grace period is still listed and still counted in the performance data, it just does not drive the check state yet. The clock keys on the package name, so a newer candidate version does not restart it, and it starts over if the package drops off the list and comes back. A security update is governed by `--grace-security` alone, which by default is `0D`, so security never waits. Both are `0D` out of the box; the shipped Icinga Director service template sets `--grace-updates=8D` to cover a weekly patch window, and `--grace-security=30h`, so a host that installs its security updates once a day only alerts when a run has been missed
 
 
 ## Fact Sheet
@@ -187,6 +187,7 @@ Output:
 * OK if no updates are available (or both counts stay below their thresholds).
 * WARN if the number of pending updates is >= `--warning` (default: 1).
 * CRIT if the number of security updates is >= `--critical`. Unset by default, so security updates raise a WARNING like any other update until a threshold is given.
+* Only updates whose grace period (`--grace-updates`, `--grace-security`) has run out count towards `--warning` and `--critical`. The others are listed as `due in ...` and do not change the state.
 * WARN if `apt-get update` or `apt list --upgradable` does not finish within `--timeout`.
 * UNKNOWN if APT is not installed, if `apt-get update` or `apt list --upgradable` fails, or if `--critical-pattern` is not a valid regular expression.
 * `--always-ok` suppresses all alerts and always returns OK.

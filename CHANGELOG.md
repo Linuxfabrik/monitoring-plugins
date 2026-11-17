@@ -53,7 +53,7 @@ Monitoring Plugins:
 
 Icinga Director:
 
-* deb-updates, rpm-updates: Check for updates every 8 hours instead of once a day.
+* deb-updates, rpm-updates: Check for updates every 8 hours instead of once a day, and alert on a pending security update only after 30 hours.
 * FreeIPA Server Service Set: Also checks the result of ipa-healthcheck and its timer.
 * MariaDB and MySQL Metrics Service Sets: Also check long-running queries, which moved there from the Schemas Service Sets.
 * OS - \* Basic Service Sets: `Systemd Units Failed` no longer alerts on a failed `ipa-healthcheck.service`.
