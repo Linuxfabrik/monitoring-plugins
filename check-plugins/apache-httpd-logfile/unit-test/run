@@ -253,27 +253,34 @@ CASES = [
         'assert-not-in': ['error line found', 'request error'],
     },
     {
-        # Scanner traffic: five requests Apache refused, all of them carrying a
-        # client and none of them saying anything about the server. Apache 2.4.62
-        # calls this AH10244 where 2.4.37 called it AH00126, which is why the
-        # scope decides here and not a list of codes.
+        # Scanner traffic: four paths Apache refused with 400 (AH10244) and a CGI
+        # probe, all of them carrying a client and none of them saying anything
+        # about the server. A refused path is a denied request, which raises no
+        # state by default.
         'id': 'ok-scanner-noise-is-counted-not-reported',
-        'params': [f'--server-log={fixture("rocky9-scanner-noise.txt")}'],
+        'params': [
+            f'--server-log={fixture("rocky9-scanner-noise.txt")}',
+            '--lookback=31536000',
+        ],
         'assert-retc': STATE_OK,
-        'assert-in': ["'apache_httpd_request_errors'=0;6;60;0"],
-        'assert-not-in': ['error line found', 'invalid URI path', 'request error'],
+        'assert-in': [
+            'Last 1Y: 4 client denials from 127.0.0.1',
+            "'apache_httpd_client_denials'=4;;;0",
+            "'apache_httpd_request_errors'=1;10;60;0",
+        ],
+        'assert-not-in': ['error line found', '[WARNING]', '[CRITICAL]'],
     },
     {
         'id': 'crit-scanner-noise-above-the-threshold',
         'params': [
             f'--server-log={fixture("rocky9-scanner-noise.txt")}',
             '--lookback=31536000',
-            '--request-errors-critical=5',
+            '--client-denials-critical=4',
         ],
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            'Last 1Y: 5 request errors from 127.0.0.1',
-            'Requests are failing in bulk',
+            'Last 1Y: 4 client denials from 127.0.0.1',
+            'Clients are being denied access in bulk',
         ],
     },
     {
@@ -371,6 +378,7 @@ CASES = [
         'params': [
             f'--server-log={fixture("rocky8-php-fpm-backend.txt")}',
             '--lookback=1000000000',
+            '--request-errors-warning=6',
         ],
         'assert-retc': STATE_WARN,
         'assert-in': [
@@ -391,16 +399,16 @@ CASES = [
     {
         # Request errors without a known cause are named by the message code
         # and the beginning of the most recent message carrying it.
-        'id': 'warn-request-errors-name-their-most-frequent-message',
+        'id': 'warn-denials-name-their-most-frequent-message',
         'params': [
             f'--server-log={fixture("rocky9-scanner-noise.txt")}',
             '--lookback=1000000000',
-            '--request-errors-warning=4',
+            '--client-denials-warning=4',
         ],
         'assert-retc': STATE_WARN,
         'assert-in': [
             '`AH10244: invalid URI path (/../../../etc/passwd)`',
-            'Requests are failing in bulk',
+            'Clients are being denied access in bulk',
         ],
     },
     {
@@ -579,13 +587,15 @@ CASES = [
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'www.example.com-error.log',
-            'covers the sites but not that log',
             # Measured behaviour, not a guess: through syslog the level applies
-            # to a `notice` line, where a log file carries it either way.
-            '`LogLevel warn` drops the `notice` lines there',
-            'Set `LogLevel notice`',
+            # to a `notice` line, where a log file carries it either way. Said
+            # in the recommendations, the first line stays with the alert.
+            '`ErrorLog` goes to syslog, where `LogLevel warn` drops the lines'
+            ' about the server starting, restarting and stopping; set'
+            ' `LogLevel notice` to see them',
             'AH02572',
         ],
+        'assert-regex': r'^[^\n]*1 emerg line found \[CRITICAL\]\.\n',
     },
     {
         'id': 'unknown-error-log-goes-to-syslog',
@@ -818,10 +828,10 @@ class TestRelayedStandardError(unittest.TestCase):
         self.assertIn('Last 10m: 1 request error', combined)
 
     def test_separate_failures_are_counted_separately(self):
-        path = self._write(bursts=8, lines_per_burst=17)
+        path = self._write(bursts=12, lines_per_burst=17)
         returncode, combined = _run([f'--server-log={path}'])
         self.assertEqual(returncode, STATE_WARN, combined)
-        self.assertIn('Last 10m: 8 request errors', combined)
+        self.assertIn('Last 10m: 12 request errors', combined)
 
     def test_an_info_line_in_brackets_is_no_error(self):
         path = self._write(

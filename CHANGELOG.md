@@ -31,7 +31,7 @@ Monitoring Plugins:
 
 * Log checks list what they alert on, repeated lines grouped and counted, and keep the first line short (logfile and the `*-logfile` checks for Apache, MySQL, PHP-FPM, Postfix and sshd).
 * about-me: `--tags` proposes the new `data-partition` tag on hosts with a partition mounted at `/data`, and the new `icinga-director` tag.
-* apache-httpd-logfile: Denied requests no longer alert by default, for example from crawlers a site blocks.
+* apache-httpd-logfile: Denied requests and path scans Apache rejects by itself no longer alert by default, other failed requests only from 10 on.
 * lynis-logfile: Reports how many tests the lynis profile skips.
 * mysql-connections: Speaks of failed connection attempts instead of aborted connections, and points to the denied logins.
 * mysql-index-health: Redundant indexes no longer alert by default.

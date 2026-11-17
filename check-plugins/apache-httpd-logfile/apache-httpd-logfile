@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026111602'
+__version__ = '2026111701'
 
 DESCRIPTION = """Scans the Apache HTTP Server error log for the events an administrator
 has to act on: children that died on a signal or had to be killed at a stop, a server that
@@ -45,8 +45,9 @@ What Apache logged about one request and one client - a password that did not ma
 request line it refused to parse, a denied access - is counted within `--lookback` and
 judged by how many of them arrived, not by the fact that they did: one is a bot or a bad
 link, hundreds within ten minutes is somebody guessing passwords or scanning the site. A
-denied access is a `Require` doing its job and raises no state unless its thresholds are
-set. Those lines are counted there and nowhere else, so the background noise every
+denied access - a `Require` doing its job, or a path Apache refused by itself because it
+climbs above the document root - raises no state unless its thresholds are set. Those
+lines are counted there and nowhere else, so the background noise every
 internet-facing server produces does not keep the check permanently yellow.
 What is left is what Apache said about itself, and that is counted by the level it wrote
 at the head of the line: `emerg`, `alert` and `crit` return CRITICAL, `error` returns
@@ -107,7 +108,7 @@ DEFAULT_PER_SOURCE = True
 DEFAULT_PROXY_FAILURES_CRITICAL = 100
 DEFAULT_PROXY_FAILURES_WARNING = 10
 DEFAULT_REQUEST_ERRORS_CRITICAL = 60
-DEFAULT_REQUEST_ERRORS_WARNING = 6
+DEFAULT_REQUEST_ERRORS_WARNING = 10
 DEFAULT_TIMEOUT = 8
 DEFAULT_WARNING_LEVEL = 'error'
 
@@ -471,11 +472,11 @@ EVENTS = (
 )
 
 # What Apache writes once per rejected request rather than once per problem: an
-# access somebody is not allowed, and a password that did not match. One of them
-# is a misconfigured link or a bot, and no reason to get anybody out of bed;
-# hundreds of failed passwords in ten minutes is somebody guessing them. Denied
-# requests only raise a state where their thresholds are set (see
-# DEFAULT_CLIENT_DENIALS_WARNING). They are therefore counted against a rate
+# access somebody is not allowed or a path Apache refused, and a password that did
+# not match. One of them is a misconfigured link or a bot, and no reason to get
+# anybody out of bed; hundreds of failed passwords in ten minutes is somebody
+# guessing them. Denied requests only raise a state where their thresholds are set
+# (see DEFAULT_CLIENT_DENIALS_WARNING). They are therefore counted against a rate
 # rather than reported line by line, and they are kept out of the per-level
 # counts above, so the background noise every internet-facing server produces
 # leaves the check green.
@@ -486,17 +487,22 @@ EVENTS = (
 # The last entry catches everything else Apache logged about one request, which
 # is what the two named ones are a special case of. A reverse proxy on the open
 # internet collects those all day: a client that sends one host name in SNI and
-# another in the `Host` header, a scanner posting `/cgi-bin/.%2e/.%2e/bin/sh`,
-# a request line Apache refuses to parse. Naming each code would be an endless
-# list, so the scope decides instead of the code.
+# another in the `Host` header, a request line Apache refuses to parse. Naming
+# each code would be an endless list, so the scope decides instead of the code.
 RATE_EVENTS = (
     {
         'key': 'client_denials',
         'label': 'client denial',
         'perfdata': 'apache_httpd_client_denials',
         # `client denied by server configuration` from mod_authz_core and from
-        # the deprecated mod_access_compat.
-        'regex': re.compile(r'\bAH(?:01630|01797)\b'),
+        # the deprecated mod_access_compat. Also a request Apache answers with
+        # 400 because of its path: one that climbs above the root
+        # (`/%2e%2e/.env`, AH10244 `invalid URI path`,
+        # `ap_process_request_internal()`) or does not start with a slash
+        # (AH00126 `Invalid URI in request`, `ap_core_translate()`). That is
+        # Apache turning a scanner away by itself, as much a non-event as a
+        # `Require` doing its job. Read off httpd 2.4.37 and 2.4.63.
+        'regex': re.compile(r'\bAH(?:00126|01630|01797|10244)\b'),
         'critical': 'CLIENT_DENIALS_CRITICAL',
         'warning': 'CLIENT_DENIALS_WARNING',
         'recommendation': (
@@ -1685,10 +1691,8 @@ def main():
 
     # fetch data
     server_logs = args.SERVER_LOG
-    # Where the server's own log went when it went somewhere this check cannot
-    # open. Only worth saying once the sites' logs carry the run, which is why it
-    # is a sentence in the summary rather than the abort further down.
-    main_log_notice = ''
+    # What a server that logs through syslog loses, said where it can be fixed and
+    # kept out of the first line, which is reserved for what the check alerts on.
     main_log_recommendation = ''
     if not server_logs:
         main_log, vhost_logs = get_configured_log_files(args.CONFIG_ROOT)
@@ -1706,39 +1710,22 @@ def main():
         # and sites that all hand their log to syslog leave only the unit, and the
         # syslog target must not stay behind as a "file".
         if main_log in (SYSLOG_TARGET, PIPE_TARGET) and (vhost_logs or units):
-            if vhost_logs and units:
-                covered = 'the sites and the unit'
-            elif vhost_logs:
-                covered = 'the sites'
-            else:
-                covered = 'the unit'
-            # Named precisely, because the journal of the unit is read as well
-            # and the summary would otherwise contradict itself. What a server
-            # logging this way loses is its lifecycle: Apache writes a `notice`
-            # line into a log file whatever `LogLevel` says, but through syslog
-            # the level applies, so the default `warn` drops every start,
-            # restart and shutdown. Measured on Rocky 9 (httpd 2.4.62, rsyslog
-            # 8.2510): with `LogLevel warn` a denied request (AH01630, `error`)
-            # reaches the journal while AH00489, AH00493 and AH00491 reach
-            # neither the journal, nor rsyslog's files, nor a file of their own;
-            # with `LogLevel notice` they are all there.
-            target = 'syslog' if main_log == SYSLOG_TARGET else 'a program'
-            main_log_notice = (
-                f'`ErrorLog` hands the log the server writes about itself to '
-                f'{target}, so this run covers {covered} but not that log'
-            )
+            # What a server logging through syslog loses is its lifecycle: Apache
+            # writes a `notice` line into a log file whatever `LogLevel` says,
+            # but through syslog the level applies, so the default `warn` drops
+            # every start, restart and shutdown. Measured on Rocky 9 (httpd
+            # 2.4.62, rsyslog 8.2510): with `LogLevel warn` a denied request
+            # (AH01630, `error`) reaches the journal while AH00489, AH00493 and
+            # AH00491 reach neither the journal, nor rsyslog's files, nor a file
+            # of their own; with `LogLevel notice` they are all there.
             level = get_log_level(args.CONFIG_ROOT) or 'warn'
             if main_log == SYSLOG_TARGET and LEVEL_LADDER.index(
                 level if level in LEVEL_LADDER else 'warn'
             ) < LEVEL_LADDER.index('notice'):
-                main_log_notice += (
-                    f' - and `LogLevel {level}` drops the `notice` lines there, '
-                    f'so no startup, restart or shutdown can be seen at all'
-                )
                 main_log_recommendation = (
-                    'Set `LogLevel notice` to see the server start, restart and '
-                    'stop: through syslog the level applies to those lines, '
-                    'where a log file would carry them whatever `LogLevel` says'
+                    f'`ErrorLog` goes to syslog, where `LogLevel {level}` drops'
+                    ' the lines about the server starting, restarting and'
+                    ' stopping; set `LogLevel notice` to see them'
                 )
             main_log = None
         # The unit alongside the files, not instead of them: a server that failed
@@ -2339,9 +2326,6 @@ def main():
                 'Most lines carry neither an Apache log level nor a message code;'
                 ' check that the source is the error log and not the access log'
             )
-
-    if main_log_notice:
-        facts.append(main_log_notice)
 
     if result['notice']:
         facts.append(result['notice'].rstrip('.'))
