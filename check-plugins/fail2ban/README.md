@@ -3,13 +3,13 @@
 
 ## Overview
 
-Checks the number of currently banned IP addresses across all fail2ban jails. Reports the total ban count and a per-jail breakdown. Jails can be excluded from the check with a regular expression. Alerts when the number of banned IPs in any jail exceeds the configured thresholds. Requires root or sudo.
+Checks the number of currently banned IP addresses across all fail2ban jails. Reports the total ban count and a per-jail breakdown. Jails can be excluded from the check with a regular expression. Alerts when the number of banned IPs in any jail exceeds the configured thresholds. Alerts as well when fail2ban bans an address that must stay reachable, such as the reverse proxy in front of this host or the monitoring server, so a lockout of everybody behind a proxy shows up at once. Requires root or sudo.
 
 **Data Collection:**
 
 * Runs `fail2ban-client ping` to verify the fail2ban server is alive
 * Runs `fail2ban-client status` to discover all configured jails
-* Runs `fail2ban-client status <jail>` for each jail to get the current number of banned IPs
+* Runs `fail2ban-client status <jail>` for each jail to get the current number of banned IPs and, with `--trusted-ip`, the list of banned addresses
 
 
 ## Fact Sheet
@@ -29,12 +29,16 @@ Checks the number of currently banned IP addresses across all fail2ban jails. Re
 ```text
 usage: fail2ban [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
                 [--no-match-severity {ok,warn,crit,unknown}] [--no-perfdata]
-                [--socket SOCKET] [--timeout TIMEOUT] [-w WARN]
+                [--socket SOCKET] [--timeout TIMEOUT]
+                [--trusted-ip TRUSTED_IP] [-w WARN]
 
 Checks the number of currently banned IP addresses across all fail2ban jails.
 Reports the total ban count and a per-jail breakdown. Jails can be excluded
 from the check with a regular expression. Alerts when the number of banned IPs
-in any jail exceeds the configured thresholds. Requires root or sudo.
+in any jail exceeds the configured thresholds. Alerts as well when fail2ban
+bans an address that must stay reachable, such as the reverse proxy in front
+of this host or the monitoring server, so a lockout of everybody behind a
+proxy shows up at once. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -58,6 +62,13 @@ options:
                         or /var/run, and nobody but root may be able to
                         replace it. Default: None
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --trusted-ip TRUSTED_IP
+                        IP address or network that fail2ban must never ban,
+                        such as a reverse proxy in front of this host. Alerts
+                        with CRIT if a jail bans it. IPv4 or IPv6, a single
+                        address or a network in CIDR notation. Can be
+                        specified multiple times. Example: `--trusted-
+                        ip=192.0.2.10 --trusted-ip=2001:db8::/64`
   -w, --warning WARN    WARN threshold for the number of banned IPs per jail.
                         Supports Nagios ranges. Default: 2500
 
@@ -83,14 +94,38 @@ sshd     ! 5432   ! [WARNING]
 portscan ! 1974   ! [OK]
 ```
 
+Alert when fail2ban bans the reverse proxy in front of this host. Behind a proxy that Apache logs as the client, a jail that counts failed logins or missing files bans the proxy, and everybody behind it loses access:
+
+```bash
+./fail2ban --trusted-ip=192.0.2.10 --trusted-ip=2001:db8::/64
+```
+
+Output:
+
+```text
+3 IPs banned, 1 trusted address among them [CRITICAL]
+
+Trusted addresses banned:
+* 192.0.2.10 in apache-auth, lift the ban with `sudo fail2ban-client set apache-auth unbanip 192.0.2.10`
+
+Add the trusted addresses to `ignoreip` in fail2ban so they are not banned again.
+
+Jail        ! Banned ! Status
+------------+--------+-----------
+apache-auth ! 3      ! [CRITICAL]
+sshd        ! 0      ! [OK]
+```
+
 
 ## States
 
 * OK if the number of banned IPs in every checked jail is within `--warning` (default: 2500).
 * WARN if the number of banned IPs in any jail exceeds `--warning` (default: 2500).
 * CRIT if the number of banned IPs in any jail exceeds `--critical` (default: 10000).
+* CRIT if a jail bans an address or network given by `--trusted-ip`, whatever the number of banned IPs.
 * WARN if a `fail2ban-client` call does not return within `--timeout` (default: 8 seconds), typically because the fail2ban server hangs.
 * UNKNOWN if `fail2ban-client ping` fails or `fail2ban-client status` returns an error.
+* UNKNOWN if a `--trusted-ip` value is neither an IP address nor a network in CIDR notation.
 * UNKNOWN if `--socket` resolves outside `/run` or `/var/run`, or if anybody but root could replace the socket or a directory above it.
 * `--warning` and `--critical` accept Nagios range expressions.
 * Jails matching `--ignore` are excluded from both the output and the alerting.
