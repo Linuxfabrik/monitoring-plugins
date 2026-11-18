@@ -71,6 +71,12 @@ spec:
       overrides:
       - matcher:
           id: byName
+          options: mysql_innodb_buffer_pool_bytes_data
+        properties:
+        - id: displayName
+          value: Data in the buffer pool
+      - matcher:
+          id: byName
           options: mysql_innodb_buffer_pool_size
         properties:
         - id: displayName
@@ -139,6 +145,36 @@ spec:
         key: metric
         operator: '='
         value: mysql_innodb_buffer_pool_size
+
+    - alias: mysql_innodb_buffer_pool_bytes_data
+      refId: mysql_innodb_buffer_pool_bytes_data
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - 'null'
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_innodb_buffer_pool_bytes_data
 
     - alias: mysql_innodb_data_size
       refId: mysql_innodb_data_size
@@ -564,3 +600,79 @@ spec:
         key: metric
         operator: '='
         value: mysql_innodb_buffer_pool_wait_free_per_second
+
+  - title: MySQL InnoDB Buffer Pool - Usage
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 16
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: 900000
+        decimals: 1
+        max: 100
+        min: 0
+        unit: percent
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_innodb_buffer_pool_pct_used
+        properties:
+        - id: displayName
+          value: Buffer pool pages in use
+    options:
+      legend:
+        calcs:
+        - firstNotNull
+        - min
+        - mean
+        - max
+        - lastNotNull
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: mysql_innodb_buffer_pool_pct_used
+      refId: mysql_innodb_buffer_pool_pct_used
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - 'null'
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_innodb_buffer_pool_pct_used

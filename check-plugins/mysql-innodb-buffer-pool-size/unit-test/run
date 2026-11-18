@@ -25,11 +25,17 @@ to miss, so the plugin returns STATE_OK. The first run only records
 the buffer pool counters as a baseline, the second one reports the
 miss ratio since the first.
 
+The pool of such a server is mostly free, so it is reported with its
+usage and not as full.
+
 On MariaDB the same container then gets a table about four times the
 size of the buffer pool, and the plugin has to tell the two workloads
 apart that a size comparison cannot: a hot set that fits into the pool
 (OK) and random lookups across the whole table (WARN). The table is
-filled from the `seq` engine, which MySQL does not ship.
+filled from the `seq` engine, which MySQL does not ship. With the table
+loaded the pool has to count as full. Waits for a free page need
+sessions that change pages faster than InnoDB frees them, which this
+test does not produce; it asserts that reads alone cause none.
 
 The test matrix is defined by the Containerfiles under
 `containerfiles/`. Each file is a Containerfile (typically a
@@ -119,6 +125,13 @@ def _check_workloads(test, defaults_file, cmd):
             retc, combined = _run_plugin(cmd)
             test.assertEqual(retc, STATE_OK)
             test.assertRegex(combined, r'Buffer pool miss ratio: \d+\.\d% since')
+            # four times its size went through the pool, so it is down to the
+            # reserve of free pages InnoDB keeps
+            test.assertRegex(
+                combined,
+                r'`innodb_buffer_pool_size`\s*\(32\.0+\s*MiB, full, \d+\.\d% in use\)',
+            )
+            test.assertNotIn('Sessions found no free page', combined)
 
             _lookups(cursor, WORKLOAD_ROWS)
             retc, combined = _run_plugin(cmd)
@@ -142,7 +155,12 @@ def _check_image(test, containerfile):
         # MySQL 9.3.0, so pinning it would break that container's boot,
         # and the plugin no longer evaluates the log-size-to-buffer-pool
         # ratio anyway.
-        extra_args='--innodb-buffer-pool-size=33554432',
+        # The reserve of free pages InnoDB keeps is `innodb_lru_scan_depth`,
+        # by default 1536 of the 2028 pages a pool of this size has on
+        # MariaDB. With that the pool settles anywhere between 24% and 55% in
+        # use, and whether it is full cannot be told. A reserve of 256 pages
+        # lets it fill up as a pool of a realistic size does.
+        extra_args='--innodb-buffer-pool-size=33554432 --innodb-lru-scan-depth=256',
     ) as (_container, defaults_file):
         cmd = [
             'python3',
@@ -152,7 +170,12 @@ def _check_image(test, containerfile):
         for _run in ('baseline', 'interval'):
             retc, combined = _run_plugin(cmd)
             test.assertEqual(retc, STATE_OK)
-            test.assertRegex(combined, r'`innodb_buffer_pool_size`\s*\(32\.0+\s*MiB\)')
+            # an empty server leaves most of the pool free, so it is not "full"
+            test.assertRegex(
+                combined,
+                r'`innodb_buffer_pool_size`\s*\(32\.0+\s*MiB, \d+\.\d% in use\)',
+            )
+            test.assertIn('mysql_innodb_buffer_pool_pct_used', combined)
         # Every container gets its own temporary defaults file, and the plugin
         # keeps one baseline per defaults file, so the second run always has one.
         test.assertRegex(
