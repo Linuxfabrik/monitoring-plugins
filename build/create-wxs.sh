@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2025053001
+# 2026111801
 
 set -e -x
 
@@ -13,9 +13,22 @@ cat > "$LFMP_DIR_PACKAGED/in/lfmp.wxs" << EOF
       Language="1033"
       Manufacturer="Linuxfabrik GmbH"
       Name="Linuxfabrik Monitoring Plugins"
-      ProductCode="{7060a355-f73b-447d-aaa8-f4bf2db48032}"
       UpgradeCode="{bb340ae1-12a5-41d3-a27f-8677df3b8032}"
       Version="$LFMP_VERSION">
+
+    <!--
+      No ProductCode: WiX generates a fresh one for every build. The UpgradeCode stays
+      the same forever and ties all builds together, so the MajorUpgrade removes the
+      installed package and installs this one, whatever version is installed: an older
+      one, the same one in another build iteration, or a newer one (a pinned rollback).
+      With a fixed ProductCode, every build looked "already installed" to Windows
+      Installer and to deployment tools such as Ansible's win_package, so an update was
+      skipped without an error. Builds up to v8.1.0-3 carry the fixed ProductCode
+      {7060a355-f73b-447d-aaa8-f4bf2db48032} and the same UpgradeCode, so the
+      MajorUpgrade replaces them as well. Verified with WiX 5.0.2 and Ansible's
+      win_package on Windows Server 2025: upgrade, same-version rebuild and downgrade.
+    -->
+    <MajorUpgrade AllowDowngrades="yes" />
 
     <MediaTemplate EmbedCab="yes" />
 
@@ -54,7 +67,7 @@ cat > "$LFMP_DIR_PACKAGED/in/lfmp.wxs" << EOF
   </Package>
 </Wix>
 EOF
-echo $(cat "$LFMP_DIR_PACKAGED/in/lfmp.wxs")
+cat "$LFMP_DIR_PACKAGED/in/lfmp.wxs"
 
 # The above file is WiX v5 syntax. See the older docs:
 # * https://docs.firegiant.com/wix3/xsd/wix/product/

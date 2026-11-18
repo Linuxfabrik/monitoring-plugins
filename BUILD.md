@@ -44,7 +44,9 @@ Linuxfabrik/packaging                    # RPM and DEB, `testing` channel, then 
   `main` with `publish`, which builds the tag: the origin verification of the
   SignPath signing policy only accepts builds from the branch `main`, and
   `verify-version.sh` makes sure the tag is reachable from there. The workflow
-  compiles the Windows plugins and builds the MSI. Each of the two SignPath signing requests waits up to two hours for an
+  compiles the Windows plugins of the tag and builds the MSI with
+  `create-wxs.sh` from `main`, so a rebuild of an older release gets the
+  current MSI definition. Each of the two SignPath signing requests waits up to two hours for an
   approval; SignPath mails `info@` when one is pending. The signed ZIP and MSI
   are attached to the release, with an attestation each.
 * On the repository server, `build/publish-downloads.sh` runs from a systemd

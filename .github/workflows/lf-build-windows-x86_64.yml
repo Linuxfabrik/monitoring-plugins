@@ -87,6 +87,15 @@ jobs:
           # confirm the checkout contains the code tagged vLFMP_VERSION (#1406).
           fetch-depth: 0
 
+      # The MSI definition comes from the commit of this workflow, the plugins from the
+      # tag, so a rebuild of an older release also gets a fixed MSI definition.
+      - name: 'Checkout the MSI definition'
+        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        with:
+          path: '${{ env.LFMP_DIR_REPOS }}/workflow'
+          persist-credentials: false
+          sparse-checkout: 'build'
+
       - name: 'Debug'
         shell: 'bash'
         run: >
@@ -183,7 +192,7 @@ jobs:
         shell: 'bash'
         run: >
           /bin/bash
-          $LFMP_DIR_REPOS/monitoring-plugins/build/create-wxs.sh
+          $LFMP_DIR_REPOS/workflow/build/create-wxs.sh
 
       - name: 'Create the package for Windows'
         run: >

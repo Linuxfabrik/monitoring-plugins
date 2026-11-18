@@ -78,6 +78,10 @@ Icinga Director:
 
 ### Fixed
 
+Build, CI/CD:
+
+* MSI: installing it over an earlier MSI updates the plugins; until now, the update was skipped without an error, and the host kept the plugins of its first MSI install
+
 Monitoring Plugins:
 
 * about-me: Rocket.Chat running as a rootless Podman container under `/opt/rocketchat` gets its tag again, hosts with the LFOps system update are detected without `notify-and-schedule`, and a `wiki` directory without MediaWiki no longer gets the `mediawiki` tag.
