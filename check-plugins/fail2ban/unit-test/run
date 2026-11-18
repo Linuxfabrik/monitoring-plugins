@@ -20,7 +20,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # fail2ban's `--test` argument takes a base path and the plugin looks up
 # `<base>-ping`, `<base>-status`, and `<base>-status-<jail>` next to each
@@ -93,6 +93,55 @@ TESTS = [
             'sshd',
             '[OK]',
         ],
+    },
+    {
+        # A jail banned the reverse proxy in front of the host: CRIT, whatever the
+        # count, with the command that lifts the ban.
+        'id': 'crit-trusted-ip-banned',
+        'test': 'stdout/trusted-banned,,0',
+        'params': '--trusted-ip=192.0.2.10',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '1 trusted address among them [CRITICAL]',
+            '* 192.0.2.10 in apache-dos',
+            '`sudo fail2ban-client set apache-dos unbanip 192.0.2.10`',
+            'ignoreip',
+        ],
+        'assert-regex': r'apache-dos\s.*3.*\[CRITICAL\]',
+    },
+    {
+        'id': 'crit-trusted-ipv6-network-banned',
+        'test': 'stdout/trusted-banned,,0',
+        'params': '--trusted-ip=2001:db8::/64 --trusted-ip=192.0.2.0/24',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '2 trusted addresses among them [CRITICAL]',
+            '* 192.0.2.10 in apache-dos',
+            '* 2001:db8::5 in apache-dos',
+        ],
+        'assert-not-in': ['198.51.100.7 in'],
+    },
+    {
+        # Neither the trusted network nor an IPv4 network matches an IPv6 ban.
+        'id': 'warn-trusted-ip-not-banned',
+        'test': 'stdout/trusted-banned,,0',
+        'params': '--trusted-ip=203.0.113.0/24 --trusted-ip=2001:db8:1::/48',
+        'assert-retc': STATE_WARN,
+        'assert-not-in': ['Trusted addresses banned', 'trusted address'],
+    },
+    {
+        'id': 'warn-trusted-ip-in-ignored-jail',
+        'test': 'stdout/trusted-banned,,0',
+        'params': '--trusted-ip=192.0.2.10 --ignore="^apache-dos$"',
+        'assert-retc': STATE_WARN,
+        'assert-not-in': ['Trusted addresses banned'],
+    },
+    {
+        'id': 'unknown-invalid-trusted-ip',
+        'test': 'stdout/trusted-banned,,0',
+        'params': '--trusted-ip=192.0.2.300',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid `--trusted-ip` "192.0.2.300"'],
     },
     {
         'id': 'unknown-no-jails-configured',

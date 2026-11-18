@@ -24,6 +24,10 @@
                 "--timeout": {
                     "value": "$fail2ban_timeout$"
                 },
+                "--trusted-ip": {
+                    "value": "$fail2ban_trusted_ip$",
+                    "repeat_key": true
+                },
                 "--warning": {
                     "value": "$fail2ban_warning$"
                 }
@@ -70,6 +74,11 @@
                     "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -113,7 +122,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the number of currently banned IP addresses across all fail2ban jails. Reports the total ban count and a per-jail breakdown. Jails can be excluded from the check with a regular expression. Alerts when the number of banned IPs in any jail exceeds the configured thresholds. Requires root or sudo.",
+            "notes": "Checks the number of currently banned IP addresses across all fail2ban jails. Reports the total ban count and a per-jail breakdown. Jails can be excluded from the check with a regular expression. Alerts when the number of banned IPs in any jail exceeds the configured thresholds. Alerts as well when fail2ban bans an address that must stay reachable, such as the reverse proxy in front of this host or the monitoring server, so a lockout of everybody behind a proxy shows up at once. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fail2ban/",
             "object_name": "tpl-service-fail2ban",
             "object_type": "template",
@@ -130,6 +139,7 @@
                 "fail2ban_no_match_severity": "ok",
                 "fail2ban_no_perfdata": false,
                 "fail2ban_timeout": 8,
+                "fail2ban_trusted_ip": [],
                 "fail2ban_warning": "2500"
             },
             "volatile": null,
@@ -247,6 +257,17 @@
             "uuid": "e55cd7c9-d1dd-42ce-ac25-5c7019495d45"
         },
         "8": {
+            "varname": "fail2ban_trusted_ip",
+            "caption": "Fail2ban: Trusted Ip",
+            "description": "IP address or network that fail2ban must never ban, such as a reverse proxy in front of this host. Alerts with CRIT if a jail bans it. IPv4 or IPv6, a single address or a network in CIDR notation. Can be specified multiple times. Example: `--trusted-ip=192.0.2.10 --trusted-ip=2001:db8::/64`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e4985532-19d8-4ee1-a381-798756601de5"
+        },
+        "9": {
             "varname": "fail2ban_warning",
             "caption": "Fail2ban: Warning",
             "description": "WARN threshold for the number of banned IPs per jail. Supports Nagios ranges.",
