@@ -29,7 +29,7 @@ Checks the InnoDB buffer pool and redo log sizing in MySQL/MariaDB. For the buff
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `innodb_buffer_pool_instances`, `innodb_buffer_pool_size`, `innodb_file_per_table`, `innodb_log_file_size`, `innodb_log_files_in_group`, `innodb_lru_scan_depth` and `innodb_redo_log_capacity`
-* Queries `SHOW GLOBAL STATUS` for `Innodb_buffer_pool_bytes_data`, `Innodb_buffer_pool_pages_free`, `Innodb_buffer_pool_pages_total`, `Innodb_buffer_pool_read_ahead`, `Innodb_buffer_pool_read_ahead_rnd`, `Innodb_buffer_pool_read_requests`, `Innodb_buffer_pool_reads`, `Innodb_buffer_pool_wait_free`, `Innodb_checkpoint_age`, `Innodb_checkpoint_max_age`, `Innodb_os_log_written` and `Uptime`
+* Queries `SHOW GLOBAL STATUS` for `Innodb_buffer_pool_bytes_data`, `Innodb_buffer_pool_pages_free`, `Innodb_buffer_pool_pages_total`, `Innodb_buffer_pool_read_ahead`, `Innodb_buffer_pool_read_ahead_rnd`, `Innodb_buffer_pool_read_requests`, `Innodb_buffer_pool_wait_free`, `Innodb_checkpoint_age`, `Innodb_checkpoint_max_age`, `Innodb_os_log_written`, `Innodb_pages_read` and `Uptime`
 * Queries `information_schema.tables` to sum all InnoDB data and index sizes
 * Stores the buffer pool counters in a local SQLite database to compute their rates since the previous check, one baseline per `--defaults-file` and `--defaults-group`
 * Reads the host's physical RAM via `sysconf(SC_PAGE_SIZE) * sysconf(SC_PHYS_PAGES)`, which is only used for the advice in the recommendations

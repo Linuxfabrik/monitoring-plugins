@@ -22,7 +22,7 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026111302'
+__version__ = '2026111801'
 
 DESCRIPTION = """Checks the InnoDB buffer pool and redo log sizing in MySQL/MariaDB. Measures
 how many of the pages InnoDB requested since the last check had to be read from disk because
@@ -239,11 +239,11 @@ def get_status(conn):
             or variable_name like 'Innodb_buffer_pool_read_ahead'
             or variable_name like 'Innodb_buffer_pool_read_ahead_rnd'
             or variable_name like 'Innodb_buffer_pool_read_requests'
-            or variable_name like 'Innodb_buffer_pool_reads'
             or variable_name like 'Innodb_buffer_pool_wait_free'
             or variable_name like 'Innodb_checkpoint_age'
             or variable_name like 'Innodb_checkpoint_max_age'
             or variable_name like 'Innodb_os_log_written'
+            or variable_name like 'Innodb_pages_read'
             or variable_name like 'Uptime'
             ;
           """
@@ -420,8 +420,8 @@ def main():
         {
             'read_ahead': int(mystat.get('Innodb_buffer_pool_read_ahead') or 0),
             'read_ahead_rnd': int(mystat.get('Innodb_buffer_pool_read_ahead_rnd') or 0),
+            'pages_read': int(mystat.get('Innodb_pages_read') or 0),
             'read_requests': int(mystat.get('Innodb_buffer_pool_read_requests') or 0),
-            'reads': int(mystat.get('Innodb_buffer_pool_reads') or 0),
             'wait_free': int(mystat.get('Innodb_buffer_pool_wait_free') or 0),
         },
     )
@@ -490,10 +490,24 @@ def main():
     #    0 disk reads, and still at 306 reads after a full table scan, while
     #    random lookups across the whole table missed 32% of their pages.
     #
-    #    `Innodb_buffer_pool_reads` counts every page read from disk, including
-    #    the ones read-ahead prefetched without anyone asking for them. A full
-    #    scan measured 108.5% of `Innodb_buffer_pool_read_requests` that way, on
-    #    all four versions, and 9% after subtracting the read-ahead counters.
+    #    The misses are the pages read from disk minus the ones read-ahead
+    #    prefetched without anyone asking for them. A full scan measured 108.5%
+    #    of `Innodb_buffer_pool_read_requests` with read-ahead, on all four
+    #    versions, and 9% without.
+    #
+    #    `Innodb_pages_read` is the counter to subtract from, not
+    #    `Innodb_buffer_pool_reads`. The latter contains linear read-ahead
+    #    (`Innodb_buffer_pool_read_ahead`) only on MariaDB 10.6.13, 10.11.3 and
+    #    11.0.2 and newer (MDEV-26827), and never on MySQL, where
+    #    `buf_read_ahead_linear()` in `buf0rea.cc` leaves it alone. Subtracting
+    #    the read-ahead from it there takes real misses away. `Innodb_pages_read`
+    #    counts every completed page read on all of them (`n_pages_read`).
+    #    Verified with a cold full scan of 285 MiB through a 64 MiB pool:
+    #    `Innodb_pages_read` minus `Innodb_buffer_pool_reads` was exactly the
+    #    read-ahead on MySQL 8.0.46, 8.4.9, 9.3.0 and MariaDB 10.5.29 (17'074 to
+    #    18'425 pages), and 0 with the same read-ahead on MariaDB 10.6.28,
+    #    10.11.19, 11.4.13 and 11.8.9. On MySQL the scan read 163 pages on
+    #    demand, while the reads minus the read-ahead came to -17'885.
     #
     #    MariaDB 11.4.9 and newer only add a transaction's page requests to
     #    `Innodb_buffer_pool_read_requests` when it ends (MDEV-37152,
@@ -501,15 +515,20 @@ def main():
     #    right away. Measured on 11.4.13 and 11.8.9: a full scan inside an open
     #    transaction added 49'000 reads and 0 requests until the commit. An
     #    interval with more misses than requests is therefore not measurable.
+    #    MariaDB 10.6.13 and 10.11.3 undercount the requests as well (MDEV-31309,
+    #    3'420 requests for 71'576 misses measured on 10.6.13), and 10.11.5 and
+    #    10.11.6 report none at all (MDEV-32920, measured on 10.11.6). Both end
+    #    up there.
     miss_ratio = None
     misses_per_second = None
     if pool_rates is None:
         miss_msg = 'Buffer pool miss ratio: waiting for more data.'
     else:
-        # The read-ahead counters are reported when a batch completes, so they
-        # can run slightly ahead of the reads in a single interval.
+        # The read-ahead counters count a page when its read is submitted,
+        # `Innodb_pages_read` when it completes, so the former can run slightly
+        # ahead in a single interval.
         misses_per_second = max(
-            pool_rates['reads']
+            pool_rates['pages_read']
             - pool_rates['read_ahead']
             - pool_rates['read_ahead_rnd'],
             0,
