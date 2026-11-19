@@ -22,7 +22,7 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026111801'
+__version__ = '2026111901'
 
 DESCRIPTION = """Checks the InnoDB buffer pool and redo log sizing in MySQL/MariaDB. Measures
 how many of the pages InnoDB requested since the last check had to be read from disk because
@@ -586,21 +586,38 @@ def main():
     #   empty and nothing at the end of the LRU list can be evicted, and then
     #   waits up to a second for the page cleaner. Every count is a session that
     #   stood still.
-    # - MariaDB before that (10.6.17 and 10.11.7 read from the source) and MySQL
-    #   count every pass that found no free block. The first passes cost nothing,
-    #   MySQL sleeps 10 ms from the third pass on.
+    # - MariaDB before that (10.6.17 and 10.11.7 read from the source) counts
+    #   every pass in which the session had to start an LRU flush itself
+    #   (`buf_flush_LRU()`).
+    # - MySQL counts every pass in which the session had to free a page itself
+    #   (`buf_flush_single_page_from_LRU()`): it evicts a clean page from the end
+    #   of the LRU list or writes a changed one to disk synchronously, and
+    #   sleeps 10 ms from the third pass on. Measured on MySQL 8.0.46 with 24
+    #   sessions updating rows through a 64 MiB pool for 40 s, three times: 3'457
+    #   to 3'622 counts, no 10 ms sleep (`buffer_LRU_get_free_waits`), and 1'936
+    #   to 3'506 pages written outside the page cleaner's batches
+    #   (`Innodb_pages_written` minus `Innodb_buffer_pool_pages_flushed`). A count
+    #   costs MySQL a page write in the session more often than not.
     #
     # On all of them it takes sessions that change pages faster than InnoDB
     # frees them; four sessions scanning a table larger than the pool did not
     # move the counter on either server. With 24 sessions updating rows through
     # a 64 MiB pool it moved by 107 to 217 in 40 s on MariaDB 10.6.28, which also
     # logs "Could not free any blocks in the buffer pool!", and by 256/s on MySQL
-    # 8.4.13. The same load through 256 MiB caused no waits at all, measured
-    # twice. Loading 75 MiB of rows into the 64 MiB pool is enough to move it on
+    # 8.4.13. Loading 75 MiB of rows into the 64 MiB pool is enough to move it on
     # MySQL.
     #
-    # The default warns on any movement, as `mysql-innodb-log-waits` does for the
-    # redo log buffer. No other default was measured, and a rate that suits the
+    # The lever is the pool size, not the flushing. The same load through 256 MiB
+    # caused no waits on MariaDB 10.6.28 and MySQL 8.0.46, three times each
+    # (MariaDB 11.4.13 and MySQL 8.4.9 had none with 64 MiB either). Raising
+    # `innodb_io_capacity` to 2000 and `innodb_io_capacity_max` to 4000, which
+    # mysqltuner recommends for waits, did not help: 51 to 113 waits on MariaDB
+    # 10.6.28 (0 to 185 without), 4'037 to 4'200 on MySQL 8.0.46 (3'457 to 3'622
+    # without). Neither did an `innodb_lru_scan_depth` of 4096 on MySQL 8.0.46
+    # (2'782).
+    #
+    # The default warns on any wait, as `mysql-innodb-log-waits` does for
+    # `Innodb_log_waits`. No other default was measured, and a rate that suits the
     # servers counting every pass would hide real stalls on the ones that wait a
     # second per count: 60 of those within five minutes are 0.2 per second.
     if pool_rates is not None and pool_rates['wait_free']:
@@ -608,10 +625,18 @@ def main():
             pool_rates['wait_free'], args.WARN_WAITS, None, _operator='range'
         )
         state = lib.base.get_worst(state, item_state)
+        # A single wait within a five-minute check interval is 0.0033/s. Rounded
+        # to two decimals, or by `number2human()`, it would read as 0 next to a
+        # WARN, so rates below 1 keep two significant digits.
+        waits_per_second = pool_rates['wait_free']
+        waits_h = (
+            f'{waits_per_second:.2g}'
+            if waits_per_second < 1
+            else lib.human.number2human(waits_per_second)
+        )
         sections.append(
-            f'Sessions found no free page in the buffer pool'
-            f' {round(pool_rates["wait_free"], 2)} times/s since the last check'
-            f'{lib.base.state2str(item_state, prefix=" ")}.'
+            f'Sessions found no free page in the buffer pool {waits_h} times/s'
+            f' since the last check{lib.base.state2str(item_state, prefix=" ")}.'
         )
         if item_state != STATE_OK:
             recommendations.append(
@@ -767,7 +792,7 @@ def main():
             _max=buffer_size,
         )
         perfdata += lib.base.get_perfdata(
-            'mysql_innodb_buffer_pool_pct_used',
+            'mysql_innodb_buffer_pool_used_percent',
             pct_used,
             uom='%',
             _min=0,
@@ -795,7 +820,7 @@ def main():
         )
         perfdata += lib.base.get_perfdata(
             'mysql_innodb_buffer_pool_wait_free_per_second',
-            round(pool_rates['wait_free'], 2),
+            round(pool_rates['wait_free'], 4),
             warn=args.WARN_WAITS,
             _min=0,
         )
