@@ -1,11 +1,5 @@
 <h1 align="center">
-  <a href="https://linuxfabrik.ch" target="_blank">
-    <picture>
-      <img width="600" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-plugins-teaser.png">
-    </picture>
-  </a>
-  <br />
-  Linuxfabrik Monitoring Plugins
+  <a href="https://linuxfabrik.ch" target="_blank">Linuxfabrik</a> Monitoring Plugins
 </h1>
 <p align="center">
   Monitoring plugins for Icinga, Nagios & friends. Python 3.9+, all platforms. Smart defaults, auto-discovery, consistent cross-platform metrics, minimal dependencies.
