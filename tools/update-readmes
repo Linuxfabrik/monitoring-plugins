@@ -22,10 +22,11 @@ bulk before a release) so the rendered docs at
 with the actual CLI.
 """
 
+# Maintainer tool: runs commands of this repository with a fixed argv, no shell.
 import argparse
 import concurrent.futures
 import re
-import subprocess
+import subprocess  # nosec B404
 
 import _common
 
@@ -78,7 +79,7 @@ def get_help(plugin_dir):
     plugin_name = plugin_dir.name
     plugin_script = plugin_dir / plugin_name
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603
             [str(plugin_script), '--help'],
             capture_output=True,
             text=True,
