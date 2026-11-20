@@ -1,0 +1,1266 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import datetime
+import json
+import os
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.db_sqlite
+import lib.disk
+import lib.human
+import lib.lftest
+import lib.logmatch
+import lib.logsource
+import lib.time
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026112001'
+
+DESCRIPTION = """Scans the log of the blocky DNS proxy and ad-blocker for the events an
+administrator has to act on: a start that failed, deprecated configuration options, list
+sources that could not be downloaded at their last attempt, and queries the upstream
+resolvers did not answer. Startups, shutdowns and the times blocking was disabled are
+counted alongside them.
+Alerts when one of those events shows up, when failed queries and other errors about
+single requests cross the rates the thresholds set within `--lookback`, and when a line
+arrives at a level `--critical-level` or `--warning-level` covers. Request errors are
+judged by how many of them arrived, not by the fact that they did, because a client asking
+for a broken domain produces them on every DNS server.
+Lines about the current blocky process count; what a process before the last startup
+wrote is history, because a restart reads the configuration and the lists again. A list
+source counts as failed only while its last download failed, so a source that is back
+clears the alert on its own.
+The log is read from the journal of the blocky unit by default, or from a file
+(`/var/log` only) or a container (`docker:`/`podman:`/`kubectl:`) named with
+`--server-log`. Reads the text and the JSON log format.
+Requires root or sudo."""
+
+# What `--critical-level` and `--warning-level` accept on top of the levels
+# themselves: no level at all raises that state, which leaves the named events as
+# the only way to reach it.
+LEVEL_NONE = 'none'
+
+DEFAULT_CRITICAL_LEVEL = 'FATAL'
+DEFAULT_ICINGA_CALLBACK = False
+DEFAULT_INSECURE = True
+DEFAULT_LOOKBACK = 600  # seconds
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NO_PROXY = False
+# Measured on two production resolvers with about 500 and 10 queries a minute: two
+# failed queries in 18 hours, both during a short outage of one upstream pair. A
+# resolver whose upstreams are gone fails every query that is not cached.
+DEFAULT_REQUEST_ERRORS_CRITICAL = 500
+DEFAULT_REQUEST_ERRORS_WARNING = 10
+DEFAULT_TIMEOUT = 8
+DEFAULT_UPSTREAM_FAILURES_CRITICAL = 500
+DEFAULT_UPSTREAM_FAILURES_WARNING = 10
+DEFAULT_WARNING_LEVEL = 'ERROR'
+
+ACK_RETENTION_DAYS = 30
+MAXLINES = 30000  # maximum log lines to consider from the end of the source
+ROTATED_FILES = 1
+
+# The unit the LFOps role and the blocky documentation install. Only the fixed
+# locations systemd reads unit files from are looked at, so nothing a log or a
+# configuration file holds can point the check at another unit.
+UNIT_CANDIDATES = ('blocky.service',)
+UNIT_DIRECTORIES = (
+    '/etc/systemd/system',
+    '/usr/lib/systemd/system',
+    '/lib/systemd/system',
+)
+
+SOURCE_PATH_MAX_LEN = 32
+
+# What the journal and a syslog daemon call blocky.
+IDENTIFIER = 'blocky'
+
+# blocky logs through logrus with the `prefixed` text formatter: an optional
+# `[2026-11-20 15:00:06]` (`log.timestamp`, on by default), the level padded to five
+# characters, an optional `prefix: ` naming the component, the message, and the
+# fields sorted by name (`key=value`). The formatter spells `warning` as `WARN`;
+# the other levels are upper-cased as logrus names them. The JSON format
+# (`log.format: json`) carries the same as `level`, `prefix`, `msg`, `time` and
+# the fields. Verified against blocky v0.24, v0.35.0 and v0.36.0.
+TEXT_LINE_REGEX = re.compile(
+    r'^\s*(?:\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]\s+)?'
+    r'(TRACE|DEBUG|INFO|WARN|ERROR|FATAL|PANIC) (.*)$'
+)
+JSON_LEVELS = {
+    'debug': 'DEBUG',
+    'error': 'ERROR',
+    'fatal': 'FATAL',
+    'info': 'INFO',
+    'panic': 'PANIC',
+    'trace': 'TRACE',
+    'warning': 'WARN',
+}
+TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S'
+# The keys of a JSON line that are not fields of the message.
+JSON_META_KEYS = ('level', 'msg', 'prefix', 'time')
+
+# blocky gives every DNS request a logger of its own carrying `req_id`, `client_ip`
+# and `question` (`newRequest()` in `server/server.go`), so a line with a `req_id`
+# is about one request and nothing else. That is the same border Apache draws with
+# `[client ...]`, and the reason these lines count as a rate rather than by level.
+REQUEST_SCOPE_REGEX = re.compile(r'(?:^| )req_id=')
+
+# A start that failed before blocky could log anything: the command line framework
+# prints the error blocky returned to standard error, without a level, and blocky
+# exits 1 (`Execute()` in `cmd/root.go`). Seen for an unreadable configuration, a
+# port in use and lists that `loading.strategy: failOnError` could not load.
+STARTUP_FAILURE_REGEX = re.compile(r'^Error: ')
+
+# The middle line of the banner blocky logs at every start (`printBanner()` in
+# `cmd/serve.go`), after the configuration was read and before anything else runs.
+# Everything a process logs lies between its banner and the next one.
+STARTUP_REGEX = re.compile(r'^_/\s+Version: (\S+)')
+
+# What blocky writes about one list source. A source is a URL, a file or an inline
+# block (`item #2 of group ads: ...`), named in the `source` field, which the
+# formatter sorts after `count`, so it is the last field on the line. Each download
+# is tried `loading.downloads.attempts` times (3) and every failed attempt logs a
+# warning of its own before `cannot open source` closes it (`lists/downloader.go`,
+# `lists/list_cache.go`). Those attempts, and the summary per group, are part of the
+# same outcome and are not counted by their level.
+LIST_PREFIX = 'list_cache: '
+LIST_SUCCESS_REGEX = re.compile(r'^list_cache: import succeeded .* source=(.+)$')
+LIST_FAILURE_REGEX = re.compile(r'^list_cache: cannot open source: .* source=(.+)$')
+
+# The line that closes the warnings about deprecated options, one per option. It
+# is the same finding again, so it is neither counted as an option nor by its
+# level (ERROR).
+DEPRECATED_SUMMARY_REGEX = re.compile(r'^configuration uses deprecated options')
+
+# A port in use or a failed list load ends the process with this line and the
+# `Error:` line after it, which the failed start owns.
+START_FAILED_REGEX = re.compile(r'^server start failed:')
+
+# The part of the line blocky closes the run with, so that a run that keeps going
+# reports what this process does.
+SHUTDOWN_REGEX = re.compile(r'^Terminating\.\.\.')
+
+# What differs between two lines saying the same thing, for grouping them in a
+# listing: the numbers of an attempt and a port, request ids and addresses.
+MESSAGE_MASKS = (
+    (re.compile(r'\breq_id=\S+'), 'req_id=*'),
+    (re.compile(r'\bclient_ip=\S+'), 'client_ip=*'),
+    (re.compile(r'\bquestion=\S+ \([^)]*\)'), 'question=*'),
+    (re.compile(r'(\d{1,3}(?:\.\d{1,3}){3}):\d+->'), r'\1:*->'),
+    (re.compile(r'\battempt=\d+/\d+'), 'attempt=*'),
+    (re.compile(r'\bretry attempt \d+/\d+'), 'retry attempt *'),
+)
+MESSAGE_MAX_LEN = 200
+
+# The levels that say something is wrong, worst first.
+LEVELS = (
+    {'level': 'PANIC', 'perfdata': 'blocky_panic_lines'},
+    {'level': 'FATAL', 'perfdata': 'blocky_fatal_lines'},
+    {'level': 'ERROR', 'perfdata': 'blocky_error_lines'},
+    {'level': 'WARN', 'perfdata': 'blocky_warn_lines'},
+)
+LEVEL_CHOICES = [item['level'] for item in LEVELS] + [LEVEL_NONE]
+
+# The events worth naming on their own, because the level alone does not say what
+# happened. The message texts are taken from the blocky source and reproduced on
+# blocky v0.35.0 and v0.36.0.
+EVENTS = (
+    {
+        'key': 'startup_failures',
+        'label': 'failed start',
+        'perfdata': 'blocky_startup_failures',
+        # Only the last start attempt alerts, see main(): an earlier one was
+        # followed by a start that worked, which is what the host runs now.
+        'regex': STARTUP_FAILURE_REGEX,
+        'state': STATE_CRIT,
+        'recommendation': (
+            'blocky did not start, so this host answers no DNS queries; the line'
+            ' above says why, check `/etc/blocky/config.yml` with'
+            ' `blocky validate --config=/etc/blocky/config.yml`'
+        ),
+    },
+    {
+        'key': 'deprecated_options',
+        'label': 'deprecated option',
+        'perfdata': 'blocky_deprecated_options',
+        # `configuration uses deprecated options, see warning logs for details`
+        # (ERROR) closes the list of warnings, one per option, see
+        # DEPRECATED_SUMMARY_REGEX.
+        'regex': re.compile(
+            r'^config option ".*" is deprecated|without a unit is deprecated'
+        ),
+        'state': STATE_WARN,
+        'recommendation': (
+            'The configuration uses options a later blocky release drops; rename'
+            ' them as the lines above say, before an update stops blocky from'
+            ' starting'
+        ),
+    },
+    {
+        'key': 'list_failures',
+        'label': 'failing list source',
+        'perfdata': 'blocky_list_failures',
+        # Not matched line by line but by the last outcome per source, see main().
+        'regex': None,
+        'state': STATE_WARN,
+        'recommendation': (
+            'List sources could not be downloaded at their last attempt, so their'
+            ' entries are missing or stale; an HTTP 404 or 410 means the list was'
+            ' moved or discontinued, remove or replace it in `blocking.denylists` /'
+            ' `blocking.allowlists`'
+        ),
+    },
+)
+
+# Lines about single requests, judged by how many of them arrived within
+# `--lookback`. Kept out of the per-level counts, so a client asking for a broken
+# domain does not leave the check yellow.
+RATE_EVENTS = (
+    {
+        'key': 'upstream_failures',
+        'label': 'upstream failure',
+        'perfdata': 'blocky_upstream_failures',
+        # A query no upstream answered in time; the client got SERVFAIL. The test
+        # query blocky sends every upstream at startup counts as well, because it
+        # fails for the same reason, usually a network that is not up yet.
+        'regex': re.compile(
+            r'^error on processing request:'
+            r'|initial resolver test failed'
+            r'|upstream verification error'
+        ),
+        'critical': 'UPSTREAM_FAILURES_CRITICAL',
+        'warning': 'UPSTREAM_FAILURES_WARNING',
+        'recommendation': (
+            'The upstream resolvers did not answer, so clients got SERVFAIL; check'
+            ' that each one in `upstreams.groups` is reachable (for example'
+            ' `dig @192.0.2.53 example.com` with its address) and that'
+            ' `upstreams.timeout` is not too short'
+        ),
+    },
+    {
+        'key': 'request_errors',
+        'label': 'request error',
+        'perfdata': 'blocky_request_errors',
+        # Every other line about one request at WARN or above, for example a
+        # failed DNSSEC validation, a dropped query or a client name that could
+        # not be resolved. Matched by the scope rule, see main().
+        'regex': None,
+        'critical': 'REQUEST_ERRORS_CRITICAL',
+        'warning': 'REQUEST_ERRORS_WARNING',
+        'recommendation': (
+            'Many requests ran into problems; the lines above say which, grouped by'
+            ' what they say'
+        ),
+    },
+)
+
+# Lifecycle markers, counted but never alerting on.
+LIFECYCLE = (
+    {
+        'key': 'startups',
+        'label': 'startup',
+        'perfdata': 'blocky_startups',
+        'regex': STARTUP_REGEX,
+        'verb': 'detected',
+    },
+    {
+        'key': 'shutdowns',
+        'label': 'shutdown',
+        'perfdata': 'blocky_shutdowns',
+        'regex': SHUTDOWN_REGEX,
+        'verb': 'detected',
+    },
+    {
+        'key': 'blocking_disables',
+        'label': 'time',
+        'perfdata': 'blocky_blocking_disables',
+        # through the API or `blocky blocking disable`, for all or some groups
+        'regex': re.compile(r'^disable blocking for '),
+        'verb': 'blocking was disabled',
+    },
+)
+
+# The query log blocky writes by default (`queryLog.type`, empty or `console`):
+# one line per query. On a busy resolver it makes up nearly all of the journal, so
+# the lines this check reads reach back an hour rather than days.
+QUERY_LOG_PREFIX = 'queryLog: '
+# Share of the window the query log has to take before the check says so.
+QUERY_LOG_SHARE = 0.5
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    # Developer-only hook: it prefixes every path the check opens, so the fixture
+    # tests can stand a directory tree in for the host's file system. Deliberately
+    # not named `--test-...`, because argparse would then resolve a bare `--test`
+    # into it.
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='',
+    )
+
+    parser.add_argument(
+        '--critical-level',
+        help='Least severe blocky log level that returns CRITICAL. '
+        'Each level includes everything more severe than itself, so `ERROR` '
+        'covers `FATAL` and `PANIC` as well. '
+        'Case-sensitive. '
+        '`none` lets no level return CRITICAL, which leaves the events this '
+        'check names as the only way to reach it. '
+        'Example: `--critical-level=ERROR`. '
+        'Default: %(default)s',
+        dest='CRITICAL_LEVEL',
+        choices=LEVEL_CHOICES,
+        default=DEFAULT_CRITICAL_LEVEL,
+    )
+
+    parser.add_argument(
+        '--icinga-callback',
+        help=lib.args.help('--icinga-callback'),
+        dest='ICINGA_CALLBACK',
+        action='store_true',
+        default=DEFAULT_ICINGA_CALLBACK,
+    )
+
+    parser.add_argument(
+        '--icinga-password',
+        help=lib.args.help('--icinga-password'),
+        dest='ICINGA_PASSWORD',
+    )
+
+    parser.add_argument(
+        '--icinga-service-name',
+        help=lib.args.help('--icinga-service-name'),
+        dest='ICINGA_SERVICE_NAME',
+    )
+
+    parser.add_argument(
+        '--icinga-url',
+        help=lib.args.help('--icinga-url'),
+        dest='ICINGA_URL',
+    )
+
+    parser.add_argument(
+        '--icinga-username',
+        help=lib.args.help('--icinga-username'),
+        dest='ICINGA_USERNAME',
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Ignore a log line matching this Python regular expression. '
+        'The log line is lowercased before matching, so write the pattern in '
+        'lowercase (or use the `(?i)` flag). '
+        'Can be specified multiple times. '
+        "Example: `--ignore='(?i)linuxfabrik'`",
+        action='append',
+        default=None,
+        dest='IGNORE',
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='Applies to the connection to the monitoring server that '
+        '`--icinga-callback` makes, which is the only network connection this '
+        'check opens. ' + lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lookback',
+        help='Failed queries and other request errors are counted within this '
+        'window rather than reported one by one. '
+        + lib.args.help('--lookback')
+        + ' Example: `--lookback=3600`. '
+        'Default: %(default)s (seconds)',
+        dest='LOOKBACK',
+        type=int,
+        default=DEFAULT_LOOKBACK,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only consider a log line matching this Python regular expression. '
+        'The log line is lowercased before matching, so write the pattern in '
+        'lowercase (or use the `(?i)` flag). '
+        'Can be specified multiple times. '
+        + lib.args.MATCH_IGNORE_PRECEDENCE
+        + " Example: `--match='list_cache'`",
+        action='append',
+        default=None,
+        dest='MATCH',
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help='Applies to the connection to the monitoring server that '
+        '`--icinga-callback` makes, which is the only network connection this '
+        'check opens. ' + lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Applies to the connection to the monitoring server that '
+        '`--icinga-callback` makes, which is the only network connection this '
+        'check opens. ' + lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help='Applies to the connection to the monitoring server that '
+        '`--icinga-callback` makes, which is the only network connection this '
+        'check opens. ' + lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--request-errors-critical',
+        help='Number of request errors other than failed queries within '
+        '`--lookback` that returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--request-errors-critical=100`. '
+        'Default: %(default)s',
+        dest='REQUEST_ERRORS_CRITICAL',
+        type=int,
+        default=DEFAULT_REQUEST_ERRORS_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--request-errors-warning',
+        help='Number of request errors other than failed queries within '
+        '`--lookback` that returns WARNING. '
+        '0 turns the threshold off. '
+        'Example: `--request-errors-warning=50`. '
+        'Default: %(default)s',
+        dest='REQUEST_ERRORS_WARNING',
+        type=int,
+        default=DEFAULT_REQUEST_ERRORS_WARNING,
+    )
+
+    parser.add_argument(
+        '--server-log',
+        help='Log source to read from. '
+        'Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, '
+        '`kubectl:CONTAINER` or `systemd:UNITNAME`. '
+        'Can be specified multiple times, and everything named is then read as '
+        'one window; a source named twice is read once. '
+        'If omitted, the check reads the journal of `blocky.service`. '
+        'Example: `--server-log=podman:blocky`',
+        action='append',
+        default=None,
+        dest='SERVER_LOG',
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--upstream-failures-critical',
+        help='Number of queries no upstream resolver answered within `--lookback` '
+        'that returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--upstream-failures-critical=100`. '
+        'Default: %(default)s',
+        dest='UPSTREAM_FAILURES_CRITICAL',
+        type=int,
+        default=DEFAULT_UPSTREAM_FAILURES_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--upstream-failures-warning',
+        help='Number of queries no upstream resolver answered within `--lookback` '
+        'that returns WARNING. '
+        '0 turns the threshold off. '
+        'Example: `--upstream-failures-warning=50`. '
+        'Default: %(default)s',
+        dest='UPSTREAM_FAILURES_WARNING',
+        type=int,
+        default=DEFAULT_UPSTREAM_FAILURES_WARNING,
+    )
+
+    parser.add_argument(
+        '--warning-level',
+        help='Least severe blocky log level that returns WARNING. '
+        'Each level includes everything more severe than itself, and a level '
+        'that `--critical-level` already covers returns CRITICAL instead. '
+        'Case-sensitive. '
+        '`none` lets no level return WARNING, which leaves the events this '
+        'check names as the only way to reach it. '
+        'Example: `--warning-level=WARN`. '
+        'Default: %(default)s',
+        dest='WARNING_LEVEL',
+        choices=LEVEL_CHOICES,
+        default=DEFAULT_WARNING_LEVEL,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def parse_line(log_line):
+    """
+    Take a line apart into its level, its message and the time blocky stamped it
+    with.
+
+    Returns `(level, message, written_at)`, with `level` None for a line blocky
+    wrote without one (the error of a failed start, the continuation of a message
+    that spans several lines) and `written_at` None where blocky stamped no time.
+    The message of a JSON line is rebuilt the way the text format writes it, so the
+    patterns below match both.
+    """
+    message = lib.logsource.strip_syslog_prefix(log_line)
+    if message.lstrip().startswith('{'):
+        try:
+            record = json.loads(message)
+        except ValueError:
+            record = None
+        if isinstance(record, dict) and 'level' in record:
+            level = JSON_LEVELS.get(str(record.get('level')).lower())
+            text = str(record.get('msg', ''))
+            if record.get('prefix'):
+                text = f'{record["prefix"]}: {text}'
+            fields = sorted(key for key in record if key not in JSON_META_KEYS)
+            for key in fields:
+                text += f' {key}={record[key]}'
+            return level, text, _parse_iso(record.get('time'))
+    match = TEXT_LINE_REGEX.match(message)
+    if not match:
+        return None, message.strip(), None
+    written_at = None
+    if match.group(1):
+        try:
+            written_at = datetime.datetime.strptime(match.group(1), TIMESTAMP_FORMAT)
+        except ValueError:
+            written_at = None
+    return match.group(2), match.group(3), written_at
+
+
+def _parse_iso(value):
+    """Read the RFC 3339 time of a JSON line into local time, or None."""
+    if not isinstance(value, str):
+        return None
+    try:
+        written_at = datetime.datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError:
+        return None
+    if written_at.tzinfo is None:
+        return written_at
+    try:
+        return lib.time.datetime2local(written_at)
+    except ValueError:
+        return None
+
+
+def parse_timestamp(log_line):
+    """Return the moment blocky stamped a line with, or None; `lib.logsource.timestamp()`
+    falls back to the one the transport prefixed."""
+    return parse_line(log_line)[2]
+
+
+def get_message(log_line):
+    """Return what a line says, with everything that differs between two lines
+    saying the same thing masked, see MESSAGE_MASKS."""
+    _, message, _ = parse_line(log_line)
+    for regex, replacement in MESSAGE_MASKS:
+        message = regex.sub(replacement, message)
+    return lib.txt.shorten(message, MESSAGE_MAX_LEN)
+
+
+def get_list_message(log_line):
+    """Return the source of a failed list download and the last, most specific part
+    of the reason, which is what tells a moved list from a network problem."""
+    _, message, _ = parse_line(log_line)
+    match = LIST_FAILURE_REGEX.match(message)
+    if not match:
+        return get_message(log_line)
+    reason = re.sub(r' count=\d+ source=.+$', '', message)
+    reason = reason.rsplit(': ', 1)[-1]
+    return lib.txt.shorten(f'{match.group(1).strip()}: {reason}', MESSAGE_MAX_LEN)
+
+
+def join_continuations(lines):
+    """
+    Put the lines of a message that spans several lines back together.
+
+    The journal stores a message with a line break as one entry per line, and blocky
+    writes those: an error that wraps the errors of several upstreams, and the error
+    a failed start prints. Only the first line carries the level, and the fields
+    blocky appends, `req_id` among them, sit on the last one. Joined, the whole
+    message is judged as one.
+    """
+    joined = []
+    for line in lines:
+        identifier = lib.logsource.syslog_identifier(line)
+        level, message, _ = parse_line(line)
+        if (
+            joined
+            and level is None
+            and not STARTUP_FAILURE_REGEX.search(message)
+            and identifier == lib.logsource.syslog_identifier(joined[-1])
+            and identifier == IDENTIFIER
+        ):
+            joined[-1] = f'{joined[-1]} {message}'
+            continue
+        joined.append(line)
+    return joined
+
+
+def get_level_states(critical_level, warning_level):
+    """Map every counted level to the state it raises."""
+    ranks = {item['level']: rank for rank, item in enumerate(LEVELS)}
+    states = {}
+    for level, rank in ranks.items():
+        if critical_level != LEVEL_NONE and rank <= ranks[critical_level]:
+            states[level] = STATE_CRIT
+        elif warning_level != LEVEL_NONE and rank <= ranks[warning_level]:
+            states[level] = STATE_WARN
+        else:
+            states[level] = STATE_OK
+    return states
+
+
+def get_units(config_root=''):
+    """Return the blocky units this host has a unit file for."""
+    # A unit file says only that a package shipped one: hosts with another init
+    # system carry them too, and have no journal to read.
+    if not lib.logsource.systemd_booted(config_root):
+        return []
+    found = []
+    seen = set()
+    for candidate in UNIT_CANDIDATES:
+        for directory in UNIT_DIRECTORIES:
+            for filename in lib.disk.glob(f'{config_root}{directory}/{candidate}'):
+                if not lib.disk.file_exists(filename, allow_empty=True):
+                    continue
+                identity = os.path.realpath(filename)
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                found.append(os.path.basename(filename))
+    return found
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+    # The hidden --config-root points the unit tests at a fixture tree. This check
+    # runs as root, so only a tree inside its own unit-test/ directory counts.
+    if args.CONFIG_ROOT:
+        args.CONFIG_ROOT = lib.base.coe(lib.lftest.fixture_root(args.CONFIG_ROOT))
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+    if args.SERVER_LOG is None:
+        args.SERVER_LOG = []
+
+    if args.ICINGA_CALLBACK and not all(
+        (
+            args.ICINGA_URL,
+            args.ICINGA_PASSWORD,
+            args.ICINGA_USERNAME,
+            args.ICINGA_SERVICE_NAME,
+        )
+    ):
+        lib.base.cu(
+            '`--icinga-callback` requires `--icinga-url`, `--icinga-password`, '
+            '`--icinga-username` and `--icinga-service-name`.'
+        )
+
+    # fetch data
+    # The plugin runs as root via sudo, so restrict an on-disk log to the system log
+    # directory. The plugin's own unit-test/ directory is allowed so the fixture
+    # tests work; it does not exist next to the flat, root-owned plugin in
+    # production.
+    allowed_roots = [
+        '/var/log',
+        os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
+    ]
+    server_logs = args.SERVER_LOG or [
+        f'systemd:{unit}' for unit in get_units(args.CONFIG_ROOT)
+    ]
+    if not server_logs:
+        lib.base.cu(
+            'Found no `blocky.service` unit. Name the log blocky writes to with '
+            "the check's `--server-log` parameter."
+        )
+
+    # No position is kept on purpose: this check reports on a window of the log,
+    # counting startups and shutdowns next to the problems, so every run has to see
+    # the whole window rather than only what is new.
+    success, result = lib.logsource.read_many(
+        server_logs,
+        allowed_roots=allowed_roots,
+        max_lines=MAXLINES,
+        rotated=ROTATED_FILES,
+        timeout=args.TIMEOUT,
+    )
+    if not success:
+        lib.base.cu(result)
+    sizes = {
+        item['label']: item['size'] for item in result['sources'] if 'size' in item
+    }
+    source_label = (
+        '`'
+        + lib.disk.shorten_path(
+            result['sources'][0]['label'], max_len=SOURCE_PATH_MAX_LEN, truncate=False
+        )
+        + '`'
+        if len(result['sources']) == 1
+        else f'the {len(result["sources"])} sources read'
+    )
+
+    # init some vars
+    state = STATE_OK
+    sections = []
+    facts = []
+    recommendations = []
+    level_states = get_level_states(args.CRITICAL_LEVEL, args.WARNING_LEVEL)
+    levels = {item['level']: [] for item in LEVELS}
+    found = {item['key']: [] for item in EVENTS}
+    found.update({item['key']: [] for item in RATE_EVENTS})
+    found.update({item['key']: [] for item in LIFECYCLE})
+    # the last line per list source, which says whether its last download worked
+    list_outcomes = {}
+    rate_since = datetime.datetime.now() - datetime.timedelta(seconds=args.LOOKBACK)
+    considered_cnt = 0
+    recognized_cnt = 0
+    unrecognized_cnt = 0
+    suppressed_cnt = 0
+    query_log_cnt = 0
+    version = ''
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+
+    acked_fingerprints = set()
+    ack_conn = None
+    if args.ICINGA_CALLBACK:
+        instance_payload = {}
+        for name, value in (
+            ('ignore_regex', args.IGNORE),
+            ('match', args.MATCH),
+            ('server_log', args.SERVER_LOG),
+        ):
+            if value:
+                instance_payload[name] = value
+        ack_conn = lib.base.coe(
+            lib.logmatch.connect(
+                'blocky-logfile', lib.logmatch.instance_id(instance_payload)
+            )
+        )
+        lib.base.coe(lib.logmatch.prune(ack_conn, retention=ACK_RETENTION_DAYS))
+        acked_fingerprints = lib.base.coe(lib.logmatch.suppressed(ack_conn))
+
+    # analyze data
+    lines = join_continuations(result['lines'])
+    # Only what the current process wrote is judged by level and by event: a restart
+    # reads the configuration and the lists again, so what an earlier process
+    # complained about says nothing about the one running now. The window holds the
+    # lines up to the last startup as history, counted among the lifecycle markers.
+    # A start that failed before it got to its banner belongs to the attempt after
+    # the last banner, and so does the line that says so.
+    current_from = 0
+    for index, log_line in enumerate(lines):
+        if lib.logsource.syslog_identifier(log_line) not in (None, IDENTIFIER):
+            continue
+        if STARTUP_REGEX.search(parse_line(log_line)[1]):
+            current_from = index
+    earlier_failures = []
+    for index, log_line in enumerate(lines):
+        haystack = log_line.lower()
+        if any(item.search(haystack) for item in compiled_ignore):
+            continue
+        if compiled_match and not any(item.search(haystack) for item in compiled_match):
+            continue
+        considered_cnt += 1
+        if acked_fingerprints and lib.logmatch.key(log_line) in acked_fingerprints:
+            suppressed_cnt += 1
+            continue
+        identifier = lib.logsource.syslog_identifier(log_line)
+        if identifier is not None and identifier != IDENTIFIER:
+            # systemd's own lines about the unit ("Started blocky Service.")
+            continue
+        level, message, _ = parse_line(log_line)
+        current = index >= current_from
+        for item in LIFECYCLE:
+            if item['regex'].search(message):
+                found[item['key']].append(log_line)
+        startup = STARTUP_REGEX.search(message)
+        if startup:
+            version = startup.group(1)
+        if STARTUP_FAILURE_REGEX.search(message):
+            recognized_cnt += 1
+            if current:
+                found['startup_failures'].append(log_line)
+            else:
+                earlier_failures.append(log_line)
+            continue
+        if level is None:
+            unrecognized_cnt += 1
+            continue
+        recognized_cnt += 1
+        if message.startswith(QUERY_LOG_PREFIX):
+            query_log_cnt += 1
+            continue
+        # A list source is judged by its last outcome, over the whole window: the
+        # refresh that follows a restart reads every source again, so the last line
+        # about a source is the current state either way.
+        success_match = LIST_SUCCESS_REGEX.match(message)
+        failure_match = LIST_FAILURE_REGEX.match(message)
+        if success_match or failure_match:
+            source = (success_match or failure_match).group(1).strip()
+            list_outcomes[source] = None if success_match else log_line
+            continue
+        if message.startswith(LIST_PREFIX):
+            # the download attempts and the summary of a group, see LIST_PREFIX
+            continue
+        rate_hits = [
+            event
+            for event in RATE_EVENTS
+            if event['regex'] is not None and event['regex'].search(message)
+        ]
+        if not rate_hits and level in levels and REQUEST_SCOPE_REGEX.search(message):
+            rate_hits = [RATE_EVENTS[1]]
+        for event in rate_hits:
+            found[event['key']].append(log_line)
+        if rate_hits:
+            continue
+        if START_FAILED_REGEX.search(message) or DEPRECATED_SUMMARY_REGEX.search(
+            message
+        ):
+            continue
+        hits = [
+            event
+            for event in EVENTS
+            if event['regex'] is not None and event['regex'].search(message)
+        ]
+        if hits:
+            if current:
+                for event in hits:
+                    found[event['key']].append(log_line)
+            continue
+        if current and level in levels:
+            levels[level].append(log_line)
+    found['list_failures'] = [line for line in list_outcomes.values() if line]
+    for key, item_lines in found.items():
+        found[key] = lib.logsource.sort_by_time(item_lines, parse_timestamp)
+
+    if compiled_match and result['lines'] and not considered_cnt:
+        if ack_conn is not None:
+            lib.db_sqlite.close(ack_conn)
+        lib.base.oao(
+            f'Nothing checked: `--match` dropped all {len(result["lines"])} '
+            f'{lib.txt.pluralize("line", len(result["lines"]))} of '
+            f'{source_label}.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # Every line blocky writes carries its level, apart from the error of a start
+    # that failed, so a window without a single one is not a quiet blocky but a
+    # source that holds something else.
+    if unrecognized_cnt and not recognized_cnt:
+        if ack_conn is not None:
+            lib.db_sqlite.close(ack_conn)
+        lib.base.oao(
+            f'None of the {unrecognized_cnt} '
+            f'{lib.txt.pluralize("line", unrecognized_cnt)} read from '
+            f'{source_label} carries a blocky log level, so this does not look '
+            f'like the log of blocky. Check `--server-log`.',
+            STATE_UNKNOWN,
+        )
+
+    # build the message
+    covered = ''
+    window_from, window_to = lib.logsource.covered_window(
+        [item['lines'] for item in result['sources']], parse_timestamp
+    )
+    if window_from is not None and window_to is not None:
+        span = int((window_to - window_from).total_seconds())
+        covered = (
+            f'{window_from:%Y-%m-%d %H:%M} .. {window_to:%Y-%m-%d %H:%M}'
+            f' ({lib.human.seconds2human(span)}): '
+        )
+    line_cnt = len(result['lines'])
+    lines_read = (
+        f'{lib.human.number2human(line_cnt)} {lib.txt.pluralize("line", line_cnt)}'
+    )
+    if result['truncated']:
+        lines_read = f'the most recent {lines_read}'
+    described = [
+        lib.logsource.describe(item, sizes.get(item['label']))
+        for item in result['sources']
+    ]
+    sources = f'{len(described)} {lib.txt.pluralize("source", len(described))}'
+    source_heading = f'Read {lines_read} from {sources}:'
+
+    rate_counts = {}
+    rate_states = {}
+    rate_facts = []
+    for event in RATE_EVENTS:
+        window = lib.logsource.count_within(
+            found[event['key']], rate_since, parse_line=parse_timestamp
+        )
+        rate_counts[event['key']] = window['count']
+        rate_states[event['key']] = STATE_OK
+        if not window['total'] and not window['undated']:
+            continue
+        rate_state = lib.base.get_state(
+            window['count'],
+            getattr(args, event['warning']) or None,
+            getattr(args, event['critical']) or None,
+        )
+        rate_states[event['key']] = rate_state
+        state = lib.base.get_worst(state, rate_state)
+        # what arrived before the rate window is history the perfdata trends
+        if not window['count'] and not window['undated']:
+            continue
+        fact = (
+            f'{window["count"]} '
+            f'{lib.txt.pluralize(event["label"], window["count"])} in the last'
+            f' {lib.human.seconds2human(args.LOOKBACK)}'
+            f'{lib.base.state2str(rate_state, prefix=" ")}'
+        )
+        if window['undated']:
+            fact += (
+                f', {window["undated"]} of them without a timestamp and therefore'
+                f' not counted'
+            )
+        rate_facts.append(fact)
+        if rate_state != STATE_OK:
+            recommendations.append(event['recommendation'])
+
+    counts = {}
+    for item in LEVELS:
+        item_lines = levels[item['level']]
+        counts[item['level']] = len(item_lines)
+        if not item_lines:
+            continue
+        level_state = level_states[item['level']]
+        state = lib.base.get_worst(state, level_state)
+        facts.append(
+            f'{len(item_lines)} {item["level"]} '
+            f'{lib.txt.pluralize("line", len(item_lines))} found'
+            f'{lib.base.state2str(level_state, prefix=" ")}'
+        )
+    if (
+        not any(counts.values())
+        and not rate_facts
+        and not any(found[event['key']] for event in EVENTS)
+    ):
+        facts.append('No errors or warnings found')
+
+    named = []
+    for event in EVENTS:
+        hits = found[event['key']]
+        if not hits:
+            continue
+        state = lib.base.get_worst(state, event['state'])
+        named.append(
+            f'{len(hits)} '
+            f'{lib.txt.pluralize(event["label"], len(hits))}'
+            f'{lib.base.state2str(event["state"], prefix=" ")}'
+        )
+        recommendations.append(event['recommendation'])
+    if named:
+        facts.append('Found ' + ', '.join(named))
+
+    facts.extend(rate_facts)
+
+    for item in LIFECYCLE:
+        item_lines = found[item['key']]
+        if item_lines:
+            fact = (
+                f'{len(item_lines)} {lib.txt.pluralize(item["label"], len(item_lines))}'
+                f' {item["verb"]}'
+            )
+            last = lib.logsource.timestamp(item_lines[-1], parse_timestamp)
+            if last is not None:
+                fact += f' (last: {last:%Y-%m-%d %H:%M:%S})'
+            facts.append(fact)
+    if earlier_failures:
+        # history: a start that worked followed them
+        fact = (
+            f'{len(earlier_failures)} earlier '
+            f'{lib.txt.pluralize("failed start", len(earlier_failures))}'
+        )
+        last = lib.logsource.timestamp(earlier_failures[-1], parse_timestamp)
+        if last is not None:
+            fact += f' (last: {last:%Y-%m-%d %H:%M:%S})'
+        facts.append(fact)
+    if version:
+        facts.append(f'blocky {version}')
+
+    if unrecognized_cnt:
+        facts.append(
+            f'{unrecognized_cnt} {lib.txt.pluralize("line", unrecognized_cnt)}'
+            f' without a blocky log level'
+        )
+
+    if result['notice']:
+        facts.append(result['notice'].rstrip('.'))
+
+    if result['failed']:
+        state = lib.base.get_worst(state, STATE_WARN)
+        facts.append(
+            '; '.join(item.rstrip('.') for item in result['failed'])
+            + lib.base.state2str(STATE_WARN, prefix=' ')
+        )
+        recommendations.append(
+            'Check the log sources this check was told to read; '
+            'one of them could not be read at all'
+        )
+
+    # The query log pushes everything else out of the window this check reads, and
+    # keeps every client and the name it asked for in the journal. Said without a
+    # state, because blocky itself is fine.
+    # `truncated` cannot be relied on here: journalctl is asked for the last
+    # MAXLINES entries and never says whether there were more.
+    if line_cnt >= MAXLINES and query_log_cnt > QUERY_LOG_SHARE * line_cnt:
+        recommendations.append(
+            f'{lib.human.number2human(query_log_cnt)} of the lines read are the'
+            ' query log, so the window reaches back only as far as shown above;'
+            ' set `queryLog.type: none` (or write it to a file or database) in'
+            ' `/etc/blocky/config.yml` to keep it out of the journal'
+        )
+
+    sections.append(covered + '. '.join(facts) + '.')
+
+    for item in LEVELS:
+        item_lines = levels[item['level']]
+        if item_lines:
+            groups = lib.logsource.group_lines(
+                item_lines, parse_line=parse_timestamp, group=get_message
+            )
+            sections.append(
+                f'{item["level"].capitalize()} lines:\n'
+                + '\n'.join(
+                    f'* {text}'
+                    for text in lib.logsource.describe_groups(groups, last=True)
+                )
+            )
+
+    for event in EVENTS:
+        item_lines = found[event['key']]
+        if item_lines:
+            groups = lib.logsource.group_lines(
+                item_lines,
+                parse_line=parse_timestamp,
+                group=get_list_message
+                if event['key'] == 'list_failures'
+                else get_message,
+            )
+            label = lib.txt.pluralize(event['label'], 2)
+            sections.append(
+                f'{label[:1].upper()}{label[1:]}:\n'
+                + '\n'.join(
+                    f'* {text}'
+                    for text in lib.logsource.describe_groups(groups, last=True)
+                )
+            )
+
+    for event in RATE_EVENTS:
+        if rate_states[event['key']] == STATE_OK:
+            continue
+        groups = lib.logsource.group_lines(
+            found[event['key']],
+            since=rate_since,
+            parse_line=parse_timestamp,
+            group=get_message,
+        )
+        if groups:
+            label = lib.txt.pluralize(event['label'], 2)
+            sections.append(
+                f'{label[:1].upper()}{label[1:]} in the last'
+                f' {lib.human.seconds2human(args.LOOKBACK)}:\n'
+                + '\n'.join(
+                    f'* {text}' for text in lib.logsource.describe_groups(groups)
+                )
+            )
+
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {item}' for item in recommendations)
+        )
+
+    msg = '\n\n'.join(sections)
+
+    perfdata = ''
+    if sizes:
+        perfdata += lib.base.get_perfdata(
+            'blocky_logfile_size',
+            sum(sizes.values()),
+            uom='B',
+            _min=0,
+        )
+    # The problem counters alert from their first hit on, hence `warn='0'`
+    # ("outside 0..0") rather than `warn=1`.
+    for item in LEVELS:
+        level_state = level_states[item['level']]
+        perfdata += lib.base.get_perfdata(
+            item['perfdata'],
+            counts[item['level']],
+            uom=None,
+            warn='0' if level_state == STATE_WARN else None,
+            crit='0' if level_state == STATE_CRIT else None,
+            _min=0,
+        )
+    for event in EVENTS:
+        perfdata += lib.base.get_perfdata(
+            event['perfdata'],
+            len(found[event['key']]),
+            uom=None,
+            warn='0' if event['state'] == STATE_WARN else None,
+            crit='0' if event['state'] == STATE_CRIT else None,
+            _min=0,
+        )
+    for event in RATE_EVENTS:
+        perfdata += lib.base.get_perfdata(
+            event['perfdata'],
+            rate_counts[event['key']],
+            uom=None,
+            warn=getattr(args, event['warning']) or None,
+            crit=getattr(args, event['critical']) or None,
+            _min=0,
+        )
+    for item in LIFECYCLE:
+        perfdata += lib.base.get_perfdata(
+            item['perfdata'], len(found[item['key']]), uom=None, _min=0
+        )
+
+    if args.ICINGA_CALLBACK and state != STATE_OK:
+        acknowledged, note = lib.base.coe(
+            lib.logmatch.service_acknowledged(
+                args.ICINGA_URL,
+                args.ICINGA_USERNAME,
+                args.ICINGA_PASSWORD,
+                args.ICINGA_SERVICE_NAME,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
+        if acknowledged:
+            # The rate events stay out: what alerts there is the arrival rate and
+            # not one line.
+            reported = {}
+            for item in LEVELS:
+                reported.update(dict.fromkeys(levels[item['level']]))
+            for event in EVENTS:
+                reported.update(dict.fromkeys(found[event['key']]))
+            lib.base.coe(
+                lib.logmatch.acknowledge(
+                    ack_conn,
+                    [
+                        {'key': lib.logmatch.key(line), 'line': line}
+                        for line in reported
+                    ],
+                )
+            )
+            state = STATE_OK
+        if note:
+            msg += f'\n\n{note}'
+    if suppressed_cnt:
+        msg += (
+            f'\n\n{suppressed_cnt} acknowledged'
+            f' {lib.txt.pluralize("line", suppressed_cnt)} suppressed.'
+        )
+    if ack_conn is not None:
+        lib.db_sqlite.close(ack_conn)
+
+    # What was read comes last: the verdict and the lines behind it come first, the
+    # provenance after them.
+    msg += f'\n\n{source_heading}\n' + '\n'.join(f'* {item}' for item in described)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

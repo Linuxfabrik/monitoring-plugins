@@ -1,0 +1,348 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for blocky-logfile.
+
+The `journal-v0-36-0-*` fixtures are what `journalctl --output=short-iso
+--unit=blocky.service --boot` printed on a UBI 9 container running blocky v0.36.0
+under systemd with the unit of the LFOps role, one scenario after the other:
+a deprecated option and a list that cannot be resolved, a restart with unreachable
+upstreams, a configuration that does not parse, the recovery, a port in use and
+configuration warnings. `journal-v0-35-0-discontinued-list` is an anonymized
+excerpt of a production resolver (blocky v0.35.0) whose list source answers HTTP
+410 on every refresh. The `container-*` fixtures are `podman logs` of blocky
+v0.36.0 with `log.format: json` and with `log.timestamp: true`.
+
+A fixture read as it stands would sit inside the rate window on the day it was
+captured and outside it on every day after, so the journal fixtures are copied with
+all their lines moved by one offset, see aged().
+"""
+
+import atexit
+import datetime
+import os
+import re
+import shutil
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+import lib.logsource
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+PLUGIN = os.path.join(HERE, '..', 'blocky-logfile')
+
+# The log has to be read from below `unit-test/`, which is where the plugin allows
+# itself to read outside /var/log.
+SCRATCH = tempfile.mkdtemp(prefix='blocky-logfile-', dir=HERE)
+atexit.register(shutil.rmtree, SCRATCH, True)
+
+ISO_TIMESTAMP_REGEX = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{4} ')
+
+# Taken once, so two logs aged alike start in the same second.
+NOW = datetime.datetime.now()
+
+
+def aged(name, minutes_ago=2):
+    """Copy a journal fixture, moving its lines so the last of them is `minutes_ago`
+    old. The whole block is shifted by one offset, so the lines keep their spacing."""
+    with open(os.path.join(HERE, 'fixtures', name), encoding='utf-8') as handle:
+        lines = handle.read().splitlines()
+    moments = [lib.logsource.timestamp(line) for line in lines]
+    known = [moment for moment in moments if moment is not None]
+    shift = NOW - datetime.timedelta(minutes=minutes_ago) - known[-1]
+    path = os.path.join(SCRATCH, f'{os.path.splitext(name)[0]}-{minutes_ago}.txt')
+    with open(path, 'w', encoding='utf-8') as handle:
+        for line, moment in zip(lines, moments):
+            head = ISO_TIMESTAMP_REGEX.match(line)
+            if moment is None or not head:
+                handle.write(line + '\n')
+                continue
+            moved = (moment + shift).astimezone()
+            handle.write(f'{moved:%Y-%m-%dT%H:%M:%S%z} {line[len(head.group(0)) :]}\n')
+    return path
+
+
+def fixture(name):
+    return os.path.join(HERE, 'fixtures', name)
+
+
+def config_root(name):
+    return os.path.join(HERE, 'config', name)
+
+
+CASES = [
+    {
+        'id': 'ok-healthy',
+        'params': [f'--server-log={aged("journal-v0-36-0-healthy.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'No errors or warnings found. 1 startup detected',
+            'blocky v0.36.0',
+            "'blocky_startups'=1;;;0",
+        ],
+    },
+    {
+        'id': 'warn-deprecated-options-and-failing-list',
+        'params': [f'--server-log={aged("journal-v0-36-0-deprecated-options.txt")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            # the summary line blocky closes the warnings with is not a second option
+            'Found 1 deprecated option [WARNING], 1 failing list source [WARNING]',
+            'config option "blocking.blackLists" is deprecated',
+            '* 1x https://nonexistent.example/hosts.txt: no such host',
+            '1 time blocking was disabled',
+            "'blocky_deprecated_options'=1;0;;0",
+            "'blocky_list_failures'=1;0;;0",
+        ],
+        # the download attempts and the summary are no level lines of their own
+        'assert-not-in': ['WARN line', 'ERROR line'],
+    },
+    {
+        # production: one source of many is gone (HTTP 410) at every refresh
+        'id': 'warn-discontinued-list-v0-35-0',
+        'params': [f'--server-log={aged("journal-v0-35-0-discontinued-list.txt")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Found 1 failing list source [WARNING]',
+            '* 1x https://urlhaus.abuse.ch/downloads/hostfile/: got status code 410',
+        ],
+        # two failed queries ten minutes before, joined with the line that carries
+        # their `req_id`, are no level lines either
+        'assert-not-in': ['ERROR line'],
+    },
+    {
+        'id': 'warn-upstreams-unreachable-above-custom-threshold',
+        'params': [
+            f'--server-log={aged("journal-v0-36-0-upstreams-unreachable.txt")}',
+            '--upstream-failures-warning=3',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '6 upstream failures in the last 10m [WARNING]',
+            'Upstream failures in the last 10m:',
+            "'blocky_upstream_failures'=6;3;500;0",
+        ],
+    },
+    {
+        'id': 'crit-upstreams-unreachable-above-custom-critical',
+        'params': [
+            f'--server-log={aged("journal-v0-36-0-upstreams-unreachable.txt")}',
+            '--upstream-failures-critical=5',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['6 upstream failures in the last 10m [CRITICAL]'],
+    },
+    {
+        # the same failures an hour ago are history
+        'id': 'warn-upstreams-unreachable-outside-the-lookback',
+        'params': [
+            f'--server-log={aged("journal-v0-36-0-upstreams-unreachable.txt", 60)}',
+            '--upstream-failures-warning=3',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'blocky_upstream_failures'=0;3;500;0"],
+        'assert-not-in': ['upstream failures in the last'],
+    },
+    {
+        'id': 'crit-failed-start',
+        'params': [f'--server-log={aged("journal-v0-36-0-failed-start.txt")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Found 1 failed start [CRITICAL]',
+            'Error: unable to load configuration',
+            "'blocky_startup_failures'=1;;0;0",
+        ],
+    },
+    {
+        # the failed start was followed by one that worked
+        'id': 'warn-failed-start-is-history-after-recovery',
+        'params': [
+            f'--server-log={aged("journal-v0-36-0-recovered-after-failed-start.txt")}'
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 earlier failed start', '3 startups detected'],
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'crit-port-conflict',
+        'params': [f'--server-log={aged("journal-v0-36-0-port-conflict.txt")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Error: start tcp listener failed'],
+        # `server start failed` says the same as the `Error:` line
+        'assert-not-in': ['ERROR line'],
+    },
+    {
+        'id': 'warn-error-line-of-the-current-run',
+        'params': [f'--server-log={aged("journal-v0-36-0-config-warnings.txt")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 ERROR line found [WARNING]. 4 WARN lines found.',
+            "can't create query log writer, using console as fallback",
+            '3x query_logging: Error occurred on query writer creation, retry attempt *',
+            # the port conflict before the last start is history
+            '1 earlier failed start',
+        ],
+    },
+    {
+        'id': 'crit-error-line-with-critical-level-error',
+        'params': [
+            f'--server-log={aged("journal-v0-36-0-config-warnings.txt")}',
+            '--critical-level=ERROR',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['1 ERROR line found [CRITICAL]'],
+    },
+    {
+        'id': 'warn-warn-lines-with-warning-level-warn',
+        'params': [
+            f'--server-log={aged("journal-v0-36-0-config-warnings.txt")}',
+            '--warning-level=WARN',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['4 WARN lines found [WARNING]'],
+    },
+    {
+        'id': 'ok-no-level-alerts',
+        'params': [
+            f'--server-log={aged("journal-v0-36-0-config-warnings.txt")}',
+            '--warning-level=none',
+        ],
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'warn-json-format',
+        'params': [f'--server-log={fixture("container-v0-36-0-json.txt")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Found 1 deprecated option [WARNING], 1 failing list source [WARNING]',
+            '* 1x https://nonexistent.example/hosts.txt: no such host',
+            'blocky v0.36.0',
+        ],
+    },
+    {
+        'id': 'warn-text-format-with-timestamps',
+        'params': [f'--server-log={fixture("container-v0-36-0-timestamps.txt")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2026-11-20 15:33 .. 2026-11-20 15:33',
+            'Found 1 deprecated option [WARNING], 1 failing list source [WARNING]',
+        ],
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'params': [
+            f'--server-log={aged("journal-v0-36-0-failed-start.txt")}',
+            '--always-ok',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'ok-ignore-drops-the-failing-list',
+        'params': [
+            f'--server-log={aged("journal-v0-35-0-discontinued-list.txt")}',
+            '--ignore=urlhaus',
+        ],
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'warn-match-drops-everything-with-no-match-severity',
+        'params': [
+            f'--server-log={aged("journal-v0-36-0-healthy.txt")}',
+            '--match=^no-such-line',
+            '--no-match-severity=warn',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked: `--match` dropped all'],
+    },
+    {
+        'id': 'unknown-not-a-blocky-log',
+        'params': [f'--server-log={fixture("not-blocky.txt")}'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['does not look like the log of blocky'],
+    },
+    {
+        'id': 'unknown-file-outside-var-log',
+        'params': ['--server-log=/etc/passwd'],
+        'assert-retc': STATE_UNKNOWN,
+    },
+    {
+        'id': 'unknown-systemd-without-blocky-unit',
+        'params': [f'--config-root={config_root("systemd-without-blocky")}'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Found no `blocky.service` unit'],
+    },
+    {
+        # a unit file on a host that systemd does not run has no journal
+        'id': 'unknown-blocky-unit-without-systemd',
+        'params': [f'--config-root={config_root("blocky-without-systemd")}'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Found no `blocky.service` unit'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    pass
+
+
+def _assert_sources_last(test, combined):
+    """What was read is the last section, after the recommendations."""
+    # `oao()` turns every `|` of the message into `!`, so the first one starts the
+    # performance data.
+    output = combined.split('|', 1)[0].rstrip('\n')
+    sources_at = output.rfind('\n\nRead ')
+    if sources_at == -1:
+        return
+    test.assertNotIn(
+        '\n\n', output[sources_at + 2 :], f'a section follows the sources:\n{combined}'
+    )
+    if 'Recommendations:' in output:
+        test.assertLess(
+            output.index('Recommendations:'),
+            sources_at,
+            f'the sources come before the recommendations:\n{combined}',
+        )
+
+
+def _check_case(test, case):
+    result = subprocess.run(  # nosec B603 - argv list, no shell
+        [PLUGIN, *case['params']],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    combined = result.stdout + result.stderr
+    test.assertEqual(
+        result.returncode,
+        case['assert-retc'],
+        f'expected retc {case["assert-retc"]}, got {result.returncode}.\n'
+        f'Output: {combined}',
+    )
+    for needle in case.get('assert-in', []):
+        test.assertIn(needle, combined, f'{needle!r} not in output:\n{combined}')
+    for needle in case.get('assert-not-in', []):
+        test.assertNotIn(
+            needle, combined, f'{needle!r} unexpectedly in output:\n{combined}'
+        )
+    _assert_sources_last(test, combined)
+
+
+lib.lftest.attach_each(TestCheck, CASES, _check_case, id_func=lambda it: it['id'])
+
+
+if __name__ == '__main__':
+    unittest.main()
