@@ -16,29 +16,10 @@ import os
 import sys
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102701'
+__version__ = '2026112001'
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DOCS_DIR = os.path.join(REPO_ROOT, 'docs')
-
-# Check plugins whose README is also reachable under
-# `docs/check-plugins/<name>/README.md` so that markdown links like
-# `[text](check-plugins/<name>/README.md)` from CONTRIBUTING.md
-# resolve both on GitHub (where the link points at the real README
-# file in the plugin subdirectory) and on the rendered mkdocs site
-# (where the symlink created here shadows the subdirectory). The
-# default `tools/build-docs` layout only publishes one doc page per
-# plugin at `docs/check-plugins/<name>.md`; this list adds the
-# second form where it is needed.
-#
-# `example` is also excluded from the main nav because it is a
-# template rather than a real plugin; every other entry in this
-# list still shows up in the nav normally via its primary docs
-# page and only gets an *additional* README.md symlink.
-README_LINKED_FROM_CONTRIBUTING = [
-    'example',
-    'php-fpm-status',
-]
 
 # Top-level markdown files to include in the documentation.
 # Format: (source filename, target filename in docs/, nav title)
@@ -85,6 +66,36 @@ PLUGIN_DIRS = [
 ]
 
 
+def write_contributing(source, target):
+    """Copy CONTRIBUTING.md into docs/, with its links into docs/developer-guide/ made
+    relative to docs/, so they also work on the documentation site."""
+    with open(source, encoding='utf-8') as fh:
+        content = fh.read()
+    if os.path.islink(target) or os.path.exists(target):
+        os.unlink(target)
+    with open(target, 'w', encoding='utf-8') as fh:
+        fh.write(content.replace('](docs/developer-guide/', '](developer-guide/'))
+
+
+def scan_developer_guide():
+    """Return (title, path) of each file in docs/developer-guide/, by file name."""
+    guide_dir = os.path.join(DOCS_DIR, 'developer-guide')
+    if not os.path.isdir(guide_dir):
+        return []
+    pages = []
+    for entry in sorted(os.listdir(guide_dir)):
+        if not entry.endswith('.md'):
+            continue
+        title = entry[:-3]
+        with open(os.path.join(guide_dir, entry), encoding='utf-8') as fh:
+            for line in fh:
+                if line.startswith('# '):
+                    title = line[2:].strip()
+                    break
+        pages.append((title, f'developer-guide/{entry}'))
+    return pages
+
+
 def create_symlink(source, target):
     """Create a relative symlink from target to source."""
     target_dir = os.path.dirname(target)
@@ -109,7 +120,7 @@ def scan_plugins(plugin_dir):
     return plugins
 
 
-def generate_mkdocs_yml(nav_sections):
+def generate_mkdocs_yml(nav_sections, guide_pages):
     """Generate the mkdocs.yml content."""
     lines = []
     lines.append(
@@ -169,8 +180,6 @@ def generate_mkdocs_yml(nav_sections):
             alias_hidden.append(source_name)
 
     lines.append('not_in_nav: |')
-    for name in sorted(README_LINKED_FROM_CONTRIBUTING):
-        lines.append(f'  check-plugins/{name}/README.md')
     lines.append('  CODE_OF_CONDUCT.md')
     lines.append('  SPONSORS.md')
     for name in sorted(alias_hidden):
@@ -220,6 +229,10 @@ def generate_mkdocs_yml(nav_sections):
     # of per-plugin pages.
     lines.append("  - 'For Developers':")
     lines.append("      - 'Contributing': 'contributing.md'")
+    if guide_pages:
+        lines.append("      - 'Developer Guide':")
+        for title, path in guide_pages:
+            lines.append(f"          - '{title}': '{path}'")
     lines.append("      - 'Compiling and Packaging': 'build.md'")
     lines.append("      - 'Maintainer Tools': 'tools.md'")
 
@@ -248,10 +261,16 @@ def main():
         if not os.path.isfile(source):
             print(f'WARNING: {source_name} not found, skipping.')
             continue
-        create_symlink(source, target)
+        if source_name == 'CONTRIBUTING.md':
+            write_contributing(source, target)
+        else:
+            create_symlink(source, target)
         if source_name != target_name and source_name != 'README.md':
             alias_target = os.path.join(DOCS_DIR, source_name)
-            create_symlink(source, alias_target)
+            if source_name == 'CONTRIBUTING.md':
+                write_contributing(source, alias_target)
+            else:
+                create_symlink(source, alias_target)
 
     # Create symlinks for plugin READMEs
     nav_sections = []
@@ -278,21 +297,10 @@ def main():
         nav_sections.append((plugin_dir, section_title, plugins))
 
     # Generate mkdocs.yml
-    mkdocs_content = generate_mkdocs_yml(nav_sections)
+    mkdocs_content = generate_mkdocs_yml(nav_sections, scan_developer_guide())
     mkdocs_path = os.path.join(REPO_ROOT, 'mkdocs.yml')
     with open(mkdocs_path, 'w') as f:
         f.write(mkdocs_content)
-
-    # Create extra README.md symlinks under docs/check-plugins/<name>/
-    # for every plugin linked from CONTRIBUTING.md. See the comment on
-    # README_LINKED_FROM_CONTRIBUTING at the top of this file.
-    for name in README_LINKED_FROM_CONTRIBUTING:
-        src = os.path.join(REPO_ROOT, 'check-plugins', name, 'README.md')
-        if not os.path.isfile(src):
-            continue
-        tgt_dir = os.path.join(DOCS_DIR, 'check-plugins', name)
-        os.makedirs(tgt_dir, exist_ok=True)
-        create_symlink(src, os.path.join(tgt_dir, 'README.md'))
 
     # Count
     total_symlinks = len(TOP_LEVEL_DOCS)

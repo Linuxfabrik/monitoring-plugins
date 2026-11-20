@@ -225,9 +225,10 @@ def main():
     aria_read_requests = int(mystat.get('Aria_pagecache_read_requests', 0))
     aria_reads = int(mystat.get('Aria_pagecache_reads', 0))
 
-    # Per-CONTRIBUTING: emit the cumulative Aria pagecache counters as per-second
-    # deltas (computed in-plugin against a local SQLite cache) instead of cumulative
-    # `c` counters that force Grafana to do non_negative_difference() per panel.
+    # Per docs/developer-guide/output.md: emit the cumulative Aria pagecache counters as
+    # per-second deltas (computed in-plugin against a local SQLite cache) instead of
+    # cumulative `c` counters that force Grafana to do non_negative_difference() per
+    # panel.
     rates = lib.db_sqlite.per_second_deltas(
         SQLITE_DB,
         'mysql-aria',

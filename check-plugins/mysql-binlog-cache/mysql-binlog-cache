@@ -171,9 +171,10 @@ def main():
             no_perfdata=args.NO_PERFDATA,
         )
 
-    # Per-CONTRIBUTING: emit the binlog cache use counters as per-second deltas
-    # (computed in-plugin against a local SQLite cache) instead of cumulative
-    # `c` counters that force Grafana to do non_negative_difference() per panel.
+    # Per docs/developer-guide/output.md: emit the binlog cache use counters as
+    # per-second deltas (computed in-plugin against a local SQLite cache) instead of
+    # cumulative `c` counters that force Grafana to do non_negative_difference() per
+    # panel.
     binlog_use = int(mystat['Binlog_cache_use'])
     binlog_disk_use = int(mystat['Binlog_cache_disk_use'])
     rates = lib.db_sqlite.per_second_deltas(

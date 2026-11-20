@@ -2,7 +2,7 @@
 
 The Linuxfabrik Monitoring Plugins ship a complete Icinga Director configuration: one Command per plugin, Host Templates, Service Templates, ~150 Service Sets with ready-made `assign` filters, Time Periods, a Notification setup, and the Data Lists and Datafields they reference. You get from "fresh Director" to "Linux and Windows hosts are monitored" by importing one basket and tagging your hosts.
 
-This document explains what the basket contains, how to import it, how to operate it day-to-day, and how we expect you to extend it. Plugin authors looking for the per-plugin basket workflow (editing the YAML under `check-plugins/<name>/icingaweb2-module-director/`, regenerating with `build-basket`) should read the Icinga Director Basket Config section in [CONTRIBUTING.md](CONTRIBUTING.md) instead.
+This document explains what the basket contains, how to import it, how to operate it day-to-day, and how we expect you to extend it. Plugin authors looking for the per-plugin basket workflow (editing the YAML under `check-plugins/<name>/icingaweb2-module-director/`, regenerating with `build-basket`) should read the Icinga Director Basket Config section in [docs/developer-guide/integrations.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/docs/developer-guide/integrations.md#icinga-director-basket-config) instead.
 
 
 ## Quick Start
@@ -358,7 +358,7 @@ Append them to `assets/icingaweb2-module-director/all-the-rest.json`, generate a
 jq . assets/icingaweb2-module-director/all-the-rest.json > /dev/null
 ```
 
-If you need deeper hooks into the basket generation (for example, per-OS variants of a check command), see the CONTRIBUTING.md section on Icinga Director Basket Config.
+If you need deeper hooks into the basket generation (for example, per-OS variants of a check command), see the section [Icinga Director Basket Config](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/docs/developer-guide/integrations.md#icinga-director-basket-config) of the developer guide.
 
 
 ### Overriding our Service Templates
