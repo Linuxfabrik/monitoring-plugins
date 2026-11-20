@@ -44,7 +44,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026111201 / v8.1.0'
+__version__ = '2026112001 / v8.1.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -502,6 +502,17 @@ def get_lftags(distro):
             'expr': [
                 run_cmd(
                     ['systemctl', 'is-enabled', 'named.service'], ignore_output=True
+                )
+            ],
+        },
+        {
+            # The unit the LFOps role and the blocky documentation install; blocky
+            # ships as a single binary without a package.
+            'sw': 'Blocky',
+            'package': [],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'blocky.service'], ignore_output=True
                 )
             ],
         },
@@ -1631,6 +1642,11 @@ def get_software_found():
         {'sw': 'Atlassian Jira', 'expr': [lib.disk.dir_exists('/opt/atlassian/jira')]},
         {'sw': 'Atomicorp', 'expr': [lib.disk.dir_exists('/opt/atomicorp')]},
         {'sw': 'Bacchus', 'expr': [lib.disk.dir_exists('/opt/bacchus')]},
+        {
+            'sw': 'Blocky',
+            # the single binary the LFOps role and the blocky documentation install
+            'expr': [lib.disk.file_exists('/usr/local/sbin/blocky', allow_empty=True)],
+        },
         {'sw': 'Contao', 'expr': [lib.disk.dir_exists('/var/www/html/contao')]},
         {'sw': 'DCM4CHEE', 'expr': [lib.disk.dir_exists('/opt/dcm4chee')]},
         {'sw': 'Django', 'expr': [lib.disk.dir_exists('/opt/django')]},

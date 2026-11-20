@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Monitoring Plugins:
 
+* blocky-logfile: Warns when blocky failed to start, uses deprecated options, cannot download a list or gets no answer upstream.
+* blocky-stats: Reports what blocky blocks and fails to resolve, and warns when blocking is off or its lists are empty or stale.
 * freeipa-logfile: Warns when the daily ipa-healthcheck run finds a problem on a FreeIPA server, or no longer runs.
 * icinga-director-basket-drift: Warns when Linuxfabrik objects in the Icinga Director differ from the basket of the installed plugins.
 * icinga-director-overrides: Lists the service variables overridden per host in the Icinga Director, and overrides without effect.
@@ -30,7 +32,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * Log checks list what they alert on, repeated lines grouped and counted, and keep the first line short (logfile and the `*-logfile` checks for Apache, MySQL, PHP-FPM, Postfix and sshd).
-* about-me: `--tags` proposes the new `data-partition` tag on hosts with a partition mounted at `/data`, and the new `icinga-director` tag.
+* about-me: `--tags` proposes the new `data-partition` tag on hosts with a partition mounted at `/data`, and the new `blocky` and `icinga-director` tags.
 * apache-httpd-logfile: Denied requests and path scans Apache rejects by itself no longer alert by default, other failed requests only from 10 on.
 * lynis-logfile: Reports how many tests the lynis profile skips.
 * mysql-connections: Speaks of failed connection attempts instead of aborted connections, and points to the denied logins.
