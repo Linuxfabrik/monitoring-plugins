@@ -1,0 +1,153 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for blocky-stats.
+
+The fixtures are `/metrics` payloads of real blocky containers (v0.24, v0.25,
+v0.35.0, v0.36.0), recorded after a handful of queries. `v0-36-0-lists-stale`
+is `v0-36-0-healthy` with the list refresh timestamp moved two days back, and
+`not-blocky` is a node exporter line. Under `--test`, the plugin takes the
+previous run as all counters at zero 60 seconds earlier and a fixed current
+time, so the rates and the list age do not depend on when the tests run.
+"""
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+TESTS = [
+    {
+        'id': 'ok-v0-36-0-healthy',
+        'test': 'stdout/v0-36-0-healthy,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '0.1 queries/s, 14.3% blocked, 28.6% cached, 0.0% failed',
+            'upstream 3ms 447us avg',
+            '(blocky v0.36.0)',
+            "'queries_per_second'=0.117;;;0",
+            "'resolve_time'=0.003448s;;;0",
+            "'failed'=0.0%;5;50;0;100",
+        ],
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        'id': 'ok-v0-25-oldest-supported',
+        'test': 'stdout/v0-25-healthy,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['(blocky v0.25)', "'denylist_entries'=2;;;0"],
+    },
+    {
+        # blocky v0.35.0 with a denylist group whose only list cannot be downloaded
+        'id': 'warn-v0-35-0-empty-denylist-group',
+        'test': 'stdout/v0-35-0-healthy,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Denylist group broken holds no entries [WARNING]'],
+    },
+    {
+        'id': 'warn-empty-denylist-group',
+        'test': 'stdout/v0-36-0-empty-denylist-group,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'broken\s+! -\s+! 0 \[WARNING\]',
+    },
+    {
+        'id': 'warn-blocking-disabled',
+        'test': 'stdout/v0-36-0-blocking-disabled,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'^Blocking is disabled for some or all groups \[WARNING\]',
+    },
+    {
+        'id': 'crit-upstreams-unreachable',
+        'test': 'stdout/v0-36-0-upstreams-unreachable,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['85.7% failed [CRITICAL]'],
+        # no query reached an upstream, so there is no upstream time to report
+        'assert-not-in': ['upstream', 'resolve_time'],
+    },
+    {
+        'id': 'warn-upstreams-unreachable-custom-thresholds',
+        'test': 'stdout/v0-36-0-upstreams-unreachable,,0',
+        'params': '--warning=50 --critical=90',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['85.7% failed [WARNING]', "'failed'=85.7%;50;90;0;100"],
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/v0-36-0-upstreams-unreachable,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'crit-no-perfdata',
+        'test': 'stdout/v0-36-0-upstreams-unreachable,,0',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ['|'],
+    },
+    {
+        'id': 'warn-lists-stale',
+        'test': 'stdout/v0-36-0-lists-stale,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Lists last refreshed 2D ago [WARNING]',
+            "'list_age'=172800s;86400;;0",
+        ],
+    },
+    {
+        'id': 'ok-lists-stale-age-check-disabled',
+        'test': 'stdout/v0-36-0-lists-stale,,0',
+        'params': '--warning-age=0D',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'list_age'=172800s;;;0"],
+    },
+    {
+        'id': 'ok-lists-stale-below-custom-age',
+        'test': 'stdout/v0-36-0-lists-stale,,0',
+        'params': '--warning-age=3D',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'unknown-v0-24-old-metric-names',
+        'test': 'stdout/v0-24-old-metric-names,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['metric names from before v0.25'],
+    },
+    {
+        'id': 'unknown-not-blocky',
+        'test': 'stdout/not-blocky,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['does not serve blocky metrics'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../blocky-stats'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

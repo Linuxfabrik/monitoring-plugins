@@ -1,0 +1,455 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.db_sqlite
+import lib.human
+import lib.lftest
+import lib.openmetrics
+import lib.time
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# How `lib.url.fetch()` words a connect or read that ran out of time.
+TIMEOUT_REGEX = re.compile(r'^URL error "timed out"|^Timeout after ')
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026112001'
+
+DESCRIPTION = """Monitors a blocky DNS proxy and ad-blocker through its Prometheus metrics
+endpoint. Reports the queries per second, the share of blocked, cached and failed queries,
+the average time the upstream resolvers take to answer and the size of the deny- and
+allowlists, measured between two consecutive check runs. Alerts when the share of failed
+queries exceeds the warning or critical threshold, when blocking is disabled, when a
+denylist group holds no entries, or when the lists have not been refreshed for too long.
+Requires `prometheus.enable: true` and an HTTP port in the blocky configuration."""
+
+DEFAULT_CRIT = '50'  # % failed queries
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 3
+DEFAULT_URL = 'http://localhost:4000/metrics'
+DEFAULT_WARN = '5'  # % failed queries
+# blocky refreshes its lists every 4 hours by default, so a day without a successful
+# refresh means six refreshes in a row went wrong
+DEFAULT_WARN_AGE = '1D'
+
+# Stand-ins under `--test`, see main(): the time between two runs, and the current time,
+# shortly after the fixtures were recorded (2026-11-20).
+TEST_INTERVAL = 60
+TEST_NOW = 1795190400
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the share of failed queries since the last check run, '
+        'in percent. A query fails when no upstream resolver answers it, and the client '
+        'gets SERVFAIL. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u',
+        '--url',
+        help='blocky Prometheus metrics endpoint, served on the HTTP port '
+        '(`ports.http`) under the path set in `prometheus.path`. '
+        'Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the share of failed queries since the last check run, '
+        'in percent. A query fails when no upstream resolver answers it, and the client '
+        'gets SERVFAIL. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-age',
+        help='WARN threshold for the time since blocky last refreshed a deny- or '
+        'allowlist successfully. A blocky that cannot download its lists keeps '
+        'blocking with the entries it has, so the lists silently grow stale. '
+        'A duration such as `12h`, `8D` or `2W`; `0D` disables the age check. '
+        'Example: `--warning-age=12h` for lists refreshed every hour. '
+        'Default: %(default)s',
+        dest='WARN_AGE',
+        type=lib.args.duration,
+        default=DEFAULT_WARN_AGE,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_samples(args):
+    """Read the metrics endpoint, with a hint on the two settings blocky needs for
+    serving it, since both are off in a default configuration."""
+    if args.TEST is not None:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        return lib.base.coe(lib.openmetrics.parse(stdout))
+    success, result = lib.openmetrics.fetch(
+        args.URL,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
+        timeout=args.TIMEOUT,
+    )
+    if not success:
+        # A blocky that does not answer in time has a problem worth fixing, a
+        # missing or refused endpoint is a configuration this check cannot read.
+        if TIMEOUT_REGEX.search(result):
+            lib.base.oao(
+                f'Timeout after {args.TIMEOUT}s while fetching '
+                f'{lib.txt.sanitize_sensitive_data(args.URL)}.',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
+        lib.base.cu(
+            f'{result}\nblocky serves its metrics only with `prometheus: enable: true`'
+            ' and a `ports: http:` in its config.yml.'
+        )
+    return result
+
+
+def get_counters(samples):
+    """
+    Collect the cumulative counters the rates are computed from.
+
+    The cache stores integers, so the response time sums go in as microseconds. Every
+    counter is always handed over: a label-split counter has no sample at all until its
+    first event, and in that case 0 is the true count, not a stand-in.
+    """
+    get_sum = lib.openmetrics.get_sum
+    return {
+        'blocked': get_sum(
+            samples, 'blocky_response_total', {'response_type': 'BLOCKED'}, default=0
+        ),
+        'cached': get_sum(
+            samples, 'blocky_response_total', {'response_type': 'CACHED'}, default=0
+        ),
+        'failed': get_sum(samples, 'blocky_error_total', default=0),
+        'queries': get_sum(samples, 'blocky_query_total', default=0),
+        'resolve_count': get_sum(
+            samples,
+            'blocky_request_duration_seconds_count',
+            {'response_type': 'RESOLVED'},
+            default=0,
+        ),
+        'resolve_usec': 1000000
+        * get_sum(
+            samples,
+            'blocky_request_duration_seconds_sum',
+            {'response_type': 'RESOLVED'},
+            default=0,
+        ),
+        'response_count': get_sum(
+            samples, 'blocky_request_duration_seconds_count', default=0
+        ),
+        'response_usec': 1000000
+        * get_sum(samples, 'blocky_request_duration_seconds_sum', default=0),
+    }
+
+
+def get_list_groups(samples):
+    """Return `{group: {'denylist': n, 'allowlist': n}}` for every list group blocky
+    reports, with `None` where a group has no list of that kind."""
+    groups = {}
+    for kind in ('allowlist', 'denylist'):
+        for sample in lib.openmetrics.get_samples(
+            samples, f'blocky_{kind}_cache_entries'
+        ):
+            group = sample['labels'].get('group', '')
+            groups.setdefault(group, {'allowlist': None, 'denylist': None})
+            groups[group][kind] = int(sample['value'])
+    return groups
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    samples = get_samples(args)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    problems = []
+
+    # `blocky_cache_entries` is a plain gauge, so blocky serves it from the start, even
+    # before the first query. blocky v0.24 and older spell every metric differently.
+    if lib.openmetrics.get_value(samples, 'blocky_cache_entries') is None:
+        if lib.openmetrics.get_value(samples, 'blocky_cache_entry_count') is not None:
+            lib.base.cu(
+                'This blocky uses the metric names from before v0.25. '
+                'Update blocky to read its metrics.'
+            )
+        lib.base.cu(
+            f'{lib.txt.sanitize_sensitive_data(args.URL)} does not serve blocky'
+            ' metrics.'
+        )
+
+    version = ''
+    for sample in lib.openmetrics.get_samples(samples, 'blocky_build_info'):
+        version = sample['labels'].get('version', '')
+
+    # Rates need the previous run, read from a local cache per endpoint, so that two
+    # blocky instances checked from one host never share a baseline. Under `--test`, the
+    # previous run is taken as all counters at zero `TEST_INTERVAL` seconds earlier, so
+    # the tests exercise the arithmetic without depending on run order or leftovers.
+    counters = {key: int(value) for key, value in get_counters(samples).items()}
+    if args.TEST is None:
+        endpoint = re.sub(r'\W+', '_', args.URL)
+        rates = lib.db_sqlite.per_second_deltas(
+            f'linuxfabrik-monitoring-plugins-blocky-stats-{endpoint}.db',
+            'blocky',
+            counters,
+        )
+    else:
+        rates = {key: value / TEST_INTERVAL for key, value in counters.items()}
+
+    groups = get_list_groups(samples)
+    denylist_entries = sum(g['denylist'] or 0 for g in groups.values())
+    allowlist_entries = sum(g['allowlist'] or 0 for g in groups.values())
+    cache_entries = int(lib.openmetrics.get_value(samples, 'blocky_cache_entries'))
+
+    # analyze data
+    if lib.openmetrics.get_value(samples, 'blocky_blocking_enabled', default=1) == 0:
+        # blocky reports the same 0 whether all or only some groups are disabled
+        problems.append(
+            'Blocking is disabled for some or all groups'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
+        )
+        state = lib.base.get_worst(state, STATE_WARN)
+
+    empty_groups = sorted(
+        group for group, lists in groups.items() if lists['denylist'] == 0
+    )
+    if empty_groups:
+        problems.append(
+            f'Denylist group {", ".join(empty_groups)} holds no entries'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
+        )
+        state = lib.base.get_worst(state, STATE_WARN)
+
+    list_age = None
+    refreshed = lib.openmetrics.get_value(
+        samples, 'blocky_last_list_group_refresh_timestamp_seconds', default=0
+    )
+    if refreshed > 0:
+        now = lib.time.now() if args.TEST is None else TEST_NOW
+        # a clock running behind blocky's must not produce a negative age
+        list_age = max(0, now - int(refreshed))
+        if args.WARN_AGE and list_age >= args.WARN_AGE:
+            problems.append(
+                f'Lists last refreshed {lib.human.seconds2human(list_age)} ago'
+                f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
+            )
+            state = lib.base.get_worst(state, STATE_WARN)
+
+    # build the message
+    if rates is None:
+        msg = 'Waiting for more data'
+    else:
+        queries = rates['queries']
+        blocked = cached = failed = 0.0
+        if queries > 0:
+            blocked = round(100 * rates['blocked'] / queries, 1)
+            cached = round(100 * rates['cached'] / queries, 1)
+            failed = round(100 * rates['failed'] / queries, 1)
+        failed_state = lib.base.get_state(
+            failed, args.WARN, args.CRIT, _operator='range'
+        )
+        state = lib.base.get_worst(state, failed_state)
+        msg = (
+            f'{round(queries, 1)} queries/s'
+            f', {blocked}% blocked, {cached}% cached'
+            f', {failed}% failed{lib.base.state2str(failed_state, prefix=" ")}'
+        )
+        perfdata += lib.base.get_perfdata('blocked', blocked, uom='%', _min=0, _max=100)
+        perfdata += lib.base.get_perfdata('cached', cached, uom='%', _min=0, _max=100)
+        perfdata += lib.base.get_perfdata(
+            'failed',
+            failed,
+            uom='%',
+            warn=args.WARN,
+            crit=args.CRIT,
+            _min=0,
+            _max=100,
+        )
+        perfdata += lib.base.get_perfdata(
+            'queries_per_second', round(queries, 3), uom=None, _min=0
+        )
+        # an average needs at least one answer in the interval, otherwise there is
+        # nothing to report rather than a time of zero
+        if rates['resolve_count'] > 0:
+            resolve_time = rates['resolve_usec'] / rates['resolve_count'] / 1000000
+            msg += f', upstream {lib.human.seconds2human(resolve_time)} avg'
+            perfdata += lib.base.get_perfdata(
+                'resolve_time', round(resolve_time, 6), uom='s', _min=0
+            )
+        if rates['response_count'] > 0:
+            perfdata += lib.base.get_perfdata(
+                'response_time',
+                round(rates['response_usec'] / rates['response_count'] / 1000000, 6),
+                uom='s',
+                _min=0,
+            )
+    msg += f', {lib.human.number2human(denylist_entries)} denylist entries'
+    if version:
+        msg += f' (blocky {version})'
+    if problems:
+        msg = '. '.join(problems) + '. ' + msg
+
+    perfdata += lib.base.get_perfdata(
+        'allowlist_entries', allowlist_entries, uom=None, _min=0
+    )
+    perfdata += lib.base.get_perfdata('cache_entries', cache_entries, uom=None, _min=0)
+    perfdata += lib.base.get_perfdata(
+        'denylist_entries', denylist_entries, uom=None, _min=0
+    )
+    if list_age is not None:
+        perfdata += lib.base.get_perfdata(
+            'list_age',
+            list_age,
+            uom='s',
+            warn=int(args.WARN_AGE) if args.WARN_AGE else None,
+            _min=0,
+        )
+
+    # build table output
+    if groups:
+        table_data = []
+        for group in sorted(groups):
+            lists = groups[group]
+            table_data.append(
+                {
+                    'group': group,
+                    'denylist': '-'
+                    if lists['denylist'] is None
+                    else lib.human.number2human(lists['denylist'])
+                    + lib.base.state2str(
+                        STATE_WARN if lists['denylist'] == 0 else STATE_OK,
+                        prefix=' ',
+                    ),
+                    'allowlist': '-'
+                    if lists['allowlist'] is None
+                    else lib.human.number2human(lists['allowlist']),
+                }
+            )
+        msg += '\n\n' + lib.base.get_table(
+            table_data,
+            ['group', 'allowlist', 'denylist'],
+            header=['Group', 'Allowlist', 'Denylist'],
+        )
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

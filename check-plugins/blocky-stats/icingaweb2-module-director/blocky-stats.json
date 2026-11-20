@@ -1,0 +1,261 @@
+{
+    "Command": {
+        "cmd-check-blocky-stats": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$blocky_stats_always_ok$"
+                },
+                "--critical": {
+                    "value": "$blocky_stats_critical$"
+                },
+                "--insecure": {
+                    "set_if": "$blocky_stats_insecure$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$blocky_stats_no_perfdata$"
+                },
+                "--no-proxy": {
+                    "set_if": "$blocky_stats_no_proxy$"
+                },
+                "--proxy": {
+                    "value": "$blocky_stats_proxy$"
+                },
+                "--timeout": {
+                    "value": "$blocky_stats_timeout$"
+                },
+                "--url": {
+                    "value": "$blocky_stats_url$"
+                },
+                "--warning": {
+                    "value": "$blocky_stats_warning$"
+                },
+                "--warning-age": {
+                    "value": "$blocky_stats_warning_age$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/blocky-stats",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-blocky-stats",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "d34a021b-bdb0-4904-98f5-e5a7d0c49bc4"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-blocky-stats": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-blocky-stats",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "blocky-stats.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Monitors a blocky DNS proxy and ad-blocker through its Prometheus metrics endpoint. Reports the queries per second, the share of blocked, cached and failed queries, the average time the upstream resolvers take to answer and the size of the deny- and allowlists, measured between two consecutive check runs. Alerts when the share of failed queries exceeds the warning or critical threshold, when blocking is disabled, when a denylist group holds no entries, or when the lists have not been refreshed for too long. Requires `prometheus.enable: true` and an HTTP port in the blocky configuration.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/blocky-stats/",
+            "object_name": "tpl-service-blocky-stats",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "blocky_stats_always_ok": false,
+                "blocky_stats_critical": "50",
+                "blocky_stats_insecure": false,
+                "blocky_stats_no_perfdata": false,
+                "blocky_stats_no_proxy": false,
+                "blocky_stats_timeout": 3,
+                "blocky_stats_url": "http://localhost:4000/metrics",
+                "blocky_stats_warning": "5",
+                "blocky_stats_warning_age": "1D"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "1a298575-5864-4e74-bbf3-5f54425f8783"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "blocky_stats_always_ok",
+            "caption": "Blocky Stats: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "c8b7f9ee-7437-4682-adcc-6cd8ac02a089"
+        },
+        "2": {
+            "varname": "blocky_stats_critical",
+            "caption": "Blocky Stats: Critical",
+            "description": "CRIT threshold for the share of failed queries since the last check run, in percent. A query fails when no upstream resolver answers it, and the client gets SERVFAIL. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "3bb186ed-ca56-4d69-8d23-270796541aab"
+        },
+        "3": {
+            "varname": "blocky_stats_insecure",
+            "caption": "Blocky Stats: Insecure?",
+            "description": "This option explicitly allows insecure SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "4ed53f71-aaec-4db7-b28d-4e5371619452"
+        },
+        "4": {
+            "varname": "blocky_stats_no_perfdata",
+            "caption": "Blocky Stats: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "8ce7f8ab-9f5d-4f3c-bdbb-154446b38423"
+        },
+        "5": {
+            "varname": "blocky_stats_no_proxy",
+            "caption": "Blocky Stats: No Proxy?",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "948250df-c617-4b43-ad45-e5fb6e1549d2"
+        },
+        "6": {
+            "varname": "blocky_stats_proxy",
+            "caption": "Blocky Stats: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "71cf6544-d8d5-444b-bb32-21683a5505d8"
+        },
+        "7": {
+            "varname": "blocky_stats_timeout",
+            "caption": "Blocky Stats: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "28039227-3c12-4351-b992-ac58d8d6d5e2"
+        },
+        "8": {
+            "varname": "blocky_stats_url",
+            "caption": "Blocky Stats: URL",
+            "description": "blocky Prometheus metrics endpoint, served on the HTTP port (`ports.http`) under the path set in `prometheus.path`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "3765e22b-e6e0-44ad-a7a3-277440988cb7"
+        },
+        "9": {
+            "varname": "blocky_stats_warning",
+            "caption": "Blocky Stats: Warning",
+            "description": "WARN threshold for the share of failed queries since the last check run, in percent. A query fails when no upstream resolver answers it, and the client gets SERVFAIL. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "58b61ea0-f36a-48ee-a477-ea13800737e6"
+        },
+        "10": {
+            "varname": "blocky_stats_warning_age",
+            "caption": "Blocky Stats: Warning Age",
+            "description": "WARN threshold for the time since blocky last refreshed a deny- or allowlist successfully. A blocky that cannot download its lists keeps blocking with the entries it has, so the lists silently grow stale. A duration such as `12h`, `8D` or `2W`; `0D` disables the age check. Example: `--warning-age=12h` for lists refreshed every hour.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a41fef18-0b2c-440d-a5f8-08acb950c882"
+        }
+    }
+}
