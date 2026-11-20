@@ -689,17 +689,17 @@ def check_account_locked(user, account, severity_state):
         )
     # What the field means is a property of the shadow entry, not of this check,
     # so `lib.user` reads it and only the verdict on each outcome stays here.
-    password = lib.user.password_state(account['shadow'])
-    if password == 'locked':
+    shadow_state = lib.user.password_state(account['shadow'])
+    if shadow_state == 'locked':
         return (STATE_OK, f'{user}: locked', 'The password is locked.', None)
-    if password == 'no-login':
+    if shadow_state == 'no-login':
         return (
             STATE_OK,
             f'{user}: no password login',
             'No password can be used for this account.',
             None,
         )
-    if password == 'none':
+    if shadow_state == 'none':
         return (
             severity_state,
             f'{user}: no password at all',
@@ -832,7 +832,8 @@ def get_sudo_rules(user, timeout):
         return None
     # The name comes out of the server configuration. As its own argv element it
     # cannot reach a shell, but sudo would still read a leading "-" as an option
-    # of its own, so it is refused rather than passed on (CONTRIBUTING, Security).
+    # of its own, so it is refused rather than passed on
+    # (docs/developer-guide/security.md).
     success, safe_user = lib.shell.safe_cli_value(user, 'the worker account')
     if not success:
         return None
