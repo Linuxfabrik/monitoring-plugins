@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2025021101
+# 2026112001
 
 # This script prints all environment variables in alphabetical order.
 set -e -x
@@ -7,7 +7,7 @@ set -e -x
 # Use printenv to list the environment variables, and pipe through sort.
 printenv | sort
 
-echo $(uname -a)
+uname -a
 
 
 # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables#default-environment-variables
