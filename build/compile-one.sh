@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2025021602
+# 2026112001
 
 # This script can run in a container (absolute paths) or in a Windows-VM.
 
@@ -9,6 +9,9 @@ set -e -x
 PLUGINS=$1  # what to compile - "check-plugins", "notification-plugins" or "event-plugins"
 PLUGIN=$2   # which plugin to compile, for example "cpu-usage"
 
+# Extra Nuitka options, an array so that none at all expands to no argument.
+ADDITIONAL_PARAMS=()
+
 if uname -a | grep -q "_NT"; then
     # We are on Windows.
     REPO_DIR="$LFMP_DIR_REPOS"
@@ -17,8 +20,8 @@ if uname -a | grep -q "_NT"; then
         exit 0
     fi
     COMPILE_DIR="$LFMP_DIR_COMPILED"
-    #ADDITIONAL_PARAMS="--include-plugin-directory=$REPO_DIR/lib --msvc=latest"
-    ADDITIONAL_PARAMS="--msvc=latest"
+    #ADDITIONAL_PARAMS=(--include-plugin-directory="$REPO_DIR/lib" --msvc=latest)
+    ADDITIONAL_PARAMS=(--msvc=latest)
 else
     # We are in a container.
     REPO_DIR="/repos"
@@ -37,12 +40,12 @@ python3 -m nuitka \
     --assume-yes-for-downloads \
     --no-deployment-flag=self-execution \
     --noinclude-unittest-mode=nofollow \
-    --output-dir=$COMPILE_DIR/$PLUGINS/ \
+    --output-dir="$COMPILE_DIR/$PLUGINS/" \
     --remove-output \
     --standalone \
     --update-check=never \
-    $ADDITIONAL_PARAMS \
-    $REPO_DIR/monitoring-plugins/$PLUGINS/$PLUGIN/$PLUGIN
+    "${ADDITIONAL_PARAMS[@]}" \
+    "$REPO_DIR/monitoring-plugins/$PLUGINS/$PLUGIN/$PLUGIN"
 
 # rename files
 if [[ -e "$COMPILE_DIR/$PLUGINS/$PLUGIN.dist/$PLUGIN.bin" ]]; then
@@ -51,11 +54,11 @@ if [[ -e "$COMPILE_DIR/$PLUGINS/$PLUGIN.dist/$PLUGIN.bin" ]]; then
 fi
 
 # move files to a merged flattened directory to save disk space if directory exists and is not empty.
-if [[ -d "$COMPILE_DIR/$PLUGINS/$PLUGIN.dist" && -n "$(ls --almost-all $COMPILE_DIR/$PLUGINS/$PLUGIN.dist)" ]]; then
+if [[ -d "$COMPILE_DIR/$PLUGINS/$PLUGIN.dist" && -n "$(ls --almost-all "$COMPILE_DIR/$PLUGINS/$PLUGIN.dist")" ]]; then
     # Note that we use the special /.' suffix to copy **only the contents** of the *.dist directory (preserving attributes).
     # Unfortunately, mv does not have a built‐in equivalent to "move the contents of a directory" using the/.' trick.
     # Therefore we copy and remove later to save disk space, important in github runners.
     echo "✅ cp --archive $COMPILE_DIR/$PLUGINS/$PLUGIN.dist/. $COMPILE_DIR/$PLUGINS/"
-    \cp --archive --verbose $COMPILE_DIR/$PLUGINS/$PLUGIN.dist/. $COMPILE_DIR/$PLUGINS/
-    rm -rf $COMPILE_DIR/$PLUGINS/$PLUGIN.dist
+    \cp --archive --verbose "$COMPILE_DIR/$PLUGINS/$PLUGIN.dist/." "$COMPILE_DIR/$PLUGINS/"
+    rm -rf "$COMPILE_DIR/$PLUGINS/$PLUGIN.dist"
 fi

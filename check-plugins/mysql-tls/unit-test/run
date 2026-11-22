@@ -163,7 +163,9 @@ class TestIsLoopbackOnly(unittest.TestCase):
         self.assertTrue(self.check({'bind_address': '', 'skip_networking': 'ON'}))
 
     def test_reachable_servers(self):
-        for value in ('', '*', '0.0.0.0', '::', '192.0.2.1', '127.0.0.1,192.0.2.1'):
+        # Test data, not a bind: the check has to report a server listening on every
+        # interface.
+        for value in ('', '*', '0.0.0.0', '::', '192.0.2.1', '127.0.0.1,192.0.2.1'):  # nosec B104
             self.assertFalse(self.check({'bind_address': value}), value)
 
     def test_missing_variable(self):
