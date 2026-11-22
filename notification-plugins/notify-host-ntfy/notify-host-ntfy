@@ -1,0 +1,473 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import re
+import sys
+import urllib.parse
+
+import lib.args
+import lib.base
+import lib.icinga
+import lib.txt
+import lib.url
+from lib.globals import STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026112301'
+
+DESCRIPTION = """Sends host notifications to a topic on an ntfy server, which forwards
+them as push notifications to the ntfy apps for Android, iOS and the web. Works with the
+public ntfy.sh service and with self-hosted ntfy servers. The title names the
+notification type and the host state, the icon follows the notification type and the
+host state, and so does the priority: acknowledgements arrive with minimum priority,
+without sound or vibration, recoveries with low and custom notifications with default
+priority, all other notifications by host state, DOWN with high, UNREACHABLE with
+default, UP with low priority. The message is formatted as Markdown, with the host
+output in a code block. An access token gives access to reserved or protected topics. A
+host output that does not fit into an ntfy message is shortened, keeping its beginning
+and its end."""
+
+DEFAULT_INSECURE = False
+DEFAULT_MARKDOWN = True
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 3
+DEFAULT_URL = 'https://ntfy.sh'
+
+# Seconds the whole request may take, below the 10 seconds the Director basket gives the
+# notification command, so that a slowly answering server is reported by the plugin
+# instead of the plugin being killed. `--timeout` applies to each connect and read.
+DEADLINE = 8
+
+# ntfy limits a published message in three ways: a message body above the message size
+# limit (4096 bytes by default) becomes an attachment, a title above 1024 bytes is
+# rejected with "400 Bad Request", and a JSON request body above twice the message size
+# limit is rejected with "413 Request Entity Too Large". Message and title are measured
+# in UTF-8 bytes, the request body after JSON serialization, which escapes every
+# non-ASCII character. Verified against ntfy 2.38.1 (server/config.go,
+# server/server.go, and the official container image).
+MAX_BODY_SIZE = 8000
+MAX_MESSAGE_SIZE = 4000
+MAX_TITLE_SIZE = 1000
+
+# ntfy priorities: 1 = min, 2 = low, 3 = default, 4 = high, 5 = max/urgent. The
+# notification type decides first, the state for all other types (a problem, for
+# example). An acknowledgement only confirms that somebody is on it, so it arrives
+# without sound or vibration.
+STATE_PRIORITIES = {
+    'DOWN': 4,
+    'UNREACHABLE': 3,
+    'UP': 2,
+}
+TYPE_PRIORITIES = {
+    'ACKNOWLEDGEMENT': 1,
+    'CUSTOM': 3,
+    'RECOVERY': 2,
+}
+
+# ntfy shows a tag that matches an emoji short code as that emoji. The notification
+# type decides first, the state for all other types (a problem, for example).
+STATE_TAGS = {
+    'DOWN': 'rotating_light',
+    'UNREACHABLE': 'question',
+    'UP': 'white_check_mark',
+}
+TYPE_TAGS = {
+    'ACKNOWLEDGEMENT': 'eyes',
+    'CUSTOM': 'speech_balloon',
+    'RECOVERY': 'white_check_mark',
+}
+
+# Topic names ntfy accepts, see `topicRegex` in server/server.go
+TOPIC_REGEX = re.compile(r'^[-_A-Za-z0-9]{1,64}$')
+
+SEPARATOR = '---'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__, section='notification-plugins'),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--datetime',
+        help=lib.args.help('--datetime'),
+        dest='DATETIME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--host-displayname',
+        help=lib.args.help('--host-displayname'),
+        dest='HOST_DISPLAYNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--host-output',
+        help=lib.args.help('--host-output'),
+        dest='HOST_OUTPUT',
+    )
+
+    parser.add_argument(
+        '--host-state',
+        help=lib.args.help('--host-state'),
+        dest='HOST_STATE',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--hostname',
+        help='Set the hostname ($host.name$).',
+        dest='HOSTNAME',
+    )
+
+    parser.add_argument(
+        '--icingaweb2-url',
+        help=lib.args.help('--icingaweb2-url'),
+        dest='ICINGAWEB2_URL',
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-markdown',
+        help='Send the message as plain text instead of Markdown. '
+        'Useful for clients that do not render Markdown and show its characters.',
+        dest='MARKDOWN',
+        action='store_false',
+        default=DEFAULT_MARKDOWN,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--notification-author',
+        help=lib.args.help('--notification-author'),
+        dest='NOTIFICATION_AUTHOR',
+    )
+
+    parser.add_argument(
+        '--notification-comment',
+        help=lib.args.help('--notification-comment'),
+        dest='NOTIFICATION_COMMENT',
+    )
+
+    parser.add_argument(
+        '--notification-type',
+        help=lib.args.help('--notification-type'),
+        dest='NOTIFICATION_TYPE',
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--token',
+        help='ntfy access token. '
+        'Required for topics that are reserved or protected by an access control '
+        'list. '
+        'Passed here, the token is visible to every user on this host for as long as '
+        'the plugin runs, because a command-line argument shows up in the process '
+        'list; prefer --token-file.',
+        dest='TOKEN',
+    )
+
+    parser.add_argument(
+        '--token-file',
+        help='Path to a file holding the ntfy access token, read from its first line. '
+        'Keeps the token out of the process list, where a command line argument is '
+        'visible to every user on this host. '
+        'Takes precedence over `--token`. '
+        'Example: `--token-file=/etc/icinga2/secrets/ntfy`',
+        dest='TOKEN_FILE',
+    )
+
+    parser.add_argument(
+        '--topic',
+        help='ntfy topic to publish to. '
+        'Letters, digits, `-` and `_`, up to 64 characters. '
+        'Case-sensitive. '
+        'Example: `--topic=icinga`',
+        dest='TOPIC',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='Base URL of the ntfy server, without the topic. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def escape_markdown(text):
+    """
+    Escape the characters that start inline Markdown formatting.
+
+    Names such as `web_01_prod` would otherwise turn into italics.
+    """
+    return re.sub(r'([\\`*_\[\]<>~])', r'\\\1', text)
+
+
+def fit_size(text, overshoot, shorten=lib.txt.shorten):
+    """
+    Shorten `text` in the middle until it fits.
+
+    Parameters
+    ----------
+    text : str
+        The string to shorten.
+    overshoot : callable
+        Returns how far a candidate exceeds its limits, as a ratio of size to limit.
+        A ratio of 1 or less fits.
+    shorten : callable, optional
+        Shortens a string to a maximum length, called as `shorten(text, max_len)`.
+        Defaults to `lib.txt.shorten()`.
+
+    Returns
+    -------
+    str
+        The shortened string, or the original when it already fits. An empty string
+        when even that does not fit.
+    """
+    shortened = text
+    ratio = overshoot(shortened)
+    while ratio > 1 and shortened:
+        # scale the length down by the ratio, and by at least one character so that
+        # the loop always ends
+        max_len = min(len(shortened) - 1, int(len(shortened) / ratio))
+        shortened = shorten(text, max_len)
+        ratio = overshoot(shortened)
+    return shortened
+
+
+def shorten_lines(text, max_len):
+    """
+    Shorten a multi-line `text` in the middle, cutting only between lines.
+
+    The cut is marked by `...` on a line of its own, so no line is left half. A text
+    without line breaks is shortened within the line.
+
+    Parameters
+    ----------
+    text : str
+        The string to shorten.
+    max_len : int
+        Maximum length of the result, including the marker.
+
+    Returns
+    -------
+    str
+        The shortened string, or the original when it already fits.
+    """
+    if len(text) <= max_len:
+        return text
+    if '\n' not in text:
+        return lib.txt.shorten(text, max_len)
+    keep = max(max_len - len('\n...\n'), 0)
+    head = text[: keep // 2]
+    tail = text[len(text) - (keep - keep // 2) :] if keep - keep // 2 else ''
+    # drop the partial line at the end of the head and at the start of the tail
+    head = head[: head.rfind('\n') + 1] if '\n' in head else ''
+    tail = tail[tail.find('\n') + 1 :] if '\n' in tail else ''
+    return f'{head}...\n{tail}'[:max_len]
+
+
+def format_output(output, markdown):
+    """
+    Put the plugin output into a Markdown code block.
+
+    An output that brings its own code fences is used as it is, since a surrounding
+    code block would end at its first fence.
+    """
+    if not output or not markdown or '```' in output:
+        return output
+    return f'```\n{output}\n```'
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if not TOPIC_REGEX.match(args.TOPIC):
+        lib.base.oao(
+            f'Invalid topic "{args.TOPIC}". ntfy accepts letters, digits, `-` and `_`,'
+            ' up to 64 characters.',
+            STATE_UNKNOWN,
+        )
+    url = urllib.parse.urlsplit(args.URL)
+    if url.scheme not in ('http', 'https') or url.path not in ('', '/'):
+        # ntfy takes a JSON message only on its root path; posted to `/<topic>`, the
+        # JSON document would arrive as the message text
+        lib.base.oao(
+            f'Invalid URL "{args.URL}". `--url` needs the base URL of the ntfy server'
+            ' (for example `https://ntfy.sh`), the topic goes into `--topic`.',
+            STATE_UNKNOWN,
+        )
+
+    token = args.TOKEN
+    if args.TOKEN_FILE:
+        token = lib.args.load_secret(args.TOKEN_FILE, '--token-file')
+
+    # build the message
+    notification_type = (args.NOTIFICATION_TYPE or '').upper()
+    title = f'{args.HOST_STATE:.4}: {args.HOST_DISPLAYNAME} ({args.DATETIME})'
+    if notification_type:
+        title = f'[{notification_type}] {title}'
+
+    escape = escape_markdown if args.MARKDOWN else str
+    comment = ''
+    if args.NOTIFICATION_COMMENT:
+        comment = f'COMMENT: {escape(args.NOTIFICATION_COMMENT)}'
+        if args.NOTIFICATION_AUTHOR:
+            comment += f' ({escape(args.NOTIFICATION_AUTHOR)})'
+
+    def render(output):
+        sections = [comment, format_output(output.strip(), args.MARKDOWN)]
+        message = f'\n\n{SEPARATOR}\n\n'.join(
+            section for section in sections if section
+        )
+        # ntfy replaces an empty message with its own placeholder text
+        return message or 'No output.'
+
+    data = {
+        'markdown': args.MARKDOWN,
+        'priority': TYPE_PRIORITIES.get(
+            notification_type,
+            STATE_PRIORITIES.get(args.HOST_STATE, 3),
+        ),
+        'tags': [
+            TYPE_TAGS.get(
+                notification_type,
+                STATE_TAGS.get(args.HOST_STATE, 'question'),
+            )
+        ],
+        'title': fit_size(
+            title,
+            lambda candidate: len(lib.txt.to_bytes(candidate)) / MAX_TITLE_SIZE,
+        ),
+        'topic': args.TOPIC,
+    }
+
+    icingaweb2_url = lib.icinga.build_icingaweb2_url(args.ICINGAWEB2_URL, args.HOSTNAME)
+    if icingaweb2_url:
+        # A "view" action button instead of ntfy's `click` URL. A message has only one
+        # `click` URL, and both the phone's notification drawer and the ntfy app use it:
+        # every tap on the notification in the drawer, intended or not, would open
+        # the browser. With a button, tapping the notification opens the ntfy app, and
+        # only the button opens Icinga Web 2, in the drawer and in the app alike.
+        # Tried both variants on Android with the ntfy app against ntfy.sh.
+        data['actions'] = [
+            {'action': 'view', 'label': 'Open Icinga Web 2', 'url': icingaweb2_url}
+        ]
+
+    def overshoot(message):
+        candidate = {**data, 'message': message}
+        return max(
+            len(lib.txt.to_bytes(message)) / MAX_MESSAGE_SIZE,
+            len(json.dumps(candidate)) / MAX_BODY_SIZE,
+        )
+
+    # shorten the plugin output first, so that the comment stays readable, and only
+    # then the whole message, in case the comment alone is too long
+    output = fit_size(
+        args.HOST_OUTPUT or '',
+        lambda candidate: overshoot(render(candidate)),
+        shorten=shorten_lines,
+    )
+    data['message'] = fit_size(render(output), overshoot)
+
+    header = {'Content-Type': 'application/json'}
+    if token:
+        header['Authorization'] = f'Bearer {token}'
+
+    # over and out
+    result = lib.base.coe(
+        lib.url.fetch(
+            urllib.parse.urlunsplit((url.scheme, url.netloc, '/', '', '')),
+            data=data,
+            deadline=DEADLINE,
+            encoding='serialized-json',
+            extended=True,
+            header=header,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            proxy=args.PROXY,
+            timeout=args.TIMEOUT,
+        )
+    )
+
+    # ntfy confirms a published message with the message as JSON. Anything else, such
+    # as its web app after a redirect turned the POST into a GET, means that nothing
+    # was published.
+    try:
+        published = json.loads(result['response'])
+    except (TypeError, ValueError):
+        published = None
+    if not isinstance(published, dict) or published.get('event') != 'message':
+        lib.base.oao(
+            f'ntfy did not confirm the message (HTTP {result["status_code"]}).'
+            ' Check that `--url` points to the ntfy server itself; a redirect, for'
+            ' example from http:// to https://, drops the message.',
+            STATE_UNKNOWN,
+        )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

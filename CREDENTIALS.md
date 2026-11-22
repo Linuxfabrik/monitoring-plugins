@@ -8,7 +8,7 @@ Plugins that log in to a database, an API or a device need a secret. This page c
 | Parameter | Where the secret lives | Used by |
 |---|---|---|
 | `--password`, `--token` | On the command line: in the monitoring configuration and, while the check runs, in the process list of the node that executes it. | Most plugins that log in to an API or a device. |
-| `--password-file`, `--token-file`, `--api-token-file` and similar | In a file on the node that executes the check. The plugins read its first line, `restic-*` hand the whole file to restic. | `huawei-dorado-*`, `huawei-pacific-*`, `icingaweb2-module-updates`, `restic-*` and `wordpress-security-scan`. The plugin's README lists the parameter. |
+| `--password-file`, `--token-file`, `--api-token-file` and similar | In a file on the node that executes the check. The plugins read its first line, `restic-*` hand the whole file to restic. | `huawei-dorado-*`, `huawei-pacific-*`, `icingaweb2-module-updates`, `notify-*-ntfy`, `restic-*` and `wordpress-security-scan`. The plugin's README lists the parameter. |
 | `--defaults-file` | In a MySQL option file. | All `mysql-*` plugins, `librenms-alerts`, `librenms-health` and `xca-cert`, see [MySQL Plugins](PLUGINS-MYSQL.md). |
 
 Prefer a file wherever the plugin offers one, and make it readable only by the user that runs the plugins. In the Icinga Director, keep the secret, or the path to its file, on the concrete host or service object, never on a template or a Service Set (see [ICINGA.md](ICINGA.md)).
