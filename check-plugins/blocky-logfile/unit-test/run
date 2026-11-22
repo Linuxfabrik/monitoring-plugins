@@ -27,8 +27,8 @@ captured and outside it on every day after, so the journal fixtures are copied w
 all their lines moved by one offset, see aged().
 
 The container tests read the log of every blocky release in `IMAGES`, started with
-`fixtures/blocky.yml`, through `podman:`, so a change of the startup lines in a new
-release fails here first.
+`fixtures/blocky.yml`, through `podman:` or `docker:`, whichever runs it, so a change
+of the startup lines in a new release fails here first.
 """
 
 import atexit
@@ -406,6 +406,23 @@ IMAGES = [
 ]
 
 
+def _engine(name):
+    """The container CLI that knows the container: testcontainers starts it through
+    whatever `DOCKER_HOST` points at, which is podman on a workstation and the Docker
+    daemon on the CI runner, and the plugin has to read it with the same engine."""
+    for engine in ('podman', 'docker'):
+        if shutil.which(engine) is None:
+            continue
+        found = subprocess.run(  # nosec B603 - argv list, no shell
+            [engine, 'container', 'inspect', name],
+            capture_output=True,
+            check=False,
+        )
+        if found.returncode == 0:
+            return engine
+    raise AssertionError(f'Neither podman nor docker knows the container {name}.')
+
+
 def _check_image(test, image):
     lib.lftest.require_container_runtime()
     version = image.rsplit(':', 1)[1]
@@ -414,8 +431,9 @@ def _check_image(test, image):
         volumes=[(fixture('blocky.yml'), '/app/config.yml')],
         wait_log='http server is up and running',
     ) as container:
+        name = container.get_wrapped_container().name
         result = subprocess.run(  # nosec B603 - argv list, no shell
-            [PLUGIN, f'--server-log=podman:{container.get_wrapped_container().name}'],
+            [PLUGIN, f'--server-log={_engine(name)}:{name}'],
             capture_output=True,
             text=True,
             check=False,
