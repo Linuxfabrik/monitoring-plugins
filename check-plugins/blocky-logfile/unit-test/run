@@ -17,7 +17,9 @@ a deprecated option and a list that cannot be resolved, a restart with unreachab
 upstreams, a configuration that does not parse, the recovery, a port in use and
 configuration warnings. `journal-v0-35-0-discontinued-list` is an anonymized
 excerpt of a production resolver (blocky v0.35.0) whose list source answers HTTP
-410 on every refresh. The `container-*` fixtures are `podman logs` of blocky
+410 on every refresh; `journal-v0-35-0-list-removed-on-restart` adds the restart of
+the same resolver into a configuration without that source and without the query
+log. The `container-*` fixtures are `podman logs` of blocky
 v0.36.0 with `log.format: json` and with `log.timestamp: true`.
 
 A fixture read as it stands would sit inside the rate window on the day it was
@@ -79,6 +81,30 @@ def aged(name, minutes_ago=2):
     return path
 
 
+def query_logged(restarted):
+    """Write a journal of more query log lines than the plugin reads, optionally
+    followed by the restart of `journal-v0-35-0-list-removed-on-restart` into a
+    configuration without the query log. Generated, because a fixture of that size
+    would weigh megabytes."""
+    with open(
+        os.path.join(HERE, 'fixtures', 'journal-v0-35-0-list-removed-on-restart.txt'),
+        encoding='utf-8',
+    ) as handle:
+        lines = handle.read().splitlines()
+    query_line = next(line for line in lines if ' queryLog: ' in line)
+    restart = lines[next(i for i, line in enumerate(lines) if 'Terminating' in line) :]
+    moment = (NOW - datetime.timedelta(minutes=10)).astimezone()
+    stamp = f'{moment:%Y-%m-%dT%H:%M:%S%z} '
+    path = os.path.join(SCRATCH, f'query-logged-{restarted}.txt')
+    with open(path, 'w', encoding='utf-8') as handle:
+        for _ in range(31000):
+            handle.write(stamp + query_line[len(stamp) :] + '\n')
+        if restarted:
+            for line in restart:
+                handle.write(stamp + line[len(stamp) :] + '\n')
+    return path
+
+
 def fixture(name):
     return os.path.join(HERE, 'fixtures', name)
 
@@ -126,6 +152,30 @@ CASES = [
         # two failed queries ten minutes before, joined with the line that carries
         # their `req_id`, are no level lines either
         'assert-not-in': ['ERROR line'],
+    },
+    {
+        # production: the discontinued source was dropped from the configuration and
+        # blocky restarted, so its last failure belongs to the process before
+        'id': 'ok-list-removed-on-restart-v0-35-0',
+        'params': [
+            f'--server-log={aged("journal-v0-35-0-list-removed-on-restart.txt")}'
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 startup detected', "'blocky_list_failures'=0;0;;0"],
+        'assert-not-in': ['urlhaus'],
+    },
+    {
+        'id': 'ok-query-log-fills-the-window',
+        'params': [f'--server-log={query_logged(restarted=False)}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['of the lines read are the query log', 'queryLog.type: none'],
+    },
+    {
+        # the query log of the process before only ages out of the window
+        'id': 'ok-query-log-turned-off-on-restart',
+        'params': [f'--server-log={query_logged(restarted=True)}'],
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['queryLog.type: none'],
     },
     {
         'id': 'warn-upstreams-unreachable-above-custom-threshold',

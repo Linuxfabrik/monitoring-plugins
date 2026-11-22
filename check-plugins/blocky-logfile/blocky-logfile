@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026112001'
+__version__ = '2026112201'
 
 DESCRIPTION = """Scans the log of the blocky DNS proxy and ad-blocker for the events an
 administrator has to act on: a start that failed, deprecated configuration options, list
@@ -804,6 +804,8 @@ def main():
     unrecognized_cnt = 0
     suppressed_cnt = 0
     query_log_cnt = 0
+    # whether the running process still writes the query log, see the recommendation
+    query_log_current = False
     version = ''
     compiled_ignore = [
         lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
@@ -881,15 +883,20 @@ def main():
         recognized_cnt += 1
         if message.startswith(QUERY_LOG_PREFIX):
             query_log_cnt += 1
+            if current:
+                query_log_current = True
             continue
-        # A list source is judged by its last outcome, over the whole window: the
-        # refresh that follows a restart reads every source again, so the last line
-        # about a source is the current state either way.
+        # A list source is judged by its last outcome in the current process. blocky
+        # logs its banner before `server.NewServer()` builds the list caches
+        # (`cmd/serve.go`), so every download of the running process follows the last
+        # banner, and a source removed from the configuration is not read again.
+        # Verified against blocky v0.35.0 on RHEL 9.
         success_match = LIST_SUCCESS_REGEX.match(message)
         failure_match = LIST_FAILURE_REGEX.match(message)
         if success_match or failure_match:
-            source = (success_match or failure_match).group(1).strip()
-            list_outcomes[source] = None if success_match else log_line
+            if current:
+                source = (success_match or failure_match).group(1).strip()
+                list_outcomes[source] = None if success_match else log_line
             continue
         if message.startswith(LIST_PREFIX):
             # the download attempts and the summary of a group, see LIST_PREFIX
@@ -1095,8 +1102,14 @@ def main():
     # keeps every client and the name it asked for in the journal. Said without a
     # state, because blocky itself is fine.
     # `truncated` cannot be relied on here: journalctl is asked for the last
-    # MAXLINES entries and never says whether there were more.
-    if line_cnt >= MAXLINES and query_log_cnt > QUERY_LOG_SHARE * line_cnt:
+    # MAXLINES entries and never says whether there were more. Lines of an earlier
+    # process only age out of the window, so the advice needs the running one to
+    # still write the query log.
+    if (
+        query_log_current
+        and line_cnt >= MAXLINES
+        and query_log_cnt > QUERY_LOG_SHARE * line_cnt
+    ):
         recommendations.append(
             f'{lib.human.number2human(query_log_cnt)} of the lines read are the'
             ' query log, so the window reaches back only as far as shown above;'
