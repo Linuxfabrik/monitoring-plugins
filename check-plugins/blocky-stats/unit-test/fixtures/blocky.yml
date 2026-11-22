@@ -1,0 +1,26 @@
+# What the container tests run blocky with: the sample configuration of the LFOps
+# role, cut down to one denylist group and without the query log.
+ports:
+  dns: 53
+  http: 4000
+upstreams:
+  groups:
+    default:
+      - 1.1.1.1
+      - 9.9.9.9
+blocking:
+  denylists:
+    ads:
+      - |
+        ads.example.com
+        tracker.example.net
+  allowlists:
+    ads:
+      - |
+        ok.example.com
+  clientGroupsBlock:
+    default: [ads]
+queryLog:
+  type: none
+prometheus:
+  enable: true

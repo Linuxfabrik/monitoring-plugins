@@ -16,9 +16,19 @@ is `v0-36-0-healthy` with the list refresh timestamp moved two days back, and
 `not-blocky` is a node exporter line. Under `--test`, the plugin takes the
 previous run as all counters at zero 60 seconds earlier and a fixed current
 time, so the rates and the list age do not depend on when the tests run.
+
+The container tests run the plugin against every blocky release in `IMAGES`, started
+with `fixtures/blocky.yml`: once before any query, then after a query for a blocked
+name, so a change of the metrics in a new release fails here first.
 """
 
+import json
+import os
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
 import sys
+import tempfile
+import time
+import urllib.request
 
 sys.path.insert(0, '..')
 
@@ -144,11 +154,82 @@ TESTS = [
 ]
 
 
+IMAGES = [
+    'ghcr.io/0xerr0r/blocky:v0.25',
+    'ghcr.io/0xerr0r/blocky:v0.26',
+    'ghcr.io/0xerr0r/blocky:v0.29.0',
+    'ghcr.io/0xerr0r/blocky:v0.30.0',
+    'ghcr.io/0xerr0r/blocky:v0.32.0',
+    'ghcr.io/0xerr0r/blocky:v0.35.0',
+    'ghcr.io/0xerr0r/blocky:v0.36.0',
+]
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
 class TestCheck(unittest.TestCase):
     check = '../blocky-stats'
 
 
+def _run_plugin(url, tmpdir):
+    result = subprocess.run(  # nosec B603 - argv list, no shell
+        ['../blocky-stats', f'--url={url}'],
+        cwd=HERE,
+        # a state database of its own, so an earlier run cannot make up the rates
+        env={**os.environ, 'TMPDIR': tmpdir},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode, result.stdout + result.stderr
+
+
+def _check_image(test, image):
+    lib.lftest.require_container_runtime()
+    version = image.rsplit(':', 1)[1]
+    with (
+        tempfile.TemporaryDirectory() as tmpdir,
+        lib.lftest.run_container(
+            image,
+            ports=[4000],
+            volumes=[(os.path.join(HERE, 'fixtures/blocky.yml'), '/app/config.yml')],
+            wait_log='http server is up and running',
+        ) as container,
+    ):
+        base = (
+            f'http://{container.get_container_host_ip()}'
+            f':{container.get_exposed_port(4000)}'
+        )
+        retc, output = _run_plugin(f'{base}/metrics', tmpdir)
+        test.assertEqual(retc, STATE_OK, output)
+        test.assertIn(f'Waiting for more data (blocky {version})', output)
+        test.assertIn("'denylist_entries'=2;;;0", output)
+
+        request = urllib.request.Request(
+            f'{base}/api/query',
+            data=json.dumps({'query': 'ads.example.com', 'type': 'A'}).encode(),
+            headers={'Content-Type': 'application/json'},
+        )
+        with urllib.request.urlopen(request, timeout=5) as response:  # nosec B310
+            test.assertIn(b'BLOCKED', response.read())
+        # the rates need the two runs at least a second apart
+        time.sleep(2)
+
+        retc, output = _run_plugin(f'{base}/metrics', tmpdir)
+        test.assertEqual(retc, STATE_OK, output)
+        test.assertRegex(
+            output, r'^\S+ queries/s, 100\.0% blocked, 0\.0% cached, 0\.0% failed'
+        )
+        test.assertIn("'allowlist_entries'=1;;;0", output)
+
+
 lib.lftest.attach_tests(TestCheck, TESTS)
+lib.lftest.attach_each(
+    TestCheck,
+    IMAGES,
+    _check_image,
+    id_func=lambda image: 'ok_container_' + image.rsplit(':', 1)[1].replace('.', '_'),
+)
 
 
 if __name__ == '__main__':

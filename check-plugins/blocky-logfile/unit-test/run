@@ -23,6 +23,10 @@ v0.36.0 with `log.format: json` and with `log.timestamp: true`.
 A fixture read as it stands would sit inside the rate window on the day it was
 captured and outside it on every day after, so the journal fixtures are copied with
 all their lines moved by one offset, see aged().
+
+The container tests read the log of every blocky release in `IMAGES`, started with
+`fixtures/blocky.yml`, through `podman:`, so a change of the startup lines in a new
+release fails here first.
 """
 
 import atexit
@@ -341,7 +345,46 @@ def _check_case(test, case):
     _assert_sources_last(test, combined)
 
 
+IMAGES = [
+    'ghcr.io/0xerr0r/blocky:v0.25',
+    'ghcr.io/0xerr0r/blocky:v0.26',
+    'ghcr.io/0xerr0r/blocky:v0.29.0',
+    'ghcr.io/0xerr0r/blocky:v0.30.0',
+    'ghcr.io/0xerr0r/blocky:v0.32.0',
+    'ghcr.io/0xerr0r/blocky:v0.35.0',
+    'ghcr.io/0xerr0r/blocky:v0.36.0',
+]
+
+
+def _check_image(test, image):
+    lib.lftest.require_container_runtime()
+    version = image.rsplit(':', 1)[1]
+    with lib.lftest.run_container(
+        image,
+        volumes=[(fixture('blocky.yml'), '/app/config.yml')],
+        wait_log='http server is up and running',
+    ) as container:
+        result = subprocess.run(  # nosec B603 - argv list, no shell
+            [PLUGIN, f'--server-log=podman:{container.get_wrapped_container().name}'],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    combined = result.stdout + result.stderr
+    test.assertEqual(result.returncode, STATE_OK, combined)
+    test.assertIn('No errors or warnings found. 1 startup detected', combined)
+    test.assertIn(f'blocky {version}.', combined)
+    test.assertIn("'blocky_startups'=1;;;0", combined)
+    _assert_sources_last(test, combined)
+
+
 lib.lftest.attach_each(TestCheck, CASES, _check_case, id_func=lambda it: it['id'])
+lib.lftest.attach_each(
+    TestCheck,
+    IMAGES,
+    _check_image,
+    id_func=lambda image: 'ok_container_' + image.rsplit(':', 1)[1].replace('.', '_'),
+)
 
 
 if __name__ == '__main__':
