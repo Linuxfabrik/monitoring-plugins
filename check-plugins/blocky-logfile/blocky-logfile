@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026112201'
+__version__ = '2026112202'
 
 DESCRIPTION = """Scans the log of the blocky DNS proxy and ad-blocker for the events an
 administrator has to act on: a start that failed, deprecated configuration options, list
@@ -974,11 +974,10 @@ def main():
     )
     if result['truncated']:
         lines_read = f'the most recent {lines_read}'
-    described = [
-        lib.logsource.describe(item, sizes.get(item['label']))
-        for item in result['sources']
-    ]
-    sources = f'{len(described)} {lib.txt.pluralize("source", len(described))}'
+    # A directory holding more than a handful of logs is folded into one entry.
+    described = lib.base.coe(lib.logsource.describe_sources(result['sources'], sizes))
+    source_cnt = len(result['sources'])
+    sources = f'{source_cnt} {lib.txt.pluralize("source", source_cnt)}'
     source_heading = f'Read {lines_read} from {sources}:'
 
     rate_counts = {}
