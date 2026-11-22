@@ -471,7 +471,9 @@ Every request a backend failed is counted once, so restarting the backend leaves
 2. Where a single one already matters, `--proxy-failures-warning=1` reports it.
 3. Whether the site answers at all is not something a log can say. Watch that with an HTTP check against the site itself.
 
-### `does not look like an Apache error log`
+### The log does not look like an Apache error log
+
+`None of the <n> lines read from <source> carries an Apache log level or message code`
 
 Not one line in the window carried an Apache log level or an `AHnnnnn` message code, so the source holds something else. The file that gets mixed up with it most often is the access log, which `CustomLog` writes in a completely different format. Check `--server-log` and the `ErrorLog` directive; `apachectl -S` prints the paths Apache actually uses, virtual hosts included.
 
@@ -481,7 +483,9 @@ Not one line in the window carried an Apache log level or an `AHnnnnn` message c
 
 Logging to syslog also costs the lifecycle: Apache writes a `notice` line into a log file whatever `LogLevel` says, but through syslog the level applies, so the default `LogLevel warn` drops every start, restart and shutdown while errors still arrive. Measured on Rocky 9 (httpd 2.4.62, rsyslog 8.2510): with `LogLevel warn` a denied request (`AH01630`, level `error`) reaches the journal, while `AH00489`, `AH00493` and `AH00491` reach neither the journal nor the files rsyslog writes; with `LogLevel notice` all of them are there. The check says so when it finds that combination.
 
-### `Refusing to read "…": resolved path is outside the allowed roots`
+### The log lies outside `/var/log`
+
+`Refusing to read "<path>": resolved path is outside the allowed roots`
 
 The check runs as root and therefore only opens a log that resolves inside `/var/log`. Bind-mount the directory holding the log under `/var/log`; a symlink that points out of it is rejected, because the confinement resolves symlinks before it decides.
 

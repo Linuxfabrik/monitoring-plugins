@@ -402,7 +402,9 @@ Only PHP's fatal errors are counted, and only from the `error_log` file a pool n
 
 The distributions rotate this log daily, and PHP-FPM writes a single `error log file re-opened` line into the fresh file. The check reads the rotated predecessor along with it, so the window normally reaches back beyond that point and the last section names every file it read, one per line with its size. A window that really is one line means the predecessor is gone or unreadable, not that PHP-FPM is silent. Use [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit/) to know whether PHP-FPM is running at all; this check reports on what the log says.
 
-### `does not look like a PHP-FPM error log`
+### The log does not look like a PHP-FPM error log
+
+`None of the <n> lines read from <source> carries a PHP-FPM log level`
 
 Not one line in the window carried a PHP-FPM log level or the prefix PHP writes, so the source holds something other than an error log. The two files that get mixed up with it are the pool `slowlog` and the access log. Check `--server-log` and the `error_log` directive of the PHP-FPM configuration; `php-fpm --test` prints the configuration PHP-FPM actually loads.
 
@@ -410,11 +412,15 @@ Not one line in the window carried a PHP-FPM log level or the prefix PHP writes,
 
 PHP-FPM then hands its messages to the syslog daemon and writes no file of its own. Point the check at the unit instead, with `--server-log=systemd:php-fpm.service`, or at the file the syslog daemon writes them to.
 
-### `failed to ptrace(ATTACH) child N: Operation not permitted`
+### No backtrace for a slow request
+
+`failed to ptrace(ATTACH) child <pid>: Operation not permitted`
 
 PHP-FPM attaches to a worker to write the backtrace of a slow request into the `slowlog`, and the kernel refused it. In a container this is the missing `CAP_SYS_PTRACE` capability; on a host it is usually a hardened `kernel.yama.ptrace_scope`. The slow request itself is still logged, only its backtrace is missing. Grant the capability, or silence the message with `--ignore='failed to ptrace'` if the backtraces are not wanted.
 
-### `Refusing to read "…": resolved path is outside the allowed roots`
+### The log lies outside `/var/log`
+
+`Refusing to read "<path>": resolved path is outside the allowed roots`
 
 The check runs as root and therefore only opens a log that resolves inside `/var/log`. Bind-mount the directory holding the log under `/var/log`; a symlink is rejected, because the confinement resolves symlinks before it decides.
 

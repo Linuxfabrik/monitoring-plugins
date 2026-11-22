@@ -307,7 +307,9 @@ blocky runs under another unit name, in a container, or without systemd. Name th
 
 Run the check with sudo (see `assets/sudoers`), or add the monitoring user to the `systemd-journal` group.
 
-### `does not look like the log of blocky`
+### The log does not look like the log of blocky
+
+`None of the <n> lines read from <source> carries a blocky log level`
 
 The source holds something else. Check `--server-log`. A blocky with `log.target: syslog` writes no level into its lines; switch it back to `stdout`.
 

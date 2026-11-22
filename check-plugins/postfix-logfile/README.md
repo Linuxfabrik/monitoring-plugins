@@ -430,7 +430,9 @@ Recommendations:
 
 ## Troubleshooting
 
-### `None of the ... lines read from ... was written by Postfix`
+### The log does not look like the Postfix log
+
+`None of the <n> lines read from <source> was written by Postfix`
 
 Not one line in the window carried a Postfix syslog identifier. The file that gets mixed up with this one most often is the log of an application that hands its mail over, or the mail log of another host. Check `--server-log`, and `postconf maillog_file` to see whether Postfix writes its own file rather than logging through syslog.
 
