@@ -317,13 +317,13 @@ Killed workers:
 Pool saturations:
 * 1x WARNING: [pool www] server reached pm.max_children setting (2), consider raising it (last: 2026-08-28 15:20:09)
 
-Read 33 lines from 1 source:
-* `/var/log/php-fpm/error.log` (size: 3.1KiB)
-
 Recommendations:
 * Workers died on a fault; look for a core dump or a faulty PHP extension
 * Workers were killed with SIGKILL, either by PHP-FPM because they did not end when the pool shrank or by the kernel when memory ran out; look for `Out of memory` in the kernel log around the timestamps above
 * A pool ran out of workers and clients waited in the listen queue; before raising `pm.max_children` (or `process.max`), check whether workers were stuck (request timeouts or hung workers above, a stalled database or NFS mount) or a crawler drove the load (web server access log at that time), because a higher cap only lets either claim more memory
+
+Read 33 lines from 1 source:
+* `/var/log/php-fpm/error.log` (size: 3.1KiB)
 ```
 
 Output of a host where the OOM killer took a worker, next to an idle worker PHP-FPM ended itself:
@@ -334,11 +334,11 @@ Output of a host where the OOM killer took a worker, next to an idle worker PHP-
 OOM kills:
 * 1x WARNING: [pool www] child * exited on signal 9 (SIGKILL) after * seconds from start (last: 2026-11-12 17:14:30)
 
-Read 9 lines from 1 source:
-* `/var/log/php-fpm/error.log` (size: 780.0B)
-
 Recommendations:
 * The kernel killed workers because memory ran out, and the requests they were serving are lost; compare `pm.max_children` times the memory one worker takes with what the host or its memory limit leaves for PHP-FPM, and look in the access log of the web server for the request that grew, at the timestamps above
+
+Read 9 lines from 1 source:
+* `/var/log/php-fpm/error.log` (size: 780.0B)
 ```
 
 ## States

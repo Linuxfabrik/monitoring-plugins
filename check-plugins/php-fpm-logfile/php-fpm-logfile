@@ -29,7 +29,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026111601'
+__version__ = '2026112001'
 
 DESCRIPTION = """Scans the PHP-FPM error log for the events an administrator has to act
 on: rejected configurations, worker crashes, workers killed by the kernel's OOM killer,
@@ -1566,11 +1566,11 @@ def main():
     # paths - and the summary line is what a monitoring server shows in a list.
     # The paths are not abbreviated there: a bullet has the room, and that is
     # where an administrator copies them from.
-    described = [
-        lib.logsource.describe(item, sizes.get(item['label']))
-        for item in result['sources']
-    ]
-    sources = f'{len(described)} {lib.txt.pluralize("source", len(described))}'
+    # A directory holding more than a handful of them is folded into one entry;
+    # a line behind a count names the file it comes from itself.
+    described = lib.base.coe(lib.logsource.describe_sources(result['sources'], sizes))
+    source_cnt = len(result['sources'])
+    sources = f'{source_cnt} {lib.txt.pluralize("source", source_cnt)}'
 
     if result['duplicates']:
         # Named rather than silently dropped: an administrator who sees two
@@ -1800,12 +1800,6 @@ def main():
                 )
             )
 
-    # What was read, last of the sections: the verdict and the lines behind it
-    # come first, the provenance after them.
-    sections.append(
-        source_heading + '\n' + '\n'.join(f'* {item}' for item in described)
-    )
-
     if recommendations:
         sections.append(
             'Recommendations:\n' + '\n'.join(f'* {item}' for item in recommendations)
@@ -1910,6 +1904,11 @@ def main():
         )
     if ack_conn is not None:
         lib.db_sqlite.close(ack_conn)
+
+    # What was read comes last, after everything else, the notes about the
+    # acknowledgement included: the verdict, the lines behind it and what to do
+    # about them come first, the provenance after them.
+    msg += f'\n\n{source_heading}\n' + '\n'.join(f'* {item}' for item in described)
 
     # over and out
     lib.base.oao(

@@ -357,11 +357,11 @@ Output of a host that only sends its own mail, with somebody working through a m
 Failed logins in the last 10m:
 * 198.51.100.7: 6x, 3 messages (`SASL LOGIN authentication failed: Password:`, `SASL PLAIN authentication failed: Invalid password`, `SASL login authentication failed: UGFzc3dvcmQ6`)
 
-Read 20 lines from 1 source:
-* `/var/log/maillog` (size: 2.5KiB)
-
 Recommendations:
 * Logins are failing in bulk, which is what a run against a mailbox looks like; the addresses and the `sasl_username` in the log say whether one account is being worked on
+
+Read 20 lines from 1 source:
+* `/var/log/maillog` (size: 2.5KiB)
 ```
 
 Output of a host whose relay is unreachable, refuses the credentials and speaks no TLS, and whose mail system then failed to start:
@@ -375,12 +375,12 @@ Startup failures:
 Refused credentials:
 * 1x warning: SASL authentication failure: No worthy mechs found (last: 2026-08-29 17:19:48)
 
-Read 74 lines from 1 source:
-* `/var/log/maillog` (size: 8.2KiB)
-
 Recommendations:
 * The mail system did not start; `postfix check` names what it refuses, and nothing leaves this host until it does
 * The relay refused the credentials this host offered; check `smtp_sasl_password_maps` and whether the account still exists
+
+Read 74 lines from 1 source:
+* `/var/log/maillog` (size: 8.2KiB)
 ```
 
 

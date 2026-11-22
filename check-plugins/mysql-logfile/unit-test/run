@@ -287,6 +287,25 @@ class TestCheck(unittest.TestCase):
     pass
 
 
+def _assert_sources_last(test, combined):
+    """What was read is the last section, after the recommendations."""
+    # `oao()` turns every `|` of the message into `!`, so the first one starts the
+    # performance data.
+    output = combined.split('|', 1)[0].rstrip('\n')
+    sources_at = output.rfind('\n\nRead ')
+    if sources_at == -1:
+        return
+    test.assertNotIn(
+        '\n\n', output[sources_at + 2 :], f'a section follows the sources:\n{combined}'
+    )
+    if 'Recommendations:' in output:
+        test.assertLess(
+            output.index('Recommendations:'),
+            sources_at,
+            f'the sources come before the recommendations:\n{combined}',
+        )
+
+
 def _make_test(case):
     def _test(self):
         cmd = [PLUGIN, f'--server-log={fixture(case["fixture"])}', *case['extra']]
@@ -304,6 +323,7 @@ def _make_test(case):
             self.assertNotIn(
                 needle, combined, f'{needle!r} unexpectedly in output:\n{combined}'
             )
+        _assert_sources_last(self, combined)
 
     return _test
 

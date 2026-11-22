@@ -116,6 +116,29 @@ CASES = [
         'assert-in': ['error_log.1`', '1 worker saturation'],
     },
     {
+        # AH00484 and AH10159 are logged once per server start each, so a
+        # pressure warning after a saturation is the tail of the same peak and
+        # gets no advice of its own.
+        'id': 'crit-saturation-then-pressure-advises-once',
+        'params': [f'--server-log={fixture("rocky10-saturation-then-pressure.txt")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '1 worker saturation [CRITICAL], 1 worker pressure warning [WARNING]',
+            'many requests from one address in the access log',
+        ],
+        'assert-not-in': ['before the next traffic peak'],
+    },
+    {
+        'id': 'warn-pressure-alone-advises-ahead-of-the-peak',
+        'params': [f'--server-log={fixture("rocky10-pressure-only.txt")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 worker pressure warning [WARNING]',
+            'raise the limit before the next traffic peak reaches it',
+        ],
+        'assert-not-in': ['worker saturation'],
+    },
+    {
         # Apache logs a child that died on a signal at `notice` and a saturated
         # server at `error`, so neither the level alone nor the state alone says
         # what happened.
@@ -664,6 +687,25 @@ def _run(params):
     return result.returncode, result.stdout + result.stderr
 
 
+def _assert_sources_last(test, combined):
+    """What was read is the last section, after the recommendations."""
+    # `oao()` turns every `|` of the message into `!`, so the first one starts the
+    # performance data.
+    output = combined.split('|', 1)[0].rstrip('\n')
+    sources_at = output.rfind('\n\nRead ')
+    if sources_at == -1:
+        return
+    test.assertNotIn(
+        '\n\n', output[sources_at + 2 :], f'a section follows the sources:\n{combined}'
+    )
+    if 'Recommendations:' in output:
+        test.assertLess(
+            output.index('Recommendations:'),
+            sources_at,
+            f'the sources come before the recommendations:\n{combined}',
+        )
+
+
 def _check_case(test, case):
     returncode, combined = _run(case['params'])
     test.assertEqual(
@@ -677,9 +719,47 @@ def _check_case(test, case):
         test.assertNotIn(
             needle, combined, f'{needle!r} unexpectedly in output:\n{combined}'
         )
+    _assert_sources_last(test, combined)
 
 
 lib.lftest.attach_each(TestCheck, CASES, _check_case, id_func=lambda it: it['id'])
+
+
+class TestManySites(unittest.TestCase):
+    """A reverse proxy reads one error log per site, and the end of the report
+    says how many there were rather than listing them all."""
+
+    def setUp(self):
+        self.scratch_dir = tempfile.mkdtemp(prefix='sites-', dir=HERE)
+
+    def tearDown(self):
+        shutil.rmtree(self.scratch_dir, ignore_errors=True)
+
+    def test_the_logs_of_one_directory_are_folded(self):
+        params = []
+        for site in ('a', 'b', 'c', 'd', 'e'):
+            path = os.path.join(self.scratch_dir, f'{site}.example.com-error.log')
+            with open(path, 'w', encoding='utf-8') as handle:
+                if site == 'a':
+                    handle.write(
+                        DENIAL_LINE.format(
+                            timestamp=datetime.datetime.now().strftime(
+                                APACHE_TIMESTAMP_FORMAT
+                            ),
+                            peer='198.51.100.7',
+                        )
+                        + '\n'
+                    )
+            params.append(f'--server-log={path}')
+        returncode, combined = _run(params)
+        self.assertEqual(returncode, STATE_OK, combined)
+        self.assertIn(
+            f'Read 1 line from 5 sources:\n* `{self.scratch_dir}/`: 5 files, 4 of'
+            ' them without a line (size: ',
+            combined,
+        )
+        self.assertNotIn('b.example.com-error.log', combined)
+        _assert_sources_last(self, combined)
 
 
 class TestArrivalRate(unittest.TestCase):

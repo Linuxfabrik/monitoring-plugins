@@ -449,6 +449,25 @@ def _run(params):
     return result.returncode, result.stdout + result.stderr
 
 
+def _assert_sources_last(test, combined):
+    """What was read is the last section, after the recommendations."""
+    # `oao()` turns every `|` of the message into `!`, so the first one starts the
+    # performance data.
+    output = combined.split('|', 1)[0].rstrip('\n')
+    sources_at = output.rfind('\n\nRead ')
+    if sources_at == -1:
+        return
+    test.assertNotIn(
+        '\n\n', output[sources_at + 2 :], f'a section follows the sources:\n{combined}'
+    )
+    if 'Recommendations:' in output:
+        test.assertLess(
+            output.index('Recommendations:'),
+            sources_at,
+            f'the sources come before the recommendations:\n{combined}',
+        )
+
+
 def _check_case(test, case):
     returncode, combined = _run(case['params'])
     test.assertEqual(
@@ -462,6 +481,7 @@ def _check_case(test, case):
         test.assertNotIn(
             needle, combined, f'{needle!r} unexpectedly in output:\n{combined}'
         )
+    _assert_sources_last(test, combined)
 
 
 lib.lftest.attach_each(TestCheck, CASES, _check_case, id_func=lambda it: it['id'])

@@ -356,12 +356,12 @@ Child crashes:
 Worker saturations:
 * 1x [mpm_event:error] AH00484: server reached MaxRequestWorkers setting, consider raising the MaxRequestWorkers setting (last: 2026-08-28 17:11:47)
 
-Read 17 lines from 1 source:
-* `/var/log/httpd/error_log` (size: 2.4KiB)
-
 Recommendations:
 * Children died on a signal Apache did not send them; look for a core dump, a faulty module, or the OOM killer in the kernel log
-* The server ran out of workers; raise `MaxRequestWorkers` (and `ServerLimit` with it) or shorten the requests, otherwise clients wait in the listen queue
+* The server ran out of workers; many requests from one address in the access log at that moment point to a scanner, which a limit on the connections per source in the firewall keeps out, otherwise raise `MaxRequestWorkers` (and `ServerLimit` with it) or shorten the requests, since clients wait in the listen queue
+
+Read 17 lines from 1 source:
+* `/var/log/httpd/error_log` (size: 2.4KiB)
 ```
 
 Output of a host somebody is walking, with `--client-denials-warning=6`:
@@ -372,11 +372,11 @@ Output of a host somebody is walking, with `--client-denials-warning=6`:
 Client denials in the last 10m:
 * 198.51.100.7: 14x, 4 messages (`AH01630: client denied by se...iguration: /var/www/html/.env`, `AH01630: client denied by se...on: /var/www/html/.git/config`, `AH01630: client denied by se...r/www/html/private/index.html`, `AH01797: client denied by se...: /var/www/html/server-status`)
 
-Read 12 lines from 1 source:
-* `/var/log/httpd/error_log` (size: 1.8KiB)
-
 Recommendations:
 * Clients are being denied access in bulk; the paths in the log say whether somebody is walking the site, and an intrusion prevention system or the firewall is where that is answered
+
+Read 12 lines from 1 source:
+* `/var/log/httpd/error_log` (size: 1.8KiB)
 ```
 
 ## States

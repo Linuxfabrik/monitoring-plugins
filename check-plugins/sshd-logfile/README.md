@@ -338,12 +338,12 @@ Startup failures:
 Refused key files:
 * 1x Authentication refused: bad ownership or modes for file /home/alice/.ssh/authorized_keys (last: 2026-08-28 19:25:41)
 
-Read 73 lines from 1 source:
-* `/var/log/secure` (size: 7.4KiB)
-
 Recommendations:
 * sshd could not start or could not take all its addresses; `sshd -t` names a rejected directive, and a port that is already taken names the process holding it in `ss --listening --processes`
 * sshd ignored a key file because of its ownership or its mode; the home directory and `.ssh` may not be group- or world-writable, and `chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys` is what the file itself needs
+
+Read 73 lines from 1 source:
+* `/var/log/secure` (size: 7.4KiB)
 ```
 
 Output of a host somebody is guessing passwords on:
@@ -358,13 +358,13 @@ Invalid-user attempts in the last 10m:
 * 203.0.113.5: 36x, 36 accounts (admin, ansible, oracle, postgres, test and 31 more)
 * 198.51.100.7: 3x, 2 accounts (git, deploy)
 
-Read the most recent 30K lines from 2 sources:
-* `/var/log/secure` (size: 25.0KiB) + `/var/log/secure-20260828` (size: 1.2MiB)
-* `systemd:sshd.service`
-
 Recommendations:
 * Authentications are failing in bulk for accounts that exist, which is what a guessing run against known user names looks like; the names and addresses in the log say whether it is that or an automation still using a password that was changed
 * Logins are being attempted for accounts that do not exist, which is what a scanner working through a name list looks like; an intrusion prevention system or the firewall is where that is answered, and a look at the names says whether the list is generic or made for this host
+
+Read the most recent 30K lines from 2 sources:
+* `/var/log/secure` (size: 25.0KiB) + `/var/log/secure-20260828` (size: 1.2MiB)
+* `systemd:sshd.service`
 ```
 
 

@@ -15,6 +15,7 @@ The first line is used for notifications, the web interface and SMS; everything 
 * Don't print "OK".
 * Print "\[WARNING\]" or "\[CRITICAL\]" next to a specific item using `lib.base.state2str()`.
 * If possible give a help text to solve the problem.
+* Order of the long output: the findings, then the recommendations, then what was read (log sources, files) last. A list of log sources that can grow is folded per directory with `lib.logsource.describe_sources()`. Reference: `apache-httpd-logfile`.
 * Multiple items checked: print "Everything is ok." or "There are warnings." / "There are errors." (or the most important output) in the first line, optionally followed by the items.
 * Nothing checked because of the parameters: "Nothing checked.", or better name what the filters dropped ("2 version locks and 1 exclusion in place, filtered out by `--match` or `--ignore`."). Prefix "Everything is ok." only once nothing else affects the state. References: `rpm-versionlock`, `deb-versionlock`.
 * Wrong username or password: print "Failed to authenticate."

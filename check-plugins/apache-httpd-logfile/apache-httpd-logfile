@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026111701'
+__version__ = '2026112201'
 
 DESCRIPTION = """Scans the Apache HTTP Server error log for the events an administrator
 has to act on: children that died on a signal or had to be killed at a stop, a server that
@@ -364,10 +364,17 @@ EVENTS = (
         # and `prefork.c` (AH00161).
         'regex': re.compile(r'\bAH(?:00161|00286|00484|00288|03490)\b'),
         'state': STATE_CRIT,
+        # A single client opening several hundred connections at once fills
+        # every worker as well as a traffic peak does, and raising the limit
+        # only feeds it more: measured on Rocky 10 (httpd 2.4.63, event MPM,
+        # MaxRequestWorkers 400), 400 parallel connections from one address
+        # raise AH00484 on their own. Hence the access log comes first.
         'recommendation': (
-            'The server ran out of workers; raise `MaxRequestWorkers` (and'
-            ' `ServerLimit` with it) or shorten the requests, otherwise clients'
-            ' wait in the listen queue'
+            'The server ran out of workers; many requests from one address in'
+            ' the access log at that moment point to a scanner, which a limit'
+            ' on the connections per source in the firewall keeps out,'
+            ' otherwise raise `MaxRequestWorkers` (and `ServerLimit` with it)'
+            ' or shorten the requests, since clients wait in the listen queue'
         ),
         'specific_recommendations': (
             (
@@ -396,6 +403,11 @@ EVENTS = (
         # counterpart is as old as the branch.
         'regex': re.compile(r'\bAH(?:00287|10159)\b'),
         'state': STATE_WARN,
+        # Both messages are logged once per server start, so their order says
+        # nothing: after a saturation the warning is usually the tail of the
+        # same peak, and "before the next peak reaches it" would be wrong
+        # advice. Its count and state stay, only the advice gives way.
+        'superseded_by': 'worker_saturations',
         'recommendation': (
             'The server came within `MinSpareThreads` of `MaxRequestWorkers`;'
             ' raise the limit before the next traffic peak reaches it'
@@ -2100,11 +2112,11 @@ def main():
     # paths - and the summary line is what a monitoring server shows in a list.
     # The paths are not abbreviated there: a bullet has the room, and that is
     # where an administrator copies them from.
-    described = [
-        lib.logsource.describe(item, sizes.get(item['label']))
-        for item in result['sources']
-    ]
-    sources = f'{len(described)} {lib.txt.pluralize("source", len(described))}'
+    # A directory holding more than a handful of them is folded into one entry;
+    # a line behind a count names the file it comes from itself.
+    described = lib.base.coe(lib.logsource.describe_sources(result['sources'], sizes))
+    source_cnt = len(result['sources'])
+    sources = f'{source_cnt} {lib.txt.pluralize("source", source_cnt)}'
     file_cnt = 0
     for item in result['sources']:
         success, parsed = lib.logsource.parse(item['label'])
@@ -2281,6 +2293,8 @@ def main():
         )
         # Some lines of an event call for advice of their own, and the generic
         # one would send the administrator to the wrong setting.
+        if found.get(event.get('superseded_by')):
+            continue
         specific = event.get('specific_recommendations', ())
         if not specific or any(
             not any(regex.search(line) for regex, _ in specific) for line in hits
@@ -2436,12 +2450,6 @@ def main():
                 )
             )
 
-    # What was read, last of the sections: the verdict and the lines behind it
-    # come first, the provenance after them.
-    sections.append(
-        source_heading + '\n' + '\n'.join(f'* {item}' for item in described)
-    )
-
     # Last, because it is about what this check can see rather than about what
     # raised the state.
     if main_log_recommendation:
@@ -2547,6 +2555,11 @@ def main():
         )
     if ack_conn is not None:
         lib.db_sqlite.close(ack_conn)
+
+    # What was read comes last, after everything else, the notes about the
+    # acknowledgement included: the verdict, the lines behind it and what to do
+    # about them come first, the provenance after them.
+    msg += f'\n\n{source_heading}\n' + '\n'.join(f'* {item}' for item in described)
 
     # over and out
     lib.base.oao(
