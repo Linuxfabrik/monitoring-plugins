@@ -33,10 +33,10 @@ TESTS = [
         'test': 'stdout/v0-36-0-healthy,,0',
         'params': '',
         'assert-retc': STATE_OK,
+        # the first line stays short, the times and list sizes go into the perfdata
+        'assert-regex': r'^0\.1 queries/s, 14\.3% blocked, 28\.6% cached, 0\.0% failed '
+        r'\(blocky v0\.36\.0\)\n',
         'assert-in': [
-            '0.1 queries/s, 14.3% blocked, 28.6% cached, 0.0% failed',
-            'upstream 3ms 447us avg',
-            '(blocky v0.36.0)',
             "'queries_per_second'=0.117;;;0",
             "'resolve_time'=0.003448s;;;0",
             "'failed'=0.0%;5;50;0;100",
@@ -52,18 +52,20 @@ TESTS = [
     },
     {
         # blocky v0.35.0 with a denylist group whose only list cannot be downloaded
-        'id': 'warn-v0-35-0-empty-denylist-group',
+        'id': 'ok-v0-35-0-empty-denylist-group',
         'test': 'stdout/v0-35-0-healthy,,0',
         'params': '',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['Denylist group broken holds no entries [WARNING]'],
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[WARNING]'],
     },
     {
-        'id': 'warn-empty-denylist-group',
+        # an empty denylist group is listed, but not alerted on
+        'id': 'ok-empty-denylist-group',
         'test': 'stdout/v0-36-0-empty-denylist-group,,0',
         'params': '',
-        'assert-retc': STATE_WARN,
-        'assert-regex': r'broken\s+! -\s+! 0 \[WARNING\]',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'(?m)^broken\s+! -\s+! 0\|',
+        'assert-not-in': ['[WARNING]'],
     },
     {
         'id': 'warn-blocking-disabled',

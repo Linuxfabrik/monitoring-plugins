@@ -28,15 +28,15 @@ from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 TIMEOUT_REGEX = re.compile(r'^URL error "timed out"|^Timeout after ')
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026112001'
+__version__ = '2026112201'
 
 DESCRIPTION = """Monitors a blocky DNS proxy and ad-blocker through its Prometheus metrics
 endpoint. Reports the queries per second, the share of blocked, cached and failed queries,
 the average time the upstream resolvers take to answer and the size of the deny- and
 allowlists, measured between two consecutive check runs. Alerts when the share of failed
-queries exceeds the warning or critical threshold, when blocking is disabled, when a
-denylist group holds no entries, or when the lists have not been refreshed for too long.
-Requires `prometheus.enable: true` and an HTTP port in the blocky configuration."""
+queries exceeds the warning or critical threshold, when blocking is disabled, or when the
+lists have not been refreshed for too long. Requires `prometheus.enable: true` and an HTTP
+port in the blocky configuration."""
 
 DEFAULT_CRIT = '50'  # % failed queries
 DEFAULT_INSECURE = False
@@ -321,15 +321,9 @@ def main():
         )
         state = lib.base.get_worst(state, STATE_WARN)
 
-    empty_groups = sorted(
-        group for group, lists in groups.items() if lists['denylist'] == 0
-    )
-    if empty_groups:
-        problems.append(
-            f'Denylist group {", ".join(empty_groups)} holds no entries'
-            f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
-        )
-        state = lib.base.get_worst(state, STATE_WARN)
+    # A denylist group without entries is not an alert: the metrics do not tell a group
+    # configured empty (`other: []`) from one whose downloads all failed, and the failed
+    # downloads are what blocky-logfile reports.
 
     list_age = None
     refreshed = lib.openmetrics.get_value(
@@ -383,7 +377,6 @@ def main():
         # nothing to report rather than a time of zero
         if rates['resolve_count'] > 0:
             resolve_time = rates['resolve_usec'] / rates['resolve_count'] / 1000000
-            msg += f', upstream {lib.human.seconds2human(resolve_time)} avg'
             perfdata += lib.base.get_perfdata(
                 'resolve_time', round(resolve_time, 6), uom='s', _min=0
             )
@@ -394,7 +387,6 @@ def main():
                 uom='s',
                 _min=0,
             )
-    msg += f', {lib.human.number2human(denylist_entries)} denylist entries'
     if version:
         msg += f' (blocky {version})'
     if problems:
@@ -426,11 +418,7 @@ def main():
                     'group': group,
                     'denylist': '-'
                     if lists['denylist'] is None
-                    else lib.human.number2human(lists['denylist'])
-                    + lib.base.state2str(
-                        STATE_WARN if lists['denylist'] == 0 else STATE_OK,
-                        prefix=' ',
-                    ),
+                    else lib.human.number2human(lists['denylist']),
                     'allowlist': '-'
                     if lists['allowlist'] is None
                     else lib.human.number2human(lists['allowlist']),

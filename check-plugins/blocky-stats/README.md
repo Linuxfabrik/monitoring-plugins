@@ -2,7 +2,7 @@
 
 ## Overview
 
-Monitors a blocky DNS proxy and ad-blocker through its Prometheus metrics endpoint. Reports the queries per second, the share of blocked, cached and failed queries, the average time the upstream resolvers take to answer and the size of the deny- and allowlists, measured between two consecutive check runs. Alerts when the share of failed queries exceeds the warning or critical threshold, when blocking is disabled, when a denylist group holds no entries, or when the lists have not been refreshed for too long. Requires `prometheus.enable: true` and an HTTP port in the blocky configuration.
+Monitors a blocky DNS proxy and ad-blocker through its Prometheus metrics endpoint. Reports the queries per second, the share of blocked, cached and failed queries, the average time the upstream resolvers take to answer and the size of the deny- and allowlists, measured between two consecutive check runs. Alerts when the share of failed queries exceeds the warning or critical threshold, when blocking is disabled, or when the lists have not been refreshed for too long. Requires `prometheus.enable: true` and an HTTP port in the blocky configuration.
 
 **Important Notes:**
 
@@ -18,6 +18,7 @@ Monitors a blocky DNS proxy and ad-blocker through its Prometheus metrics endpoi
 * Older blocky releases use other metric names and are reported as UNKNOWN.
 * After the first run and after every restart of blocky, which resets its counters, the rates show "Waiting for more data". Blocking state, list sizes and list age are evaluated on every run.
 * blocky reports a disabled blocking the same way for all and for some groups.
+* A denylist group without entries is listed, but not alerted on, because the metrics do not tell a group configured empty from one whose downloads failed. blocky-logfile reports the failed downloads.
 * With `loading.refreshPeriod: 0` blocky reads its lists only at startup, so set `--warning-age=0D`.
 
 **Data Collection:**
@@ -53,9 +54,9 @@ endpoint. Reports the queries per second, the share of blocked, cached and
 failed queries, the average time the upstream resolvers take to answer and the
 size of the deny- and allowlists, measured between two consecutive check runs.
 Alerts when the share of failed queries exceeds the warning or critical
-threshold, when blocking is disabled, when a denylist group holds no entries,
-or when the lists have not been refreshed for too long. Requires
-`prometheus.enable: true` and an HTTP port in the blocky configuration.
+threshold, when blocking is disabled, or when the lists have not been
+refreshed for too long. Requires `prometheus.enable: true` and an HTTP port in
+the blocky configuration.
 
 options:
   -h, --help            show this help message and exit
@@ -115,7 +116,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/blocky-stats/
 Output (first run):
 
 ```text
-Waiting for more data, 2 denylist entries (blocky v0.36.0)
+Waiting for more data (blocky v0.36.0)
 
 Group ! Allowlist ! Denylist
 ------+-----------+---------
@@ -125,33 +126,32 @@ ads   ! 1         ! 2
 Output (subsequent runs):
 
 ```text
-10.0 queries/s, 50.0% blocked, 47.5% cached, 0.0% failed, upstream 6ms 55us avg, 2 denylist entries (blocky v0.36.0)
+10.0 queries/s, 50.0% blocked, 47.5% cached, 0.0% failed (blocky v0.36.0)
 
 Group ! Allowlist ! Denylist
 ------+-----------+---------
 ads   ! 1         ! 2
 ```
 
-A denylist group whose lists could not be downloaded, with blocking disabled through the API:
+Blocking disabled through the API, with a denylist group that holds no entries:
 
 ```text
-Blocking is disabled for some or all groups [WARNING]. Denylist group broken holds no entries [WARNING]. 0.1 queries/s, 33.3% blocked, 33.3% cached, 0.0% failed, upstream 11ms 183us avg, 2 denylist entries (blocky v0.36.0)
+Blocking is disabled for some or all groups [WARNING]. 0.1 queries/s, 33.3% blocked, 33.3% cached, 0.0% failed (blocky v0.36.0)
 
 Group  ! Allowlist ! Denylist
--------+-----------+------------
+-------+-----------+---------
 ads    ! 1         ! 2
-broken ! -         ! 0 [WARNING]
+broken ! -         ! 0
 ```
 
 
 ## States
 
-* OK if the share of failed queries is below the warning threshold, blocking is enabled, every denylist group holds entries and the lists were refreshed recently.
+* OK if the share of failed queries is below the warning threshold, blocking is enabled and the lists were refreshed recently.
 * OK with "Waiting for more data" on the first run and after a restart of blocky.
 * WARN if the share of failed queries since the last run is >= `--warning` (default: 5%).
 * CRIT if the share of failed queries since the last run is >= `--critical` (default: 50%).
 * WARN if blocking is disabled for some or all groups.
-* WARN if a denylist group holds no entries.
 * WARN if the last successful list refresh is at least `--warning-age` ago (default: 1D). `0D` disables this check.
 * WARN if the endpoint does not answer within `--timeout`.
 * UNKNOWN if the endpoint refuses the connection or answers with an error, does not serve blocky metrics, or serves those of an older blocky release, and on invalid command-line arguments.
@@ -191,12 +191,6 @@ blocky does not answer on its HTTP port. Check whether it is overloaded or hangs
 ### `This blocky uses the metric names from before v0.25.`
 
 Update blocky. Older releases use other metric names.
-
-### A denylist group holds no entries
-
-`Denylist group ads holds no entries`
-
-blocky could not download any list of that group, at startup or since, so it blocks nothing for the clients of that group. Find the failing downloads with `journalctl --unit=blocky.service --grep='cannot open source'`, fix the URL or the network access, and trigger a refresh with `curl --request POST http://localhost:4000/api/lists/refresh`.
 
 ### Lists not refreshed for a long time
 

@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 Monitoring Plugins:
 
 * blocky-logfile: Warns when blocky failed to start, uses deprecated options, cannot download a list or gets no answer upstream.
-* blocky-stats: Reports what blocky blocks and fails to resolve, and warns when blocking is off or its lists are empty or stale.
+* blocky-stats: Reports what blocky blocks and fails to resolve, and warns when blocking is off or its lists are stale.
 * freeipa-logfile: Warns when the daily ipa-healthcheck run finds a problem on a FreeIPA server, or no longer runs.
 * icinga-director-basket-drift: Warns when Linuxfabrik objects in the Icinga Director differ from the basket of the installed plugins.
 * icinga-director-overrides: Lists the service variables overridden per host in the Icinga Director, and overrides without effect.
