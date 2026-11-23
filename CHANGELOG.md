@@ -21,6 +21,10 @@ Monitoring Plugins:
 * icinga-director-template-overrides: Lists where your own templates in the Icinga Director override the Linuxfabrik templates.
 * rpm-database: Warns when the RPM database is broken, which stops dnf, yum and zypper.
 
+Notification Plugins:
+
+* notify-host-ntfy, notify-service-ntfy: Send host and service notifications as push messages through ntfy.sh or a self-hosted ntfy server.
+
 Icinga Director:
 
 * Icinga Director Service Set: Checks the Director daemon, its daily housekeeping and the Director checks above, on hosts tagged `icinga-director`.
