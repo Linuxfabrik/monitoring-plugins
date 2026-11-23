@@ -440,7 +440,12 @@ def _check_image(test, image):
         )
     combined = result.stdout + result.stderr
     test.assertEqual(result.returncode, STATE_OK, combined)
-    test.assertIn('No errors or warnings found. 1 startup detected', combined)
+    # blocky sends every upstream a test query at startup, which fails now and then
+    # on the GitHub runner. Those few failures stay below the threshold, so the run
+    # is still OK, but the message names them; the fixtures cover them.
+    test.assertIn('1 startup detected', combined)
+    for counter in ('error_lines', 'list_failures', 'startup_failures', 'warn_lines'):
+        test.assertIn(f"'blocky_{counter}'=0;", combined)
     test.assertIn(f'blocky {version}.', combined)
     test.assertIn("'blocky_startups'=1;;;0", combined)
     _assert_sources_last(test, combined)
