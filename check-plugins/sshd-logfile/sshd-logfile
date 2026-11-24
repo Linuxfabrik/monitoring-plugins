@@ -58,6 +58,8 @@ rejected configuration, a host key it could not read and the "no hostkeys availa
 exits with never reach the syslog file, and nothing a running sshd logs reaches the journal
 on a host that has a syslog daemon. What both hold is counted once. The most recent rotated
 file is read along with the live one, so the window does not end where logrotate last ran.
+A start sshd refused and a host key it could not load count until the next start that no
+longer reports them.
 Requires root or sudo."""
 
 # The rates a host collects from the internet are judged by how many arrived,
@@ -95,6 +97,15 @@ MAXLINES = 30000  # maximum log lines to consider from the end of the source
 # last rotation and an event from before it would stop being reported the moment
 # logrotate runs. One covers a daily rotation with room to spare.
 ROTATED_FILES = 1
+
+# A problem sshd reports while it starts - an address it could not take, a host
+# key it could not load - is reported again on every start that still has it.
+# One older than the last `Server listening on` and not logged again since has
+# been fixed, so it stops counting there instead of when it rotates out. sshd
+# logs what it rejects in the same second it says it is listening
+# (`server_listen()` in `sshd.c`, OpenSSH 8.0p1 to 10.x); the margin only absorbs
+# the time a syslog daemon and the journal may stamp the same moment apart.
+START_MARGIN = 1  # seconds
 
 # How long a path may be in the summary before it is abbreviated for display.
 # The paths the distributions use fit within it untouched; a host serving a
@@ -252,6 +263,7 @@ EVENTS = (
             r'|Too many listen sockets'
         ),
         'state': STATE_CRIT,
+        'resolved_by_start': True,
         'recommendation': (
             'sshd could not start or could not take all its addresses;'
             ' `sshd -t` names a rejected directive, and a port that is already'
@@ -276,6 +288,7 @@ EVENTS = (
             r'|Certificate file is not a certificate'
         ),
         'state': STATE_WARN,
+        'resolved_by_start': True,
         'recommendation': (
             'A host key could not be used; check the files `HostKey` names, that'
             ' they are owned by root and not readable by anybody else, and'
@@ -1346,6 +1359,13 @@ def main():
     for key, lines in found.items():
         found[key] = lib.logsource.sort_by_time(lines)
 
+    # A start that no longer reports a problem has fixed it, see START_MARGIN.
+    for event in EVENTS:
+        if event.get('resolved_by_start'):
+            found[event['key']] = lib.logsource.since_last(
+                found[event['key']], found['startups'], margin=START_MARGIN
+            )
+
     # `--match` narrowed the run down to nothing, so this run looked at no line at
     # all rather than at a quiet log. Only reachable when the operator set a
     # filter, so a log that simply has nothing to report stays OK.
@@ -1571,9 +1591,6 @@ def main():
     if result['notice']:
         facts.append(result['notice'].rstrip('.'))
 
-    # A source that could not be read at all leaves a hole in the window: with a
-    # second source still delivering, the run goes on, but reporting the state of
-    # what happened to work would hide that nothing is watching the rest.
     if result['failed']:
         state = lib.base.get_worst(state, STATE_WARN)
         facts.append(

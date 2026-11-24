@@ -55,8 +55,9 @@ Monitoring Plugins:
 * nfs-exports: Warns when an export sits on a filesystem that is not mounted.
 * ntp-offset: Checks every address of a server name such as a pool, and warns when they disagree.
 * openstack-cinder-list: Warns about volumes stuck in a transitional status such as `deleting`.
-* php-fpm-logfile: An idle worker PHP-FPM kills while the pool shrinks no longer alerts, and a worker the OOM killer took is named as such.
+* php-fpm-logfile: An idle worker PHP-FPM kills while the pool shrinks no longer alerts, a worker the OOM killer took is named as such, and a refused start stops alerting once a later start succeeds.
 * php-status: OPcache memory usage counts wasted memory, so a cache filling up with recompiled scripts alerts before it restarts. The restart warning sits next to the counter that triggered it.
+* postfix-logfile, sshd-logfile: A refused start or relay login stops alerting once a later one succeeds.
 * psi-cpu, psi-io, psi-irq, psi-memory: Alert on the five minute average instead of the last minute, so a job running for a few minutes no longer alerts.
 * psi-io: Higher default thresholds, a single busy reader no longer alerts.
 * rpm-updates: Counts Rocky Linux `security` repo hot-fixes as security updates.

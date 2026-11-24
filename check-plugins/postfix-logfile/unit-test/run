@@ -131,6 +131,35 @@ def aged(name, minutes_ago=180):
     return path
 
 
+def head_of(path, count):
+    """Copy the first `count` lines of a file, for a log that ends earlier."""
+    with open(path, encoding='utf-8') as handle:
+        lines = handle.readlines()[:count]
+    stem, extension = os.path.splitext(path)
+    target = f'{stem}-head{count}{extension}'
+    with open(target, 'w', encoding='utf-8') as handle:
+        handle.writelines(lines)
+    return target
+
+
+def with_delivery(path, relay):
+    """Copy a file and append a delivery the relay accepted ten minutes later
+    than the file was aged to start, which is after everything it holds."""
+    with open(path, encoding='utf-8') as handle:
+        lines = handle.readlines()
+    moment = NOW - datetime.timedelta(minutes=170)
+    lines.append(
+        f'{_stamp(moment)} mail postfix/smtp[1402]: 8C1D24804501:'
+        f' to=<someone@example.org>, relay={relay}, delay=0.05,'
+        f' delays=0.02/0.01/0.01/0.01, dsn=2.0.0, status=sent (250 2.0.0 Ok)\n'
+    )
+    stem, extension = os.path.splitext(path)
+    target = f'{stem}-sent-{relay.split("[")[0]}{extension}'
+    with open(target, 'w', encoding='utf-8') as handle:
+        handle.writelines(lines)
+    return target
+
+
 def fixture(name):
     return os.path.join(HERE, 'fixtures', name)
 
@@ -146,26 +175,67 @@ CASES = [
     {
         # The Rocky 9 run: a relay that refused the connection, one that spoke no
         # TLS, one that refused the credentials, and a queue directory that does
-        # not exist.
-        'id': 'crit-rocky9-busy-server',
+        # not exist, which was fixed and followed by a start that worked.
+        'id': 'warn-rocky9-busy-server',
         'params': [f'--server-log={aged("rocky9-busy-server.txt")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 refused credential [WARNING]',
+            '3 startups detected',
+            '2 shutdowns detected',
+            "'postfix_startup_failures'=0;;0;0",
+        ],
+        # A connection to the next hop that did not come off is counted, not
+        # reported: a host without an IPv6 route logs one for the AAAA record of
+        # its relay and delivers over IPv4 in the same second. These are hours
+        # old, so they are history the summary leaves out. The failed starts are
+        # history as well, because Postfix started again afterwards.
+        'assert-not-in': [
+            'unreachable next hop',
+            'TLS failure',
+            'startup failure',
+            'postfix-nonexistent',
+        ],
+    },
+    {
+        # The same run, ending right after the two starts Postfix refused.
+        'id': 'crit-a-start-postfix-refused',
+        'params': [f'--server-log={head_of(aged("rocky9-busy-server.txt"), 33)}'],
         'assert-retc': STATE_CRIT,
         'assert-in': [
             '2 startup failures [CRITICAL]',
-            '1 refused credential [WARNING]',
             'chdir(/var/spool/postfix-nonexistent)',
-            '3 startups detected',
-            '2 shutdowns detected',
             "'postfix_startup_failures'=2;;0;0",
             # grouped by what they say, with the moment of the last one
             'Startup failures:\n* 2x fatal: chdir(/var/spool/postfix-nonexistent):'
             ' No such file or directory (last: ',
         ],
-        # A connection to the next hop that did not come off is counted, not
-        # reported: a host without an IPv6 route logs one for the AAAA record of
-        # its relay and delivers over IPv4 in the same second. These are hours
-        # old, so they are history the summary leaves out.
-        'assert-not-in': ['unreachable next hop', 'TLS failure'],
+    },
+    {
+        # The relay that refused the credentials accepted a message afterwards,
+        # so the credentials are right again.
+        'id': 'ok-a-delivery-through-the-relay-resolves-the-refused-credential',
+        'params': [
+            '--server-log='
+            + with_delivery(
+                aged('rocky9-busy-server.txt'), '198.51.100.7[198.51.100.7]:2525'
+            )
+        ],
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['refused credential', '[WARNING]'],
+    },
+    {
+        # A message another relay accepted says nothing about the credentials
+        # the first one refused.
+        'id': 'warn-a-delivery-through-another-relay-resolves-nothing',
+        'params': [
+            '--server-log='
+            + with_delivery(
+                aged('rocky9-busy-server.txt'), 'mail.example.org[203.0.113.25]:25'
+            )
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 refused credential [WARNING]'],
     },
     {
         # The same situations on the Debian family, where the syslog daemon
@@ -241,10 +311,10 @@ CASES = [
         # copytruncate leaves an empty log right after logrotate ran. The window
         # still spans the rotation, or an empty file would hide what the
         # predecessor holds until the first line lands in the live file.
-        'id': 'crit-empty-log-does-not-hide-the-rotated-one',
+        'id': 'warn-empty-log-does-not-hide-the-rotated-one',
         'params': [f'--server-log={fixture("rotated-empty/maillog")}'],
-        'assert-retc': STATE_CRIT,
-        'assert-in': ['maillog.1`', '2 startup failures [CRITICAL]'],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['maillog.1`', '1 refused credential [WARNING]'],
     },
     {
         'id': 'unknown-source-is-not-a-mail-log',
@@ -259,12 +329,12 @@ CASES = [
         # A named event and the rate it produces are two counts of two different
         # lines: the `connect to ...` that says what is wrong, and the
         # `status=deferred` that says how much mail it holds up.
-        'id': 'crit-a-line-is-counted-once',
+        'id': 'warn-a-line-is-counted-once',
         'params': [
             f'--server-log={aged("rocky9-busy-server.txt")}',
             '--lookback=31536000',
         ],
-        'assert-retc': STATE_CRIT,
+        'assert-retc': STATE_WARN,
         'assert-in': [
             # The `connect to ...` line says what is wrong, the `status=deferred`
             # lines behind it say how much mail it holds up, and neither doubles
@@ -309,7 +379,7 @@ CASES = [
     {
         'id': 'ok-always-ok-masks-the-failed-start',
         'params': [
-            f'--server-log={aged("rocky9-busy-server.txt")}',
+            f'--server-log={head_of(aged("rocky9-busy-server.txt"), 33)}',
             '--always-ok',
         ],
         'assert-retc': STATE_OK,
@@ -317,12 +387,12 @@ CASES = [
     },
     {
         # Two logs read as one window, and what both hold counted once.
-        'id': 'crit-two-logs-are-read-as-one-window',
+        'id': 'warn-two-logs-are-read-as-one-window',
         'params': [
             f'--server-log={aged("rocky9-busy-server.txt")}',
             f'--server-log={aged("rocky9-inbound-attack.txt")}',
         ],
-        'assert-retc': STATE_CRIT,
+        'assert-retc': STATE_WARN,
         'assert-in': [
             'from 2 sources',
             'rocky9-busy-server',

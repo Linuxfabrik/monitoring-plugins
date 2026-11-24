@@ -66,6 +66,7 @@ never reaches the error log. What both hold is counted once. The most recent
 rotated file is read along with the live one, so the window does not end where
 logrotate last ran. PHP's own messages go to the `error_log` file each pool names, which
 is read along with it; only its fatal errors are counted there.
+A start PHP-FPM refused counts until it is running again.
 Requires root or sudo."""
 
 # What `--critical-level` and `--warning-level` accept on top of the levels
@@ -97,6 +98,14 @@ MAXLINES = 30000  # maximum log lines to consider from the end of the source
 # rotation and an event from before it would stop being reported the moment
 # logrotate runs. One covers a daily rotation with room to spare.
 ROTATED_FILES = 1
+
+# A start PHP-FPM refused ends in `FPM initialization failed`, which `fpm_init()`
+# in `sapi/fpm/fpm/fpm.c` writes after the line that says what it rejected,
+# within the same second. A later `fpm is running` has fixed it, so those lines
+# stop counting there instead of when they rotate out. The margin only absorbs
+# the time a syslog daemon and the journal may stamp the same moment apart.
+INIT_FAILED_REGEX = re.compile(r'^FPM initialization failed')
+START_MARGIN = 1  # seconds
 
 # The unit the distributions run PHP-FPM as. Only the fixed locations systemd
 # reads unit files from are looked at, and only for the names the distributions
@@ -1097,6 +1106,40 @@ def parse_timestamp(log_line):
         return None
 
 
+def get_fixed_start_lines(levels, startups):
+    """Return the level lines of a refused start that a later start has fixed.
+
+    What PHP-FPM rejects while it starts is logged at `ERROR` or `ALERT`, and it
+    is the start's problem rather than the running pool's: once PHP-FPM is
+    running again, the lines say nothing about it any more.
+    """
+    failed_at = []
+    for line in levels.get('ERROR', []):
+        match = LEVEL_REGEX.search(line)
+        if match and INIT_FAILED_REGEX.search(match.group(2)):
+            moment = lib.logsource.timestamp(line, parse_timestamp)
+            if moment is not None:
+                failed_at.append(moment.replace(tzinfo=None))
+    if not failed_at:
+        return set()
+    margin = datetime.timedelta(seconds=START_MARGIN)
+    start_lines = []
+    for lines in levels.values():
+        for line in lines:
+            moment = lib.logsource.timestamp(line, parse_timestamp)
+            if moment is None:
+                continue
+            moment = moment.replace(tzinfo=None)
+            if any(moment <= failed <= moment + margin for failed in failed_at):
+                start_lines.append(line)
+    current = set(
+        lib.logsource.since_last(
+            start_lines, startups, parse_timestamp, margin=START_MARGIN
+        )
+    )
+    return {line for line in start_lines if line not in current}
+
+
 def get_level_states(critical_level, warning_level):
     """Map every counted level to the state it raises.
 
@@ -1429,6 +1472,13 @@ def main():
     for level, lines in levels.items():
         levels[level] = lib.logsource.sort_by_time(lines, parse_timestamp)
 
+    # What a refused start reported no longer counts once PHP-FPM is running
+    # again, see START_MARGIN.
+    fixed = get_fixed_start_lines(levels, found['startups'])
+    if fixed:
+        for level, lines in levels.items():
+            levels[level] = [line for line in lines if line not in fixed]
+
     # Who killed the workers that died on SIGKILL, asked only when there is one.
     # A container has a kernel log of its own, or the one of another node, which
     # is not the one this host's journal holds, so its lines are left as they are.
@@ -1690,9 +1740,6 @@ def main():
     if result['notice']:
         facts.append(result['notice'].rstrip('.'))
 
-    # A source that could not be read at all leaves a hole in the window: with a
-    # second source still delivering, the run goes on, but reporting the state of
-    # what happened to work would hide that nothing is watching the rest.
     if result['failed']:
         state = lib.base.get_worst(state, STATE_WARN)
         facts.append(

@@ -131,6 +131,17 @@ def aged(name, minutes_ago=180):
     return path
 
 
+def head_of(path, count):
+    """Copy the first `count` lines of a file, for a log that ends earlier."""
+    with open(path, encoding='utf-8') as handle:
+        lines = handle.readlines()[:count]
+    stem, extension = os.path.splitext(path)
+    target = f'{stem}-head{count}{extension}'
+    with open(target, 'w', encoding='utf-8') as handle:
+        handle.writelines(lines)
+    return target
+
+
 def fixture(name):
     return os.path.join(HERE, 'fixtures', name)
 
@@ -238,14 +249,32 @@ CASES = [
         'id': 'crit-journal-shows-what-the-file-never-sees',
         # A host key it could not read, the configuration it rejected and the
         # exit that followed reach the standard error only, so they are in the
-        # journal of the unit and in no syslog file.
-        'params': [f'--server-log={aged("rocky9-journal-broken-start.txt")}'],
+        # journal of the unit and in no syslog file. The journal ends before the
+        # start that worked, so this is the state of a server that is down.
+        'params': [
+            f'--server-log={head_of(aged("rocky9-journal-broken-start.txt"), 29)}'
+        ],
         'assert-retc': STATE_CRIT,
         'assert-in': [
             '2 startup failures [CRITICAL]',
             '1 host key problem [WARNING]',
             'no hostkeys available',
             'bad configuration options',
+            'ssh-keygen -A',
+        ],
+    },
+    {
+        # The same journal two seconds on: sshd started again and is listening,
+        # so what the failed starts reported has been fixed and no longer
+        # counts. The session that crashed afterwards still does.
+        'id': 'warn-a-later-start-resolves-the-failed-ones',
+        'params': [f'--server-log={aged("rocky9-journal-broken-start.txt")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 session crash [WARNING]', '3 startups detected'],
+        'assert-not-in': [
+            'startup failure',
+            'host key problem',
+            'no hostkeys available',
             'ssh-keygen -A',
         ],
     },

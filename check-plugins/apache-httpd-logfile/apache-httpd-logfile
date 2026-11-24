@@ -1994,21 +1994,12 @@ def main():
     # A problem Apache reports while loading its configuration is logged again on
     # every start or reload. One older than the last of them, and not logged
     # again since, has been fixed and is no longer reported.
-    starts = [
-        lib.logsource.timestamp(line, parse_timestamp)
-        for line in found['startups'] + found['restarts'] + systemd_starts
-    ]
-    starts = [moment for moment in starts if moment is not None]
-    if starts:
-        cutoff = max(starts) - datetime.timedelta(seconds=START_MARGIN)
-        for event in EVENTS:
-            if not event.get('resolved_by_start'):
-                continue
-            found[event['key']] = [
-                line
-                for line in found[event['key']]
-                if (lib.logsource.timestamp(line, parse_timestamp) or cutoff) >= cutoff
-            ]
+    starts = found['startups'] + found['restarts'] + systemd_starts
+    for event in EVENTS:
+        if event.get('resolved_by_start'):
+            found[event['key']] = lib.logsource.since_last(
+                found[event['key']], starts, parse_timestamp, margin=START_MARGIN
+            )
 
     # `--match` narrowed the run down to nothing, so this run looked at no line at
     # all rather than at a quiet log. Only reachable when the operator set a
@@ -2313,9 +2304,6 @@ def main():
     if result['notice']:
         facts.append(result['notice'].rstrip('.'))
 
-    # A source that could not be read at all leaves a hole in the window: with a
-    # second source still delivering, the run goes on, but reporting the state of
-    # what happened to work would hide that nothing is watching the rest.
     if result['failed']:
         state = lib.base.get_worst(state, STATE_WARN)
         facts.append(
