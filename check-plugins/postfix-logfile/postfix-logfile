@@ -29,7 +29,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026112001'
+__version__ = '2026112401'
 
 DESCRIPTION = """Scans the Postfix mail log for the events an administrator has to act on,
 on both sides of the server. Outbound: mail that could not be delivered, a relay host that
@@ -115,11 +115,6 @@ LOG_FILE_CANDIDATES = (
 # `postfix.service` only starts it, so its journal holds no line of Postfix. Verified
 # with postfix 3.7.11 on Debian 12.
 UNIT_CANDIDATES = ('postfix.service', 'postfix@-.service')
-UNIT_DIRECTORIES = (
-    '/etc/systemd/system',
-    '/usr/lib/systemd/system',
-    '/lib/systemd/system',
-)
 
 # The main configuration of Postfix. Only this fixed location is read, and
 # nothing but `maillog_file` is taken out of it, so nothing a log holds can point
@@ -994,34 +989,6 @@ def get_log_file_real_path(config_root=''):
     return None
 
 
-def get_units(config_root=''):
-    """Return the Postfix units this host has a unit file for.
-
-    A unit file two names point at is one unit, so the journal is not read twice
-    for a host whose package ships an alias.
-    """
-    # A unit file says only that a package shipped one: hosts with another init
-    # system carry them too, and have no journal to read ([#1544]).
-    if not lib.logsource.systemd_booted(config_root):
-        return []
-    found = []
-    seen = set()
-    for unit in UNIT_CANDIDATES:
-        # An instance has no unit file of its own, systemd reads the one of its template
-        # (`postfix@-.service` -> `postfix@.service`).
-        unit_file = re.sub(r'@[^.]+\.', '@.', unit)
-        for directory in UNIT_DIRECTORIES:
-            for filename in lib.disk.glob(f'{config_root}{directory}/{unit_file}'):
-                if not lib.disk.file_exists(filename, allow_empty=True):
-                    continue
-                identity = os.path.realpath(filename)
-                if identity in seen:
-                    continue
-                seen.add(identity)
-                found.append(unit)
-    return found
-
-
 def get_level_states(critical_level, warning_level):
     """Map every level to the state it returns, from the two parameters.
 
@@ -1121,7 +1088,10 @@ def main():
             get_log_file_real_path(args.CONFIG_ROOT)
         )
         server_logs = [found_log] if found_log else []
-        server_logs += [f'systemd:{unit}' for unit in get_units(args.CONFIG_ROOT)]
+        server_logs += [
+            f'systemd:{unit}'
+            for unit in lib.logsource.find_units(UNIT_CANDIDATES, args.CONFIG_ROOT)
+        ]
     if not server_logs:
         lib.base.cu(
             'Found no log to read: this host has neither one of the usual mail '
