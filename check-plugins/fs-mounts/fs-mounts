@@ -11,8 +11,6 @@
 """See the check's README for more details."""
 
 import argparse
-import os
-import re
 import sys
 
 import lib.args
@@ -22,7 +20,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026112401'
 
 DESCRIPTION = """Checks that every filesystem listed in /etc/fstab is really mounted.
 A filesystem that never came up is invisible to disk usage, inode and read-only checks,
@@ -42,14 +40,6 @@ DEFAULT_NO_MATCH_SEVERITY = 'ok'
 
 FSTAB = '/etc/fstab'
 MOUNTINFO = '/proc/self/mountinfo'
-
-# The kernel renders a mount point in /proc/self/mountinfo through mangle_path()
-# with the escape set " \t\n\\", turning each of those characters into a backslash
-# followed by its three-digit octal code (fs/seq_file.c, fs/proc_namespace.c).
-# fstab(5) uses the same notation. Verified on Rocky 9 with util-linux 2.37.4 and
-# systemd 252: a mount point holding a space, a tab or a backslash reads "\040",
-# "\011" and "\134" on either side.
-OCTAL_ESCAPE_REGEX = re.compile(r'\\([0-7]{3})')
 
 
 def parse_args():
@@ -148,49 +138,6 @@ def parse_args():
     return args
 
 
-def unescape(field):
-    """Turn the octal escape sequences of an fstab or mountinfo field back into the
-    characters they stand for, so that a mount point containing a space is compared and
-    printed the way the administrator wrote it.
-    """
-    return OCTAL_ESCAPE_REGEX.sub(lambda match: chr(int(match.group(1), 8)), field)
-
-
-def normalize(mount_point):
-    """Strip the trailing slash an administrator may have written in fstab. The kernel
-    reports "/mnt/data" no matter whether fstab says "/mnt/data" or "/mnt/data/", so
-    without this a trailing slash alone would look like a missing filesystem. "/" itself
-    has nothing to strip.
-    """
-    if len(mount_point) > 1:
-        return mount_point.rstrip('/')
-    return mount_point
-
-
-def resolve(root, mount_point):
-    """Return the mount point with its symlinks resolved, the way the kernel reports it.
-
-    `mount` resolves its target before mounting, so an administrator may write a path
-    that leads through a symlink while the kernel reports the directory it points to.
-    Verified against util-linux 2.37.4 on Rocky 9: bind-mounting onto a symlink puts the
-    symlink's target into mountinfo, never the symlink itself.
-
-    Only called for a mount point without a literal match, so a healthy host never
-    resolves a path that may sit on an unresponsive network filesystem. A path that
-    leaves the configuration root is returned unchanged, because below a fixture tree it
-    would otherwise be resolved against the real filesystem.
-    """
-    resolved = os.path.realpath(lib.disk.under_root(root, mount_point))
-    if root in ('', '/'):
-        return normalize(resolved)
-    prefix = os.path.realpath(root)
-    if resolved == prefix:
-        return '/'
-    if resolved.startswith(prefix + os.sep):
-        return normalize(resolved[len(prefix) :])
-    return normalize(mount_point)
-
-
 def get_expected(fstab, extra_mounts):
     """Return the filesystems that have to be mounted, as a list of dicts: first the
     ones /etc/fstab lists, in the order it lists them, then the ones --mount names.
@@ -205,19 +152,11 @@ def get_expected(fstab, extra_mounts):
         seen.add(mount_point)
         expected.append({'fstype': fstype, 'mount_point': mount_point, 'spec': spec})
 
-    for line in fstab.splitlines():
-        line = line.strip()
-        if not line or line.startswith('#'):
-            continue
-        fields = line.split()
-        if len(fields) < 3:
-            # anything shorter than device, mount point and type is not a mount
-            continue
-        spec = unescape(fields[0])
-        mount_point = normalize(unescape(fields[1]))
-        fstype = fields[2]
-        # the fourth field is optional in practice, an entry without it uses "defaults"
-        options = fields[3].split(',') if len(fields) > 3 else ['defaults']
+    for entry in lib.disk.parse_fstab(fstab):
+        spec = entry['device']
+        mount_point = lib.disk.normalize_mount_point(entry['mount_point'])
+        fstype = entry['fstype']
+        options = entry['options']
         if fstype == 'swap':
             # a swap area has no mount point, its second field is a placeholder
             continue
@@ -234,22 +173,17 @@ def get_expected(fstab, extra_mounts):
 
     for mount_point in extra_mounts:
         # a mount point --mount names has no device and no type to report
-        add(normalize(mount_point), '', '')
+        add(lib.disk.normalize_mount_point(mount_point), '', '')
 
     return expected
 
 
 def get_mounted(mountinfo):
-    """Return the set of currently mounted mount points, taken from the fifth field of
-    each /proc/self/mountinfo line.
-    """
-    mounted = set()
-    for line in mountinfo.splitlines():
-        fields = line.split()
-        if len(fields) < 5:
-            continue
-        mounted.add(normalize(unescape(fields[4])))
-    return mounted
+    """Return the set of currently mounted mount points from /proc/self/mountinfo."""
+    return {
+        lib.disk.normalize_mount_point(mount['mount_point'])
+        for mount in lib.disk.parse_mountinfo(mountinfo)
+    }
 
 
 def main():
@@ -309,7 +243,13 @@ def main():
             continue
 
         local_state = STATE_OK
-        if mount_point not in mounted and resolve(root, mount_point) not in mounted:
+        # The symlinks are resolved only for a mount point without a literal match, so
+        # a healthy host never resolves a path that may sit on an unresponsive network
+        # filesystem.
+        if (
+            mount_point not in mounted
+            and lib.disk.resolve_mount_point(mount_point, root=root) not in mounted
+        ):
             local_state = STATE_WARN
             state = lib.base.get_worst(local_state, state)
             not_mounted.append(

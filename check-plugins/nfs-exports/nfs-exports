@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026112401'
+__version__ = '2026112402'
 
 DESCRIPTION = """Checks that an NFS server really exports what it is configured to export, and that
 every path it exports is there.
@@ -60,8 +60,7 @@ EXPORTS_D_SUFFIX = '.exports'
 
 # What the filesystems below the exports are expected to be, and what they are. Both are
 # read only as text, so a filesystem that has stopped answering cannot block the check
-# here. The kernel and fstab(5) escape a space, a tab, a newline and a backslash in a
-# mount point as a backslash and three octal digits, which `unescape()` reads back.
+# here.
 FSTAB = '/etc/fstab'
 MOUNTINFO = '/proc/self/mountinfo'
 
@@ -286,24 +285,20 @@ def get_filesystems(root):
     mountinfo_path = lib.disk.under_root(root, MOUNTINFO)
     if not lib.disk.file_exists(mountinfo_path, allow_empty=True):
         return None, None
-    mounted = set()
-    for line in lib.base.coe(lib.disk.read_file(mountinfo_path)).splitlines():
-        fields = line.split()
-        if len(fields) < 5:
-            continue
-        mounted.add(normalize(unescape(fields[4])))
+    mounted = {
+        lib.disk.normalize_mount_point(mount['mount_point'])
+        for mount in lib.disk.parse_mountinfo(
+            lib.base.coe(lib.disk.read_file(mountinfo_path))
+        )
+    }
     expected = set()
     fstab_path = lib.disk.under_root(root, FSTAB)
     if lib.disk.file_exists(fstab_path, allow_empty=True):
-        for line in lib.base.coe(lib.disk.read_file(fstab_path)).splitlines():
-            line = line.strip()
-            if not line or line.startswith('#'):
-                continue
-            fields = line.split()
-            if len(fields) < 3 or fields[2] == 'swap':
+        for entry in lib.disk.parse_fstab(lib.base.coe(lib.disk.read_file(fstab_path))):
+            if entry['fstype'] == 'swap':
                 # a swap area has no mount point, its second field is a placeholder
                 continue
-            mount_point = normalize(unescape(fields[1]))
+            mount_point = lib.disk.normalize_mount_point(entry['mount_point'])
             if mount_point.startswith('/'):
                 expected.add(mount_point)
     return expected, mounted
@@ -508,18 +503,10 @@ def look_at(root, path, mountpoints, unmounted):
             for mount_point in mountpoints
             if not is_mountpoint(lib.disk.under_root(root, mount_point))
         ],
-        'resolved': resolve(root, unmounted) if unmounted else None,
+        'resolved': (
+            lib.disk.resolve_mount_point(unmounted, root=root) if unmounted else None
+        ),
     }
-
-
-def normalize(mount_point):
-    """Strip the trailing slash an administrator may have written in fstab. The kernel
-    reports "/mnt/data" no matter whether fstab says "/mnt/data" or "/mnt/data/". "/"
-    itself has nothing to strip.
-    """
-    if len(mount_point) > 1:
-        return mount_point.rstrip('/')
-    return mount_point
 
 
 def parse_exports(content):
@@ -551,24 +538,6 @@ def parse_exports(content):
             clients.append(word.split('(', 1)[0] or '*')
         entries.append((path, clients))
     return entries
-
-
-def resolve(root, mount_point):
-    """Return the mount point with its symlinks resolved, the way the kernel reports it:
-    `mount` resolves its target before mounting, so /etc/fstab may name a path through a
-    symlink while /proc/self/mountinfo names the directory it points to. A path that
-    leaves the configuration root is returned unchanged, because below a fixture tree it
-    would otherwise be resolved against the real filesystem. Same as in `fs-mounts`.
-    """
-    resolved = os.path.realpath(lib.disk.under_root(root, mount_point))
-    if root in ('', '/'):
-        return normalize(resolved)
-    prefix = os.path.realpath(root)
-    if resolved == prefix:
-        return '/'
-    if resolved.startswith(prefix + os.sep):
-        return normalize(resolved[len(prefix) :])
-    return normalize(mount_point)
 
 
 def source_of(path, origins):
