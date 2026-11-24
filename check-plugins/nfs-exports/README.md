@@ -3,13 +3,14 @@
 
 ## Overview
 
-Checks that an NFS server really exports what it is configured to export, and that every path it exports is there. The daemons say nothing about this: they keep running while the export table is empty, so a share that was added but never reloaded, and one whose directory has gone, both leave a server that looks healthy and serves nothing. A client only finds out when it tries to mount, or when its mount turns into a stale file handle. The check compares the export files against the table the server actually serves, and looks whether each exported path exists. An export the table has but the files do not is reported and does not alert by default, because that is what cluster software creating exports at runtime looks like. Nothing is asked over the network and no elevated privileges are needed: all of it is read from files. The paths are looked at under a deadline, so an export that sits on a filesystem which has stopped answering cannot hold the check up. Supports filtering export paths by regular expression via `--match` and `--ignore`. Alerts when a configured export is not served, or when a served export has no path.
+Checks that an NFS server really exports what it is configured to export, and that every path it exports is there. The daemons say nothing about this: they keep running while the export table is empty, so a share that was added but never reloaded, and one whose directory has gone, both leave a server that looks healthy and serves nothing. A client only finds out when it tries to mount, or when its mount turns into a stale file handle. The check compares the export files against the table the server actually serves, and looks whether each exported path exists and sits on the filesystem it is meant for. An export below a filesystem that `/etc/fstab` lists and that is not mounted serves the directory underneath instead, and one carrying the `mp` or `mountpoint` option is refused by the server until the filesystem named there is mounted. An export the table has but the files do not is reported and does not alert by default, because that is what cluster software creating exports at runtime looks like. Nothing is asked over the network and no elevated privileges are needed: all of it is read from files. The paths are looked at under a deadline, so an export that sits on a filesystem which has stopped answering cannot hold the check up. Supports filtering export paths by regular expression via `--match` and `--ignore`. Alerts when a configured export is not served, or when a served export has no path or does not reach its filesystem.
 
 **Important Notes:**
 
 * This check answers whether the exports are right. Whether the daemons run is what the systemd unit checks in the same Service Set answer, and they do: stopping `nfs-server` takes `nfs-mountd` and `nfs-idmapd` down with it, and each of the three reports it.
 * The counterpart on the client is `nfs-mounts`. An export whose path has gone is what a client sees as a stale file handle, so the same incident shows up there as well; this check names the cause on the server instead of the symptom on every client.
-* Only the presence of an export is compared, not its options. The table holds them fully expanded, with every default the server filled in, so comparing them against what an administrator wrote would report a difference on every line. Use `exportfs -v` to look at the effective options.
+* An export whose filesystem failed to mount does not fail: the server serves the empty directory underneath it, clients see missing files, and what they write lands on the filesystem below. The check reports that for every filesystem `/etc/fstab` lists, `noauto` entries included. A filesystem mounted some other way, such as a ZFS dataset or a systemd mount unit, has no entry there and can only be covered with the `mp` export option, which makes the server refuse the export instead of serving the wrong directory.
+* Only the presence of an export is compared, not its options. The table holds them fully expanded, with every default the server filled in, so comparing them against what an administrator wrote would report a difference on every line. Use `exportfs -v` to look at the effective options. The one option the check evaluates is `mp` / `mountpoint`: it runs the same mount point test the server runs before it answers a client, so an export the table lists and the server refuses is reported as such.
 * An export whose path is on a network filesystem is looked at under `--timeout` like every other, so a re-exported share whose own server is gone does not hold the check up.
 
 **Data Collection:**
@@ -17,7 +18,8 @@ Checks that an NFS server really exports what it is configured to export, and th
 * Reads `/etc/exports` and the files below `/etc/exports.d` for what is configured. Only a name ending in `.exports`, longer than that suffix and not starting with a dot counts, and the directory is walked in version order, which is what `exportfs` does
 * Reads the export table at `/var/lib/nfs/etab` for what the server really serves. That file is what `exportfs` writes and what the server reads, it is world readable, and reading it cannot block the way asking the server over RPC could. `--etab` points the check at it if the state directory of the NFS utilities was moved
 * Understands the export file the way the NFS utilities do: full-line and trailing comments, an entry continued over several lines with a trailing backslash, double quotes around a path holding a space, a backslash and three octal digits standing for a byte, and both `path client(options)` and `path -options client client`
-* Looks whether each served export path exists, all of them at the same time and under one shared deadline
+* Looks whether each served export path exists, all of them at the same time and under one shared deadline. In the same look, a path the `mp` or `mountpoint` option names counts as a mount point if it and its parent are on different devices, which is the test the NFS server applies. A bind mount of a directory onto itself is therefore no mount point, for the server and for the check alike
+* Reads `/etc/fstab` and `/proc/self/mountinfo` to find the filesystem each export is meant to be on, which is the deepest mount point covering its path, `/` aside. An fstab entry the kernel does not report has its symlinks resolved before it counts as not mounted
 * Skips export paths matching `--ignore`, and looks only at those matching `--match` if that parameter is given
 
 
@@ -42,6 +44,7 @@ usage: nfs-exports [-h] [-V] [--always-ok] [--brief] [--etab ETAB]
                    [--no-match-severity {ok,warn,crit,unknown}]
                    [--no-perfdata]
                    [--not-exported-severity {ok,warn,crit,unknown}]
+                   [--not-mounted-severity {ok,warn,crit,unknown}]
                    [--timeout TIMEOUT]
                    [--unconfigured-severity {ok,warn,crit,unknown}]
 
@@ -52,14 +55,18 @@ never reloaded, and one whose directory has gone, both leave a server that
 looks healthy and serves nothing. A client only finds out when it tries to
 mount, or when its mount turns into a stale file handle. The check compares
 the export files against the table the server actually serves, and looks
-whether each exported path exists. An export the table has but the files do
-not is reported and does not alert by default, because that is what cluster
-software creating exports at runtime looks like. Nothing is asked over the
-network and no elevated privileges are needed: all of it is read from files.
-The paths are looked at under a deadline, so an export that sits on a
-filesystem which has stopped answering cannot hold the check up. Supports
-filtering export paths by regular expression via --match and --ignore. Alerts
-when a configured export is not served, or when a served export has no path.
+whether each exported path exists and sits on the filesystem it is meant for.
+An export below a filesystem that /etc/fstab lists and that is not mounted
+serves the directory underneath instead, and one carrying the `mp` or
+`mountpoint` option is refused by the server until the filesystem named there
+is mounted. An export the table has but the files do not is reported and does
+not alert by default, because that is what cluster software creating exports
+at runtime looks like. Nothing is asked over the network and no elevated
+privileges are needed: all of it is read from files. The paths are looked at
+under a deadline, so an export that sits on a filesystem which has stopped
+answering cannot hold the check up. Supports filtering export paths by regular
+expression via --match and --ignore. Alerts when a configured export is not
+served, or when a served export has no path or does not reach its filesystem.
 
 options:
   -h, --help            show this help message and exit
@@ -103,6 +110,15 @@ options:
                         -ra` has not been run since the entry was added, or it
                         refused the entry; a client cannot mount such a share
                         at all. Default: warn
+  --not-mounted-severity {ok,warn,crit,unknown}
+                        State to report for an export that does not reach the
+                        filesystem it is meant for. Either its path lies below
+                        a filesystem /etc/fstab lists and that is not mounted,
+                        so the server serves the directory underneath and
+                        writes land on the wrong filesystem, or the export
+                        carries the `mp` or `mountpoint` option and the server
+                        refuses it to every client because the path named
+                        there is not a mount point. Default: warn
   --timeout TIMEOUT     How long the export paths get to answer before they
                         are reported as unreachable. Only a path on a network
                         filesystem ever needs it: one whose server has stopped
@@ -165,6 +181,21 @@ Path            ! Source       ! Clients          ! State
 /srv/nfs/vanish ! /etc/exports ! 192.168.100.0/24 ! path does not exist [WARNING]
 ```
 
+Output (with an export whose filesystem did not mount, and one with the `mp` option whose path is no mount point):
+
+```text
+2 of 3 NFS exports are not right:
+* /srv/nfs/data: /srv/nfs is not mounted, the directory underneath is served
+* /srv/scratch: path is not a mount point, the export is refused
+Hint: an export with the `mp` or `mountpoint` option is refused to every client until the path named there is a mount point again; an export below a filesystem that is not mounted serves the directory underneath it, so clients see the wrong files and their writes land on the wrong filesystem; the `mp` export option makes the server refuse such an export instead; `sudo mount --all --verbose` mounts what /etc/fstab lists and names what fails.
+
+Path          ! Source       ! Clients      ! State
+--------------+--------------+--------------+----------------------------------------------------------------------
+/srv/local    ! /etc/exports ! 192.0.2.0/24 ! exported
+/srv/nfs/data ! /etc/exports ! 192.0.2.0/24 ! /srv/nfs is not mounted, the directory underneath is served [WARNING]
+/srv/scratch  ! /etc/exports ! 192.0.2.0/24 ! path is not a mount point, the export is refused [WARNING]
+```
+
 An export the server serves and no file asks for is what `exportfs -o ...` and cluster software look like. The Source column names `exportfs` for it, and it does not alert:
 
 ```text
@@ -203,12 +234,13 @@ Ignore a share that is exported only while a backup runs:
 
 ## States
 
-* OK if every configured export is served and every served export has its path.
+* OK if every configured export is served and every served export has its path on the filesystem it is meant for.
 * OK if the host is configured to export nothing and exports nothing.
 * OK for an export the server serves that no file asks for. `--unconfigured-severity` raises that case.
 * OK if `--match` and `--ignore` dropped every export. The output says how many the host carries and which parameter dropped them. `--no-match-severity` raises that case to WARN, CRIT or UNKNOWN.
 * WARN if an export is configured and not served. `--not-exported-severity` lowers or raises that case.
 * WARN if a served export has no path, or if its path did not answer within `--timeout`. `--missing-path-severity` lowers or raises both.
+* WARN if a served export lies below a filesystem `/etc/fstab` lists and the kernel has not mounted, or if it carries the `mp` or `mountpoint` option and the path named there is no mount point. `--not-mounted-severity` lowers or raises both.
 * UNKNOWN if the host has neither `/etc/exports` nor an export table, which means the check is not on an NFS server.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -221,6 +253,7 @@ Ignore a share that is exported only while a backup runs:
 | nfs_exports_served        | Number | Number of export paths the server really serves. |
 | nfs_exports_not_exported  | Number | Number of configured exports the server does not serve. |
 | nfs_exports_missing_path  | Number | Number of served exports whose path does not exist or did not answer. |
+| nfs_exports_not_mounted   | Number | Number of served exports below a filesystem that is not mounted, or whose `mp` or `mountpoint` option is not met. |
 | nfs_exports_unconfigured  | Number | Number of served exports no file asks for. |
 
 
@@ -256,6 +289,36 @@ exportfs -ra
 ```
 
 If the directory is gone for good, remove its entry from `/etc/exports` and run `exportfs -ra`, otherwise the stale entry survives every reload.
+
+
+### Export below a filesystem that is not mounted
+
+`/srv/nfs is not mounted, the directory underneath is served`
+
+The filesystem `/etc/fstab` lists for the export is not mounted, so the server serves the directory it would have covered. Clients see that directory's content, usually nothing, and what they write lands on the filesystem below, often the root filesystem. Find out why it is not mounted and mount it:
+
+```bash
+sudo mount --all --verbose
+findmnt --verify
+```
+
+Whatever clients wrote in the meantime went into the directory underneath. Mounting the filesystem hides those files rather than removing them, so move them aside before mounting, or reach them afterwards through a bind mount of the parent filesystem (`sudo mount --bind / /mnt`).
+
+To keep this from happening again, add the `mp` option to the export in `/etc/exports` and run `sudo exportfs -ra`. The server then refuses the export while the filesystem is missing, which the check reports as `path is not a mount point, the export is refused`.
+
+
+### Export refused because its `mp` option is not met
+
+`path is not a mount point, the export is refused`
+
+The export carries the `mp` or `mountpoint` option, so the server serves it only while the path named there (the export path itself for a bare `mp`) is a mount point. It is not, so every client is refused. Mount the filesystem, then check that it is there:
+
+```bash
+sudo mount --all --verbose
+findmnt /your/export
+```
+
+A bind mount of a directory onto itself does not count as a mount point for the server, because it stays on the same device.
 
 
 ### `exported but not configured`

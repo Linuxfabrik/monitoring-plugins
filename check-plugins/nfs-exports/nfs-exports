@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026112401'
 
 DESCRIPTION = """Checks that an NFS server really exports what it is configured to export, and that
 every path it exports is there.
@@ -32,18 +32,23 @@ so a share that was added but never reloaded, and one whose directory has gone, 
 leave a server that looks healthy and serves nothing. A client only finds out when it
 tries to mount, or when its mount turns into a stale file handle.
 The check compares the export files against the table the server actually serves, and
-looks whether each exported path exists. An export the table has but the files do not is
-reported and does not alert by default, because that is what cluster software creating
-exports at runtime looks like.
+looks whether each exported path exists and sits on the filesystem it is meant for. An
+export below a filesystem that /etc/fstab lists and that is not mounted serves the
+directory underneath instead, and one carrying the `mp` or `mountpoint` option is refused
+by the server until the filesystem named there is mounted. An export the table has but
+the files do not is reported and does not alert by default, because that is what cluster
+software creating exports at runtime looks like.
 Nothing is asked over the network and no elevated privileges are needed: all of it is
 read from files. The paths are looked at under a deadline, so an export that sits on a
 filesystem which has stopped answering cannot hold the check up.
 Supports filtering export paths by regular expression via --match and --ignore.
-Alerts when a configured export is not served, or when a served export has no path."""
+Alerts when a configured export is not served, or when a served export has no path or does
+not reach its filesystem."""
 
 DEFAULT_MISSING_PATH_SEVERITY = 'warn'
 DEFAULT_NOT_EXPORTED_SEVERITY = 'warn'
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NOT_MOUNTED_SEVERITY = 'warn'
 DEFAULT_TIMEOUT = 8
 DEFAULT_UNCONFIGURED_SEVERITY = 'ok'
 
@@ -52,6 +57,13 @@ DEFAULT_UNCONFIGURED_SEVERITY = 'ok'
 EXPORTS = '/etc/exports'
 EXPORTS_D = '/etc/exports.d'
 EXPORTS_D_SUFFIX = '.exports'
+
+# What the filesystems below the exports are expected to be, and what they are. Both are
+# read only as text, so a filesystem that has stopped answering cannot block the check
+# here. The kernel and fstab(5) escape a space, a tab, a newline and a backslash in a
+# mount point as a backslash and three octal digits, which `unescape()` reads back.
+FSTAB = '/etc/fstab'
+MOUNTINFO = '/proc/self/mountinfo'
 
 # The table exportfs writes and the server reads, which is what is really being served.
 # It is world readable, so this check needs no privileges, and reading a file cannot
@@ -168,6 +180,20 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--not-mounted-severity',
+        help='State to report for an export that does not reach the filesystem it is '
+        'meant for. Either its path lies below a filesystem /etc/fstab lists and that is '
+        'not mounted, so the server serves the directory underneath and writes land on '
+        'the wrong filesystem, or the export carries the `mp` or `mountpoint` option and '
+        'the server refuses it to every client because the path named there is not a '
+        'mount point. '
+        'Default: %(default)s',
+        dest='NOT_MOUNTED_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NOT_MOUNTED_SEVERITY,
+    )
+
+    parser.add_argument(
         '--test',
         help=lib.args.help('--test'),
         dest='TEST',
@@ -228,6 +254,61 @@ def get_configured(root):
     return configured, origins, read
 
 
+def get_covering_mount(path, expected, mounted):
+    """Return the mount point whose filesystem an export path is meant to be on: the
+    deepest one /etc/fstab lists or the kernel has mounted that is the path itself or
+    one of its parents. `/` never counts, because it is always mounted.
+
+    Taking the kernel's mounts into account as well keeps a filesystem that systemd or
+    an administrator mounted further down from being reported as missing, only because
+    /etc/fstab also lists an unmounted parent of it.
+    """
+    covering = None
+    for mount_point in expected | mounted:
+        if mount_point == '/':
+            continue
+        if path != mount_point and not path.startswith(mount_point + '/'):
+            continue
+        if covering is None or len(mount_point) > len(covering):
+            covering = mount_point
+    return covering
+
+
+def get_filesystems(root):
+    """Return the mount points /etc/fstab lists and the ones the kernel has mounted, as
+    two sets, or `(None, None)` where /proc/self/mountinfo cannot be read, because then
+    nothing can be said about what is mounted.
+
+    An fstab entry with `noauto` counts as well, unlike in `fs-mounts`: not mounting it
+    at boot is a choice, exporting a path below it while it is not mounted is not, since
+    the server then serves the directory underneath.
+    """
+    mountinfo_path = lib.disk.under_root(root, MOUNTINFO)
+    if not lib.disk.file_exists(mountinfo_path, allow_empty=True):
+        return None, None
+    mounted = set()
+    for line in lib.base.coe(lib.disk.read_file(mountinfo_path)).splitlines():
+        fields = line.split()
+        if len(fields) < 5:
+            continue
+        mounted.add(normalize(unescape(fields[4])))
+    expected = set()
+    fstab_path = lib.disk.under_root(root, FSTAB)
+    if lib.disk.file_exists(fstab_path, allow_empty=True):
+        for line in lib.base.coe(lib.disk.read_file(fstab_path)).splitlines():
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            fields = line.split()
+            if len(fields) < 3 or fields[2] == 'swap':
+                # a swap area has no mount point, its second field is a placeholder
+                continue
+            mount_point = normalize(unescape(fields[1]))
+            if mount_point.startswith('/'):
+                expected.add(mount_point)
+    return expected, mounted
+
+
 def get_hint(counts):
     """Return one line telling the administrator what the findings mean for the host, so
     that the difference between an export that is not served and one that has no path
@@ -245,6 +326,23 @@ def get_hint(counts):
             'an export whose path is gone keeps being served, and every client that has '
             'it mounted gets a stale file handle until the path is back'
         )
+    if counts['not a mount point']:
+        hints.append(
+            'an export with the `mp` or `mountpoint` option is refused to every client '
+            'until the path named there is a mount point again'
+        )
+    if counts['not mounted']:
+        hints.append(
+            'an export below a filesystem that is not mounted serves the directory '
+            'underneath it, so clients see the wrong files and their writes land on the '
+            'wrong filesystem; the `mp` export option makes the server refuse such an '
+            'export instead'
+        )
+    if counts['not a mount point'] or counts['not mounted']:
+        hints.append(
+            '`sudo mount --all --verbose` mounts what /etc/fstab lists and names what '
+            'fails'
+        )
     if counts['unreachable']:
         hints.append(
             'an export whose path did not answer sits on a filesystem that has stopped '
@@ -257,29 +355,46 @@ def get_hint(counts):
 
 def get_served(path):
     """Return the export paths the server really serves, as a dict of path to the list
-    of clients each is served to.
+    of clients each is served to, and a dict of path to the paths its `mp` or
+    `mountpoint` option asks to be a mount point.
 
     The table holds one line per path and client, the path escaped the same way the
     export files escape it, the client followed by the whole option list in brackets.
+    exportfs writes the option as `mountpoint` or `mountpoint=<path>`, whichever of `mp`,
+    `mp=`, `mountpoint` and `mountpoint=` the export file used (nfs-utils
+    `getexportopts()` and `putexportent()`), the path unescaped. A bare `mountpoint` asks
+    for the export path itself. Verified with nfs-utils 2.5.4 on Rocky 9.
     """
     served = {}
+    mountpoints = {}
     if not lib.disk.file_exists(path, allow_empty=True):
-        return served, False
+        return served, mountpoints, False
     content = lib.base.coe(lib.disk.read_file(path))
     for line in content.splitlines():
         fields = line.split()
         if len(fields) < 2:
             continue
+        export_path = unescape(fields[0])
         # the second field is the client with the whole expanded option list glued to
         # it, and that list is far too long to put in front of a reader
-        client = fields[1].split('(', 1)[0] or '*'
-        served.setdefault(unescape(fields[0]), []).append(client)
-    return served, True
+        client, _, options = fields[1].partition('(')
+        served.setdefault(export_path, []).append(client or '*')
+        for option in options.rstrip(')').split(','):
+            if option == 'mountpoint':
+                mount_point = export_path
+            elif option.startswith('mountpoint='):
+                mount_point = option[len('mountpoint=') :] or export_path
+            else:
+                continue
+            if mount_point not in mountpoints.setdefault(export_path, []):
+                mountpoints[export_path].append(mount_point)
+    return served, mountpoints, True
 
 
-def get_status(finding, args):
+def get_status(finding, args, detail=''):
     """Return what to report for one export, as a `(state, status)` pair, where `status`
-    names the finding the way an administrator recognizes it.
+    names the finding the way an administrator recognizes it. `detail` is the mount
+    point a `not a mount point` or `not mounted` finding is about.
     """
     if finding == 'ok':
         return STATE_OK, 'exported'
@@ -290,6 +405,16 @@ def get_status(finding, args):
         )
     if finding == 'missing path':
         return lib.base.str2state(args.MISSING_PATH_SEVERITY), 'path does not exist'
+    if finding == 'not a mount point':
+        return (
+            lib.base.str2state(args.NOT_MOUNTED_SEVERITY),
+            f'{detail} is not a mount point, the export is refused',
+        )
+    if finding == 'not mounted':
+        return (
+            lib.base.str2state(args.NOT_MOUNTED_SEVERITY),
+            f'{detail} is not mounted, the directory underneath is served',
+        )
     if finding == 'unreachable':
         return (
             lib.base.str2state(args.MISSING_PATH_SEVERITY),
@@ -299,6 +424,25 @@ def get_status(finding, args):
         lib.base.str2state(args.UNCONFIGURED_SEVERITY),
         'exported but not configured',
     )
+
+
+def is_mountpoint(path):
+    """Return whether `path` is a mount point, decided the way the NFS server decides it
+    before it serves an export with the `mp` or `mountpoint` option: `path` and
+    `path/..` are looked at without following a final symlink, and `path` counts if the
+    two are on different devices or are the same inode, which only `/` is. A path that
+    cannot be looked at is no mount point. Taken from `check_is_mountpoint()` in
+    nfs-utils `support/misc/mountpoint.c`, which `mountd` calls for every such export.
+
+    A bind mount of a directory onto itself is therefore no mount point here either,
+    because it stays on its device, and the server refuses it the same way.
+    """
+    try:
+        own = os.lstat(path)
+        parent = os.lstat(os.path.join(path, '..'))
+    except OSError:
+        return False
+    return own.st_dev != parent.st_dev or own.st_ino == parent.st_ino
 
 
 def join_continuations(content):
@@ -345,6 +489,39 @@ def list_exports_d(root):
     return [os.path.join(directory, name) for name in sorted(names)]
 
 
+def look_at(root, path, mountpoints, unmounted):
+    """Return what the filesystem says about one served export, for the deadline the
+    caller runs it under: whether its path is a directory, which of the paths its `mp`
+    or `mountpoint` option names are no mount point, and where the mount point
+    /etc/fstab expects and the kernel does not report leads once its symlinks are
+    resolved.
+
+    Every one of these can block on a filesystem that has stopped answering, which is
+    why they are all done here and not on the way.
+    """
+    if not os.path.isdir(lib.disk.under_root(root, path)):
+        return {'exists': False, 'not_mount_points': [], 'resolved': None}
+    return {
+        'exists': True,
+        'not_mount_points': [
+            mount_point
+            for mount_point in mountpoints
+            if not is_mountpoint(lib.disk.under_root(root, mount_point))
+        ],
+        'resolved': resolve(root, unmounted) if unmounted else None,
+    }
+
+
+def normalize(mount_point):
+    """Strip the trailing slash an administrator may have written in fstab. The kernel
+    reports "/mnt/data" no matter whether fstab says "/mnt/data" or "/mnt/data/". "/"
+    itself has nothing to strip.
+    """
+    if len(mount_point) > 1:
+        return mount_point.rstrip('/')
+    return mount_point
+
+
 def parse_exports(content):
     """Return the entries of an export file, as a list of `(path, clients)` pairs.
 
@@ -374,6 +551,24 @@ def parse_exports(content):
             clients.append(word.split('(', 1)[0] or '*')
         entries.append((path, clients))
     return entries
+
+
+def resolve(root, mount_point):
+    """Return the mount point with its symlinks resolved, the way the kernel reports it:
+    `mount` resolves its target before mounting, so /etc/fstab may name a path through a
+    symlink while /proc/self/mountinfo names the directory it points to. A path that
+    leaves the configuration root is returned unchanged, because below a fixture tree it
+    would otherwise be resolved against the real filesystem. Same as in `fs-mounts`.
+    """
+    resolved = os.path.realpath(lib.disk.under_root(root, mount_point))
+    if root in ('', '/'):
+        return normalize(resolved)
+    prefix = os.path.realpath(root)
+    if resolved == prefix:
+        return '/'
+    if resolved.startswith(prefix + os.sep):
+        return normalize(resolved[len(prefix) :])
+    return normalize(mount_point)
 
 
 def source_of(path, origins):
@@ -452,12 +647,13 @@ def main():
     # fetch data
     root = args.CONFIG_ROOT
     configured, origins, read = get_configured(root)
-    served, has_etab = get_served(lib.disk.under_root(root, args.ETAB))
+    served, mountpoints, has_etab = get_served(lib.disk.under_root(root, args.ETAB))
     if not read and not has_etab:
         lib.base.cu(
             f'This host has neither {EXPORTS} nor an export table at {args.ETAB}. '
             'This check belongs on an NFS server.'
         )
+    expected, mounted = get_filesystems(root)
 
     # init some vars
     state = STATE_OK
@@ -466,7 +662,9 @@ def main():
     problems = []
     counts = {
         'missing path': 0,
+        'not a mount point': 0,
         'not exported': 0,
+        'not mounted': 0,
         'unconfigured': 0,
         'unreachable': 0,
     }
@@ -493,12 +691,27 @@ def main():
     # Only a path the server actually serves is looked at. One that is configured and not
     # served has a finding of its own already, and whether its directory happens to be
     # there says nothing about why the server does not serve it.
+    # The filesystem an export is meant to be on is the deepest mount point covering its
+    # path. Where /etc/fstab lists it and the kernel does not report it, the job resolves
+    # its symlinks before it counts as not mounted, the way `fs-mounts` does.
     jobs = []
+    covering = {}
     for path in selected:
         if path not in served:
             continue
-        target = lib.disk.under_root(root, path)
-        jobs.append((path, lambda target=target: os.path.isdir(target)))
+        unmounted = None
+        if expected is not None:
+            covering[path] = get_covering_mount(path, expected, mounted)
+            if covering[path] is not None and covering[path] not in mounted:
+                unmounted = covering[path]
+        jobs.append(
+            (
+                path,
+                lambda path=path, unmounted=unmounted: look_at(
+                    root, path, mountpoints.get(path, []), unmounted
+                ),
+            )
+        )
     answers = lib.task.run_each(jobs, args.TIMEOUT)
 
     for path in selected:
@@ -511,19 +724,32 @@ def main():
             # one whose path is gone is not, so the path has to win: otherwise an export
             # that cluster software created and whose path then vanished would be
             # reported as merely unconfigured and stay OK.
+            # After the path, whether the export reaches its filesystem: an `mp` option
+            # that is not met means the server refuses the export, which is the more
+            # direct finding, and an unmounted filesystem below an export without one
+            # means the server serves the directory underneath.
             success, answer = answers[path]
+            detail = ''
             if not success:
                 # `answer` is the reason the look did not happen, not a verdict
                 finding = (
                     'unreachable' if answer == lib.task.TIMEOUT else 'missing path'
                 )
-            elif not answer:
+            elif not answer['exists']:
                 finding = 'missing path'
+            elif answer['not_mount_points']:
+                finding = 'not a mount point'
+                detail = ', '.join(answer['not_mount_points'])
+                if detail == path:
+                    detail = 'path'
+            elif answer['resolved'] is not None and answer['resolved'] not in mounted:
+                finding = 'not mounted'
+                detail = covering[path]
             elif path not in configured:
                 finding = 'unconfigured'
             else:
                 finding = 'ok'
-        local_state, status = get_status(finding, args)
+        local_state, status = get_status(finding, args, detail)
         state = lib.base.get_worst(state, local_state)
         if finding != 'ok':
             counts[finding] += 1
@@ -606,6 +832,13 @@ def main():
     perfdata += lib.base.get_perfdata(
         'nfs_exports_missing_path',
         counts['missing path'] + counts['unreachable'],
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'nfs_exports_not_mounted',
+        counts['not a mount point'] + counts['not mounted'],
         uom=None,
         warn='0',
         _min=0,

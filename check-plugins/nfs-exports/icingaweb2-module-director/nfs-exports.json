@@ -31,6 +31,9 @@
                 "--not-exported-severity": {
                     "value": "$nfs_exports_not_exported_severity$"
                 },
+                "--not-mounted-severity": {
+                    "value": "$nfs_exports_not_mounted_severity$"
+                },
                 "--timeout": {
                     "value": "$nfs_exports_timeout$"
                 },
@@ -95,6 +98,11 @@
                     "datafield_id": 11,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -138,7 +146,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks that an NFS server really exports what it is configured to export, and that every path it exports is there. The daemons say nothing about this: they keep running while the export table is empty, so a share that was added but never reloaded, and one whose directory has gone, both leave a server that looks healthy and serves nothing. A client only finds out when it tries to mount, or when its mount turns into a stale file handle. The check compares the export files against the table the server actually serves, and looks whether each exported path exists. An export the table has but the files do not is reported and does not alert by default, because that is what cluster software creating exports at runtime looks like. Nothing is asked over the network and no elevated privileges are needed: all of it is read from files. The paths are looked at under a deadline, so an export that sits on a filesystem which has stopped answering cannot hold the check up. Supports filtering export paths by regular expression via --match and --ignore. Alerts when a configured export is not served, or when a served export has no path.",
+            "notes": "Checks that an NFS server really exports what it is configured to export, and that every path it exports is there. The daemons say nothing about this: they keep running while the export table is empty, so a share that was added but never reloaded, and one whose directory has gone, both leave a server that looks healthy and serves nothing. A client only finds out when it tries to mount, or when its mount turns into a stale file handle. The check compares the export files against the table the server actually serves, and looks whether each exported path exists and sits on the filesystem it is meant for. An export below a filesystem that /etc/fstab lists and that is not mounted serves the directory underneath instead, and one carrying the `mp` or `mountpoint` option is refused by the server until the filesystem named there is mounted. An export the table has but the files do not is reported and does not alert by default, because that is what cluster software creating exports at runtime looks like. Nothing is asked over the network and no elevated privileges are needed: all of it is read from files. The paths are looked at under a deadline, so an export that sits on a filesystem which has stopped answering cannot hold the check up. Supports filtering export paths by regular expression via --match and --ignore. Alerts when a configured export is not served, or when a served export has no path or does not reach its filesystem.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nfs-exports/",
             "object_name": "tpl-service-nfs-exports",
             "object_type": "template",
@@ -158,6 +166,7 @@
                 "nfs_exports_no_match_severity": "ok",
                 "nfs_exports_no_perfdata": false,
                 "nfs_exports_not_exported_severity": "warn",
+                "nfs_exports_not_mounted_severity": "warn",
                 "nfs_exports_timeout": 8,
                 "nfs_exports_unconfigured_severity": "ok"
             },
@@ -259,6 +268,37 @@
                 }
             ],
             "uuid": "861be34c-216b-4422-99b5-1240eb51b780"
+        },
+        "nfs_exports_not_mounted_severity_list": {
+            "list_name": "nfs_exports_not_mounted_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "a4c1c983-5372-4a32-a1ef-b32e75185db5"
         },
         "nfs_exports_unconfigured_severity_list": {
             "list_name": "nfs_exports_unconfigured_severity_list",
@@ -393,6 +433,19 @@
             "uuid": "61c90430-dbf9-4cda-b58c-dfab2cd385f5"
         },
         "10": {
+            "varname": "nfs_exports_not_mounted_severity",
+            "caption": "Nfs Exports: Not Mounted Severity",
+            "description": "State to report for an export that does not reach the filesystem it is meant for. Either its path lies below a filesystem /etc/fstab lists and that is not mounted, so the server serves the directory underneath and writes land on the wrong filesystem, or the export carries the `mp` or `mountpoint` option and the server refuses it to every client because the path named there is not a mount point.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "nfs_exports_not_mounted_severity_list"
+            },
+            "uuid": "1ea8fcd5-034f-438c-93a4-d805333f624d"
+        },
+        "11": {
             "varname": "nfs_exports_timeout",
             "caption": "Nfs Exports: Timeout",
             "description": "How long the export paths get to answer before they are reported as unreachable. Only a path on a network filesystem ever needs it: one whose server has stopped answering does not fail, it blocks. Every path is looked at at the same time and they share one deadline, so this is the runtime of the whole check and not a budget per path.",
@@ -403,7 +456,7 @@
             },
             "uuid": "2ce5dff9-8bbc-4f77-994e-1a6b544b9b0c"
         },
-        "11": {
+        "12": {
             "varname": "nfs_exports_unconfigured_severity",
             "caption": "Nfs Exports: Unconfigured Severity",
             "description": "State to report for an export the server serves and the configuration does not ask for. Cluster software that creates its exports at runtime looks exactly like this, which is why it does not alert by default.",
