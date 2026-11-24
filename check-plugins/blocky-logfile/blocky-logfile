@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026112202'
+__version__ = '2026112401'
 
 DESCRIPTION = """Scans the log of the blocky DNS proxy and ad-blocker for the events an
 administrator has to act on: a start that failed, deprecated configuration options, list
@@ -80,11 +80,6 @@ ROTATED_FILES = 1
 # locations systemd reads unit files from are looked at, so nothing a log or a
 # configuration file holds can point the check at another unit.
 UNIT_CANDIDATES = ('blocky.service',)
-UNIT_DIRECTORIES = (
-    '/etc/systemd/system',
-    '/usr/lib/systemd/system',
-    '/lib/systemd/system',
-)
 
 SOURCE_PATH_MAX_LEN = 32
 
@@ -688,27 +683,6 @@ def get_level_states(critical_level, warning_level):
     return states
 
 
-def get_units(config_root=''):
-    """Return the blocky units this host has a unit file for."""
-    # A unit file says only that a package shipped one: hosts with another init
-    # system carry them too, and have no journal to read.
-    if not lib.logsource.systemd_booted(config_root):
-        return []
-    found = []
-    seen = set()
-    for candidate in UNIT_CANDIDATES:
-        for directory in UNIT_DIRECTORIES:
-            for filename in lib.disk.glob(f'{config_root}{directory}/{candidate}'):
-                if not lib.disk.file_exists(filename, allow_empty=True):
-                    continue
-                identity = os.path.realpath(filename)
-                if identity in seen:
-                    continue
-                seen.add(identity)
-                found.append(os.path.basename(filename))
-    return found
-
-
 def main():
     """The main function. This is where the magic happens."""
 
@@ -753,7 +727,8 @@ def main():
         os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
     ]
     server_logs = args.SERVER_LOG or [
-        f'systemd:{unit}' for unit in get_units(args.CONFIG_ROOT)
+        f'systemd:{unit}'
+        for unit in lib.logsource.find_units(UNIT_CANDIDATES, args.CONFIG_ROOT)
     ]
     if not server_logs:
         lib.base.cu(

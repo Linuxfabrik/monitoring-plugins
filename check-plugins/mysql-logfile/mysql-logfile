@@ -31,7 +31,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026112001'
+__version__ = '2026112401'
 
 DESCRIPTION = """Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table
@@ -144,11 +144,6 @@ ROTATED_FILES = 1
 # use, so nothing a log or a configuration file holds can point the check at
 # another unit.
 UNIT_CANDIDATES = ('mariadb.service', 'mysqld.service', 'mysql.service')
-UNIT_DIRECTORIES = (
-    '/etc/systemd/system',
-    '/usr/lib/systemd/system',
-    '/lib/systemd/system',
-)
 
 # How long a path may be in the summary before it is abbreviated for display.
 # The paths the distributions use fit within it untouched; a host serving a
@@ -622,32 +617,6 @@ def get_database(log_line):
     )
 
 
-def get_units(config_root=''):
-    """Return the the database server units this host has a unit file for.
-
-    A unit file two names point at is one unit: the MariaDB package ships
-    `mysqld.service` and `mysql.service` as symlinks to `mariadb.service`, and
-    reading that journal three times would count every line three times.
-    """
-    # A unit file says only that a package shipped one: hosts with another init
-    # system carry them too, and have no journal to read ([#1544]).
-    if not lib.logsource.systemd_booted(config_root):
-        return []
-    found = []
-    seen = set()
-    for candidate in UNIT_CANDIDATES:
-        for directory in UNIT_DIRECTORIES:
-            for filename in lib.disk.glob(f'{config_root}{directory}/{candidate}'):
-                if not lib.disk.file_exists(filename, allow_empty=True):
-                    continue
-                identity = os.path.realpath(filename)
-                if identity in seen:
-                    continue
-                seen.add(identity)
-                found.append(os.path.basename(filename))
-    return found
-
-
 def dedup_key(line):
     """Identify the event in a line, whichever transport delivered it.
 
@@ -796,7 +765,9 @@ def main():
             # default writes to its standard error, which under systemd is the
             # journal, and in a container it is all there is.
             server_logs = [log_error] if log_error else []
-            server_logs += [f'systemd:{unit}' for unit in get_units()]
+            server_logs += [
+                f'systemd:{unit}' for unit in lib.logsource.find_units(UNIT_CANDIDATES)
+            ]
         if not server_logs and logfile is None:
             lib.base.cu(
                 'No log file set and no database unit on this host (set '

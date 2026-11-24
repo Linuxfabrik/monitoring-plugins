@@ -29,7 +29,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026112401'
+__version__ = '2026112402'
 
 DESCRIPTION = """Scans the log of fail2ban for the problems that leave a host unprotected
 while fail2ban itself keeps running and its jails keep listing bans: ban actions that fail,
@@ -80,11 +80,6 @@ ROTATED_FILES = 1
 CONFIG_DIR = '/etc/fail2ban'
 # The unit the fail2ban packages of the Red Hat family, Debian and Ubuntu install.
 UNIT_CANDIDATES = ('fail2ban.service',)
-UNIT_DIRECTORIES = (
-    '/etc/systemd/system',
-    '/usr/lib/systemd/system',
-    '/lib/systemd/system',
-)
 # The `logtarget` values that are not a file (`Server.setLogTarget()` in
 # `server/server.py`). All of them end up in the journal of the unit on a host with
 # systemd: SYSLOG through the syslog socket, STDOUT and STDERR through the unit's
@@ -784,27 +779,6 @@ def get_logtarget(config_root=''):
     return parser.get('Definition', 'logtarget', fallback=None) or None
 
 
-def get_units(config_root=''):
-    """Return the fail2ban units this host has a unit file for."""
-    # A unit file says only that a package shipped one: hosts with another init
-    # system carry them too, and have no journal to read.
-    if not lib.logsource.systemd_booted(config_root):
-        return []
-    found = []
-    seen = set()
-    for candidate in UNIT_CANDIDATES:
-        for directory in UNIT_DIRECTORIES:
-            for filename in lib.disk.glob(f'{config_root}{directory}/{candidate}'):
-                if not lib.disk.file_exists(filename, allow_empty=True):
-                    continue
-                identity = os.path.realpath(filename)
-                if identity in seen:
-                    continue
-                seen.add(identity)
-                found.append(os.path.basename(filename))
-    return found
-
-
 def get_server_logs(config_root=''):
     """
     Return the log sources fail2ban writes to on this host.
@@ -817,7 +791,10 @@ def get_server_logs(config_root=''):
     logtarget = get_logtarget(config_root)
     if logtarget and logtarget.upper() not in NON_FILE_TARGETS:
         sources.append(f'{config_root}{logtarget}')
-    sources.extend(f'systemd:{unit}' for unit in get_units(config_root))
+    sources.extend(
+        f'systemd:{unit}'
+        for unit in lib.logsource.find_units(UNIT_CANDIDATES, config_root)
+    )
     return sources
 
 
