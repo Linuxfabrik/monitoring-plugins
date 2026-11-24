@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import re
 import sys
 
 import lib.args
@@ -22,19 +23,21 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082701'
+__version__ = '2026112401'
 
 DESCRIPTION = """Reports the health of the LVM logical volumes on this host: a volume
 whose physical volume has gone missing, a mirrored or RAID volume running on fewer legs
-than it was built with, a cache that has failed, and a volume that is not active. LVM
-answers all of this with a state and never with a number, so there is nothing to set a
-threshold on. A volume that has lost a physical volume is the one that deserves the
+than it was built with, a RAID volume whose new leg is still being rebuilt, a cache that
+has failed, and a volume that is not active. A running resync, reshape or scrub is
+reported with its progress. LVM answers all of this with a state and never with a
+number worth a threshold, so there is nothing to set one on. A volume that has lost a physical volume is the one that deserves the
 most attention: it is not only incomplete, it also refuses to come up at the next boot
 unless it is activated in partial mode by hand. Snapshots and thin pools are checked by
 lvm-snapshots and lvm-thin-pools, so nothing is reported twice.
 Alerts when a volume is missing a physical volume, when a RAID volume needs a refresh
-or a repair, when a scrub found copies that disagree, when a cache has failed, and when
-a volume is flagged as needing a check.
+or a repair, when a RAID or mirror volume is not fully in sync outside of a resync,
+reshape or scrub, when a scrub found copies that disagree, when a cache has failed, and
+when a volume is flagged as needing a check.
 Requires root or sudo."""
 
 # What a volume in one of these states means for the data on it, rather than for the
@@ -74,6 +77,35 @@ MISMATCH_HELP = (
     'good one, so `lvchange --syncaction repair` overwrites the others from the first '
     'leg and the data has to be verified afterwards. A count that keeps rising is a '
     'reason to look at the disks themselves.'
+)
+
+# What the kernel is doing on a RAID volume whose `sync_percent` is below 100, from
+# `sync_str()` in `drivers/md/dm-raid.c`, and whether the volume is redundant meanwhile.
+# Measured on Rocky 10 (lvm2 2.03.28, kernel 6.12): `lvcreate --type raid1` starts with
+# `resync`, `lvconvert --replace` and turning a linear volume into a raid1 both run
+# `recover`, and `lvchange --syncaction check` counts `sync_percent` from 0 on a volume
+# that was 100% in sync a moment before. `lv_health_status` stays empty in all of them.
+#
+# A `resync` writes every new block to all legs while it catches up on the old ones, and
+# a `reshape` keeps the redundancy while it restripes, so neither alerts; md-raid rates
+# them the same way. A `recover` is a leg being built up from the others, which holds no
+# full copy until it is done: one more failed device during that time loses data.
+# Everything else below 100 (`frozen`, `idle`, an unknown value) is a volume that is not
+# in sync and that nothing is bringing into sync.
+RUNNING_SYNC_LABELS = {
+    'check': 'scrub',
+    'repair': 'scrub with repair',
+    'reshape': 'reshape',
+    'resync': 'resync',
+}
+
+# Named here so the same words reach the plugin output and the README.
+REBUILD_HELP = (
+    'A leg that is being rebuilt holds no full copy of the data yet, so the volume '
+    'survives no further device failure until the rebuild is done. `sudo lvs --all '
+    '--options name,sync_percent,raid_sync_action,devices` shows the progress and '
+    'which device the new leg sits on. `sudo lvchange --maxrecoveryrate` limits how '
+    'much I/O the rebuild may take; 0 lifts the limit.'
 )
 
 DEFAULT_BRIEF = False
@@ -200,19 +232,79 @@ def get_volumes(args):
     return result
 
 
+def get_sync(lv):
+    """
+    Read how much of a RAID or mirror volume is in sync, and what the kernel is doing
+    about it.
+
+    `sync_percent` means "in sync" on RAID and mirror volumes only. On a cache it is the
+    share of dirty blocks, and raid0 has nothing to synchronise, so both are left out
+    rather than read as a volume that is not in sync.
+    """
+    layout = (lv.get('lv_layout') or '').split(',')
+    is_mirror = 'mirror' in layout
+    is_raid = 'raid' in layout and not any(item.startswith('raid0') for item in layout)
+    if not (is_mirror or is_raid):
+        return None, ''
+    return lib.lvm.to_number(lv.get('sync_percent')), lv.get('raid_sync_action') or ''
+
+
+def describe_sync(percent, action):
+    """
+    Say what an incomplete sync means for a volume, and how bad that is.
+
+    Returns the problem clause (empty if there is none), the label of a sync that runs
+    without being a problem (empty if there is none), and the state.
+    """
+    if percent is None or percent >= 100:
+        return '', '', STATE_OK
+    if action in RUNNING_SYNC_LABELS:
+        return '', RUNNING_SYNC_LABELS[action], STATE_OK
+    if action == 'recover':
+        return (
+            f'a leg is being rebuilt and holds no full copy yet ({percent:.2f}% done)',
+            '',
+            STATE_WARN,
+        )
+    # The classic mirror reports no sync action at all, so a mirror being built up
+    # after `lvcreate` and one whose replaced leg is being copied look the same. In both
+    # a leg is still missing part of the data.
+    if not action:
+        return (
+            f'a leg holds no full copy yet ({percent:.2f}% in sync)',
+            '',
+            STATE_WARN,
+        )
+    if action == 'frozen':
+        return (
+            f'only {percent:.2f}% in sync and the sync is frozen',
+            '',
+            STATE_WARN,
+        )
+    return (
+        f'only {percent:.2f}% in sync and the kernel reports "{action}"',
+        '',
+        STATE_WARN,
+    )
+
+
 def analyze(lv, args):
     """Work out how one volume is doing and how bad that is."""
     name = lv.get('lv_full_name') or lv.get('lv_name') or '?'
     health = lv.get('lv_health_status') or ''
-    problem = lib.lvm.health(lv)
+    health_problem = lib.lvm.health(lv)
     active = bool(lv.get('lv_active'))
     state = STATE_OK
 
-    if problem:
+    if health_problem:
         state = lib.base.get_worst(
             state,
             STATE_CRIT if health in CRITICAL_HEALTH else STATE_WARN,
         )
+    sync_percent, sync_action = get_sync(lv)
+    sync_problem, sync_running, sync_state = describe_sync(sync_percent, sync_action)
+    state = lib.base.get_worst(state, sync_state)
+    problem = '; '.join(item for item in (health_problem, sync_problem) if item)
     if not active:
         state = lib.base.get_worst(state, lib.base.str2state(args.INACTIVE_SEVERITY))
 
@@ -223,8 +315,13 @@ def analyze(lv, args):
         'name': name,
         'pool': lv.get('pool_lv') or '-',
         'problem': problem,
+        'rebuilding': bool(sync_problem) and sync_action == 'recover',
         'size': lib.lvm.to_number(lv.get('lv_size')),
         'state': state,
+        'sync_action': sync_action,
+        'sync_percent': sync_percent,
+        'sync_problem': sync_problem,
+        'sync_running': sync_running,
         # A thin volume reports how much of its virtual size carries data. A thick one
         # has all of its size allocated and reports nothing, which is not a zero.
         'usage': lib.lvm.to_number(lv.get('data_percent')),
@@ -256,10 +353,13 @@ def main():
     state = STATE_OK
     table_data = []
     headline = []
+    activity = []
     checked = 0
     degraded = 0
     inactive = 0
+    rebuilding = 0
     seen_health = set()
+    syncing = []
     compiled_match = [
         lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
     ]
@@ -290,20 +390,35 @@ def main():
             degraded += 1
             seen_health.add(report['health'])
             headline.append(f'{name}: {report["problem"]}')
+        if report['rebuilding']:
+            rebuilding += 1
+        if report['sync_running']:
+            activity.append(
+                f'{name}: {report["sync_running"]} at {report["sync_percent"]:.2f}%'
+            )
+        if report['sync_percent'] is not None and report['sync_percent'] < 100:
+            syncing.append(report)
         if not report['active']:
             inactive += 1
             if report['state'] != STATE_OK and not report['problem']:
                 headline.append(f'{name} is not active')
 
+        sync = '-'
+        if report['sync_percent'] is not None:
+            sync = f'{report["sync_percent"]:.2f}%'
+            if report['sync_action'] and report['sync_action'] != 'idle':
+                sync += f' ({report["sync_action"]})'
+        health = report['health'] or ('not in sync' if report['sync_problem'] else '')
         row = {
             'active': 'yes' if report['active'] else 'no',
             'layout': report['layout'],
             'pool': report['pool'],
             'size': lib.human.bytes2human(report['size'] or 0),
             'state': (
-                f'{report["health"] or "healthy"}'
+                f'{health or "healthy"}'
                 f'{lib.base.state2str(report["state"], prefix=" ")}'
             ),
+            'sync': sync,
             'usage': '-' if report['usage'] is None else f'{report["usage"]:.2f}%',
             'volume': report['name'],
         }
@@ -321,13 +436,20 @@ def main():
         )
         state = lib.base.get_worst(state, lib.base.str2state(args.NO_MATCH_SEVERITY))
     elif headline:
-        msg = f'{". ".join(headline)}.'
+        msg = f'{". ".join(headline + activity)}.'
     else:
         msg = (
             f'{checked} LVM logical {lib.txt.pluralize("volume", checked, ",s")}, '
             f'{checked - degraded} healthy'
             f'{"" if not inactive else f", {inactive} not active"}.'
         )
+        # A resync, reshape or scrub is no problem, and whether one is running is
+        # still worth seeing at a glance: it costs I/O, and it says why the volume
+        # is slower than usual.
+        if activity:
+            msg += f' {". ".join(activity)}.'
+    if rebuilding:
+        msg_body += f'{REBUILD_HELP}\n'
     if 'partial' in seen_health:
         msg_body += f'{PARTIAL_HELP}\n'
     if seen_health & {
@@ -350,11 +472,32 @@ def main():
         _min=0,
     )
     perfdata += lib.base.get_perfdata('volumes_inactive', inactive, uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('volumes_syncing', len(syncing), uom=None, _min=0)
+    # Only while a volume is not in sync. One that is has nothing to report, and a
+    # line drawn through the gap would have to invent a value.
+    for report in syncing:
+        label = re.sub(r'\W+', '_', report['name'])
+        perfdata += lib.base.get_perfdata(
+            f'{label}_sync_percent',
+            report['sync_percent'],
+            uom='%',
+            _min=0,
+            _max=100,
+        )
 
     # build table output
     if table_data:
-        keys = ['volume', 'layout', 'size', 'pool', 'usage', 'active', 'state']
-        headers = ['Volume', 'Layout', 'Size', 'Pool', 'Usage', 'Active', 'Health']
+        keys = ['volume', 'layout', 'size', 'pool', 'usage', 'sync', 'active', 'state']
+        headers = [
+            'Volume',
+            'Layout',
+            'Size',
+            'Pool',
+            'Usage',
+            'Sync',
+            'Active',
+            'Health',
+        ]
         msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
 
     # over and out

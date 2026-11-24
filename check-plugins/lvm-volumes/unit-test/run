@@ -43,6 +43,28 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #   inactive-volume           a volume that was deactivated with `lvchange -an`, next to
 #                             two active ones. A volume is deliberately left inactive
 #                             often enough that this does not alert by default
+#   raid-resync               a raid1 right after `lvcreate --type raid1`, with its
+#                             recovery rate held down so the initial resync is caught
+#                             at 7.88%, next to a classic mirror and a linear volume
+#   raid-scrub                the same raid1 fully in sync, a moment after
+#                             `lvchange --syncaction check`: the percentage counts from
+#                             0 again although nothing is out of sync
+#   raid-leg-replaced         the same raid1 right after `lvconvert --replace` moved one
+#                             leg to another physical volume. `raid_sync_action` reads
+#                             `recover` and `lv_health_status` stays empty
+#   raid-from-linear          a linear volume turned into a raid1 with `lvconvert
+#                             --type raid1 -m1`, rebuilding at the same time as the
+#                             replaced one above. Both read `recover`
+#   mirror-syncing            derived from the same host with the classic mirror's
+#                             `sync_percent` set to 42.37: a 100 MiB mirror on loop
+#                             devices synchronises faster than `lvs` can be run
+#   raid-frozen               derived from the same host with the raid1 set to `frozen`
+#                             at 63.10%: LVM offers no command that freezes a sync, and
+#                             `dmsetup message ... frozen` was refused by this kernel
+#   cache-and-raid0           a writeback cache whose dirty blocks were just written
+#                             back, so `sync_percent` reads 0.00 there (for a cache it
+#                             is the share of dirty blocks), next to a raid0 that
+#                             reports no percentage at all
 #   stock-host                a plain Rocky install, root and swap and nothing else
 #   no-volumes                a host without a single logical volume
 #   malformed                 a report that was cut off mid-write
@@ -106,6 +128,102 @@ TESTS = [
         ],
         # the refresh instruction belongs to a leg that is out of service, not here
         'assert-not-in': ['lvchange --refresh'],
+    },
+    {
+        # A resync writes every new block to all legs, so the volume is redundant for
+        # the data it carries; md-raid rates it the same way.
+        'id': 'ok-an-initial-resync-is-reported-with-its-progress',
+        'test': 'stdout/raid-resync,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '5 LVM logical volumes, 5 healthy. tvg/r1: resync at 7.88%.',
+            '7.88% (resync)',
+            "'volumes_syncing'=1;;;0",
+            "'tvg_r1_sync_percent'=7.88%;;;0;100",
+        ],
+    },
+    {
+        # The percentage of a scrub says how far the scrub is, not how much is in sync.
+        'id': 'ok-a-scrub-is-not-a-volume-out-of-sync',
+        'test': 'stdout/raid-scrub,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['tvg/r1: scrub at 0.00%.', '0.00% (check)'],
+        'assert-not-in': ['not in sync'],
+    },
+    {
+        # The health state says nothing while the new leg is being built up, so the
+        # sync action is the only signal.
+        'id': 'warn-a-replaced-leg-is-being-rebuilt',
+        'test': 'stdout/raid-leg-replaced,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'tvg/r1: a leg is being rebuilt and holds no full copy yet (0.00% done).',
+            'lvchange --maxrecoveryrate',
+            'not in sync [WARNING]',
+            "'volumes_degraded'=1;0",
+        ],
+        'assert-not-in': ['lvchange --refresh'],
+    },
+    {
+        'id': 'warn-two-volumes-rebuilding-are-both-named',
+        'test': 'stdout/raid-from-linear,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'tvg/plain: a leg is being rebuilt and holds no full copy yet (74.64% done)',
+            'tvg/r1: a leg is being rebuilt and holds no full copy yet (14.34% done)',
+            "'volumes_syncing'=2;;;0",
+            "'tvg_plain_sync_percent'=74.64%",
+        ],
+    },
+    {
+        'id': 'ok-ignore-drops-a-rebuilding-volume',
+        'test': 'stdout/raid-from-linear,,0',
+        'params': '--ignore=^tvg/',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['_sync_percent'],
+    },
+    {
+        # A classic mirror reports no sync action, so it cannot say why it is behind.
+        'id': 'warn-a-mirror-below-100-percent',
+        'test': 'stdout/mirror-syncing,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['tvg/m1: a leg holds no full copy yet (42.37% in sync).'],
+    },
+    {
+        'id': 'warn-a-frozen-sync',
+        'test': 'stdout/raid-frozen,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['tvg/r1: only 63.10% in sync and the sync is frozen.'],
+    },
+    {
+        # A cache reports its share of dirty blocks in the same field, so reading it
+        # as a sync would raise an alert for a cache that has just been written back.
+        'id': 'ok-a-cache-and-a-raid0-have-no-sync-to-grade',
+        'test': 'stdout/cache-and-raid0,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['5 LVM logical volumes, 5 healthy.', "'volumes_syncing'=0"],
+        'assert-not-in': ['tvg_cached_sync_percent', 'not in sync'],
+    },
+    {
+        'id': 'ok-always-ok-swallows-a-rebuild',
+        'test': 'stdout/raid-leg-replaced,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        # A volume that is fully in sync carries no progress line in the graph.
+        'id': 'ok-a-volume-in-sync-emits-no-sync-percent',
+        'test': 'stdout/raid-scrub,,0',
+        'params': '--brief',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['tvg_m1_sync_percent'],
     },
     {
         'id': 'ok-an-inactive-volume-does-not-alert-by-default',
@@ -175,7 +293,16 @@ TESTS = [
         'test': 'stdout/stock-host,,0',
         'params': '',
         'assert-retc': STATE_OK,
-        'assert-in': ['Volume', 'Layout', 'Size', 'Pool', 'Usage', 'Active', 'Health'],
+        'assert-in': [
+            'Volume',
+            'Layout',
+            'Size',
+            'Pool',
+            'Usage',
+            'Sync',
+            'Active',
+            'Health',
+        ],
     },
     {
         # A thin volume reports how much of its virtual size carries data; a thick one
