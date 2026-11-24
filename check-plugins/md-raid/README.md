@@ -3,7 +3,7 @@
 
 ## Overview
 
-Reports the health of the Linux software RAID arrays (md) on this host: how many member devices each array is running on, which of them the kernel has thrown out, what it says about each of the remaining ones, whether a resync, recovery or reshape is under way or frozen, and how many inconsistent sectors the last consistency check found. Every array the kernel knows is reported, so an array nobody remembers is on the list as well. Alerts when an array has lost the redundancy it was built for, when the kernel declares it failed, when a parity array has lost the write journal it needs in order to accept writes at all, when the kernel says a member wants replacing or has seen a write error, and when a consistency check found differences between the members of a parity array. With `--spares` it also alerts when an array holds fewer spare devices than it is supposed to. Supports extended reporting via `--lengthy`.
+Reports the health of the Linux software RAID arrays (md) on this host: how many member devices each array is running on, which of them the kernel has thrown out, what it says about each of the remaining ones, whether a resync, recovery or reshape is under way or frozen, and how many inconsistent sectors the last consistency check found. Every array the kernel knows is reported, so an array nobody remembers is on the list as well. Alerts when an array has lost the redundancy it was built for, when the kernel declares it failed, when a parity array has lost the write journal it needs in order to accept writes at all, when the kernel says a member wants replacing or has seen a write error, and when a consistency check found differences between the members of a parity array. With `--spares` it also alerts when an array holds fewer spare devices than it is supposed to, and it alerts when an array listed in mdadm.conf is not running, which is how an array whose members did not turn up at boot shows. Supports extended reporting via `--lengthy`.
 
 **What the kernel reports:**
 
@@ -33,6 +33,7 @@ Below that, a redundant array reports how many members it wants and how many are
 * **A spare that stepped in does not close the case.** Once the rebuild is done the array reports its full width again and the kernel's `degraded` counter is back to zero, while the member it threw out is still attached and still flagged. Nothing is degraded and a disk has died all the same, which is why the check keeps reporting such an array until the failed device is removed. The array also has no spare left, so the next failure has nothing to fall back on.
 * **A rebuild does not raise the state by itself.** An array that is recovering onto a spare is degraded, and the degradation is what alerts; the progress is reported next to it. An array that is merely resyncing after an unclean shutdown, being checked, or being reshaped, is not a problem and stays OK.
 * **The count of inconsistent sectors is not the count of bad sectors.** md works in units much larger than a sector, so a single error inside a 64 KiB unit adds 128 to the counter.
+* **An array that did not come up at boot is found through mdadm.conf.** The kernel only knows the arrays that were assembled, so nothing in `/proc/mdstat` or `/sys` says that one is missing. The check compares the arrays mdadm.conf lists by UUID with the ones udev has linked as `/dev/disk/by-id/md-uuid-*`, which udev does only while an array runs, and reports every listed array without such a link. Write the file with `mdadm --detail --scan`, so every line carries a UUID: lines that name an array only by its member devices or by a minor number, and lines for `<ignore>`, are not compared. `--match` and `--ignore` apply to the last part of the device name on the line (`data` for `/dev/md/data`). Where arrays run and udev linked none of them, as in a container, the check says so and concludes nothing. An array that was assembled and not started is reported twice, as `inactive` and as listed but not running, because the kernel gives it no link either. `--not-running-severity` changes the state.
 * **A host with no array at all reports WARN.** An array is assembled from the superblocks on its members at every boot, so an array that used to be here and is gone is worth a look. Lower it with `--no-arrays-severity=ok` on a host that is meant to run the check without having an array.
 * Related checks: `disk-smart` reports the health of the disks the arrays are built on, `disk-io` their load, and `fs-mounts` whether what is on top of an array is actually mounted.
 
@@ -41,6 +42,7 @@ Below that, a redundant array reports how many members it wants and how many are
 * Reads `/proc/mdstat` for the list of arrays, their members and the progress of a running resync, recovery, reshape or check
 * Reads `array_state`, `consistency_policy`, `degraded`, `level`, `mismatch_cnt`, `raid_disks` and `sync_action` below `/sys/block/md*/md`
 * Reads `state` below `/sys/block/md*/md/dev-*` for what the kernel says about each member device
+* Reads the ARRAY lines of `/etc/mdadm.conf`, or `/etc/mdadm/mdadm.conf` where that does not exist, plus the `.d` directory beside it, the way mdadm reads them, and the names of the `md-uuid-*` links below `/dev/disk/by-id`
 * Needs no root and no `sudo`, and calls no external command
 
 
@@ -66,6 +68,7 @@ usage: md-raid [-h] [-V] [--always-ok] [--ignore IGNORE]
                [--mismatch-severity {ok,warn,crit,unknown}]
                [--no-arrays-severity {ok,warn,crit,unknown}]
                [--no-match-severity {ok,warn,crit,unknown}] [--no-perfdata]
+               [--not-running-severity {ok,warn,crit,unknown}]
                [--severity {ok,warn,crit,unknown}] [--spares SPARES]
                [--spares-severity {ok,warn,crit,unknown}]
 
@@ -80,7 +83,9 @@ a parity array has lost the write journal it needs in order to accept writes
 at all, when the kernel says a member wants replacing or has seen a write
 error, and when a consistency check found differences between the members of a
 parity array. With --spares it also alerts when an array holds fewer spare
-devices than it is supposed to. Supports extended reporting via --lengthy.
+devices than it is supposed to, and it alerts when an array listed in
+mdadm.conf is not running, which is how an array whose members did not turn up
+at boot shows. Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -137,6 +142,13 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
+  --not-running-severity {ok,warn,crit,unknown}
+                        State to report when an array listed in mdadm.conf is
+                        not running. mdadm assembles every listed array at
+                        boot from the members that turn up, so a listed array
+                        that is not running has lost members on the way, or
+                        was retired without being removed from mdadm.conf.
+                        Default: warn
   --severity {ok,warn,crit,unknown}
                         Severity for alerting. Applies to an array that is
                         running on fewer members than it was built for, so it
@@ -322,6 +334,7 @@ Leave a single array out, for example one that is deliberately kept degraded:
 * CRIT if a parity array has lost the write journal it keeps on a device of its own. Such an array reports every member in sync and cannot be written to. `--journal-severity` changes it.
 * CRIT if the kernel reports an array as `broken`, which is its own word for an array that can no longer serve its data.
 * CRIT if an array is `inactive`, which means it was assembled but never started.
+* WARN if an array listed in mdadm.conf is not running. `--not-running-severity` changes it.
 * WARN if the host runs no software RAID array at all, and WARN with a different explanation on a kernel that has no md support loaded, which are two different statements. `--no-arrays-severity` changes both.
 * OK if `--match` and `--ignore` leave nothing to check. `--no-match-severity` raises that.
 * UNKNOWN if `--match` or `--ignore` is not a valid Python regular expression.
@@ -340,6 +353,7 @@ The array counts are taken after `--match` and `--ignore` have been applied, so 
 | arrays_degraded            | Number | Arrays running on fewer members than they were built for. |
 | arrays_inactive            | Number | Arrays that were assembled but never started. |
 | arrays_journal_lost        | Number | Parity arrays that have lost their write journal and therefore accept no writes. |
+| arrays_not_running         | Number | Arrays listed in mdadm.conf that are not running. |
 | arrays_sync_frozen         | Number | Arrays whose sync is frozen, so they neither resync, recover nor reshape. |
 | arrays_syncing             | Number | Arrays with a resync, recovery, reshape or consistency check running. |
 | devices_faulty             | Number | Member devices the kernel has thrown out, across all arrays. |
@@ -565,6 +579,19 @@ Where it is really gone, start the array degraded on the members that are there 
 mdadm --stop /dev/md0
 mdadm --assemble --force --run /dev/md0 /dev/sda1
 ```
+
+### `Listed in mdadm.conf but not running`
+
+mdadm.conf names an array that the kernel is not running, so it was not assembled at boot. Mostly a member did not turn up: a disk that died, a controller that enumerated late, or a disk that was moved to another host.
+
+```bash
+sudo mdadm --examine --scan
+sudo mdadm --assemble --scan
+```
+
+The first command lists the arrays whose superblocks are on the attached disks, the second assembles every listed array whose members are there. An array that comes up with fewer members than it was built for is reported as degraded afterwards; treat it like the degraded case above.
+
+Where the array was retired on purpose, remove its line from mdadm.conf and rebuild the initial ramdisk, which carries a copy of the file, with `sudo dracut --force` on the Red Hat family or `sudo update-initramfs -u` on the Debian family.
 
 ### `No software RAID array on this host`
 

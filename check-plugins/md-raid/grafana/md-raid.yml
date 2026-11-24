@@ -205,6 +205,36 @@ spec:
         operator: '='
         value: arrays_journal_lost
 
+    - alias: Not running
+      refId: arrays_not_running
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - 'null'
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: arrays_not_running
+
     - alias: Sync frozen
       refId: arrays_sync_frozen
       groupBy:

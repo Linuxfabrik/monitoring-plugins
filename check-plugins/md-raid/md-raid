@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082605'
+__version__ = '2026112401'
 
 DESCRIPTION = """Reports the health of the Linux software RAID arrays (md) on this host: how
 many member devices each array is running on, which of them the kernel has thrown out,
@@ -36,7 +36,8 @@ it failed, when a parity array has lost the write journal it needs in order to a
 writes at all, when the kernel says a member wants replacing or has seen a write error,
 and when a consistency check found differences between the members of a parity array.
 With --spares it also alerts when an array holds fewer spare devices than it is supposed
-to.
+to, and it alerts when an array listed in mdadm.conf is not running, which is how an array
+whose members did not turn up at boot shows.
 Supports extended reporting via --lengthy."""
 
 # The kernel writes one block per array here. It exists on every kernel that has md
@@ -186,6 +187,24 @@ PROGRESS_PATTERN = re.compile(
 # They stand in for the progress line while nothing is running yet.
 PENDING_PATTERN = re.compile(r'^(?P<action>recover|reshape|resync)=(?P<state>[A-Z]+)$')
 
+# Where mdadm reads the arrays it is supposed to assemble, in the order mdadm reads them
+# (`load_conffile()` in config.c): /etc/mdadm.conf, and only where that does not exist
+# the Debian location /etc/mdadm/mdadm.conf, each followed by the `.d` directory beside
+# it. Either may itself be a directory, of which mdadm reads the `*.conf` files in
+# alphabetical order. Read from the source of mdadm 4.4.
+MDADM_CONF = '/etc/mdadm.conf'
+MDADM_CONF_ALT = '/etc/mdadm/mdadm.conf'
+
+# udev links every running array here under the UUID mdadm reports for it
+# (`63-md-raid-arrays.rules`, shipped by mdadm on RHEL and Debian alike), and only while
+# the array runs: the rule skips an array whose state is `clear` or `inactive`, so the
+# link goes away when the array is stopped. It is the one route from an ARRAY line to a
+# running array that needs no root, because `mdadm --detail` refuses a non-root caller.
+# The UUID is written as four groups of eight hex digits joined by colons
+# (`__fname_from_uuid()` in util.c).
+DISK_BY_ID_DIR = '/dev/disk/by-id'
+UUID_LINK_PREFIX = 'md-uuid-'
+
 SIZE_PATTERN = re.compile(r'^(?P<blocks>\d+) blocks\b')
 SUPER_PATTERN = re.compile(r'\bsuper (?P<metadata>\S+)')
 
@@ -196,6 +215,7 @@ DEFAULT_MIRROR_MISMATCH_SEVERITY = 'ok'
 DEFAULT_MISMATCH_SEVERITY = 'warn'
 DEFAULT_NO_ARRAYS_SEVERITY = 'warn'
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NOT_RUNNING_SEVERITY = 'warn'
 DEFAULT_SEVERITY = 'warn'
 DEFAULT_SPARES = None
 DEFAULT_SPARES_SEVERITY = 'warn'
@@ -229,6 +249,23 @@ NO_ARRAYS_HELP = (
     'Either every array was dismantled, in which case this check no longer belongs on '
     'this host, or the members did not turn up at boot. `mdadm --examine --scan` reads '
     'the superblocks that are still on the disks.'
+)
+
+
+NOT_RUNNING_HELP = (
+    'An array listed in mdadm.conf is assembled at boot from the members that turn up. '
+    '`sudo mdadm --assemble --scan` assembles every listed array whose members are '
+    'present, and `sudo mdadm --examine --scan` shows which superblocks are still on the '
+    'disks. An array that was retired on purpose is removed from mdadm.conf, and from '
+    'the initial ramdisk with `sudo dracut --force` on RHEL or '
+    '`sudo update-initramfs -u` on Debian.'
+)
+
+NO_UUID_LINKS_HELP = (
+    'mdadm.conf lists arrays, and this host has no `/dev/disk/by-id/md-uuid-*` links to '
+    'compare them with, so an array that did not come up at boot is not detected here. '
+    'The links come from the udev rules mdadm ships; a container or an initial ramdisk '
+    'without udev has none.'
 )
 
 
@@ -610,6 +647,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--not-running-severity',
+        help='State to report when an array listed in mdadm.conf is not running. '
+        'mdadm assembles every listed array at boot from the members that turn up, so a '
+        'listed array that is not running has lost members on the way, or was retired '
+        'without being removed from mdadm.conf. '
+        'Default: %(default)s',
+        dest='NOT_RUNNING_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NOT_RUNNING_SEVERITY,
+    )
+
+    parser.add_argument(
         '--severity',
         help=lib.args.help('--severity')
         + ' Applies to an array that is running on fewer members than it was built '
@@ -891,6 +940,139 @@ def get_names(root):
     return names
 
 
+def _conf_files(root, path):
+    """Return the files mdadm reads for `path`: the file itself, or the `*.conf`
+    files of a directory in alphabetical order, skipping hidden ones
+    (`conf_file_or_dir()` in config.c)."""
+    full = os.path.join(root, path.lstrip('/'))
+    if lib.disk.dir_exists(full):
+        try:
+            entries = sorted(os.listdir(full))
+        except OSError:
+            return []
+        return [
+            os.path.join(full, entry)
+            for entry in entries
+            if not entry.startswith('.') and len(entry) >= 6 and entry.endswith('.conf')
+        ]
+    if lib.disk.file_exists(full, allow_empty=True):
+        return [full]
+    return []
+
+
+def _conf_words(line):
+    """Split one physical line of mdadm.conf into its words.
+
+    Words are separated by blanks, a `#` at the start of a word comments out the rest of
+    the line, and a quoted stretch keeps its blanks and loses its quotes, all as
+    `conf_word()` in lib.c does it.
+    """
+    words = []
+    i = 0
+    length = len(line)
+    while i < length:
+        while i < length and line[i] in ' \t':
+            i += 1
+        if i >= length or line[i] == '#':
+            break
+        word = ''
+        quote = ''
+        while i < length and (quote or line[i] not in ' \t'):
+            char = line[i]
+            if quote and char == quote:
+                quote = ''
+            elif not quote and char in '\'"':
+                quote = char
+            else:
+                word += char
+            i += 1
+        words.append(word)
+    return words
+
+
+def parse_mdadm_conf(content):
+    """
+    Read the ARRAY lines out of the text of mdadm.conf.
+
+    Returns one dict per line that names a UUID, with the device name it gives (or '')
+    and the UUID as 32 lowercase hex digits. A line starting in the first column opens
+    a keyword, a line starting with a blank continues the one before, and comments and
+    empty lines do neither (`conf_line()` in lib.c). A keyword is recognised by its
+    first three or more letters, case-insensitive (`match_keyword()` in config.c).
+
+    Lines without a UUID name their array by its member devices or by a minor number,
+    which says nothing a non-root check can compare against a running array, and the
+    device name `<ignore>` tells mdadm to leave the array alone. Neither is reported.
+    """
+    lines = []
+    for raw in content.splitlines():
+        if not raw or raw[0] == '#':
+            continue
+        words = _conf_words(raw)
+        if raw[0] in ' \t':
+            if lines and words:
+                lines[-1].extend(words)
+            continue
+        if words:
+            lines.append(words)
+    arrays = []
+    for words in lines:
+        keyword = words[0]
+        if len(keyword) < 3 or not 'array'.startswith(keyword.lower()):
+            continue
+        devname = ''
+        uuid = ''
+        for word in words[1:]:
+            if word.startswith('/') or '=' not in word:
+                devname = devname or word
+            elif word.lower().startswith('uuid='):
+                # mdadm skips `:`, `.`, blanks and dashes and wants exactly 32 hex
+                # digits (`parse_uuid()` in uuid.c); anything else is a bad UUID it
+                # ignores, and so is it here
+                digits = re.sub(r'[:. -]', '', word[len('uuid=') :]).lower()
+                if not uuid and re.fullmatch(r'[0-9a-f]{32}', digits):
+                    uuid = digits
+        if not uuid or devname.lower() == '<ignore>':
+            continue
+        arrays.append({'devname': devname, 'uuid': uuid})
+    return arrays
+
+
+def get_expected_arrays(root):
+    """Return the arrays mdadm.conf lists with a UUID, read the way mdadm reads it."""
+    if _conf_files(root, MDADM_CONF):
+        conf = MDADM_CONF
+    elif _conf_files(root, MDADM_CONF_ALT):
+        conf = MDADM_CONF_ALT
+    else:
+        conf = MDADM_CONF
+    expected = []
+    for path in _conf_files(root, conf) + _conf_files(root, f'{conf}.d'):
+        success, content = lib.disk.read_file(path)
+        if success:
+            expected.extend(parse_mdadm_conf(content))
+    return expected
+
+
+def get_running_uuids(root):
+    """Return the UUIDs of the running arrays udev linked below /dev/disk/by-id, as 32
+    lowercase hex digits. Only the names of the links are read, never their targets."""
+    path = os.path.join(root, DISK_BY_ID_DIR.lstrip('/'))
+    try:
+        entries = os.listdir(path)
+    except OSError:
+        return set()
+    uuids = set()
+    for entry in entries:
+        # `-partN` links stand for the partitions of an array, not for the array
+        if not entry.startswith(UUID_LINK_PREFIX) or '-part' in entry:
+            continue
+        digits = re.sub(r'[:. -]', '', entry[len(UUID_LINK_PREFIX) :]).lower()
+        if re.fullmatch(r'[0-9a-f]{32}', digits):
+            uuids.add(digits)
+    return uuids
+
+
 def get_arrays(root):
     """
     Read every software RAID array the kernel knows about.
@@ -1170,6 +1352,8 @@ def main():
             'This check belongs on a Linux host.'
         )
     arrays, has_md = lib.base.coe(get_arrays(args.CONFIG_ROOT))
+    expected = get_expected_arrays(args.CONFIG_ROOT)
+    running_uuids = get_running_uuids(args.CONFIG_ROOT) if expected else set()
 
     # init some vars
     msg = ''
@@ -1267,13 +1451,43 @@ def main():
             }
         )
 
+    # Arrays mdadm.conf lists and the kernel does not run, which is how an array whose
+    # members did not turn up at boot shows: the kernel only knows the arrays that were
+    # assembled, so nothing in /proc/mdstat or /sys says that one is missing. The UUID
+    # is the identity mdadm assembles by, and the only one a running array is linked
+    # under without root. The links come from udev, so where an array runs and none of
+    # them exists, the host has no udev to ask and nothing is concluded from their
+    # absence. An inactive array gets no link and is reported here as well; it is not
+    # running, which is the point.
+    not_running = []
+    can_compare = bool(running_uuids) or all(
+        array['status'] == STATE_INACTIVE for array in arrays
+    )
+    if expected and can_compare:
+        for item in expected:
+            if item['uuid'] in running_uuids:
+                continue
+            identifier = os.path.basename(item['devname'])
+            if compiled_match and not any(
+                regex.search(identifier) for regex in compiled_match
+            ):
+                continue
+            if any(regex.search(identifier) for regex in compiled_ignore):
+                continue
+            not_running.append(item['devname'] or f'UUID {item["uuid"]}')
+        if not_running:
+            state = lib.base.get_worst(
+                state, lib.base.str2state(args.NOT_RUNNING_SEVERITY)
+            )
+
     # build the message
     if not arrays:
         if has_md:
-            msg = (
-                'No software RAID array on this host, so nothing could be checked.\n'
-                f'{NO_ARRAYS_HELP}'
-            )
+            msg = 'No software RAID array on this host, so nothing could be checked.'
+            # Where mdadm.conf names the arrays that are missing, the advice about them
+            # follows below and says more than a guess at why there are none.
+            if not not_running:
+                msg += f'\n{NO_ARRAYS_HELP}'
         else:
             msg = (
                 'This kernel has no software RAID support loaded, so there is no array '
@@ -1375,6 +1589,19 @@ def main():
             if item not in degraded:
                 msg += f'\n{frozen_help(item["name"])}'
 
+    # The arrays mdadm.conf lists and the kernel does not run lead the first line,
+    # since a notification about the arrays that do run would otherwise hide them.
+    if not_running:
+        marker = lib.base.state2str(
+            lib.base.str2state(args.NOT_RUNNING_SEVERITY), prefix=' '
+        )
+        msg = (
+            f'Listed in mdadm.conf but not running: {", ".join(not_running)}{marker}.'
+            f' {msg}\n{NOT_RUNNING_HELP}'
+        )
+    elif expected and not can_compare:
+        msg += f'\n{NO_UUID_LINKS_HELP}'
+
     perfdata += lib.base.get_perfdata('arrays', len(table_data), uom=None, _min=0)
     perfdata += lib.base.get_perfdata(
         'arrays_broken',
@@ -1400,6 +1627,13 @@ def main():
     perfdata += lib.base.get_perfdata(
         'arrays_journal_lost',
         len(journal_lost),
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'arrays_not_running',
+        len(not_running),
         uom=None,
         warn='0',
         _min=0,

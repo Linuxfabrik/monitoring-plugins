@@ -117,6 +117,31 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #                                 md code is in the kernel and the arrays are gone, here
 #                                 the host never had one
 #
+# The `conf-*` trees add an mdadm.conf and the udev links of the running arrays to one
+# of the captured trees above. The file layout, the link names and the behaviour were
+# measured on Rocky 9 with mdadm 4.4: `mdadm --detail --scan` writes
+# `ARRAY /dev/md/<name> metadata=1.2 UUID=xxxxxxxx:xxxxxxxx:xxxxxxxx:xxxxxxxx`, udev
+# links the array as `/dev/disk/by-id/md-uuid-<same UUID>`, and the link goes away when
+# the array is stopped, when it is assembled without starting (`inactive`), and when
+# its members are gone after a reboot. The parsing follows mdadm's own
+# (`load_conffile()`, `conf_line()`, `parse_uuid()`):
+#
+#   conf-one-array-not-running    three running arrays, a fourth listed in
+#                                 mdadm.conf.d, plus a `-part1` and an `md-name-` link
+#                                 that do not stand for an array
+#   conf-all-arrays-running       the same without the fourth
+#   conf-debian-location-syntax   /etc/mdadm/mdadm.conf only: lowercase and shortened
+#                                 keywords, a continuation line with a comment in
+#                                 between, quotes, dots and dashes in a UUID, `<ignore>`,
+#                                 a line without a UUID and one with a bad UUID
+#   conf-directory                /etc/mdadm.conf as a directory; only `*.conf` files
+#                                 that are not hidden count
+#   conf-no-array-running         no array runs, two are listed
+#   conf-without-udev-links       arrays run and udev linked none of them, as in a
+#                                 container: nothing can be compared
+#   conf-inactive-array-listed    a listed array assembled from one of two members and
+#                                 not started
+#
 # One wording is neither captured nor fixtured: `resync=DELAYED`, which an array gets
 # while another array on the same physical disk syncs first. It reaches the check
 # through the same code path as the captured `resync=PENDING`. The three REMOTE
@@ -592,6 +617,101 @@ TESTS = [
         'params': '--config-root=config/raid5-healthy-with-spare --no-perfdata',
         'assert-retc': STATE_OK,
         'assert-not-in': ["'arrays'="],
+    },
+    {
+        'id': 'warn-array-listed-in-mdadm-conf-not-running',
+        'test': '',
+        'params': '--config-root=config/conf-one-array-not-running',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Listed in mdadm.conf but not running: /dev/md/backup [WARNING]. '
+            '3 software RAID arrays, all of them intact.',
+            'sudo mdadm --assemble --scan',
+            "'arrays_not_running'=1;0;;0",
+        ],
+    },
+    {
+        'id': 'crit-array-listed-in-mdadm-conf-not-running-raised',
+        'test': '',
+        'params': '--config-root=config/conf-one-array-not-running '
+        '--not-running-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['/dev/md/backup [CRITICAL]'],
+    },
+    {
+        'id': 'ok-array-not-running-ignored-by-name',
+        'test': '',
+        'params': '--config-root=config/conf-one-array-not-running --ignore=^backup$',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['not running'],
+    },
+    {
+        'id': 'ok-array-not-running-left-out-by-match',
+        'test': '',
+        'params': '--config-root=config/conf-one-array-not-running --match=^md0$',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['not running'],
+    },
+    {
+        'id': 'ok-every-listed-array-runs',
+        'test': '',
+        'params': '--config-root=config/conf-all-arrays-running',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'arrays_not_running'=0;0;;0"],
+        'assert-not-in': ['not running'],
+    },
+    {
+        'id': 'warn-debian-location-and-mdadm-syntax',
+        'test': '',
+        'params': '--config-root=config/conf-debian-location-syntax',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Listed in mdadm.conf but not running: /dev/md/archive [WARNING].'
+        ],
+        'assert-not-in': ['<ignore>', 'scratch', '/dev/md/bad', '/dev/md/root'],
+    },
+    {
+        'id': 'warn-mdadm-conf-as-a-directory',
+        'test': '',
+        'params': '--config-root=config/conf-directory',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Listed in mdadm.conf but not running: /dev/md/one [WARNING].'],
+        'assert-not-in': ['hidden', '/dev/md/text'],
+    },
+    {
+        'id': 'warn-no-array-running-names-the-listed-ones',
+        'test': '',
+        'params': '--config-root=config/conf-no-array-running',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Listed in mdadm.conf but not running: /dev/md/data, /dev/md/backup '
+            '[WARNING]. No software RAID array on this host',
+        ],
+        'assert-not-in': ['Either every array was dismantled'],
+    },
+    {
+        'id': 'ok-no-udev-links-concludes-nothing',
+        'test': '',
+        'params': '--config-root=config/conf-without-udev-links',
+        'assert-retc': STATE_OK,
+        'assert-in': ['no `/dev/disk/by-id/md-uuid-*` links to compare them with'],
+        'assert-not-in': ['Listed in mdadm.conf'],
+    },
+    {
+        'id': 'crit-inactive-listed-array-is-also-not-running',
+        'test': '',
+        'params': '--config-root=config/conf-inactive-array-listed',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Listed in mdadm.conf but not running: /dev/md/data [WARNING]. md0: inactive.'
+        ],
+    },
+    {
+        'id': 'ok-no-mdadm-conf-changes-nothing',
+        'test': '',
+        'params': '--config-root=config/healthy-raid0-linear-raid10',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['mdadm.conf'],
     },
     {
         'id': 'ok-lengthy-adds-columns',

@@ -37,6 +37,9 @@
                 "--no-perfdata": {
                     "set_if": "$md_raid_no_perfdata$"
                 },
+                "--not-running-severity": {
+                    "value": "$md_raid_not_running_severity$"
+                },
                 "--severity": {
                     "value": "$md_raid_severity$"
                 },
@@ -120,6 +123,11 @@
                     "datafield_id": 14,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -163,7 +171,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Reports the health of the Linux software RAID arrays (md) on this host: how many member devices each array is running on, which of them the kernel has thrown out, what it says about each of the remaining ones, whether a resync, recovery or reshape is under way or frozen, and how many inconsistent sectors the last consistency check found. Every array the kernel knows is reported, so an array nobody remembers is on the list as well. Alerts when an array has lost the redundancy it was built for, when the kernel declares it failed, when a parity array has lost the write journal it needs in order to accept writes at all, when the kernel says a member wants replacing or has seen a write error, and when a consistency check found differences between the members of a parity array. With --spares it also alerts when an array holds fewer spare devices than it is supposed to. Supports extended reporting via --lengthy.",
+            "notes": "Reports the health of the Linux software RAID arrays (md) on this host: how many member devices each array is running on, which of them the kernel has thrown out, what it says about each of the remaining ones, whether a resync, recovery or reshape is under way or frozen, and how many inconsistent sectors the last consistency check found. Every array the kernel knows is reported, so an array nobody remembers is on the list as well. Alerts when an array has lost the redundancy it was built for, when the kernel declares it failed, when a parity array has lost the write journal it needs in order to accept writes at all, when the kernel says a member wants replacing or has seen a write error, and when a consistency check found differences between the members of a parity array. With --spares it also alerts when an array holds fewer spare devices than it is supposed to, and it alerts when an array listed in mdadm.conf is not running, which is how an array whose members did not turn up at boot shows. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/md-raid/",
             "object_name": "tpl-service-md-raid",
             "object_type": "template",
@@ -185,6 +193,7 @@
                 "md_raid_no_arrays_severity": "warn",
                 "md_raid_no_match_severity": "ok",
                 "md_raid_no_perfdata": false,
+                "md_raid_not_running_severity": "warn",
                 "md_raid_severity": "warn",
                 "md_raid_spares": [],
                 "md_raid_spares_severity": "warn"
@@ -381,6 +390,37 @@
             ],
             "uuid": "35085498-3bc1-4420-8579-8ed80d6fe6a1"
         },
+        "md_raid_not_running_severity_list": {
+            "list_name": "md_raid_not_running_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "f07f0767-b438-4a91-b672-605906074354"
+        },
         "md_raid_severity_list": {
             "list_name": "md_raid_severity_list",
             "owner": "icinga-admin",
@@ -573,6 +613,19 @@
             "uuid": "54cae3a6-233c-4afa-9e89-d0bbab454898"
         },
         "12": {
+            "varname": "md_raid_not_running_severity",
+            "caption": "Md Raid: Not Running Severity",
+            "description": "State to report when an array listed in mdadm.conf is not running. mdadm assembles every listed array at boot from the members that turn up, so a listed array that is not running has lost members on the way, or was retired without being removed from mdadm.conf.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "md_raid_not_running_severity_list"
+            },
+            "uuid": "462ccb24-2924-4d0b-be77-a88259ce9752"
+        },
+        "13": {
             "varname": "md_raid_severity",
             "caption": "Md Raid: Severity",
             "description": "Severity for alerting. Applies to an array that is running on fewer members than it was built for, so it has lost the redundancy it is meant to provide, and to a member the kernel threw out that is still attached to an array a spare has already brought back to its full width.",
@@ -585,7 +638,7 @@
             },
             "uuid": "0957ab0c-c6fd-44b0-8ca2-4f3ddc30c44d"
         },
-        "13": {
+        "14": {
             "varname": "md_raid_spares",
             "caption": "Md Raid: Spares",
             "description": "Number of spare devices an array is expected to hold. A bare count applies to every array, `array=count` pins one array and wins over the bare count. The array is named by its kernel device or by the name it was created under. Can be specified multiple times. Example: `--spares=1` on a host where every array carries one hot spare. Example: `--spares=md0=1 --spares=md1=0` where only the first one does.",
@@ -596,7 +649,7 @@
             },
             "uuid": "020e25bf-0864-40d0-ac87-01804ffede71"
         },
-        "14": {
+        "15": {
             "varname": "md_raid_spares_severity",
             "caption": "Md Raid: Spares Severity",
             "description": "State to report when an array holds fewer spare devices than --spares says it should. Without a spare the next member the kernel throws out leaves the array degraded until somebody puts a disk in.",
