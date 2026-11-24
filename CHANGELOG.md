@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-**Highlights:** A new check, `rpm-database`, warns when the RPM database is broken and the host silently stops receiving updates.
+**Highlights:** A new check, `rpm-database`, warns when the RPM database is broken and the host silently stops receiving updates. Two new checks, `blocky-logfile` and `blocky-stats`, monitor the blocky DNS ad-blocker.
 
 ### Added
 
