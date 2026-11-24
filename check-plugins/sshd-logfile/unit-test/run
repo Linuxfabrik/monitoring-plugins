@@ -541,6 +541,61 @@ class TestArrivalRate(unittest.TestCase):
                 )
         return path
 
+    def _write_logins(self, count, minutes):
+        """Write `count` successful logins spread evenly over the last `minutes`."""
+        path = os.path.join(self.scratch_dir, 'secure')
+        now = time.time()
+        with open(path, 'w', encoding='utf-8') as handle:
+            for index in range(count):
+                logged_at = datetime.datetime.fromtimestamp(
+                    now - minutes * 60 + index * minutes * 60 / count
+                )
+                handle.write(
+                    f'{_stamp(logged_at)} host sshd-session[240]: Accepted publickey'
+                    f' for alice from 198.51.100.7 port 45402 ssh2\n'
+                )
+        return path
+
+    def test_a_cap_that_cuts_into_the_rate_window_is_said(self):
+        # More lines within four minutes than the check reads: every rate is
+        # counted over four of the ten minutes it is judged by. Said, but the
+        # state is what the rates that were counted say.
+        path = self._write_logins(count=sshd_logfile.MAXLINES + 500, minutes=4)
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_OK, combined)
+        self.assertRegex(
+            combined,
+            r'The rates count low: they cover only the last [34]m(?: \d+s)? of'
+            r' `--lookback` \(10m\), as far as the most recent 30K lines read per'
+            r' source reach back\.',
+        )
+        self.assertIn('Lower `--lookback` to ', combined)
+        self.assertNotIn('[WARNING]', combined)
+
+    def test_a_cap_that_cuts_into_the_rate_window_keeps_a_rate_alert(self):
+        # The lines that were read still cross a threshold.
+        path = self._write_logins(count=sshd_logfile.MAXLINES + 500, minutes=4)
+        now = datetime.datetime.now()
+        with open(path, 'a', encoding='utf-8') as handle:
+            for index in range(20):
+                handle.write(
+                    FAILURE_LINE.format(
+                        timestamp=_stamp(now - datetime.timedelta(seconds=20 - index)),
+                        peer='198.51.100.7',
+                    )
+                    + '\n'
+                )
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_WARN, combined)
+        self.assertIn('The rates count low', combined)
+        self.assertIn('authentication failures from 198.51.100.7', combined)
+
+    def test_a_cap_that_reaches_back_far_enough_is_quiet(self):
+        path = self._write_logins(count=sshd_logfile.MAXLINES + 500, minutes=30)
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_OK, combined)
+        self.assertNotIn('The rates cover only', combined)
+
     def test_burst_within_the_window_warns(self):
         path = self._write_failures(count=20, minutes_ago=5)
         returncode, combined = _run([f'--server-log={path}'])

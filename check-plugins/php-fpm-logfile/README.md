@@ -356,6 +356,7 @@ Read 9 lines from 1 source:
 * WARN or CRIT if more request timeouts, slow requests, spawn pressure warnings or PHP fatal errors arrived within `--lookback` than `--request-timeouts-warning` / `--request-timeouts-critical`, `--slow-requests-warning` / `--slow-requests-critical`, `--spawn-pressure-warning` / `--spawn-pressure-critical` and `--fatal-errors-warning` / `--fatal-errors-critical` allow. The lines behind a counter that raised a state are listed.
 * WARN if the log file is configured but is not an existing regular file.
 * WARN if a log this check was told to read could not be read at all. The run goes on with the other sources rather than reporting the state of the ones that happened to work.
+* If the most recent 30000 lines read per source reach back less far than `--lookback`, the output says so and recommends a shorter `--lookback`, without changing the state. Every rate is then counted over a shorter stretch of time than its thresholds assume and counts low, so a burst that matters could stay below them.
 * UNKNOWN if not a single line in the window carries a PHP-FPM log level. The source is then something else, the pool `slowlog` or the access log for example.
 * UNKNOWN if no log file could be determined at all, or if `error_log` is set to `syslog`, which is not a file the check can open.
 * OK if the log file is empty, which is what a log looks like right after logrotate ran.
@@ -451,6 +452,12 @@ Every request that arrives while all workers are busy waits in the listen queue,
 3. Look at [php-fpm-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-status/) for how saturated the pool runs on an ordinary day. A quiet status page does not contradict the log. Saturation lasting seconds is over before the next poll, the `max children reached` counter of the status page resets whenever PHP-FPM restarts, and on a `dynamic` pool the reported total is the live worker count rather than `pm.max_children`.
 4. Raise `pm.max_children` only as far as the memory of the host allows: multiply the value by the resident size of a worker and keep the result well below the memory available.
 5. Where the requests themselves are slow, raising the limit only buys time. The slow requests in the pool `slowlog` name the scripts to profile.
+
+### The rates cover only part of `--lookback`
+
+`The rates count low: they cover only the last <duration> of --lookback (<duration>), as far as the most recent 30K lines read per source reach back`
+
+The log grows faster than the 30000 lines this check reads per source reach back, so the rates are counted over less time than `--lookback` names. Lower `--lookback` to the duration the message names and the rate thresholds in proportion, for example `--lookback=300` with half the thresholds where the check covers five of the ten minutes. Where one application floods the log, keeping that out of it widens the window again.
 
 
 ## Credits, License

@@ -280,6 +280,7 @@ Read 61 lines from 1 source:
 * WARN or CRIT if the number of banned clients that showed up again more than a minute after their ban within `--lookback` reaches `--ineffective-bans-warning` (default: 10) or `--ineffective-bans-critical` (default: 0, off).
 * WARN if the current process logged a line at `--warning-level` (default: `ERROR`) or worse, CRIT at `--critical-level` (default: `CRITICAL`) or worse.
 * WARN if one of several sources could not be read.
+* If the most recent 30000 lines read per source reach back less far than `--lookback`, the output says so and recommends a shorter `--lookback`, without changing the state. Every rate is then counted over a shorter stretch of time than its thresholds assume and counts low, so a burst that matters could stay below them.
 * UNKNOWN if neither a log file nor `fail2ban.service` is found and no `--server-log` is given, if the source cannot be read, if no line was written by fail2ban, and on invalid command-line arguments.
 * `--no-match-severity` sets the state when `--match` drops every line (default: `ok`).
 * `--always-ok` suppresses all alerts and always returns OK.
@@ -337,6 +338,12 @@ Stop fail2ban, move `/var/lib/fail2ban/fail2ban.sqlite3` aside and start fail2ba
 ### Host names are resolved
 
 Find the jail whose `Found` lines name the address the lookup returned. Its filter took something else for the client, for example the virtual host name an Apache log format writes in front of the client address. Fix the filter or the log format. Where the log really holds host names only, set `usedns = yes` in the jail to make the lookup deliberate, or `usedns = no` to ignore such lines.
+
+### The rates cover only part of `--lookback`
+
+`The rates count low: they cover only the last <duration> of --lookback (<duration>), as far as the most recent 30K lines read per source reach back`
+
+The log grows faster than the 30000 lines this check reads per source reach back, so the rates are counted over less time than `--lookback` names. Lower `--lookback` to the duration the message names and the rate thresholds in proportion, for example `--lookback=300` with half the thresholds where the check covers five of the ten minutes. Where one application floods the log, keeping that out of it widens the window again.
 
 
 ## Credits, License

@@ -379,6 +379,7 @@ Read the most recent 30K lines from 2 sources:
 * WARN or CRIT if more failed authentications, invalid users, access denials, throttled connections or aborted connections arrived within `--lookback` than `--auth-failures-warning` / `--auth-failures-critical`, `--invalid-users-warning` / `--invalid-users-critical`, `--access-denials-warning` / `--access-denials-critical`, `--throttled-connections-warning` / `--throttled-connections-critical` and `--aborted-connections-warning` / `--aborted-connections-critical` allow. A single one of any of them except a throttled connection never alerts.
 * WARN if the log file is configured but is not an existing regular file.
 * WARN if a log this check was told to read could not be read at all. The run goes on with the other sources rather than reporting the state of the ones that happened to work.
+* If the most recent 30000 lines read per source reach back less far than `--lookback`, the output says so and recommends a shorter `--lookback`, without changing the state. Every rate is then counted over a shorter stretch of time than its thresholds assume and counts low, so a burst that matters could stay below them.
 * UNKNOWN if not a single line in the window was written by sshd. The source is then something else, `SyslogFacility` sends sshd's lines to a file this check is not looking at, or nobody has connected to this host for as long as the window reaches back. Naming the source with `--server-log` settles the first two and is what to do in the third case as well.
 * UNKNOWN if the host keeps none of the usual authentication logs and has no sshd unit either, so there is nothing to read without `--server-log`.
 * OK if the log file is empty, which is what a log looks like right after logrotate ran.
@@ -447,6 +448,12 @@ sshd counts every connection that has not authenticated yet against `MaxStartups
 1. `sshd -T | grep maxstartups` says what the host actually allows.
 2. Raising the limit is the fix where the load is real. Where it is not, the addresses in the log say who is filling it.
 3. `ControlMaster` on the client side turns many sessions into one connection and removes the cause rather than the symptom.
+
+### The rates cover only part of `--lookback`
+
+`The rates count low: they cover only the last <duration> of --lookback (<duration>), as far as the most recent 30K lines read per source reach back`
+
+The log grows faster than the 30000 lines this check reads per source reach back, so the rates are counted over less time than `--lookback` names. Lower `--lookback` to the duration the message names and the rate thresholds in proportion, for example `--lookback=300` with half the thresholds where the check covers five of the ten minutes. Where one application floods the log, keeping that out of it widens the window again.
 
 
 ## Credits, License

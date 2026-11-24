@@ -269,6 +269,7 @@ Read 206 lines from 1 source:
 * WARN if the current process logged a line at `--warning-level` (default: `ERROR`) or worse, CRIT at `--critical-level` (default: `FATAL`) or worse.
 * CRIT if the last start attempt failed.
 * WARN if one of several sources could not be read.
+* If the most recent 30000 lines read per source reach back less far than `--lookback`, the output says so and recommends a shorter `--lookback`, without changing the state. Every rate is then counted over a shorter stretch of time than its thresholds assume and counts low, so a burst that matters could stay below them.
 * UNKNOWN if no `blocky.service` unit is found and no `--server-log` is given, if the source cannot be read, if no line carries a blocky log level, and on invalid command-line arguments.
 * `--no-match-severity` sets the state when `--match` drops every line (default: `ok`).
 * `--always-ok` suppresses all alerts and always returns OK.
@@ -326,6 +327,12 @@ Download the URL by hand from the blocky host: `curl --head <url>`. An HTTP 404 
 ### The window covers only an hour
 
 See the first of the Important Notes: set `queryLog.type: none`, or write the query log to a file or a database.
+
+### The rates cover only part of `--lookback`
+
+`The rates count low: they cover only the last <duration> of --lookback (<duration>), as far as the most recent 30K lines read per source reach back`
+
+The log grows faster than the 30000 lines this check reads per source reach back, so the rates are counted over less time than `--lookback` names. Lower `--lookback` to the duration the message names and the rate thresholds in proportion, for example `--lookback=300` with half the thresholds where the check covers five of the ten minutes. Where one application floods the log, keeping that out of it widens the window again.
 
 
 ## Credits, License

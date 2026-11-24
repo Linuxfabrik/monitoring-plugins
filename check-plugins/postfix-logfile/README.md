@@ -398,6 +398,7 @@ Read 74 lines from 1 source:
 * WARN or CRIT if more deliveries were deferred or bounced within `--lookback` than `--deferred-warning` / `--deferred-critical` and `--bounced-warning` / `--bounced-critical` allow, counted as a total.
 * WARN if the log file is configured but is not an existing regular file.
 * WARN if a log this check was told to read could not be read at all. The run goes on with the other sources rather than reporting the state of the ones that happened to work.
+* If the most recent 30000 lines read per source reach back less far than `--lookback`, the output says so and recommends a shorter `--lookback`, without changing the state. Every rate is then counted over a shorter stretch of time than its thresholds assume and counts low, so a burst that matters could stay below them.
 * UNKNOWN if not a single line in the window was written by Postfix. The source is then something else, the log of the application that hands its mail over for example.
 * UNKNOWN if no log could be determined at all.
 * OK if the log file is empty, which is what a log looks like right after logrotate ran.
@@ -446,6 +447,12 @@ Neither `/var/log/maillog` nor `/var/log/mail.log` exists and this host has no P
 ### Deferrals that never turn into bounces
 
 A message stays in the queue until `maximal_queue_lifetime` runs out - five days by default - so a relay that is down produces deferrals for days and bounces only afterwards. The deferral count is therefore the earlier signal of the two.
+
+### The rates cover only part of `--lookback`
+
+`The rates count low: they cover only the last <duration> of --lookback (<duration>), as far as the most recent 30K lines read per source reach back`
+
+The log grows faster than the 30000 lines this check reads per source reach back, so the rates are counted over less time than `--lookback` names. Lower `--lookback` to the duration the message names and the rate thresholds in proportion, for example `--lookback=300` with half the thresholds where the check covers five of the ten minutes. Where one application floods the log, keeping that out of it widens the window again.
 
 
 ## Credits, License
