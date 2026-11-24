@@ -9,6 +9,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 **Highlights:** Two new checks catch failures that otherwise stay silent: `rpm-database` warns when the RPM database is broken and the host no longer receives updates, and `fail2ban-logfile` warns when fail2ban keeps running while its bans have no effect. With `blocky-logfile` and `blocky-stats`, the blocky DNS ad-blocker is monitored as well.
 
+### Breaking Changes
+
+Monitoring Plugins:
+
+* kvm-storage-pool: `--warning` and `--critical` take the disk-usage form (`80`, `100GFREE`), replace Nagios ranges such as `@0:1`
+
+
 ### Added
 
 Monitoring Plugins:

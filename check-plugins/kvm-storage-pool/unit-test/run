@@ -46,7 +46,11 @@ TESTS = [
         'test': 'stdout/all-running,,0',
         'params': '',
         'assert-retc': STATE_OK,
-        'assert-in': ['Everything is ok (warn=80 crit=90).', 'default', 'isos'],
+        'assert-in': [
+            'Everything is ok (warn=80%USED crit=90%USED).',
+            'default',
+            'isos',
+        ],
     },
     {
         # Where a pool points is what makes two rows of the same figures tell
@@ -71,8 +75,8 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            'There are critical errors (warn=80 crit=90).',
-            'Filling up: default (93.0%)',
+            'There are critical errors (warn=80%USED crit=90%USED).',
+            'Filling up: default (93.0%, 65.2GiB free)',
         ],
     },
     {
@@ -80,7 +84,7 @@ TESTS = [
         'test': 'stdout/filling-up,,0',
         'params': '--warning=90 --critical=95',
         'assert-retc': STATE_WARN,
-        'assert-in': ['There are warnings (warn=90 crit=95).'],
+        'assert-in': ['There are warnings (warn=90%USED crit=95%USED).'],
     },
     {
         'id': 'ok-usage-below-warning',
@@ -88,6 +92,70 @@ TESTS = [
         'params': '--warning=95 --critical=99',
         'assert-retc': STATE_OK,
         'assert-in': ['93.0%'],
+    },
+    # The thresholds take the form of `disk-usage`: a share or an amount, used or
+    # free. The fixture is 93.0% used, 866.1 GiB used and 65.2 GiB free of 931.3 GiB.
+    {
+        'id': 'warn-free-space-below-gfree',
+        'test': 'stdout/filling-up,,0',
+        'params': '--warning=100GFREE --critical=99',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '(warn=100GFREE crit=99%USED).',
+            'Filling up: default (93.0%, 65.2GiB free) [WARNING].',
+        ],
+    },
+    {
+        'id': 'crit-free-space-below-gfree',
+        'test': 'stdout/filling-up,,0',
+        'params': '--warning=200GFREE --critical=70GFREE',
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'ok-free-space-above-gfree',
+        'test': 'stdout/filling-up,,0',
+        'params': '--warning=50GFREE --critical=10GFREE',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'warn-amount-used-above-gused',
+        'test': 'stdout/filling-up,,0',
+        'params': '--warning=800GUSED --critical=900GUSED',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'warn-share-free-below-percent-free',
+        'test': 'stdout/filling-up,,0',
+        'params': '--warning=10%FREE --critical=5%FREE',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        # A percentage threshold is drawn on the share used, an absolute one on the
+        # amount used, each where it alerts: 100 GiB free of 10^12 bytes is
+        # 892625817600 bytes used.
+        'id': 'parses-thresholds-into-the-matching-perfdata',
+        'test': 'stdout/filling-up,,0',
+        'params': '--warning=100GFREE --critical=95',
+        'assert-in': [
+            "'var_lib_libvirt_images_usage'=93.0%;;95.0;0;100",
+            "'var_lib_libvirt_images_allocation'=930000000000B;892625817600;;0;",
+        ],
+    },
+    {
+        # Nagios ranges are not part of this form. A range comes back as no number and
+        # is refused, instead of being compared as a threshold nobody gave.
+        'id': 'unknown-range-is-no-threshold',
+        'test': 'stdout/filling-up,,0',
+        'params': '--warning=80:',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid --warning: expected a number'],
+    },
+    {
+        'id': 'unknown-garbage-threshold',
+        'test': 'stdout/filling-up,,0',
+        'params': '--critical=abc',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid --critical: expected a number'],
     },
     {
         # "Running degraded": the pool lost part of the storage behind it and is
@@ -129,7 +197,7 @@ TESTS = [
         'test': 'stdout/inactive-no-autostart,,0',
         'params': '',
         'assert-retc': STATE_OK,
-        'assert-in': ['Everything is ok (warn=80 crit=90).', 'inactive'],
+        'assert-in': ['Everything is ok (warn=80%USED crit=90%USED).', 'inactive'],
         'assert-not-in': ['Set to start with the host'],
     },
     {
@@ -158,7 +226,7 @@ TESTS = [
         'test': 'stdout/shared-store,,0',
         'params': '',
         'assert-retc': STATE_CRIT,
-        'assert-in': ['Filling up: images, isos (93.0%)'],
+        'assert-in': ['Filling up: images, isos (93.0%, 65.2GiB free)'],
     },
     {
         # Two names for one and the same directory share the store row, their names

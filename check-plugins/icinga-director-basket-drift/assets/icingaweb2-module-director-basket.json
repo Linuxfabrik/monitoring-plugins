@@ -20117,7 +20117,7 @@
         "1929": {
             "varname": "kvm_storage_pool_critical",
             "caption": "KVM Storage Pool: Critical",
-            "description": "CRIT threshold for the share of a pool that is taken, in percent. Supports Nagios ranges.",
+            "description": "CRIT threshold in the form `<number>[unit][method]`. Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means kibibyte etc. Method is one of `USED|FREE` (default: `USED`). `USED` means \"number or more\", `FREE` means \"number or less\". Examples: `95` = 95% used. `9.5M` = 9.5 MiB used. `5%FREE`. `1400GUSED`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -20203,7 +20203,7 @@
         "1937": {
             "varname": "kvm_storage_pool_warning",
             "caption": "KVM Storage Pool: Warning",
-            "description": "WARN threshold for the share of a pool that is taken, in percent. Supports Nagios ranges.",
+            "description": "WARN threshold in the form `<number>[unit][method]`. Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means kibibyte etc. Method is one of `USED|FREE` (default: `USED`). `USED` means \"number or more\", `FREE` means \"number or less\". Examples: `95` = 95% used. `9.5M` = 9.5 MiB used. `5%FREE`. `1400GUSED`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -159852,7 +159852,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the storage pools a libvirt host keeps its virtual machines on. Reports the storage behind them and the pools themselves in two tables: one per store, with how full it is and which pools sit on it, and one per pool. Alerts if a store is filling up, if a pool lost part of what it serves from, if it cannot be reached at all, and if a pool that is configured to start together with the host is not active. Several pools commonly share one filesystem, which is reported and alerted on once rather than once per pool. Supports extended reporting via --lengthy. Runs without root or sudo.",
+            "notes": "Checks the storage pools a libvirt host keeps its virtual machines on. Reports the storage behind them and the pools themselves in two tables: one per store, with how full it is and which pools sit on it, and one per pool. Alerts if a store is filling up, by the share used or by the space left, if a pool lost part of what it serves from, if it cannot be reached at all, and if a pool that is configured to start together with the host is not active. Several pools commonly share one filesystem, which is reported and alerted on once rather than once per pool. Supports extended reporting via --lengthy. Runs without root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kvm-storage-pool/",
             "object_name": "tpl-service-kvm-storage-pool",
             "object_type": "template",
@@ -159865,7 +159865,7 @@
                 "criticality": "B",
                 "kvm_storage_pool_always_ok": false,
                 "kvm_storage_pool_brief": false,
-                "kvm_storage_pool_critical": "90",
+                "kvm_storage_pool_critical": "90%USED",
                 "kvm_storage_pool_ignore": [],
                 "kvm_storage_pool_lengthy": true,
                 "kvm_storage_pool_match": [],
@@ -159873,7 +159873,7 @@
                 "kvm_storage_pool_no_perfdata": false,
                 "kvm_storage_pool_timeout": 8,
                 "kvm_storage_pool_url": "qemu:///system",
-                "kvm_storage_pool_warning": "80"
+                "kvm_storage_pool_warning": "80%USED"
             },
             "volatile": null,
             "zone": null,

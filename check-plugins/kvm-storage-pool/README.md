@@ -2,7 +2,7 @@
 
 ## Overview
 
-Checks the storage pools a libvirt host keeps its virtual machines on. Reports the storage behind them and the pools themselves in two tables: one per store, with how full it is and which pools sit on it, and one per pool. Alerts if a store is filling up, if a pool lost part of what it serves from, if it cannot be reached at all, and if a pool that is configured to start together with the host is not active. Several pools commonly share one filesystem, which is reported and alerted on once rather than once per pool. Supports extended reporting via --lengthy. Runs without root or sudo.
+Checks the storage pools a libvirt host keeps its virtual machines on. Reports the storage behind them and the pools themselves in two tables: one per store, with how full it is and which pools sit on it, and one per pool. Alerts if a store is filling up, by the share used or by the space left, if a pool lost part of what it serves from, if it cannot be reached at all, and if a pool that is configured to start together with the host is not active. Several pools commonly share one filesystem, which is reported and alerted on once rather than once per pool. Supports extended reporting via --lengthy. Runs without root or sudo.
 
 **Why two tables:**
 
@@ -71,11 +71,12 @@ usage: kvm-storage-pool [-h] [-V] [--always-ok] [--brief] [-c CRIT]
 Checks the storage pools a libvirt host keeps its virtual machines on. Reports
 the storage behind them and the pools themselves in two tables: one per store,
 with how full it is and which pools sit on it, and one per pool. Alerts if a
-store is filling up, if a pool lost part of what it serves from, if it cannot
-be reached at all, and if a pool that is configured to start together with the
-host is not active. Several pools commonly share one filesystem, which is
-reported and alerted on once rather than once per pool. Supports extended
-reporting via --lengthy. Runs without root or sudo.
+store is filling up, by the share used or by the space left, if a pool lost
+part of what it serves from, if it cannot be reached at all, and if a pool
+that is configured to start together with the host is not active. Several
+pools commonly share one filesystem, which is reported and alerted on once
+rather than once per pool. Supports extended reporting via --lengthy. Runs
+without root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -86,8 +87,12 @@ options:
                         alerting are unaffected: every item still emits
                         performance data and still drives the overall check
                         state, so this is safe to leave on.
-  -c, --critical CRIT   CRIT threshold for the share of a pool that is taken,
-                        in percent. Supports Nagios ranges. Default: 90
+  -c, --critical CRIT   CRIT threshold in the form `<number>[unit][method]`.
+                        Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means
+                        kibibyte etc. Method is one of `USED|FREE` (default:
+                        `USED`). `USED` means "number or more", `FREE` means
+                        "number or less". Examples: `95` = 95% used. `9.5M` =
+                        9.5 MiB used. `5%FREE`. `1400GUSED`. Default: 90%USED
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
@@ -113,8 +118,12 @@ options:
                         Use `qemu+ssh://user@host/system` to check a host that
                         runs no local monitoring agent. Default:
                         qemu:///system
-  -w, --warning WARN    WARN threshold for the share of a pool that is taken,
-                        in percent. Supports Nagios ranges. Default: 80
+  -w, --warning WARN    WARN threshold in the form `<number>[unit][method]`.
+                        Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means
+                        kibibyte etc. Method is one of `USED|FREE` (default:
+                        `USED`). `USED` means "number or more", `FREE` means
+                        "number or less". Examples: `95` = 95% used. `9.5M` =
+                        9.5 MiB used. `5%FREE`. `1400GUSED`. Default: 80%USED
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kvm-storage-pool/
@@ -130,7 +139,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kvm-storage-pool/
 Output:
 
 ```text
-Everything is ok (warn=80 crit=90).
+Everything is ok (warn=80%USED crit=90%USED).
 
 Store                   ! Pools   ! Size     ! Used     ! Avail   ! Use%
 ------------------------+---------+----------+----------+---------+------
@@ -146,7 +155,7 @@ isos    ! /srv/isos               ! yes       ! running
 A host whose four pools are four directories of one filesystem. One store row for all of them, and the pool table still shows each pool with its own path:
 
 ```text
-Everything is ok (warn=80 crit=90).
+Everything is ok (warn=80%USED crit=90%USED).
 
 Store ! Pools                           ! Size   ! Used   ! Avail    ! Use%
 ------+---------------------------------+--------+--------+----------+------
@@ -163,7 +172,7 @@ nvram     ! /var/lib/libvirt/qemu/nvram ! yes       ! running
 Storage running out of room. One alert for the store, however many pools are on it, and the pools themselves are fine:
 
 ```text
-There are critical errors (warn=80 crit=90). Filling up: images, isos (93.0%).
+There are critical errors (warn=80%USED crit=90%USED). Filling up: images, isos (93.0%, 65.2GiB free) [CRITICAL].
 
 Store   ! Pools        ! Size     ! Used     ! Avail   ! Use%
 --------+--------------+----------+----------+---------+-----------------
@@ -178,7 +187,7 @@ isos   ! /srv/vm ! yes       ! running
 The other way round happens too: a pool that lost part of what it serves from, on storage that is nowhere near full:
 
 ```text
-There are warnings (warn=80 crit=90). Degraded: data.
+There are warnings (warn=80%USED crit=90%USED). Degraded: data.
 
 Store       ! Pools ! Size   ! Used     ! Avail  ! Use%
 ------------+-------+--------+----------+--------+------
@@ -192,7 +201,7 @@ data ! /dev/vgdata ! yes       ! degraded [WARNING]
 A pool that was supposed to come up with the host. It reports no sizes, so there is no store row for it at all:
 
 ```text
-There are warnings (warn=80 crit=90). Set to start with the host but not running: backup.
+There are warnings (warn=80%USED crit=90%USED). Set to start with the host but not running: backup.
 
 Pool   ! Path        ! Autostart ! State
 -------+-------------+-----------+-------------------
@@ -210,6 +219,12 @@ Pool    ! Path                    ! Autostart ! Persistent ! State
 --------+-------------------------+-----------+------------+--------
 default ! /var/lib/libvirt/images ! yes       ! yes        ! running
 isos    ! /srv/isos               ! yes       ! yes        ! running
+```
+
+A large store judged by the space left on it rather than by its share, which on 100 TB would leave several terabytes unused before the first alert:
+
+```bash
+./kvm-storage-pool --warning=500GFREE --critical=200GFREE
 ```
 
 Watching the pools that hold machines and leaving the ISO library alone:
@@ -232,14 +247,14 @@ Checking a hypervisor that runs no local monitoring agent:
 * OK for a pool that is not running and was not asked to start with the host.
 * WARN if a pool is `degraded`, or in a state libvirt introduced after this check was written.
 * WARN if a pool is set to start with the host and is not running.
-* WARN if the storage behind a pool is `--warning` percent full or more (default: 80). Pools sharing that storage are alerted on as one group.
-* CRIT if a pool is `inaccessible`, or reaches `--critical` (default: 90).
-* UNKNOWN if libvirt cannot be reached, if `virsh` is missing, or on an invalid `--match` or `--ignore` pattern.
+* WARN if the storage behind a pool reaches `--warning` (default: `80%USED`). Pools sharing that storage are alerted on as one group.
+* CRIT if a pool is `inaccessible`, or its storage reaches `--critical` (default: `90%USED`).
+* UNKNOWN if libvirt cannot be reached, if `virsh` is missing, on an invalid `--match` or `--ignore` pattern, or on a threshold that does not have the form `<number>[unit][method]`.
 * `--no-match-severity` sets the state reported when `--match` or `--ignore` leave no pool to check (default: `ok`).
 * `--brief` hides the rows that are within the thresholds. It changes nothing about the state or the performance data.
 * `--always-ok` suppresses all alerts and always returns OK.
 
-Both thresholds accept [Nagios ranges](../THRESHOLDS.md), so `--warning=@0:1` alerts on a pool that is suspiciously *empty*, which is what a pool pointing at the wrong place looks like.
+The thresholds have the form `disk-usage` uses, `<number>[unit][method]`: a share (`90`, `10%FREE`) or an amount (`1400GUSED`, `100GFREE`), with `USED` alerting at the number or more and `FREE` at the number or less. A plain number is a share used. The two thresholds may mix forms, for example `--warning=500GFREE --critical=98`, and the worse verdict counts.
 
 
 ## Perfdata / Metrics
