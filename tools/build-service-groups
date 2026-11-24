@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Build the ServiceGroups of the LF priority levels in all-the-rest.json.
+
+`assets/icingaweb2-module-director/service-groups.yml` sorts every service
+template into one of the groups and holds the rules for services that are not
+part of a Service Set. This tool resolves every Service Set member of
+all-the-rest.json to its group and writes one ServiceGroup per level, whose
+assign filter lists the Service Set members by name and catches the other
+services with the wildcard rules, in their order.
+
+The Director parses assign filters as URL query strings, so every value is
+percent-encoded: a literal parenthesis, as in "Kernel Ring Buffer (dmesg)",
+otherwise ends the expression ("unexpected ) at pos ..."). Verified with Icinga
+Director 1.12.1.
+
+A Service Set member whose template is in no group aborts the run, so a new
+Service Set cannot slip through without a level.
+"""
+
+import argparse
+import fnmatch
+import re
+import urllib.parse
+import uuid
+
+import _basket
+import _common
+import yaml
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026112401'
+
+DESCRIPTION = """Write the ServiceGroups of the LF priority levels from service-groups.yml into
+all-the-rest.json."""
+
+SERVICE_GROUPS_FILE = (
+    _common.REPO_ROOT / 'assets/icingaweb2-module-director/service-groups.yml'
+)
+
+TEMPLATE_PREFIX = 'tpl-service-'
+TEMPLATE_SUFFIXES = ('-no-agent', '-sudo', '-windows')
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '--check',
+        help='Only report whether all-the-rest.json is current, exit 1 if not.',
+        dest='CHECK',
+        action='store_true',
+        default=False,
+    )
+
+    return parser.parse_args()
+
+
+def template_base(name):
+    """`tpl-service-mysql-health-sudo` -> `mysql-health`."""
+    name = name.removeprefix(TEMPLATE_PREFIX)
+    for suffix in TEMPLATE_SUFFIXES:
+        name = name.removesuffix(suffix)
+    return name
+
+
+def set_members(basket):
+    """Return {service name: template} of every Service Set member."""
+    members = {}
+    for service_set in basket.get('ServiceSet', {}).values():
+        for name, service in service_set.get('services', {}).items():
+            imports = service.get('imports') or ['']
+            members.setdefault(name, imports[0])
+    return members
+
+
+def group_of_member(config, name, template):
+    """The group of a Service Set member, or None."""
+    for override in config['service_name_overrides']:
+        if re.search(override['regex'], name):
+            return override['group']
+    base = template_base(template)
+    for group in config['groups']:
+        if any(fnmatch.fnmatchcase(base, t) for t in group['templates']):
+            return group['object_name']
+    return None
+
+
+def term(name):
+    return 'service.name=%22' + urllib.parse.quote(name, safe='') + '%22'
+
+
+def any_of(names):
+    return '(' + '|'.join(term(name) for name in names) + ')'
+
+
+def assign_filter(config, group, member_groups):
+    """Director assign filter of one group."""
+    parts = []
+    members = sorted(n for n, g in member_groups.items() if g == group)
+    if members:
+        parts.append(any_of(members))
+    rules = config['hand_made_services']
+    for i, rule in enumerate(rules):
+        if rule['group'] != group:
+            continue
+        part = any_of(rule['globs'])
+        earlier = [glob for r in rules[:i] for glob in r['globs']]
+        if earlier:
+            part += '&!' + any_of(earlier)
+        # Service Set members of other groups the rule would catch
+        others = sorted(
+            n
+            for n, g in member_groups.items()
+            if g != group and any(fnmatch.fnmatchcase(n, x) for x in rule['globs'])
+        )
+        if others:
+            part += '&!' + any_of(others)
+        parts.append('(' + part + ')')
+    return '|'.join(parts)
+
+
+def main():
+    """Build the ServiceGroups and write or check all-the-rest.json."""
+    args = parse_args()
+
+    try:
+        config = yaml.safe_load(SERVICE_GROUPS_FILE.read_text(encoding='utf-8'))
+    except (OSError, yaml.YAMLError) as exc:
+        _common.die(f'build-service-groups: cannot read {SERVICE_GROUPS_FILE}: {exc}')
+    basket = _basket.load_basket(_basket.ALL_THE_REST_BASKET)
+
+    member_groups = {}
+    missing = []
+    for name, template in sorted(set_members(basket).items()):
+        group = group_of_member(config, name, template)
+        if group is None:
+            missing.append(f'{name} ({template})')
+        member_groups[name] = group
+    if missing:
+        _common.die(
+            'build-service-groups: no group in service-groups.yml for these Service'
+            ' Set members, add their template to one:\n  ' + '\n  '.join(missing)
+        )
+
+    old = basket.get('ServiceGroup', {})
+    groups = {}
+    for group in config['groups']:
+        name = group['object_name']
+        groups[name] = {
+            'assign_filter': assign_filter(config, name, member_groups),
+            'disabled': False,
+            'display_name': group['display_name'],
+            'object_name': name,
+            'object_type': 'object',
+            # keep the uuid, the Director matches basket objects by it
+            'uuid': old.get(name, {}).get('uuid') or str(uuid.uuid4()),
+        }
+
+    # keep the order of the sections, a missing ServiceGroup goes before
+    # ServiceTemplate
+    new = {}
+    for key, value in basket.items():
+        if key == 'ServiceTemplate' and 'ServiceGroup' not in basket:
+            new['ServiceGroup'] = groups
+        new[key] = groups if key == 'ServiceGroup' else value
+    new.setdefault('ServiceGroup', groups)
+
+    current = _basket.ALL_THE_REST_BASKET.read_text(encoding='utf-8')
+    wanted = _basket.dump_basket(new)
+    if args.CHECK:
+        if current != wanted:
+            _common.die(
+                'build-service-groups: all-the-rest.json is not current, run'
+                ' tools/build-service-groups'
+            )
+        return
+    if current != wanted:
+        _basket.save_basket(_basket.ALL_THE_REST_BASKET, new)
+    for name in groups:
+        count = sum(1 for g in member_groups.values() if g == name)
+        print(f'{name}: {count} Service Set members')
+
+
+if __name__ == '__main__':
+    main()
