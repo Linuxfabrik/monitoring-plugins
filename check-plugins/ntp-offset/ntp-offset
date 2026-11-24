@@ -13,6 +13,7 @@
 import argparse
 import json
 import re
+import select
 import socket
 import struct
 import sys
@@ -24,16 +25,18 @@ import lib.lftest
 import lib.net
 import lib.shell
 import lib.txt
-from lib.globals import STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102501'
+__version__ = '2026112401'
 
 DESCRIPTION = """Checks how far the system clock is off from the time of an NTP server,
 in milliseconds, measured by the check itself and not taken from the local time service.
-By default it asks the NTP server the local time service follows. Alerts when the offset
-exceeds the configured thresholds, when no NTP server is found, when it does not answer,
-or when it is not synchronized itself."""
+By default it asks the NTP server the local time service follows. A server name with
+several addresses, such as a pool, is asked at all of them, and the best server among
+them is the reference. Alerts when the offset exceeds the configured thresholds, when no
+NTP server is found, when it does not answer, when it is not synchronized itself, or
+when the servers behind one name disagree with each other by more than the thresholds."""
 
 DEFAULT_CRIT = '60000'  # ms, 1 minute
 DEFAULT_HOSTNAME = 'auto'
@@ -50,6 +53,12 @@ KISS_CODES = ('DENY', 'RATE', 'RSTR')
 # (chronyd: maxdistance 3 s, systemd-timesyncd: RootDistanceMaxSec 5 s).
 MAX_ROOT_DISTANCE = 1.5  # s
 NTP_PORT = 123
+# How long to keep waiting for the other addresses of a name once one has answered. A
+# pool member that does not answer at all would otherwise use up the whole --timeout
+# and leave no time for the samples of the server that did. One second is what
+# check_ntp_time leaves between two requests to one server, and far above the
+# round-trip time of any NTP server that is worth comparing against.
+PEER_WAIT = 1  # s
 # Several samples, of which the one with the smallest round-trip delay counts: queueing
 # on one of the two paths adds to the delay and skews the offset (RFC 5905, section
 # 10, clock filter). One second apart, as check_ntp_time does: ntpd and NTPsec drop
@@ -159,9 +168,9 @@ def analyze(answer):
     Returns
     -------
     tuple
-        `(True, {'delay': ms, 'offset': ms, 'stratum': int})`, where a positive offset
-        means that the server is ahead and the system clock is slow, or
-        `(False, reason)`.
+        `(True, {'delay': ms, 'offset': ms, 'root_distance': ms, 'stratum': int})`,
+        where a positive offset means that the server is ahead and the system clock is
+        slow, or `(False, reason)`.
     """
     reply = answer['reply']
     if len(reply) < 48:
@@ -213,9 +222,51 @@ def analyze(answer):
         {
             'delay': ((t4 - t1) - (t3 - t2)) * 1000,
             'offset': ((t2 - t1) + (t3 - t4)) / 2 * 1000,
+            'root_distance': root_distance * 1000,
             'stratum': stratum,
         },
     )
+
+
+def best_sample(answers):
+    """
+    Return the usable answer with the smallest round-trip delay among the answers of one
+    address, as `(sample, None)`, or `(None, reason)` if none of them is usable.
+
+    Queueing on one of the two paths adds to the delay and skews the offset, so the
+    answer that waited least is the most accurate one (RFC 5905, section 10).
+    """
+    result, failure = None, None
+    for answer in answers:
+        success, sample = analyze(answer)
+        if not success:
+            failure = failure or sample
+        elif result is None or sample['delay'] < result['delay']:
+            result = sample
+    return (result, None if result else failure)
+
+
+def choose_server(servers):
+    """
+    Return the address whose server is the best reference, or None if none is usable.
+
+    `servers` maps an address to its best sample (or None). The best reference has the
+    lowest stratum, and among equals the smallest synchronization distance, which is the
+    root distance of the server plus half the round-trip delay to it: how far its time
+    can be off from UTC by the time it gets here (RFC 5905, section 11.2.1). This is
+    the order check_ntp_time picks by (stratum, dispersion, delay), put into one
+    distance as ntpd and chronyd do.
+    """
+    usable = [(address, sample) for address, sample in servers.items() if sample]
+    if not usable:
+        return None
+    return min(
+        usable,
+        key=lambda item: (
+            item[1]['stratum'],
+            item[1]['root_distance'] + item[1]['delay'] / 2,
+        ),
+    )[0]
 
 
 def discover(args, deadline):
@@ -560,6 +611,103 @@ def query(hostname, timeout):
     return (False, error)
 
 
+def query_all(hostname, timeout):
+    """
+    Send one SNTP client request to every address `hostname` resolves to, all at once,
+    and collect the answers.
+
+    Waits until every address has answered, `timeout` seconds have passed (name
+    resolution included), or `PEER_WAIT` seconds have passed since the first answer,
+    whichever comes first.
+
+    Parameters
+    ----------
+    hostname : str
+        Name or IP address of the NTP server.
+    timeout : int
+        Seconds to wait for the answers, for all addresses together.
+
+    Returns
+    -------
+    tuple
+        `(True, {address: answer or error message})`, with every answer as `query()`
+        returns it, or `(False, message)` if the name does not resolve.
+    """
+    deadline = time.monotonic() + timeout
+    try:
+        addresses = lib.net.getaddrinfo(
+            hostname, NTP_PORT, socktype=lib.net.SOCK_UDP, timeout=timeout
+        )
+    except socket.timeout:
+        return (
+            False,
+            f'Cannot resolve NTP server {hostname}: the name server did not answer'
+            f' within {timeout}s.',
+        )
+    except (OSError, UnicodeError) as e:
+        return (False, f'Cannot resolve NTP server {hostname}: {e}.')
+
+    results = {}
+    pending = {}
+    try:
+        for family, socktype, proto, _, sockaddr in addresses:
+            address = sockaddr[0]
+            # a name resolves to the same address once per socket type and family
+            # combination the resolver offers; one request per address is enough
+            if address in results or address in pending.values():
+                continue
+            try:
+                sock = socket.socket(family, socktype, proto)
+            except OSError as e:
+                results[address] = f'{e.strerror or e}'
+                continue
+            try:
+                sock.setblocking(False)
+                # connected, so the kernel drops datagrams from any other sender
+                sock.connect(sockaddr)
+                t1 = time.time()
+                request = struct.pack('!B39xII', 0x23, *to_ntp(t1))
+                sock.send(request)
+            except OSError as e:
+                sock.close()
+                results[address] = f'{e.strerror or e}'
+                continue
+            pending[sock] = address
+            results[address] = {'address': address, 'request': request, 't1': t1}
+
+        first_answer = None
+        while pending:
+            now = time.monotonic()
+            until = (
+                deadline
+                if first_answer is None
+                else min(deadline, first_answer + PEER_WAIT)
+            )
+            if now >= until:
+                break
+            readable, _, _ = select.select(list(pending), [], [], until - now)
+            for sock in readable:
+                address = pending.pop(sock)
+                try:
+                    reply = sock.recv(1024)
+                    t4 = time.time()
+                except OSError as e:
+                    # for example "Connection refused" if the host runs no NTP server
+                    results[address] = f'{e.strerror or e}'
+                else:
+                    results[address].update({'reply': reply, 't4': t4})
+                    first_answer = first_answer or time.monotonic()
+                sock.close()
+    finally:
+        for sock in pending:
+            sock.close()
+    # an address that never answered
+    for address, result in results.items():
+        if isinstance(result, dict) and 'reply' not in result:
+            results[address] = 'no answer'
+    return (True, results)
+
+
 def to_ntp(unix_time):
     """
     Convert a Unix timestamp to an NTP timestamp.
@@ -617,12 +765,59 @@ def main():
         hostname, used_by = found
     if args.TEST is None:
         remaining = max(1, round(deadline - time.monotonic()))
-        success, answer = query(hostname, remaining)
+        success, first_round = query_all(hostname, remaining)
         if not success:
-            lib.base.oao(answer, STATE_WARN, always_ok=args.ALWAYS_OK)
-        answers = [answer]
-        # more samples from the same address, as long as the server gives usable ones
-        # and the time allows
+            lib.base.oao(first_round, STATE_WARN, always_ok=args.ALWAYS_OK)
+    else:
+        # do not query a server, put in test data: one answer or a list of them, each
+        # the request and the answer as hex plus the local send and receive times and
+        # the address it came from; an address that did not answer is an entry with an
+        # `error` instead
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        first_round = {}
+        loaded = json.loads(stdout)
+        for answer in loaded if isinstance(loaded, list) else [loaded]:
+            if 'error' in answer:
+                first_round[answer['address']] = answer['error']
+                continue
+            answer['reply'] = bytes.fromhex(answer['reply'])
+            answer['request'] = bytes.fromhex(answer['request'])
+            first_round.setdefault(answer['address'], []).append(answer)
+    # every address with the answers it gave, in the order the resolver returned them,
+    # and the reason for every address that gave none
+    samples, errors = {}, {}
+    for address, result in first_round.items():
+        if isinstance(result, str):
+            errors[address] = result
+        else:
+            samples[address] = result if isinstance(result, list) else [result]
+
+    if not samples:
+        hint = ' Check that outgoing NTP traffic (UDP port 123) is allowed.'
+        if len(errors) > 1:
+            msg = (
+                f'No answer from NTP server {hostname} at any of its {len(errors)}'
+                f' addresses within {args.TIMEOUT}s.{hint}'
+            )
+        else:
+            address, reason = next(iter(errors.items()))
+            server = hostname if address == hostname else f'{hostname} ({address})'
+            if reason == 'no answer':
+                msg = (
+                    f'No answer from NTP server {server} within {args.TIMEOUT}s.{hint}'
+                )
+            else:
+                msg = f'No answer from NTP server {server}: {reason}.'
+        lib.base.oao(msg, STATE_WARN, always_ok=args.ALWAYS_OK)
+
+    # the server to compare with, out of the addresses that answered
+    best = {address: best_sample(answers) for address, answers in samples.items()}
+    reference = choose_server({address: item[0] for address, item in best.items()})
+    if reference is not None and args.TEST is None:
+        # more samples from the reference, as long as it gives usable ones and the time
+        # allows; only the reference, so a pool name costs each of its servers one
+        # request per run and not four
+        answers = samples[reference]
         while (
             len(answers) < SAMPLES
             and analyze(answers[-1])[0]
@@ -630,63 +825,103 @@ def main():
         ):
             time.sleep(SAMPLE_SPACING)
             remaining = max(1, round(deadline - time.monotonic()))
-            success, answer = query(answers[0]['address'], remaining)
+            success, answer = query(reference, remaining)
             if not success:
                 break
             answers.append(answer)
-    else:
-        # do not query a server, put in test data: one answer or a list of them, each
-        # the request and the answer as hex plus the local send and receive times
-        stdout, _, _ = lib.lftest.test(args.TEST)
-        answers = json.loads(stdout)
-        if isinstance(answers, dict):
-            answers = [answers]
-        for answer in answers:
-            answer['reply'] = bytes.fromhex(answer['reply'])
-            answer['request'] = bytes.fromhex(answer['request'])
+        best[reference] = best_sample(answers)
 
     # init some vars
     perfdata = ''
 
     # analyze data
     # the server, with its address where that says more than the name, and who uses it
+    address = reference or next(iter(samples))
     details = []
-    if answers[0]['address'] != hostname:
-        details.append(answers[0]['address'])
+    if address != hostname:
+        details.append(address)
     if used_by:
         details.append(used_by)
     server = f'{hostname} ({", ".join(details)})' if details else hostname
-    # the usable sample with the smallest round-trip delay
-    result, failure = None, None
-    for answer in answers:
-        success, sample = analyze(answer)
-        if not success:
-            failure = failure or sample
-        elif result is None or sample['delay'] < result['delay']:
-            result = sample
-    if result is None:
+    if reference is None:
+        # no address gave a usable answer: the reason of the first one, as the resolver
+        # returned them
         lib.base.oao(
-            f'NTP server {server}: {failure}',
+            f'NTP server {server}: {best[address][1]}',
             STATE_WARN,
             always_ok=args.ALWAYS_OK,
+        )
+    result = best[reference][0]
+    # Several servers behind one name that disagree with each other: at least one of
+    # them is a falseticker, and with two of them there is no telling which. The spread
+    # is judged against the same thresholds as the offset, because a reference that may
+    # be off by that much makes the measured offset worth no more. It stays a WARN at
+    # most, since it says the measurement is in doubt, not that the clock is wrong.
+    usable = {item: sample for item, (sample, _) in best.items() if sample}
+    spread, spread_state = None, STATE_OK
+    if len(usable) > 1:
+        offsets = [sample['offset'] for sample in usable.values()]
+        spread = round(max(offsets) - min(offsets), 3)
+        spread_state = min(
+            STATE_WARN,
+            lib.base.get_state(spread, args.WARN, args.CRIT, _operator='range'),
         )
     delay = round(result['delay'], 3)
     offset = round(result['offset'], 3)
     # the thresholds apply to the offset in both directions
     state = lib.base.get_state(abs(offset), args.WARN, args.CRIT, _operator='range')
+    state = lib.base.get_worst(state, spread_state)
 
     # build the message
     # a positive offset means the server is ahead, so the system clock is slow
     direction = 'slow' if offset > 0 else 'fast'
     # the stratum of the server, not of this host, so it goes with the server
-    details.insert(
-        1 if answers[0]['address'] != hostname else 0, f'stratum {result["stratum"]}'
+    details.insert(1 if address != hostname else 0, f'stratum {result["stratum"]}')
+    offset_state = lib.base.get_state(
+        abs(offset), args.WARN, args.CRIT, _operator='range'
     )
     msg = (
         f'System clock is {abs(offset)}ms {direction}'
-        f'{lib.base.state2str(state, prefix=" ")} compared to NTP server'
+        f'{lib.base.state2str(offset_state, prefix=" ")} compared to NTP server'
         f' {hostname} ({", ".join(details)}), Delay is {delay}ms'
     )
+    if spread is not None and spread_state != STATE_OK:
+        msg += (
+            f'. The {len(usable)} servers behind {hostname} disagree by {spread}ms'
+            f'{lib.base.state2str(spread_state, prefix=" ")}, so at least one of them'
+            ' is off'
+        )
+    # every address of the name, so a server that is off or silent can be named
+    if len(samples) + len(errors) > 1:
+        rows = []
+        for item in list(samples) + list(errors):
+            sample, failure = best.get(item, (None, errors.get(item)))
+            if sample:
+                remark = 'reference' if item == reference else ''
+                rows.append(
+                    {
+                        'address': item,
+                        'delay': f'{round(sample["delay"], 3)}ms',
+                        'offset': f'{round(sample["offset"], 3)}ms',
+                        'remark': remark,
+                        'stratum': str(sample['stratum']),
+                    }
+                )
+            else:
+                rows.append(
+                    {
+                        'address': item,
+                        'delay': '-',
+                        'offset': '-',
+                        'remark': failure,
+                        'stratum': '-',
+                    }
+                )
+        msg += '\n\n' + lib.base.get_table(
+            rows,
+            ['address', 'stratum', 'offset', 'delay', 'remark'],
+            header=['Address', 'Stratum', 'Offset', 'Delay', 'Remark'],
+        )
 
     perfdata += lib.base.get_perfdata(
         'delay',
@@ -706,6 +941,16 @@ def main():
         _min=None,
         _max=None,
     )
+    if spread is not None:
+        perfdata += lib.base.get_perfdata(
+            'spread',
+            spread,
+            uom='ms',
+            warn=args.WARN,
+            crit=None,
+            _min=0,
+            _max=None,
+        )
     perfdata += lib.base.get_perfdata(
         'stratum',
         result['stratum'],

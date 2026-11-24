@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks how far the system clock is off from the time of an NTP server, in milliseconds, measured by the check itself and not taken from the local time service. By default it asks the NTP server the local time service follows. Alerts when the offset exceeds the configured thresholds, when no NTP server is found, when it does not answer, or when it is not synchronized itself.
+Checks how far the system clock is off from the time of an NTP server, in milliseconds, measured by the check itself and not taken from the local time service. By default it asks the NTP server the local time service follows. A server name with several addresses, such as a pool, is asked at all of them, and the best server among them is the reference. Alerts when the offset exceeds the configured thresholds, when no NTP server is found, when it does not answer, when it is not synchronized itself, or when the servers behind one name disagree with each other by more than the thresholds.
 
 **Important Notes:**
 
@@ -12,12 +12,13 @@ Checks how far the system clock is off from the time of an NTP server, in millis
 * `auto` needs a running time service that uses an NTP server. A host without one, or one that follows a reference clock (GPS, PPS) or only its local clock, gets a warning asking for `--hostname`.
 * The time service and this check measure against a server with different methods, so their values differ slightly. The difference is at most half the round-trip delay, typically a few milliseconds over the internet, well below the default warning threshold.
 * The thresholds apply in both directions, so `--warning=300` warns if the system clock is more than 300 ms fast or slow.
+* **A name with several addresses is a group of servers, not one.** A pool name like `ch.pool.ntp.org` resolves to four servers run by different people, and one of them can be wrong. The check asks every address once and compares against the best of them: the lowest stratum, and among equals the smallest synchronization distance (root distance plus half the round-trip delay). Where the servers that answered disagree with each other by more than the thresholds, at least one of them is a falseticker, and the check warns, because a reference that may be off by that much makes the measured offset worth no more. With two servers there is no telling which one is wrong, so the table under the first line lists every address with its offset, and an address that did not answer or sent an unusable answer is listed with the reason. A disagreement stays a WARN even beyond `--critical`. An address that did not answer does not alert as long as another one did, and a host without IPv6 lists the IPv6 addresses of a name as unreachable.
 * The check needs no root privileges, only outgoing NTP traffic (UDP port 123) to the server.
 
 **Data Collection:**
 
 * With `--hostname=auto`, asks the running time service for its NTP server: `w32tm /query /source` on Windows (a standard user logged in remotely, over SSH or WinRM, may not ask W32Time and reads its configured NTP server from the registry instead), otherwise `chronyc -n sources` (the selected source, else the first configured one), `ntpq --numeric --command='rv 0 peeradr'` (the system peer) and, only if systemd-timesyncd is active, `timedatectl show-timesync --all`
-* Resolves the server and sends an SNTP client request (NTP version 4, mode 3) to each address in turn until one answers, then three more to that address, one second apart. The answer with the smallest round-trip delay counts, because waiting times on one of the two network paths skew the others. Finding the server and asking it share `--timeout`; a run takes about three seconds.
+* Resolves the server and sends an SNTP client request (NTP version 4, mode 3) to all of its addresses at once, waiting at most one second for the others once the first has answered, so a silent pool member does not use up `--timeout`. Then it sends three more to the reference, one second apart, and none to the other addresses, so each server behind a pool name gets one request per run. The answer with the smallest round-trip delay counts, because waiting times on one of the two network paths skew the others. Finding the server and asking it share `--timeout`; a run takes about three seconds.
 * Accepts the answer only if it belongs to the request, comes from a synchronized server (stratum 1 to 15) and has a root distance of at most 1.5 seconds. A Kiss-o'-Death answer (`DENY`, `RATE`, `RSTR`) is reported as such.
 * Computes offset and round-trip delay from the four timestamps as described in RFC 5905
 
@@ -42,9 +43,12 @@ usage: ntp-offset [-h] [-V] [--always-ok] [-c CRIT] [-H HOSTNAME]
 
 Checks how far the system clock is off from the time of an NTP server, in
 milliseconds, measured by the check itself and not taken from the local time
-service. By default it asks the NTP server the local time service follows.
-Alerts when the offset exceeds the configured thresholds, when no NTP server
-is found, when it does not answer, or when it is not synchronized itself.
+service. By default it asks the NTP server the local time service follows. A
+server name with several addresses, such as a pool, is asked at all of them,
+and the best server among them is the reference. Alerts when the offset
+exceeds the configured thresholds, when no NTP server is found, when it does
+not answer, when it is not synchronized itself, or when the servers behind one
+name disagree with each other by more than the thresholds.
 
 options:
   -h, --help            show this help message and exit
@@ -97,13 +101,32 @@ System clock is 28941.16ms fast [WARNING] compared to NTP server ntp.example.com
 ```
 
 
+Against a name with two servers, one of which is 29 seconds off. With two servers there is no telling which one is wrong, and the one with the smaller synchronization distance became the reference:
+
+```bash
+./ntp-offset --hostname=pool.example.com
+```
+
+Output:
+
+```text
+System clock is 28941.16ms fast [WARNING] compared to NTP server pool.example.com (192.0.2.32, stratum 1), Delay is 18.186ms. The 2 servers behind pool.example.com disagree by 28946.803ms [WARNING], so at least one of them is off
+
+Address    ! Stratum ! Offset      ! Delay    ! Remark
+-----------+---------+-------------+----------+----------
+192.0.2.31 ! 1       ! 5.642ms     ! 43.633ms !
+192.0.2.32 ! 1       ! -28941.16ms ! 18.186ms ! reference
+```
+
+
 ## States
 
 * OK if the offset of the system clock is within the thresholds.
 * WARN if the offset, fast or slow, exceeds `--warning` (default: 300ms).
 * WARN if `--hostname=auto` finds no NTP server, or a time service does not answer within `--timeout`.
 * WARN if the server cannot be resolved or does not answer within `--timeout`.
-* WARN if the server is not synchronized itself, is too far from its reference clock, refuses to answer (Kiss-o'-Death) or sends an invalid answer.
+* WARN if the servers behind one name disagree with each other by more than `--warning`, also beyond `--critical`.
+* WARN if the server, or every address of it, is not synchronized itself, is too far from its reference clock, refuses to answer (Kiss-o'-Death) or sends an invalid answer.
 * CRIT if the offset, fast or slow, exceeds `--critical` (default: 60000ms).
 * UNKNOWN if `--hostname` is not a valid host name, and on other invalid parameters.
 * `--always-ok` suppresses all alerts and always returns OK.
@@ -115,6 +138,7 @@ System clock is 28941.16ms fast [WARNING] compared to NTP server ntp.example.com
 |----|----|----|
 | delay | Milliseconds | Round-trip delay to the NTP server. The offset is accurate to half of it. |
 | offset | Milliseconds | Offset of the NTP server's time relative to the system clock (RFC 5905). Positive if the system clock is slow, negative if it is fast. |
+| spread | Milliseconds | Difference between the largest and the smallest offset among the servers behind one name. Only reported for a name with more than one server that answered. |
 | stratum | Number | Stratum of the NTP server, not of this host. |
 
 

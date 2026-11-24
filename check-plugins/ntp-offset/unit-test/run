@@ -130,6 +130,72 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['System clock is 0.497ms slow', 'Delay is 27.043ms'],
     },
+    # A name with several addresses, as a pool has: every address is asked once, the
+    # best server is the reference (lowest stratum, then smallest distance), and the
+    # others are listed. The answers are the captures above with the address of the
+    # server they stand for; an address that gave none carries the reason instead.
+    {
+        'id': 'ok-pool-lowest-stratum-is-the-reference',
+        'test': 'stdout/pool-three-servers-agree,,0',
+        'params': '--hostname=pool.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'compared to NTP server pool.example.com (192.0.2.32, stratum 1)',
+            '2001:db8::33',
+            "'spread'=14.251ms;300;;0",
+        ],
+        'assert-regex': r'192\.0\.2\.32 +! 1 +! 5\.642ms +! 43\.633ms +! reference',
+        'assert-not-in': ['disagree'],
+    },
+    {
+        # Two servers 29 seconds apart: one of them is a falseticker, and with two
+        # there is no telling which. The threshold sits between the offset to the
+        # reference (28941.16ms) and the spread (28946.803ms), so the spread alone
+        # makes it a WARN.
+        'id': 'warn-pool-servers-disagree',
+        'test': 'stdout/pool-falseticker,,0',
+        'params': '--hostname=pool.example.com --warning=28945 --critical=120000',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'System clock is 28941.16ms fast compared',
+            'The 2 servers behind pool.example.com disagree by 28946.803ms [WARNING]',
+        ],
+    },
+    {
+        # A spread beyond --critical stays a WARN: it puts the measurement in doubt,
+        # it does not say the clock is wrong.
+        'id': 'warn-pool-disagreement-capped-at-warn',
+        'test': 'stdout/pool-falseticker,,0',
+        'params': '--hostname=pool.example.com --warning=1000 --critical=10000:',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'ok-pool-silent-and-refusing-members-are-listed',
+        'test': 'stdout/pool-one-silent,,0',
+        'params': '--hostname=pool.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': ['no answer', 'Connection refused', 'reference'],
+        'assert-not-in': ["'spread'"],
+    },
+    {
+        'id': 'warn-pool-no-member-answers',
+        'test': 'stdout/pool-all-silent,,0',
+        'params': '--hostname=pool.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No answer from NTP server pool.example.com at any of its 2'],
+    },
+    {
+        # An unsynchronized member is passed over for one that is synchronized, and
+        # named in the table.
+        'id': 'ok-pool-unsynchronized-member-passed-over',
+        'test': 'stdout/pool-unsynchronized-member,,0',
+        'params': '--hostname=pool.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '(192.0.2.32, stratum 1)',
+            '192.0.2.31 ! -       ! -       ! -        ! The server is not synchronized',
+        ],
+    },
     # --hostname=auto. W32Time captured on Windows Server 2025 and Windows 11 (German
     # display language): an administrator may ask `w32tm /query /source`, a standard
     # user over SSH gets 0x80070005 and falls back to the configuration in the registry.
