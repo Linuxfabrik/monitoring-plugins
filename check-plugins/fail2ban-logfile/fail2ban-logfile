@@ -1,0 +1,1359 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import configparser
+import datetime
+import os
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.db_sqlite
+import lib.disk
+import lib.human
+import lib.lftest
+import lib.logmatch
+import lib.logsource
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026112401'
+
+DESCRIPTION = """Scans the log of fail2ban for the problems that leave a host unprotected
+while fail2ban itself keeps running and its jails keep listing bans: ban actions that fail,
+firewall rules that disappeared, bans that do not stop the client, jails that stopped
+reading their log, a database fail2ban cannot use, host names resolved instead of
+addresses, log lines fail2ban cannot place in time, and configuration errors that kept
+fail2ban or a jail from starting. Startups, shutdowns and bans are counted alongside them.
+Alerts when one of those problems shows up, when banned clients keep appearing in the logs
+more often than the thresholds allow within `--lookback`, and when a line arrives at a
+level `--critical-level` or `--warning-level` covers.
+Lines about the current fail2ban process count; what a process before the last startup
+wrote is history, because a restart rebuilds the firewall rules and rereads the
+configuration.
+The log is read from the file `logtarget` in the fail2ban configuration names, together
+with the journal of the fail2ban unit, which holds the errors of a start that failed, or
+from a file (`/var/log` only) or a container (`docker:`/`podman:`/`kubectl:`) named with
+`--server-log`.
+Requires root or sudo."""
+
+# What `--critical-level` and `--warning-level` accept on top of the levels
+# themselves: no level at all raises that state, which leaves the named events as
+# the only way to reach it.
+LEVEL_NONE = 'none'
+
+DEFAULT_CRITICAL_LEVEL = 'CRITICAL'
+DEFAULT_ICINGA_CALLBACK = False
+# Measured on four production hosts whose sshd jail banned on the wrong port: banned
+# clients showed up in the log late enough for fail2ban to warn in almost every hour,
+# up to 289 times an hour. Healthy hosts showed none for weeks; a single long request
+# finishing after the ban of its client can still produce one, hence some headroom.
+DEFAULT_INEFFECTIVE_BANS_CRITICAL = 0
+DEFAULT_INEFFECTIVE_BANS_WARNING = 10
+DEFAULT_INSECURE = True
+DEFAULT_LOOKBACK = 3600  # seconds
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 8
+DEFAULT_WARNING_LEVEL = 'ERROR'
+
+ACK_RETENTION_DAYS = 30
+MAXLINES = 30000  # maximum log lines to consider from the end of the source
+ROTATED_FILES = 1
+
+# fail2ban reads `fail2ban.conf`, then `fail2ban.d/*.conf`, then `fail2ban.local`,
+# then `fail2ban.d/*.local`, each overriding the one before (`ConfigReader.read()` in
+# `client/configreader.py`). Only these fixed, root-owned locations are looked at, so
+# nothing a log holds can point the check at another file.
+CONFIG_DIR = '/etc/fail2ban'
+# The unit the fail2ban packages of the Red Hat family, Debian and Ubuntu install.
+UNIT_CANDIDATES = ('fail2ban.service',)
+UNIT_DIRECTORIES = (
+    '/etc/systemd/system',
+    '/usr/lib/systemd/system',
+    '/lib/systemd/system',
+)
+# The `logtarget` values that are not a file (`Server.setLogTarget()` in
+# `server/server.py`). All of them end up in the journal of the unit on a host with
+# systemd: SYSLOG through the syslog socket, STDOUT and STDERR through the unit's
+# standard streams.
+NON_FILE_TARGETS = ('STDERR', 'STDOUT', 'SYSLOG', 'SYSTEMD-JOURNAL')
+
+SOURCE_PATH_MAX_LEN = 32
+
+# What the journal calls fail2ban: `fail2ban-server` for what the server prints, and
+# `fail2ban` for what it logs with `logtarget = SYSTEMD-JOURNAL`.
+IDENTIFIER_PREFIX = 'fail2ban'
+
+# fail2ban writes `%(asctime)s %(name)-24s[%(process)d]: %(levelname)-7s %(message)s`
+# to a file (`Server.setLogTarget()`), so a logger name of 24 characters or more runs
+# into the `[`. Its own levels NOTICE, MSG, TRACEDEBUG and HEAVYDEBUG sit between the
+# standard ones. Verified against fail2ban 1.0.2 and 1.1.1 on Rocky 8, 9 and 10,
+# 1.1.0 on Rocky 10 (EPEL), 1.0.2 and 1.1.0 on Debian 12 and 13, and 0.11.2, 1.0.2
+# and 1.1.0 on Ubuntu 22.04, 24.04 and 26.04.
+LINE_REGEX = re.compile(
+    r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+ (\S+?)\s*\[\d+\]: (\S+)\s+(.*)$'
+)
+TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S'
+
+# A command an action ran, logged by `fail2ban.utils` as several lines that share the
+# id of the command: `exec:` (the command, which can span several lines), `stderr:`,
+# `stdout:`, `returned`, `killed with`, `timed out after` (`executeCmd()` in
+# `server/utils.py`). They explain the failed action that follows, so they are shown
+# with it and not counted by their level.
+COMMAND_REGEX = re.compile(r'^(?:[0-9a-f]+|\.\.\.) -- (\S.*)$')
+COMMAND_DETAIL_REGEX = re.compile(r'^(?:stderr: |killed with |timed out after )')
+
+# A command an administrator ran with `fail2ban-client` and that fail2ban refused,
+# for example unbanning an address that is not banned (`Transmitter.proceed()` in
+# `server/transmitter.py`). The administrator saw the answer on the command line, so
+# it is counted, but does not alert. The configuration the client sends at startup
+# (`server-stream`) is the exception, see the configuration errors below.
+CLIENT_COMMAND_REGEX = re.compile(r'^Command \[(?!.server-stream)')
+
+# The start of a fail2ban server (`Server.start()` in `server/server.py`). Everything a
+# process logs lies between its start and the next one. A start whose configuration
+# fails does not get this far: its errors go to standard error, that is the journal
+# of the unit, and they follow the last start that worked.
+STARTUP_REGEX = re.compile(r'^Starting Fail2ban v(\S+)')
+
+# The levels that say something is wrong, worst first.
+LEVELS = (
+    {'level': 'CRITICAL', 'perfdata': 'fail2ban_critical_lines'},
+    {'level': 'ERROR', 'perfdata': 'fail2ban_error_lines'},
+    {'level': 'WARNING', 'perfdata': 'fail2ban_warning_lines'},
+)
+LEVEL_CHOICES = [item['level'] for item in LEVELS] + [LEVEL_NONE]
+
+# The events worth naming on their own, because the level alone does not say what
+# happened. Taken from the error and warning messages of the fail2ban server and
+# client (fail2ban 1.1.1, `server/*.py` and `client/*.py`), every one of them either
+# assigned to an event here or deliberately left to its level, see the README; the
+# events were reproduced on fail2ban 1.1.0 (Rocky 10, EPEL) and seen on production
+# hosts running fail2ban 1.0.2, 1.1.0 and 1.1.1.
+EVENTS = (
+    {
+        'key': 'config_errors',
+        'label': 'configuration error',
+        'perfdata': 'fail2ban_config_errors',
+        # A start that failed (`client/fail2banserver.py`, `client/fail2bancmdline.py`,
+        # `client/fail2banclient.py`), a jail fail2ban skipped (`client/jailsreader.py`,
+        # `client/jailreader.py`, `client/configreader.py`, `server/jail.py`), and
+        # settings fail2ban replaced or could not apply (`server/filter.py`,
+        # `server/ipdns.py`, `server/jail.py`, `server/server.py`). A host name in
+        # `ignoreip` that does not resolve leaves that host unprotected from bans.
+        'regex': re.compile(
+            r'^(?:Failed during configuration'
+            r'|Async configuration of server failed'
+            r'|Could not start (?:server|fail2ban-server)'
+            r'|Fail2ban seems to be already running'
+            r'|Server already running'
+            r'|NOK: '
+            r'|Command \[.server-stream'
+            r'|Errors in jail '
+            r'|Unable to read the filter'
+            r'|Unable to read action'
+            r'|Found no accessible config files'
+            r'|Could not read config files'
+            r'|Error decoding config file'
+            r'|Have not found any log file'
+            r'|File .* is a dangling link'
+            r'|No filter set for jail'
+            r'|No actions were defined for'
+            r'|Wrong (?:value|\S+ value)'
+            r'|Incorrect value .* specified for usedns'
+            r'|Unknown backend'
+            r'|Could only initiated'
+            r'|Failed to initialize any backend'
+            r'|ban time increment is not available'
+            r'|Jail name .* might be too long'
+            r'|Unable to find a corresponding IP address for'
+            r'|Retrieving IPs set from .* failed'
+            r'|Unable to log to'
+            r'|Syslog socket file: .* does not exists'
+            r'|Unable to set facility'
+            r'|Unable to create PID file'
+            r'|Unable to import fail2ban database module)'
+        ),
+        'state': STATE_WARN,
+        'recommendation': (
+            'fail2ban did not start, started without a jail or replaced a setting,'
+            ' because of its configuration; the lines above say which file, jail or'
+            ' setting, and `fail2ban-client --test` checks the configuration without'
+            ' starting anything'
+        ),
+    },
+    {
+        'key': 'action_failures',
+        'label': 'failed action',
+        'perfdata': 'fail2ban_action_failures',
+        # `server/actions.py`, `server/jail.py`: a ban, unban, reban, start, stop or
+        # flush of an action that failed, so the firewall did not do what fail2ban
+        # lists. The command and its error output precede the line, see
+        # COMMAND_REGEX.
+        'regex': re.compile(
+            r'^(?:Failed to (?:execute (?:ban|reban|unban) jail'
+            r'|start jail|stop jail|flush bans in jail|get .* bans merged)'
+            r'|\[[^\]]+\] unhandled error in actions thread'
+            r'|Stop .* of jail .* failed)'
+        ),
+        'state': STATE_WARN,
+        'recommendation': (
+            'Ban actions failed, so the firewall does not hold the bans fail2ban'
+            ' lists; the command errors above say why, `fail2ban-client get sshd'
+            ' actions` names the actions of the sshd jail'
+        ),
+    },
+    {
+        'key': 'lost_rules',
+        'label': 'lost firewall rule set',
+        'perfdata': 'fail2ban_lost_rules',
+        # `server/action.py`, `server/actions.py`: `actioncheck` found the rules of an
+        # action gone, typically after the firewall was reloaded or flushed. fail2ban
+        # rebuilds them at the next ban; until then, its bans have no effect.
+        'regex': re.compile(
+            r'^(?:Invariant check failed'
+            r'|Unable to restore environment)'
+        ),
+        'state': STATE_WARN,
+        'recommendation': (
+            'The firewall rules of fail2ban disappeared while it ran, usually because'
+            ' the firewall was reloaded or flushed, and the bans had no effect until'
+            ' fail2ban rebuilt them; reload the firewall in a way that keeps the'
+            ' `f2b-*` chains or sets, or restart fail2ban after a reload'
+        ),
+    },
+    {
+        'key': 'reader_failures',
+        'label': 'failed log reader',
+        'perfdata': 'fail2ban_reader_failures',
+        # `server/filter*.py`, `server/datetemplate.py`, `server/observer.py`: a jail
+        # that cannot open, follow or parse its log or journal, or an observer that
+        # stopped. Such a jail bans no one, while `fail2ban-client status` still lists
+        # it. Seen on a production host whose sshd jail lost the journal file it read
+        # and failed every two seconds from then on.
+        'regex': re.compile(
+            r'^(?:Caught unhandled exception in main cycle'
+            r'|Too many errors at once'
+            r'|Too many errors\. Remove file'
+            r'|Failed to process line'
+            r'|Unable to open '
+            r'|Error opening (?!fail2ban persistent database)'
+            r'|Error during seek'
+            r'|Internal error in FileContainer'
+            r'|Unable to get stat on'
+            r'|Error reading line from systemd journal'
+            r'|Error adding journal match'
+            r'|Error restoring journal matches'
+            r'|Error in FilterPyinotify callback'
+            r'|Failed to remove watch'
+            r'|findFailure failed to parse timeText'
+            r'|Compile .* failed, expression'
+            r'|Observer stopped after error)'
+        ),
+        'state': STATE_WARN,
+        'recommendation': (
+            'A jail stopped reading its log or journal, so it bans no one while it'
+            ' is still listed as running; restart fail2ban, and if the error comes'
+            ' back, check that the log the jail names (`fail2ban-client get sshd'
+            ' logpath` for the sshd jail) exists and is readable'
+        ),
+    },
+    {
+        'key': 'database_errors',
+        'label': 'database error',
+        'perfdata': 'fail2ban_database_errors',
+        # `server/database.py`, `server/jail.py`, and the SQLite errors the observer
+        # logs bare (`server/observer.py`), see DATABASE_ERROR_REGEX.
+        'regex': re.compile(
+            r'^(?:Restore (?:bans|ticket) failed'
+            r'|Error (?:connecting to|opening) fail2ban persistent database'
+            r'|\s*Error repairing of fail2ban database'
+            r'|Database update failed'
+            r'|Failed to upgrade database'
+            r'|json (?:dumps|loads) failed)'
+        ),
+        'state': STATE_WARN,
+        'recommendation': (
+            'fail2ban cannot use its database (`dbfile` in `fail2ban.conf`, usually'
+            ' `/var/lib/fail2ban/fail2ban.sqlite3`), so it neither restores bans after'
+            ' a restart nor bans repeat offenders longer; stop fail2ban, move the file'
+            ' aside and start it again, which creates a new database and forgets the'
+            ' current bans'
+        ),
+    },
+    {
+        'key': 'dns_lookups',
+        'label': 'host name lookup',
+        'perfdata': 'fail2ban_dns_lookups',
+        # `DNSUtils.textToIp()` in `server/ipdns.py`, with `usedns = warn`, the
+        # default: a filter caught something that is not an address and fail2ban
+        # resolved it. Seen 700,000 times in two weeks on a host whose filter took the
+        # virtual host name in front of the client address for the client.
+        'regex': re.compile(r'^Determined IP using DNS Lookup: '),
+        'state': STATE_WARN,
+        'recommendation': (
+            'A filter caught a host name instead of an address, and fail2ban bans'
+            ' what that name resolves to, possibly this server itself; fix the filter'
+            ' or the log format, or set `usedns = yes` in the jail where the log'
+            ' really holds host names only, or `usedns = no` to ignore such lines'
+        ),
+    },
+    {
+        'key': 'timestamp_problems',
+        'label': 'timestamp problem',
+        'perfdata': 'fail2ban_timestamp_problems',
+        # `Filter.processLine()` and `Filter.findFailure()` in `server/filter.py`,
+        # each logged once a day per jail. A line dated after the current time points
+        # to a wrong time zone or clock, and a match without a date is dropped, so it
+        # bans no one. A line dated well before the current time is not named here: a
+        # long request, a WebSocket for example, is logged with its start time when
+        # it ends, hours later.
+        'regex': re.compile(
+            r'^\[[^\]]+\] (?:Detected a log entry .* after the current time'
+            r'|Found a match but no valid date/time found)'
+        ),
+        'state': STATE_WARN,
+        'recommendation': (
+            'fail2ban cannot place the lines of a jail in time: lines from the future'
+            ' point to a wrong time zone or clock where the log is written, and'
+            ' matches without a date are dropped; set `datepattern` for the jail or'
+            ' fix the time settings of the application writing the log'
+        ),
+    },
+)
+
+# SQLite errors the observer logs without saying they are about the database
+# (`logSys.error('%s', e)` in `server/observer.py`). Seen on a production host whose
+# database was corrupt: 128 of them next to the failed restore of the bans.
+DATABASE_ERROR_REGEX = re.compile(
+    r'^(?:database disk image is malformed'
+    r'|database is locked'
+    r'|database or disk is full'
+    r'|disk I/O error'
+    r'|file is not a database'
+    r'|unable to open database file'
+    r'|attempt to write a readonly database'
+    r'|no such table)'
+)
+
+# The lines that belong to an event named above and add nothing to it: the companion
+# lines fail2ban logs with a timestamp problem.
+COMPANION_REGEX = re.compile(
+    r'^\[[^\]]+\] (?:Match without a timestamp'
+    r'|Please try setting a custom date pattern)'
+)
+
+# Lines about bans, judged by how many of them arrived within `--lookback`.
+RATE_EVENTS = (
+    {
+        'key': 'ineffective_bans',
+        'label': 'ineffective ban',
+        'perfdata': 'fail2ban_ineffective_bans',
+        # A banned address that shows up in the log again. fail2ban logs it as a
+        # WARNING only when the line arrived more than a minute after the ban, "very
+        # long time, something may be wrong" (`Actions.__checkBan()` in
+        # `server/actions.py`), and at a lower level before that, when the ban may
+        # simply not have taken effect yet. Seen on production hosts whose sshd jail
+        # banned on port 22 while sshd listened on another port, and on a web server
+        # whose banned clients went on over their open connections.
+        'regex': re.compile(r'^\[[^\]]+\] \S+ already banned$'),
+        'critical': 'INEFFECTIVE_BANS_CRITICAL',
+        'warning': 'INEFFECTIVE_BANS_WARNING',
+        'recommendation': (
+            'Banned clients kept showing up in the logs more than a minute after'
+            ' their ban, so the ban does not stop them; check that the `port` of the'
+            ' jail is the port the service listens on, that the `banaction` works on'
+            ' this firewall, and that a web server closes the open connections of a'
+            ' banned client'
+        ),
+    },
+)
+
+# Lifecycle markers, counted but never alerting on.
+LIFECYCLE = (
+    {
+        'key': 'startups',
+        'label': 'startup',
+        'perfdata': 'fail2ban_startups',
+        'regex': STARTUP_REGEX,
+        'verb': 'detected',
+    },
+    {
+        'key': 'shutdowns',
+        'label': 'shutdown',
+        'perfdata': 'fail2ban_shutdowns',
+        'regex': re.compile(r'^Exiting Fail2ban'),
+        'verb': 'detected',
+    },
+    {
+        'key': 'bans',
+        'label': 'ban',
+        'perfdata': 'fail2ban_bans',
+        'regex': re.compile(r'^\[[^\]]+\] (?:Restore )?Ban '),
+        'verb': 'logged',
+    },
+)
+
+# What differs between two lines saying the same thing, for grouping them in a
+# listing: addresses, the details of an action, durations and command ids.
+MESSAGE_MASKS = (
+    (re.compile(r" info 'ActionInfo\(.*?\)':"), ':'),
+    (re.compile(r'\b\d{1,3}(?:\.\d{1,3}){3}(?:/\d+)?\b'), '*'),
+    # three colons at least, or `::`, so a time of day (`20:27:38`) is left alone
+    (
+        re.compile(
+            r'\b(?:[0-9a-fA-F]{1,4}:){3,7}[0-9a-fA-F]{1,4}\b'
+            r'|(?<![\w:])[0-9a-fA-F:]*::[0-9a-fA-F:]*(?![\w:])'
+        ),
+        '*',
+    ),
+    (re.compile(r'= \{[^}]*\}'), '= {*}'),
+    (re.compile(r'\b\d+[dhms](?: \d+[hms])*\b'), '*'),
+    (re.compile(r'\bat 0x[0-9a-f]+\b'), ''),
+)
+MESSAGE_MAX_LEN = 200
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    # Developer-only hook: it prefixes every path the check opens, so the fixture
+    # tests can stand a directory tree in for the host's file system. Deliberately
+    # not named `--test-...`, because argparse would then resolve a bare `--test`
+    # into it.
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='',
+    )
+
+    parser.add_argument(
+        '--critical-level',
+        help='Least severe fail2ban log level that returns CRITICAL. '
+        'Each level includes everything more severe than itself, so `ERROR` '
+        'covers `CRITICAL` as well. '
+        'Case-sensitive. '
+        '`none` lets no level return CRITICAL, which leaves the events this '
+        'check names as the only way to reach it. '
+        'Example: `--critical-level=ERROR`. '
+        'Default: %(default)s',
+        dest='CRITICAL_LEVEL',
+        choices=LEVEL_CHOICES,
+        default=DEFAULT_CRITICAL_LEVEL,
+    )
+
+    parser.add_argument(
+        '--icinga-callback',
+        help=lib.args.help('--icinga-callback'),
+        dest='ICINGA_CALLBACK',
+        action='store_true',
+        default=DEFAULT_ICINGA_CALLBACK,
+    )
+
+    parser.add_argument(
+        '--icinga-password',
+        help=lib.args.help('--icinga-password'),
+        dest='ICINGA_PASSWORD',
+    )
+
+    parser.add_argument(
+        '--icinga-service-name',
+        help=lib.args.help('--icinga-service-name'),
+        dest='ICINGA_SERVICE_NAME',
+    )
+
+    parser.add_argument(
+        '--icinga-url',
+        help=lib.args.help('--icinga-url'),
+        dest='ICINGA_URL',
+    )
+
+    parser.add_argument(
+        '--icinga-username',
+        help=lib.args.help('--icinga-username'),
+        dest='ICINGA_USERNAME',
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Ignore a log line matching this Python regular expression. '
+        'The log line is lowercased before matching, so write the pattern in '
+        'lowercase (or use the `(?i)` flag). '
+        'Can be specified multiple times. '
+        "Example: `--ignore='(?i)linuxfabrik'`",
+        action='append',
+        default=None,
+        dest='IGNORE',
+    )
+
+    parser.add_argument(
+        '--ineffective-bans-critical',
+        help='Number of banned clients that showed up in the logs again more than '
+        'a minute after their ban within `--lookback` that returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--ineffective-bans-critical=100`. '
+        'Default: %(default)s',
+        dest='INEFFECTIVE_BANS_CRITICAL',
+        type=int,
+        default=DEFAULT_INEFFECTIVE_BANS_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--ineffective-bans-warning',
+        help='Number of banned clients that showed up in the logs again more than '
+        'a minute after their ban within `--lookback` that returns WARNING. '
+        '0 turns the threshold off. '
+        'Example: `--ineffective-bans-warning=50`. '
+        'Default: %(default)s',
+        dest='INEFFECTIVE_BANS_WARNING',
+        type=int,
+        default=DEFAULT_INEFFECTIVE_BANS_WARNING,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='Applies to the connection to the monitoring server that '
+        '`--icinga-callback` makes, which is the only network connection this '
+        'check opens. ' + lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lookback',
+        help='Banned clients that show up in the logs again are counted within '
+        'this window rather than reported one by one. '
+        + lib.args.help('--lookback')
+        + ' Example: `--lookback=86400`. '
+        'Default: %(default)s (seconds)',
+        dest='LOOKBACK',
+        type=int,
+        default=DEFAULT_LOOKBACK,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only consider a log line matching this Python regular expression. '
+        'The log line is lowercased before matching, so write the pattern in '
+        'lowercase (or use the `(?i)` flag). '
+        'Can be specified multiple times. '
+        + lib.args.MATCH_IGNORE_PRECEDENCE
+        + " Example: `--match='\\[sshd\\]'`",
+        action='append',
+        default=None,
+        dest='MATCH',
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help='Applies to the connection to the monitoring server that '
+        '`--icinga-callback` makes, which is the only network connection this '
+        'check opens. ' + lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Applies to the connection to the monitoring server that '
+        '`--icinga-callback` makes, which is the only network connection this '
+        'check opens. ' + lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help='Applies to the connection to the monitoring server that '
+        '`--icinga-callback` makes, which is the only network connection this '
+        'check opens. ' + lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--server-log',
+        help='Log source to read from. '
+        'Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, '
+        '`kubectl:CONTAINER` or `systemd:UNITNAME`. '
+        'Can be specified multiple times, and everything named is then read as '
+        'one window; a source named twice is read once. '
+        'If omitted, the check reads the file `logtarget` in the fail2ban '
+        'configuration names, and the journal of `fail2ban.service`. '
+        'Example: `--server-log=/var/log/fail2ban.log`',
+        action='append',
+        default=None,
+        dest='SERVER_LOG',
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--warning-level',
+        help='Least severe fail2ban log level that returns WARNING. '
+        'Each level includes everything more severe than itself, and a level '
+        'that `--critical-level` already covers returns CRITICAL instead. '
+        'Case-sensitive. '
+        '`none` lets no level return WARNING, which leaves the events this '
+        'check names as the only way to reach it. '
+        'Example: `--warning-level=WARNING`. '
+        'Default: %(default)s',
+        dest='WARNING_LEVEL',
+        choices=LEVEL_CHOICES,
+        default=DEFAULT_WARNING_LEVEL,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def parse_line(log_line):
+    """
+    Take a line apart into its level, its logger, its message and the time fail2ban
+    stamped it with.
+
+    Returns `(level, logger, message, written_at)`. A line fail2ban logged to the
+    journal (`logtarget = SYSTEMD-JOURNAL`) carries neither a level nor a logger nor a
+    time of its own, so those are None and only the message is judged; so are the
+    continuation lines of a command that spans several lines.
+    """
+    message = lib.logsource.strip_syslog_prefix(log_line)
+    match = LINE_REGEX.match(message)
+    if not match:
+        return None, None, message.strip(), None
+    try:
+        written_at = datetime.datetime.strptime(match.group(1), TIMESTAMP_FORMAT)
+    except ValueError:
+        written_at = None
+    return match.group(3), match.group(2), match.group(4), written_at
+
+
+def parse_timestamp(log_line):
+    """Return the moment fail2ban stamped a line with, or None;
+    `lib.logsource.timestamp()` falls back to the one the transport prefixed."""
+    return parse_line(log_line)[3]
+
+
+def get_message(log_line):
+    """Return what a line says, with everything that differs between two lines
+    saying the same thing masked, see MESSAGE_MASKS."""
+    _, _, message, _ = parse_line(log_line)
+    command = COMMAND_REGEX.match(message)
+    if command:
+        message = command.group(1)
+    for regex, replacement in MESSAGE_MASKS:
+        message = regex.sub(replacement, message)
+    return lib.txt.shorten(message, MESSAGE_MAX_LEN)
+
+
+def is_fail2ban_line(log_line):
+    """Tell whether fail2ban wrote a line: it carries fail2ban's own format, or the
+    journal attributes it to a fail2ban program."""
+    if LINE_REGEX.match(lib.logsource.strip_syslog_prefix(log_line)):
+        return True
+    identifier = lib.logsource.syslog_identifier(log_line)
+    return identifier is not None and identifier.startswith(IDENTIFIER_PREFIX)
+
+
+def join_continuations(lines):
+    """
+    Put the lines of a command that spans several lines back together.
+
+    An action command is mostly a shell snippet of several lines, and fail2ban logs it
+    as it is, so only its first line carries the time, the logger and the level. In a
+    file, the lines after it carry nothing at all; joined, the command is one line.
+    """
+    joined = []
+    for line in lines:
+        if (
+            joined
+            and lib.logsource.syslog_identifier(line) is None
+            and not LINE_REGEX.match(line)
+        ):
+            joined[-1] = f'{joined[-1]} {line.strip()}'
+            continue
+        joined.append(line)
+    return joined
+
+
+def get_level_states(critical_level, warning_level):
+    """Map every counted level to the state it raises."""
+    ranks = {item['level']: rank for rank, item in enumerate(LEVELS)}
+    states = {}
+    for level, rank in ranks.items():
+        if critical_level != LEVEL_NONE and rank <= ranks[critical_level]:
+            states[level] = STATE_CRIT
+        elif warning_level != LEVEL_NONE and rank <= ranks[warning_level]:
+            states[level] = STATE_WARN
+        else:
+            states[level] = STATE_OK
+    return states
+
+
+def get_logtarget(config_root=''):
+    """
+    Return the `logtarget` of the fail2ban configuration, or None where no
+    configuration sets one.
+
+    The files are read in the order fail2ban reads them into one parser, so the last
+    one that sets the option wins, as it does for fail2ban. fail2ban asks for the
+    option in `[Definition]`, which inherits `[DEFAULT]`, where `fail2ban.conf` of
+    fail2ban 1.1 sets it (`Fail2banReader.getOptions()` in
+    `client/fail2banreader.py`). fail2ban's parser is a `configparser.ConfigParser`
+    as well (`client/configparserinc.py`); the `[INCLUDES]` and the interpolation it
+    adds are not followed, a log path does not use them.
+    """
+    directory = f'{config_root}{CONFIG_DIR}'
+    candidates = [
+        f'{directory}/fail2ban.conf',
+        *sorted(lib.disk.glob(f'{directory}/fail2ban.d/*.conf')),
+        f'{directory}/fail2ban.local',
+        *sorted(lib.disk.glob(f'{directory}/fail2ban.d/*.local')),
+    ]
+    parser = configparser.ConfigParser(interpolation=None, strict=False)
+    for filename in candidates:
+        success, content = lib.disk.read_file(
+            filename, allowed_roots=[directory], nofollow=True
+        )
+        if not success:
+            continue
+        try:
+            parser.read_string(content, source=filename)
+        except configparser.Error:
+            # fail2ban refuses to start with such a file; the journal says why
+            continue
+    return parser.get('Definition', 'logtarget', fallback=None) or None
+
+
+def get_units(config_root=''):
+    """Return the fail2ban units this host has a unit file for."""
+    # A unit file says only that a package shipped one: hosts with another init
+    # system carry them too, and have no journal to read.
+    if not lib.logsource.systemd_booted(config_root):
+        return []
+    found = []
+    seen = set()
+    for candidate in UNIT_CANDIDATES:
+        for directory in UNIT_DIRECTORIES:
+            for filename in lib.disk.glob(f'{config_root}{directory}/{candidate}'):
+                if not lib.disk.file_exists(filename, allow_empty=True):
+                    continue
+                identity = os.path.realpath(filename)
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                found.append(os.path.basename(filename))
+    return found
+
+
+def get_server_logs(config_root=''):
+    """
+    Return the log sources fail2ban writes to on this host.
+
+    That is the file `logtarget` names, and the journal of the unit: a start whose
+    configuration fails writes its errors to standard error before fail2ban switches
+    to its log target, and every other target ends up in the journal as well.
+    """
+    sources = []
+    logtarget = get_logtarget(config_root)
+    if logtarget and logtarget.upper() not in NON_FILE_TARGETS:
+        sources.append(f'{config_root}{logtarget}')
+    sources.extend(f'systemd:{unit}' for unit in get_units(config_root))
+    return sources
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+    # The hidden --config-root points the unit tests at a fixture tree. This check
+    # runs as root, so only a tree inside its own unit-test/ directory counts.
+    if args.CONFIG_ROOT:
+        args.CONFIG_ROOT = lib.base.coe(lib.lftest.fixture_root(args.CONFIG_ROOT))
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+    if args.SERVER_LOG is None:
+        args.SERVER_LOG = []
+
+    if args.ICINGA_CALLBACK and not all(
+        (
+            args.ICINGA_URL,
+            args.ICINGA_PASSWORD,
+            args.ICINGA_USERNAME,
+            args.ICINGA_SERVICE_NAME,
+        )
+    ):
+        lib.base.cu(
+            '`--icinga-callback` requires `--icinga-url`, `--icinga-password`, '
+            '`--icinga-username` and `--icinga-service-name`.'
+        )
+
+    # fetch data
+    # The plugin runs as root via sudo, so restrict an on-disk log to the system log
+    # directory. The plugin's own unit-test/ directory is allowed so the fixture
+    # tests work; it does not exist next to the flat, root-owned plugin in
+    # production.
+    allowed_roots = [
+        '/var/log',
+        os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
+    ]
+    server_logs = args.SERVER_LOG or get_server_logs(args.CONFIG_ROOT)
+    if not server_logs:
+        lib.base.cu(
+            'Found neither a log file in the fail2ban configuration nor a '
+            "`fail2ban.service` unit. Name the log fail2ban writes to with the check's "
+            '`--server-log` parameter.'
+        )
+
+    # No position is kept on purpose: this check reports on a window of the log,
+    # counting startups and bans next to the problems, so every run has to see the
+    # whole window rather than only what is new.
+    success, result = lib.logsource.read_many(
+        server_logs,
+        allowed_roots=allowed_roots,
+        max_lines=MAXLINES,
+        rotated=ROTATED_FILES,
+        timeout=args.TIMEOUT,
+    )
+    if not success:
+        lib.base.cu(result)
+    sizes = {
+        item['label']: item['size'] for item in result['sources'] if 'size' in item
+    }
+    source_label = (
+        '`'
+        + lib.disk.shorten_path(
+            result['sources'][0]['label'], max_len=SOURCE_PATH_MAX_LEN, truncate=False
+        )
+        + '`'
+        if len(result['sources']) == 1
+        else f'the {len(result["sources"])} sources read'
+    )
+
+    # init some vars
+    state = STATE_OK
+    sections = []
+    facts = []
+    recommendations = []
+    level_states = get_level_states(args.CRITICAL_LEVEL, args.WARNING_LEVEL)
+    levels = {item['level']: [] for item in LEVELS}
+    found = {item['key']: [] for item in EVENTS}
+    found.update({item['key']: [] for item in RATE_EVENTS})
+    found.update({item['key']: [] for item in LIFECYCLE})
+    command_errors = []
+    client_command_cnt = 0
+    rate_since = datetime.datetime.now() - datetime.timedelta(seconds=args.LOOKBACK)
+    considered_cnt = 0
+    recognized_cnt = 0
+    unrecognized_cnt = 0
+    suppressed_cnt = 0
+    version = ''
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+
+    acked_fingerprints = set()
+    ack_conn = None
+    if args.ICINGA_CALLBACK:
+        instance_payload = {}
+        for name, value in (
+            ('ignore_regex', args.IGNORE),
+            ('match', args.MATCH),
+            ('server_log', args.SERVER_LOG),
+        ):
+            if value:
+                instance_payload[name] = value
+        ack_conn = lib.base.coe(
+            lib.logmatch.connect(
+                'fail2ban-logfile', lib.logmatch.instance_id(instance_payload)
+            )
+        )
+        lib.base.coe(lib.logmatch.prune(ack_conn, retention=ACK_RETENTION_DAYS))
+        acked_fingerprints = lib.base.coe(lib.logmatch.suppressed(ack_conn))
+
+    # analyze data
+    # The file and the journal are read one after the other, so the lines are put in
+    # the order they were written before the last startup is looked for.
+    lines = lib.logsource.sort_by_time(
+        join_continuations(result['lines']), parse_timestamp
+    )
+    # Only what the current process wrote is judged by level and by event: a restart
+    # rebuilds the firewall rules, reopens the database and rereads the
+    # configuration, so what an earlier process complained about says nothing about
+    # the one running now. The lines up to the last startup are history, counted
+    # among the lifecycle markers. A start that failed never logs its startup, so its
+    # errors count until a start works again.
+    current_from = 0
+    for index, log_line in enumerate(lines):
+        if STARTUP_REGEX.search(parse_line(log_line)[2]):
+            current_from = index
+    for index, log_line in enumerate(lines):
+        haystack = log_line.lower()
+        if any(item.search(haystack) for item in compiled_ignore):
+            continue
+        if compiled_match and not any(item.search(haystack) for item in compiled_match):
+            continue
+        considered_cnt += 1
+        if acked_fingerprints and lib.logmatch.key(log_line) in acked_fingerprints:
+            suppressed_cnt += 1
+            continue
+        if not is_fail2ban_line(log_line):
+            # systemd's own lines about the unit ("Started fail2ban.service") are
+            # about the service rather than from it, anything else is not fail2ban
+            if lib.logsource.syslog_identifier(log_line) != 'systemd':
+                unrecognized_cnt += 1
+            continue
+        recognized_cnt += 1
+        level, logger, message, _ = parse_line(log_line)
+        current = index >= current_from
+        for item in LIFECYCLE:
+            if item['regex'].search(message):
+                found[item['key']].append(log_line)
+        startup = STARTUP_REGEX.search(message)
+        if startup:
+            version = startup.group(1)
+        command = COMMAND_REGEX.match(message)
+        if command:
+            # the command behind a failed action, see COMMAND_REGEX
+            if current and COMMAND_DETAIL_REGEX.match(command.group(1)):
+                command_errors.append(log_line)
+            continue
+        if CLIENT_COMMAND_REGEX.match(message):
+            client_command_cnt += 1
+            continue
+        if COMPANION_REGEX.match(message):
+            continue
+        # A ban that does not stop the client, judged by its rate. Only fail2ban's
+        # WARNING says that the line arrived more than a minute after the ban, so a
+        # journal line, which carries no level, does not count.
+        rate_hits = [
+            event
+            for event in RATE_EVENTS
+            if level == 'WARNING' and event['regex'].search(message)
+        ]
+        for event in rate_hits:
+            found[event['key']].append(log_line)
+        if rate_hits:
+            continue
+        hits = [event for event in EVENTS if event['regex'].search(message)]
+        if (
+            not hits
+            and logger == 'fail2ban.database'
+            and level in ('CRITICAL', 'ERROR')
+        ):
+            hits = [item for item in EVENTS if item['key'] == 'database_errors']
+        if (
+            not hits
+            and logger == 'fail2ban.observer'
+            and DATABASE_ERROR_REGEX.search(message)
+        ):
+            hits = [item for item in EVENTS if item['key'] == 'database_errors']
+        if hits:
+            if current:
+                for event in hits:
+                    found[event['key']].append(log_line)
+            continue
+        if current and level in levels:
+            levels[level].append(log_line)
+    for key, item_lines in found.items():
+        found[key] = lib.logsource.sort_by_time(item_lines, parse_timestamp)
+
+    if compiled_match and result['lines'] and not considered_cnt:
+        if ack_conn is not None:
+            lib.db_sqlite.close(ack_conn)
+        lib.base.oao(
+            f'Nothing checked: `--match` dropped all {len(result["lines"])} '
+            f'{lib.txt.pluralize("line", len(result["lines"]))} of '
+            f'{source_label}.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # Every line fail2ban writes to a file carries its format, and the journal names
+    # fail2ban as the writer, so a window without a single such line is not a quiet
+    # fail2ban but a source that holds something else.
+    if unrecognized_cnt and not recognized_cnt:
+        if ack_conn is not None:
+            lib.db_sqlite.close(ack_conn)
+        lib.base.oao(
+            f'None of the {unrecognized_cnt} '
+            f'{lib.txt.pluralize("line", unrecognized_cnt)} read from '
+            f'{source_label} looks like a line of fail2ban. Check `--server-log`.',
+            STATE_UNKNOWN,
+        )
+
+    # build the message
+    covered = ''
+    window_from, window_to = lib.logsource.covered_window(
+        [item['lines'] for item in result['sources']], parse_timestamp
+    )
+    if window_from is not None and window_to is not None:
+        span = int((window_to - window_from).total_seconds())
+        covered = (
+            f'{window_from:%Y-%m-%d %H:%M} .. {window_to:%Y-%m-%d %H:%M}'
+            f' ({lib.human.seconds2human(span)}): '
+        )
+    line_cnt = len(result['lines'])
+    lines_read = (
+        f'{lib.human.number2human(line_cnt)} {lib.txt.pluralize("line", line_cnt)}'
+    )
+    if result['truncated']:
+        lines_read = f'the most recent {lines_read}'
+    # A directory holding more than a handful of logs is folded into one entry.
+    described = lib.base.coe(lib.logsource.describe_sources(result['sources'], sizes))
+    source_cnt = len(result['sources'])
+    sources = f'{source_cnt} {lib.txt.pluralize("source", source_cnt)}'
+    source_heading = f'Read {lines_read} from {sources}:'
+
+    rate_counts = {}
+    rate_states = {}
+    rate_facts = []
+    for event in RATE_EVENTS:
+        window = lib.logsource.count_within(
+            found[event['key']], rate_since, parse_line=parse_timestamp
+        )
+        rate_counts[event['key']] = window['count']
+        rate_states[event['key']] = STATE_OK
+        if not window['total'] and not window['undated']:
+            continue
+        rate_state = lib.base.get_state(
+            window['count'],
+            getattr(args, event['warning']) or None,
+            getattr(args, event['critical']) or None,
+        )
+        rate_states[event['key']] = rate_state
+        state = lib.base.get_worst(state, rate_state)
+        # what arrived before the rate window is history the perfdata trends
+        if not window['count'] and not window['undated']:
+            continue
+        fact = (
+            f'{window["count"]} '
+            f'{lib.txt.pluralize(event["label"], window["count"])} in the last'
+            f' {lib.human.seconds2human(args.LOOKBACK)}'
+            f'{lib.base.state2str(rate_state, prefix=" ")}'
+        )
+        if window['undated']:
+            fact += (
+                f', {window["undated"]} of them without a timestamp and therefore'
+                f' not counted'
+            )
+        rate_facts.append(fact)
+        if rate_state != STATE_OK:
+            recommendations.append(event['recommendation'])
+
+    counts = {}
+    for item in LEVELS:
+        item_lines = levels[item['level']]
+        counts[item['level']] = len(item_lines)
+        if not item_lines:
+            continue
+        level_state = level_states[item['level']]
+        state = lib.base.get_worst(state, level_state)
+        facts.append(
+            f'{len(item_lines)} {item["level"]} '
+            f'{lib.txt.pluralize("line", len(item_lines))} found'
+            f'{lib.base.state2str(level_state, prefix=" ")}'
+        )
+    if (
+        not any(counts.values())
+        and not rate_facts
+        and not any(found[event['key']] for event in EVENTS)
+    ):
+        facts.append('No errors or warnings found')
+
+    named = []
+    for event in EVENTS:
+        hits = found[event['key']]
+        if not hits:
+            continue
+        state = lib.base.get_worst(state, event['state'])
+        named.append(
+            f'{len(hits)} '
+            f'{lib.txt.pluralize(event["label"], len(hits))}'
+            f'{lib.base.state2str(event["state"], prefix=" ")}'
+        )
+        recommendations.append(event['recommendation'])
+    if named:
+        facts.append('Found ' + ', '.join(named))
+
+    facts.extend(rate_facts)
+
+    for item in LIFECYCLE:
+        item_lines = found[item['key']]
+        if item_lines:
+            fact = (
+                f'{len(item_lines)} {lib.txt.pluralize(item["label"], len(item_lines))}'
+                f' {item["verb"]}'
+            )
+            last = lib.logsource.timestamp(item_lines[-1], parse_timestamp)
+            if last is not None:
+                fact += f' (last: {last:%Y-%m-%d %H:%M:%S})'
+            facts.append(fact)
+    if client_command_cnt:
+        facts.append(
+            f'{client_command_cnt} refused'
+            f' {lib.txt.pluralize("fail2ban-client command", client_command_cnt)}'
+        )
+    if version:
+        facts.append(f'fail2ban {version}')
+
+    if unrecognized_cnt:
+        facts.append(
+            f'{unrecognized_cnt} {lib.txt.pluralize("line", unrecognized_cnt)}'
+            f' not written by fail2ban'
+        )
+
+    if result['notice']:
+        facts.append(result['notice'].rstrip('.'))
+
+    if result['failed']:
+        state = lib.base.get_worst(state, STATE_WARN)
+        facts.append(
+            '; '.join(item.rstrip('.') for item in result['failed'])
+            + lib.base.state2str(STATE_WARN, prefix=' ')
+        )
+        recommendations.append(
+            'Check the log sources this check was told to read; '
+            'one of them could not be read at all'
+        )
+
+    sections.append(covered + '. '.join(facts) + '.')
+
+    for event in EVENTS:
+        item_lines = found[event['key']]
+        if item_lines:
+            groups = lib.logsource.group_lines(
+                item_lines, parse_line=parse_timestamp, group=get_message
+            )
+            label = lib.txt.pluralize(event['label'], 2)
+            sections.append(
+                f'{label[:1].upper()}{label[1:]}:\n'
+                + '\n'.join(
+                    f'* {text}'
+                    for text in lib.logsource.describe_groups(groups, last=True)
+                )
+            )
+
+    # What the commands of the actions said when they failed, which is why an action
+    # failed or what fail2ban found missing when the rules were gone. Only shown next
+    # to an event, a command that failed on its own leaves no trace in the state.
+    if command_errors and (found['action_failures'] or found['lost_rules']):
+        groups = lib.logsource.group_lines(
+            command_errors, parse_line=parse_timestamp, group=get_message
+        )
+        sections.append(
+            'Command errors:\n'
+            + '\n'.join(
+                f'* {text}' for text in lib.logsource.describe_groups(groups, last=True)
+            )
+        )
+
+    for event in RATE_EVENTS:
+        if rate_states[event['key']] == STATE_OK:
+            continue
+        groups = lib.logsource.group_lines(
+            found[event['key']],
+            since=rate_since,
+            parse_line=parse_timestamp,
+            group=get_message,
+        )
+        if groups:
+            label = lib.txt.pluralize(event['label'], 2)
+            sections.append(
+                f'{label[:1].upper()}{label[1:]} in the last'
+                f' {lib.human.seconds2human(args.LOOKBACK)}:\n'
+                + '\n'.join(
+                    f'* {text}' for text in lib.logsource.describe_groups(groups)
+                )
+            )
+
+    for item in LEVELS:
+        item_lines = levels[item['level']]
+        if item_lines:
+            groups = lib.logsource.group_lines(
+                item_lines, parse_line=parse_timestamp, group=get_message
+            )
+            sections.append(
+                f'{item["level"].capitalize()} lines:\n'
+                + '\n'.join(
+                    f'* {text}'
+                    for text in lib.logsource.describe_groups(groups, last=True)
+                )
+            )
+
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {item}' for item in recommendations)
+        )
+
+    msg = '\n\n'.join(sections)
+
+    perfdata = ''
+    if sizes:
+        perfdata += lib.base.get_perfdata(
+            'fail2ban_logfile_size',
+            sum(sizes.values()),
+            uom='B',
+            _min=0,
+        )
+    # The problem counters alert from their first hit on, hence `warn='0'`
+    # ("outside 0..0") rather than `warn=1`.
+    for item in LEVELS:
+        level_state = level_states[item['level']]
+        perfdata += lib.base.get_perfdata(
+            item['perfdata'],
+            counts[item['level']],
+            uom=None,
+            warn='0' if level_state == STATE_WARN else None,
+            crit='0' if level_state == STATE_CRIT else None,
+            _min=0,
+        )
+    for event in EVENTS:
+        perfdata += lib.base.get_perfdata(
+            event['perfdata'],
+            len(found[event['key']]),
+            uom=None,
+            warn='0' if event['state'] == STATE_WARN else None,
+            crit='0' if event['state'] == STATE_CRIT else None,
+            _min=0,
+        )
+    for event in RATE_EVENTS:
+        perfdata += lib.base.get_perfdata(
+            event['perfdata'],
+            rate_counts[event['key']],
+            uom=None,
+            warn=getattr(args, event['warning']) or None,
+            crit=getattr(args, event['critical']) or None,
+            _min=0,
+        )
+    for item in LIFECYCLE:
+        perfdata += lib.base.get_perfdata(
+            item['perfdata'], len(found[item['key']]), uom=None, _min=0
+        )
+
+    if args.ICINGA_CALLBACK and state != STATE_OK:
+        acknowledged, note = lib.base.coe(
+            lib.logmatch.service_acknowledged(
+                args.ICINGA_URL,
+                args.ICINGA_USERNAME,
+                args.ICINGA_PASSWORD,
+                args.ICINGA_SERVICE_NAME,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
+        if acknowledged:
+            # The rate events stay out: what alerts there is the arrival rate and
+            # not one line.
+            reported = {}
+            for item in LEVELS:
+                reported.update(dict.fromkeys(levels[item['level']]))
+            for event in EVENTS:
+                reported.update(dict.fromkeys(found[event['key']]))
+            lib.base.coe(
+                lib.logmatch.acknowledge(
+                    ack_conn,
+                    [
+                        {'key': lib.logmatch.key(line), 'line': line}
+                        for line in reported
+                    ],
+                )
+            )
+            state = STATE_OK
+        if note:
+            msg += f'\n\n{note}'
+    if suppressed_cnt:
+        msg += (
+            f'\n\n{suppressed_cnt} acknowledged'
+            f' {lib.txt.pluralize("line", suppressed_cnt)} suppressed.'
+        )
+    if ack_conn is not None:
+        lib.db_sqlite.close(ack_conn)
+
+    # What was read comes last: the verdict and the lines behind it come first, the
+    # provenance after them.
+    msg += f'\n\n{source_heading}\n' + '\n'.join(f'* {item}' for item in described)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

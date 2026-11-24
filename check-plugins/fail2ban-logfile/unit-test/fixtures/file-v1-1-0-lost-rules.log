@@ -1,0 +1,48 @@
+2026-11-24 17:25:55,308 fail2ban.server         [118]: INFO    --------------------------------------------------
+2026-11-24 17:25:55,308 fail2ban.server         [118]: INFO    Starting Fail2ban v1.1.0
+2026-11-24 17:25:55,309 fail2ban.observer       [118]: INFO    Observer start...
+2026-11-24 17:25:55,310 fail2ban.database       [118]: INFO    Connected to fail2ban persistent database '/var/lib/fail2ban/fail2ban.sqlite3'
+2026-11-24 17:25:55,311 fail2ban.database       [118]: WARNING New database created. Version '4'
+2026-11-24 17:25:55,311 fail2ban.jail           [118]: INFO    Creating new jail 't-ipt'
+2026-11-24 17:25:55,311 fail2ban.jail           [118]: INFO    Jail 't-ipt' uses poller {}
+2026-11-24 17:25:55,311 fail2ban.jail           [118]: INFO    Initiated 'polling' backend
+2026-11-24 17:25:55,311 fail2ban.filter         [118]: INFO      maxLines: 1
+2026-11-24 17:25:55,316 fail2ban.filter         [118]: INFO      maxRetry: 1
+2026-11-24 17:25:55,316 fail2ban.filter         [118]: INFO      findtime: 600
+2026-11-24 17:25:55,316 fail2ban.actions        [118]: INFO      banTime: 600
+2026-11-24 17:25:55,316 fail2ban.filter         [118]: INFO      encoding: utf-8
+2026-11-24 17:25:55,316 fail2ban.filter         [118]: INFO    Added logfile: '/var/log/secure.test' (pos = 0, hash = )
+2026-11-24 17:25:55,317 fail2ban.jail           [118]: INFO    Jail 't-ipt' started
+2026-11-24 17:26:01,303 fail2ban.actions        [118]: NOTICE  [t-ipt] Ban 192.0.2.60
+2026-11-24 17:26:03,397 fail2ban.actions        [118]: NOTICE  [t-ipt] Ban 192.0.2.61
+2026-11-24 17:26:03,401 fail2ban.utils          [118]: ERROR   7f61d4205930 -- exec: iptables -w -I f2b-t-ipt 1 -s 192.0.2.61 -j REJECT --reject-with icmp-port-unreachable
+2026-11-24 17:26:03,401 fail2ban.utils          [118]: ERROR   7f61d4205930 -- stderr: 'iptables: No chain/target/match by that name.'
+2026-11-24 17:26:03,402 fail2ban.utils          [118]: ERROR   7f61d4205930 -- returned 1
+2026-11-24 17:26:03,407 fail2ban.utils          [118]: ERROR   7f61d5643ec0 -- exec: for proto in $(echo 'tcp' | sed 's/,/ /g'); do
+iptables -w -C INPUT -p $proto -m multiport --dports ssh -j f2b-t-ipt
+done
+2026-11-24 17:26:03,407 fail2ban.utils          [118]: ERROR   7f61d5643ec0 -- stderr: "iptables v1.8.11 (nf_tables): Chain 'f2b-t-ipt' does not exist"
+2026-11-24 17:26:03,407 fail2ban.utils          [118]: ERROR   7f61d5643ec0 -- stderr: "Try `iptables -h' or 'iptables --help' for more information."
+2026-11-24 17:26:03,407 fail2ban.utils          [118]: ERROR   7f61d5643ec0 -- returned 2
+2026-11-24 17:26:03,407 fail2ban.CommandAction  [118]: ERROR   Invariant check failed. Trying to restore a sane environment
+2026-11-24 17:26:03,414 fail2ban.utils          [118]: ERROR   7f61d45851b0 -- exec: for proto in $(echo 'tcp' | sed 's/,/ /g'); do
+iptables -w -D INPUT -p $proto -m multiport --dports ssh -j f2b-t-ipt
+done
+iptables -w -F f2b-t-ipt
+iptables -w -X f2b-t-ipt
+2026-11-24 17:26:03,414 fail2ban.utils          [118]: ERROR   7f61d45851b0 -- stderr: "iptables v1.8.11 (nf_tables): Chain 'f2b-t-ipt' does not exist"
+2026-11-24 17:26:03,414 fail2ban.utils          [118]: ERROR   7f61d45851b0 -- stderr: "Try `iptables -h' or 'iptables --help' for more information."
+2026-11-24 17:26:03,414 fail2ban.utils          [118]: ERROR   7f61d45851b0 -- stderr: 'iptables: No chain/target/match by that name.'
+2026-11-24 17:26:03,414 fail2ban.utils          [118]: ERROR   7f61d45851b0 -- stderr: 'iptables: No chain/target/match by that name.'
+2026-11-24 17:26:03,414 fail2ban.utils          [118]: ERROR   7f61d45851b0 -- returned 1
+2026-11-24 17:26:06,484 fail2ban.server         [118]: INFO    Shutdown in progress...
+2026-11-24 17:26:06,484 fail2ban.observer       [118]: INFO    Observer stop ... try to end queue 5 seconds
+2026-11-24 17:26:06,504 fail2ban.observer       [118]: INFO    Observer stopped, 0 events remaining.
+2026-11-24 17:26:06,545 fail2ban.server         [118]: INFO    Stopping all jails
+2026-11-24 17:26:06,545 fail2ban.filter         [118]: INFO    Removed logfile: '/var/log/secure.test'
+2026-11-24 17:26:07,322 fail2ban.actions        [118]: NOTICE  [t-ipt] Flush ticket(s) with iptables-multiport
+2026-11-24 17:26:07,342 fail2ban.actions        [118]: NOTICE  [t-ipt] Unban 192.0.2.60
+2026-11-24 17:26:07,342 fail2ban.actions        [118]: NOTICE  [t-ipt] Unban 192.0.2.61
+2026-11-24 17:26:07,372 fail2ban.jail           [118]: INFO    Jail 't-ipt' stopped
+2026-11-24 17:26:07,373 fail2ban.database       [118]: INFO    Connection to database closed.
+2026-11-24 17:26:07,373 fail2ban.server         [118]: INFO    Exiting Fail2ban

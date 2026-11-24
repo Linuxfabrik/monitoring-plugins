@@ -5,6 +5,8 @@
 
 Checks the number of currently banned IP addresses across all fail2ban jails. Reports the total ban count and a per-jail breakdown. Jails can be excluded from the check with a regular expression. Alerts when the number of banned IPs in any jail exceeds the configured thresholds. Alerts as well when fail2ban bans an address that must stay reachable, such as the reverse proxy in front of this host or the monitoring server, so a lockout of everybody behind a proxy shows up at once. Requires root or sudo.
 
+Whether the listed bans work, that is whether the ban actions succeed and the banned clients stay out, shows in the log of fail2ban, which [fail2ban-logfile](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fail2ban-logfile/) reads.
+
 **Data Collection:**
 
 * Runs `fail2ban-client ping` to verify the fail2ban server is alive

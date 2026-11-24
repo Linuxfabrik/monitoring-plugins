@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-**Highlights:** A new check, `rpm-database`, warns when the RPM database is broken and the host silently stops receiving updates. Two new checks, `blocky-logfile` and `blocky-stats`, monitor the blocky DNS ad-blocker.
+**Highlights:** Two new checks catch failures that otherwise stay silent: `rpm-database` warns when the RPM database is broken and the host no longer receives updates, and `fail2ban-logfile` warns when fail2ban keeps running while its bans have no effect. With `blocky-logfile` and `blocky-stats`, the blocky DNS ad-blocker is monitored as well.
 
 ### Added
 
@@ -15,6 +15,7 @@ Monitoring Plugins:
 
 * blocky-logfile: Warns when blocky failed to start, uses deprecated options, cannot download a list or gets no answer upstream.
 * blocky-stats: Reports what blocky blocks and fails to resolve, and warns when blocking is off or its lists are stale.
+* fail2ban-logfile: Warns when fail2ban bans without effect: failed ban actions, lost firewall rules, banned clients that get through, and jails that stopped reading their log.
 * freeipa-logfile: Warns when the daily ipa-healthcheck run finds a problem on a FreeIPA server, or no longer runs.
 * icinga-director-basket-drift: Warns when Linuxfabrik objects in the Icinga Director differ from the basket of the installed plugins.
 * icinga-director-overrides: Lists the service variables overridden per host in the Icinga Director, and overrides without effect.
