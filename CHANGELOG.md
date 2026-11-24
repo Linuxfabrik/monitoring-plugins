@@ -66,7 +66,7 @@ Grafana:
 
 Build, CI/CD:
 
-* Windows releases come with a CycloneDX SBOM of the compiled plugins, which lists the bundled Python packages, CPython, OpenSSL and the other bundled libraries ([#1689](https://github.com/Linuxfabrik/monitoring-plugins/issues/1689)).
+* Windows releases come with a CycloneDX SBOM of the compiled plugins, on GitHub and download.linuxfabrik.ch, which lists the bundled Python packages, CPython, OpenSSL and the other bundled libraries ([#1689](https://github.com/Linuxfabrik/monitoring-plugins/issues/1689)).
 
 
 ### Removed

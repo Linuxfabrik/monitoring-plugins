@@ -6,19 +6,23 @@
 # License: The Unlicense, see LICENSE file.
 #
 # Runs on the server behind download.linuxfabrik.ch, from a systemd timer.
-# Publishes the zips attached to the GitHub releases of
+# Publishes the assets attached to the GitHub releases of
 # Linuxfabrik/monitoring-plugins:
 #
 #   lfmp-<version>-<iteration>.source.noarch.zip                 (lf-release.yml)
 #   lfmp-<version>-<iteration>.signed-compiled.windows.x86_64.zip (lf-build-windows-x86_64.yml)
 #   lfmp-<version>-<iteration>.signed-packaged.windows.x86_64.zip (lf-build-windows-x86_64.yml)
+#   lfmp-<version>-<iteration>.windows.x86_64.cdx.json           (lf-build-windows-x86_64.yml)
 #
-# Pull, not push: only this server holds the GnuPG key. Each zip is checked
+# Pull, not push: only this server holds the GnuPG key. Each asset is checked
 # against its build provenance attestation from the workflow that builds it,
-# then gets a <zip>.sha256 and a detached <zip>.asc, which
-# `install-monitoring-plugins --zip` verifies. The lfmp-latest.* links point to
-# the highest iteration of the latest release; a prerelease never becomes
-# latest. Nothing is ever deleted here.
+# then gets a <asset>.sha256 and a detached <asset>.asc, which
+# `install-monitoring-plugins --zip` verifies for the zips. A zip that fails the
+# check fails the run; an SBOM that fails it is skipped with a warning, so it
+# never holds back the zips (the SBOMs reconstructed by hand for older releases
+# have no attestation). The lfmp-latest.* links point to the highest iteration
+# of the latest release; a prerelease never becomes latest. Nothing is ever
+# deleted here.
 #
 # Required environment:
 #   GH_TOKEN                     read-only GitHub token, for the API and for
@@ -40,28 +44,39 @@ DOWNLOADS_DIR="${DOWNLOADS_DIR:-/var/www/html/download.linuxfabrik.ch/monitoring
 DOWNLOADS_RELEASES="${DOWNLOADS_RELEASES:-10}"
 DOWNLOADS_REPO="${DOWNLOADS_REPO:-Linuxfabrik/monitoring-plugins}"
 
-KINDS='source.noarch signed-compiled.windows.x86_64 signed-packaged.windows.x86_64'
+# The asset name after lfmp-<version>-<iteration>.
+KINDS='source.noarch.zip signed-compiled.windows.x86_64.zip signed-packaged.windows.x86_64.zip windows.x86_64.cdx.json'
 
-# The workflow that builds a zip of the given kind.
+# The workflow that builds an asset of the given kind.
 signer_workflow() {
     case "$1" in
-    source.noarch) echo "$DOWNLOADS_REPO/.github/workflows/lf-release.yml" ;;
-    signed-*.windows.x86_64) echo "$DOWNLOADS_REPO/.github/workflows/lf-build-windows-x86_64.yml" ;;
+    source.noarch.zip) echo "$DOWNLOADS_REPO/.github/workflows/lf-release.yml" ;;
+    signed-*.windows.x86_64.zip | windows.x86_64.cdx.json)
+        echo "$DOWNLOADS_REPO/.github/workflows/lf-build-windows-x86_64.yml"
+        ;;
     esac
 }
 
-# Verify one downloaded zip and publish it with its .sha256 and .asc. The
-# sidecars go first and the zip last, each by a rename inside DOWNLOADS_DIR, so a
-# zip is never visible without them and every file gets the SELinux context of
-# the directory.
-publish_zip() {
+# Verify one downloaded asset and publish it with its .sha256 and .asc. The
+# sidecars go first and the asset last, each by a rename inside DOWNLOADS_DIR, so
+# an asset is never visible without them and every file gets the SELinux context
+# of the directory.
+publish_asset() {
     local file="$1" kind="$2"
     local name tmp
     name="$(basename "$file")"
 
-    gh attestation verify "$file" \
+    if ! gh attestation verify "$file" \
         --repo "$DOWNLOADS_REPO" \
-        --signer-workflow "$(signer_workflow "$kind")" >/dev/null
+        --signer-workflow "$(signer_workflow "$kind")" >/dev/null; then
+        case "$kind" in
+        *.cdx.json)
+            echo "skipping $name: no valid build provenance attestation" >&2
+            return 0
+            ;;
+        esac
+        return 1
+    fi
 
     tmp="$DOWNLOADS_DIR/.$name.tmp"
     cp "$file" "$tmp"
@@ -80,21 +95,21 @@ publish_zip() {
     echo "published $name"
 }
 
-# Publish the zips of one release that are not on the server yet.
+# Publish the assets of one release that are not on the server yet.
 publish_release() {
     local tag="$1" work="$2"
     local version="${tag#v}" asset kind dir="$work/$tag"
 
     mkdir "$dir"
     gh release view "$tag" --repo "$DOWNLOADS_REPO" --json assets \
-        --jq '.assets[].name | select(endswith(".zip"))' > "$dir.assets"
+        --jq '.assets[].name | select(endswith(".zip") or endswith(".cdx.json"))' > "$dir.assets"
     while read -r asset; do
         [ -n "$asset" ] || continue
         [ -e "$DOWNLOADS_DIR/$asset" ] && continue
         kind=''
         for k in $KINDS; do
             # the quoted parts match literally, dots included
-            if [[ "$asset" =~ ^lfmp-"$version"-[0-9]+\."$k"\.zip$ ]]; then
+            if [[ "$asset" =~ ^lfmp-"$version"-[0-9]+\."$k"$ ]]; then
                 kind="$k"
             fi
         done
@@ -103,11 +118,11 @@ publish_release() {
             continue
         fi
         gh release download "$tag" --repo "$DOWNLOADS_REPO" --pattern "$asset" --dir "$dir"
-        publish_zip "$dir/$asset" "$kind"
+        publish_asset "$dir/$asset" "$kind"
     done < "$dir.assets"
 }
 
-# Point lfmp-latest.<kind>.zip (and its sidecars) at the highest iteration of
+# Point lfmp-latest.<kind> (and its sidecars) at the highest iteration of
 # the latest release.
 update_latest() {
     local latest version kind newest suffix
@@ -115,14 +130,14 @@ update_latest() {
     version="${latest#v}"
     for kind in $KINDS; do
         newest="$(cd "$DOWNLOADS_DIR" &&
-            find . -maxdepth 1 -type f -name "lfmp-$version-*.$kind.zip" -printf '%f\n' |
+            find . -maxdepth 1 -type f -name "lfmp-$version-*.$kind" -printf '%f\n' |
             sort --version-sort | tail -n 1)"
         [ -n "$newest" ] || continue
         for suffix in '' .sha256 .asc; do
-            if [ "$(readlink "$DOWNLOADS_DIR/lfmp-latest.$kind.zip$suffix" || true)" != "$newest$suffix" ]; then
+            if [ "$(readlink "$DOWNLOADS_DIR/lfmp-latest.$kind$suffix" || true)" != "$newest$suffix" ]; then
                 ln --force --no-dereference --symbolic "$newest$suffix" \
-                    "$DOWNLOADS_DIR/lfmp-latest.$kind.zip$suffix"
-                echo "lfmp-latest.$kind.zip$suffix -> $newest$suffix"
+                    "$DOWNLOADS_DIR/lfmp-latest.$kind$suffix"
+                echo "lfmp-latest.$kind$suffix -> $newest$suffix"
             fi
         done
     done

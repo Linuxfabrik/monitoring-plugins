@@ -9,7 +9,7 @@ Outputs per release:
   Published to <https://download.linuxfabrik.ch/monitoring-plugins/>.
 * Source-only zip for all operating systems. Published to the download
   server as well.
-* CycloneDX SBOM of the Windows build, attached to the GitHub release only, see [SBOM of the Windows Build](#sbom-of-the-windows-build).
+* CycloneDX SBOM of the Windows build, attached to the GitHub release and published to the download server, see [SBOM of the Windows Build](#sbom-of-the-windows-build).
 
 The RPM and DEB packages for Linux are built in
 [Linuxfabrik/packaging](https://github.com/Linuxfabrik/packaging) and
@@ -52,10 +52,11 @@ Linuxfabrik/packaging                    # RPM and DEB, `testing` channel, then 
   approval; SignPath mails `info@` when one is pending. The signed ZIP and MSI
   are attached to the release, with an attestation each.
 * On the repository server, `build/publish-downloads.sh` runs from a systemd
-  timer. It picks up new zips from the releases, checks each against its
-  attestation, adds the `.sha256` and the detached GPG signature `.asc`, and
-  points the `lfmp-latest.*` links at the latest release. A prerelease never
-  becomes latest, and nothing is deleted there.
+  timer. It picks up new zips and SBOMs from the releases, checks each against
+  its attestation, adds the `.sha256` and the detached GPG signature `.asc`, and
+  points the `lfmp-latest.*` links at the latest release. A zip that fails the
+  check fails the run, an SBOM that fails it is skipped with a warning. A
+  prerelease never becomes latest, and nothing is deleted there.
 
 A failed or broken build is repeated under the next iteration, with a manual
 run of the same workflow: `lf-release.yml` with `package-iteration`, and
@@ -149,7 +150,7 @@ Nuitka drops the metadata of the packages it bundles, so no scanner finds a sing
 
 The script fails on a mismatch, and on a package in the python.org SBOM that it does not know yet (`PYTHON_ORG_FILES`). The SBOM steps run after the zips are attached, so a failure there never holds back the signed builds. A rebuild of a tag whose `compile-one.sh` writes no reports gets no SBOM, with a warning.
 
-The SBOMs of the releases before the reports existed were reconstructed from the published ZIPs and carry the property `linuxfabrik:sbom:reconstructed`.
+The SBOMs of the releases before the reports existed were reconstructed from the published ZIPs and carry the property `linuxfabrik:sbom:reconstructed`. They have no attestation and therefore stay on the GitHub release.
 
 The Linux packages need no SBOM of their own: their venv keeps the metadata, so scanners such as Syft list it in full.
 
