@@ -1,0 +1,429 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for fail2ban-logfile.
+
+The `file-v1-1-0-*` and `journal-v1-1-0-*` fixtures are what fail2ban 1.1.0 (EPEL)
+wrote on Rocky 10 containers, one scenario after the other: a healthy run, an action
+whose command fails, the iptables ban action without iptables, a database that cannot
+be opened, firewall rules flushed while fail2ban ran, a banned client that showed up
+again 70 seconds after its ban, a line from the future and a host name in `ignoreip`
+that does not resolve, and under systemd a restart into a jail without a log file,
+the recovery, and `logtarget = SYSTEMD-JOURNAL`.
+
+The others are anonymized excerpts of production hosts: `file-v1-1-1-ineffective-
+bans-wrong-port` an sshd jail that banned on port 22 while sshd listened on another
+port, `file-v1-1-0-journal-lost` an sshd jail whose journal file disappeared,
+`file-v1-0-2-database-corrupt` a corrupt database, `file-v1-1-1-dns-lookups` a filter
+that took the virtual host name for the client, and `file-v1-1-1-lost-rules-before-
+restart` the errors of a stop whose rules were already gone, followed by a start.
+
+A fixture read as it stands would sit inside the rate window on the day it was
+captured and outside it on every day after, so the fixtures the rate is judged on
+are copied with all their lines moved by one offset, see aged().
+"""
+
+import atexit
+import datetime
+import os
+import re
+import shutil
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+PLUGIN = os.path.join(HERE, '..', 'fail2ban-logfile')
+
+# The log has to be read from below `unit-test/`, which is where the plugin allows
+# itself to read outside /var/log.
+SCRATCH = tempfile.mkdtemp(prefix='fail2ban-logfile-', dir=HERE)
+atexit.register(shutil.rmtree, SCRATCH, True)
+
+TIMESTAMP_REGEX = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})(,\d+ )')
+TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S'
+
+# Taken once, so two logs aged alike start in the same second.
+NOW = datetime.datetime.now()
+
+
+def aged(name, minutes_ago=2):
+    """Copy a fixture, moving its lines so the last of them is `minutes_ago` old.
+    The whole block is shifted by one offset, so the lines keep their spacing."""
+    with open(os.path.join(HERE, 'fixtures', name), encoding='utf-8') as handle:
+        lines = handle.read().splitlines()
+    moments = []
+    for line in lines:
+        match = TIMESTAMP_REGEX.match(line)
+        moments.append(
+            datetime.datetime.strptime(match.group(1), TIMESTAMP_FORMAT)
+            if match
+            else None
+        )
+    known = [moment for moment in moments if moment is not None]
+    shift = NOW - datetime.timedelta(minutes=minutes_ago) - known[-1]
+    path = os.path.join(SCRATCH, f'{os.path.splitext(name)[0]}-{minutes_ago}.log')
+    with open(path, 'w', encoding='utf-8') as handle:
+        for line, moment in zip(lines, moments):
+            if moment is None:
+                handle.write(line + '\n')
+                continue
+            moved = moment + shift
+            handle.write(f'{moved:{TIMESTAMP_FORMAT}}{line[19:]}\n')
+    return path
+
+
+def fixture(name):
+    return os.path.join(HERE, 'fixtures', name)
+
+
+def config_root(name):
+    return os.path.join(HERE, 'config', name)
+
+
+CASES = [
+    {
+        'id': 'ok-healthy',
+        'params': [f'--server-log={fixture("file-v1-1-0-healthy.log")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            # "New database created" is a WARNING fail2ban logs on every first start
+            '1 WARNING line found. 1 startup detected',
+            '1 ban logged',
+            'fail2ban 1.1.0.',
+            "'fail2ban_startups'=1;;;0",
+        ],
+        'assert-not-in': ['Recommendations:'],
+    },
+    {
+        'id': 'warn-action-failure',
+        'params': [f'--server-log={fixture("file-v1-1-0-action-failure.log")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Found 1 failed action [WARNING]',
+            "* 1x Failed to execute ban jail 't-act' action 't-fail': Error banning *",
+            "* 2x stderr: 'iptables: No chain/target/match by that name.'",
+            "'fail2ban_action_failures'=1;0;;0",
+        ],
+        # the command lines explain the failed action and are no ERROR lines of their
+        # own
+        'assert-not-in': ['ERROR line', 'ActionInfo'],
+    },
+    {
+        'id': 'warn-iptables-missing',
+        'params': [f'--server-log={fixture("file-v1-1-0-iptables-missing.log")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            "action 'iptables-multiport': Error starting action",
+            "stderr: '/bin/sh: line 1: iptables: command not found'",
+        ],
+    },
+    {
+        'id': 'warn-database-unreadable',
+        'params': [f'--server-log={fixture("file-v1-1-0-database-unreadable.log")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Found 2 configuration errors [WARNING], 2 database errors [WARNING]',
+            "Error opening fail2ban persistent database '/var/lib/fail2ban/"
+            "fail2ban.sqlite3': database disk image is malformed",
+            '/var/lib/fail2ban/fail2ban.sqlite3`), so it neither restores bans',
+        ],
+        # an unreadable database is no failed log reader
+        'assert-not-in': ['failed log reader'],
+    },
+    {
+        'id': 'warn-database-corrupt-observer-errors',
+        'params': [f'--server-log={fixture("file-v1-0-2-database-corrupt.log")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'database errors [WARNING]',
+            'database disk image is malformed',
+            'fail2ban 1.0.2.',
+        ],
+    },
+    {
+        'id': 'warn-lost-rules',
+        'params': [f'--server-log={fixture("file-v1-1-0-lost-rules.log")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Found 1 lost firewall rule set [WARNING]',
+            'Invariant check failed. Trying to restore a sane environment',
+            "Chain 'f2b-t-ipt' does not exist",
+        ],
+    },
+    {
+        # the errors of the stop that found the rules gone came before the start
+        'id': 'ok-lost-rules-before-restart',
+        'params': [
+            f'--server-log={fixture("file-v1-1-1-lost-rules-before-restart.log")}'
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 startup detected'],
+        'assert-not-in': ['lost firewall rule set', 'Command errors:'],
+    },
+    {
+        'id': 'warn-journal-lost',
+        'params': [f'--server-log={fixture("file-v1-1-0-journal-lost.log")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Found 7 failed log readers [WARNING]',
+            "Caught unhandled exception in main cycle: AttributeError(\"'NoneType' "
+            "object has no attribute 'wait'\")",
+            'A jail stopped reading its log or journal',
+        ],
+    },
+    {
+        'id': 'warn-dns-lookups',
+        'params': [f'--server-log={fixture("file-v1-1-1-dns-lookups.log")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'host name lookups [WARNING]',
+            'Determined IP using DNS Lookup: ',
+            '= {*}',
+            '`usedns = yes`',
+        ],
+    },
+    {
+        'id': 'ok-dns-lookups-ignored',
+        'params': [
+            f'--server-log={fixture("file-v1-1-1-dns-lookups.log")}',
+            '--ignore=dns lookup',
+        ],
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'warn-timestamps-and-unresolvable-ignoreip',
+        'params': [f'--server-log={fixture("file-v1-1-0-timestamps.log")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Found 1 configuration error [WARNING], 1 timestamp problem [WARNING]',
+            'Unable to find a corresponding IP address for does-not-resolve.invalid',
+            "[t-time] Found a match but no valid date/time found for 'Nov 24 20:27:38'",
+        ],
+        # the companion lines of the same finding are not counted on their own
+        'assert-not-in': ['Match without a timestamp', 'custom date pattern'],
+    },
+    {
+        'id': 'ok-single-ineffective-ban',
+        'params': [f'--server-log={aged("file-v1-1-0-ineffective-ban.log")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '1 ineffective ban in the last 1h',
+            "'fail2ban_ineffective_bans'=1;10;;0",
+        ],
+    },
+    {
+        'id': 'warn-ineffective-bans-wrong-port',
+        'params': [
+            f'--server-log={aged("file-v1-1-1-ineffective-bans-wrong-port.log")}',
+            '--lookback=86400',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'ineffective bans in the last 1D [WARNING]',
+            'Ineffective bans in the last 1D:',
+            '[sshd] * already banned',
+            'that the `port` of the jail is the port the service listens on',
+        ],
+    },
+    {
+        'id': 'crit-ineffective-bans-with-critical-threshold',
+        'params': [
+            f'--server-log={aged("file-v1-1-1-ineffective-bans-wrong-port.log")}',
+            '--lookback=86400',
+            '--ineffective-bans-critical=100',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['ineffective bans in the last 1D [CRITICAL]'],
+    },
+    {
+        'id': 'ok-ineffective-bans-threshold-off',
+        'params': [
+            f'--server-log={aged("file-v1-1-1-ineffective-bans-wrong-port.log")}',
+            '--lookback=86400',
+            '--ineffective-bans-warning=0',
+        ],
+        'assert-retc': STATE_OK,
+    },
+    {
+        # dated as captured, the lines are far outside the window
+        'id': 'ok-ineffective-bans-outside-lookback',
+        'params': [
+            f'--server-log={fixture("file-v1-1-1-ineffective-bans-wrong-port.log")}'
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': ["'fail2ban_ineffective_bans'=0;10;;0"],
+    },
+    {
+        'id': 'warn-failed-start',
+        'params': [
+            f'--server-log={fixture("file-v1-1-0-before-failed-start.log")}',
+            f'--server-log={fixture("journal-v1-1-0-failed-start.txt")}',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Found 2 configuration errors [WARNING]',
+            'Have not found any log file for t-nolog jail',
+            '`fail2ban-client --test`',
+        ],
+    },
+    {
+        # the failed start lies before the start that worked
+        'id': 'ok-recovered-after-failed-start',
+        'params': [
+            f'--server-log={fixture("file-v1-1-0-recovered.log")}',
+            f'--server-log={fixture("journal-v1-1-0-recovered.txt")}',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': ['2 startups detected'],
+        'assert-not-in': ['configuration error'],
+    },
+    {
+        # without a level in the journal only the messages are judged
+        'id': 'ok-logtarget-journal',
+        'params': [f'--server-log={fixture("journal-v1-1-0-logtarget-journal.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'No errors or warnings found. 1 startup detected',
+            '2 bans logged',
+        ],
+    },
+    {
+        'id': 'warn-warning-level-warning',
+        'params': [
+            f'--server-log={fixture("file-v1-1-0-healthy.log")}',
+            '--warning-level=WARNING',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 WARNING line found [WARNING]',
+            "* 1x New database created. Version '4'",
+        ],
+    },
+    {
+        'id': 'crit-critical-level-warning',
+        'params': [
+            f'--server-log={fixture("file-v1-1-0-healthy.log")}',
+            '--critical-level=WARNING',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['1 WARNING line found [CRITICAL]'],
+    },
+    {
+        'id': 'ok-always-ok-masks-warn',
+        'params': [
+            f'--server-log={fixture("file-v1-1-0-action-failure.log")}',
+            '--always-ok',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': ['[WARNING]'],
+    },
+    {
+        'id': 'warn-match-drops-everything-with-no-match-severity',
+        'params': [
+            f'--server-log={fixture("file-v1-1-0-healthy.log")}',
+            '--match=^no-such-line',
+            '--no-match-severity=warn',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked: `--match` dropped all'],
+    },
+    {
+        'id': 'unknown-not-a-fail2ban-log',
+        'params': [f'--server-log={fixture("not-fail2ban.txt")}'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['looks like a line of fail2ban'],
+    },
+    {
+        'id': 'unknown-file-outside-var-log',
+        'params': ['--server-log=/etc/passwd'],
+        'assert-retc': STATE_UNKNOWN,
+    },
+    {
+        # fail2ban 1.1 sets `logtarget` in `[DEFAULT]` of fail2ban.conf
+        'id': 'ok-logtarget-from-default-section',
+        'params': [f'--config-root={config_root("file-target")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['/var/log/fail2ban.log`'],
+    },
+    {
+        # a `[Definition]` in fail2ban.d/*.local wins over `[DEFAULT]`
+        'id': 'warn-logtarget-from-local-override',
+        'params': [f'--config-root={config_root("local-override")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['fail2ban-custom.log`', 'Found 1 failed action [WARNING]'],
+    },
+    {
+        # the journal of a host that systemd does not run cannot be read
+        'id': 'unknown-logtarget-journal-without-systemd',
+        'params': [f'--config-root={config_root("journal-target-without-systemd")}'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Found neither a log file in the fail2ban configuration'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    pass
+
+
+def _assert_sources_last(test, combined):
+    """What was read is the last section, after the recommendations."""
+    # `oao()` turns every `|` of the message into `!`, so the first one starts the
+    # performance data.
+    output = combined.split('|', 1)[0].rstrip('\n')
+    sources_at = output.rfind('\n\nRead ')
+    if sources_at == -1:
+        return
+    test.assertNotIn(
+        '\n\n', output[sources_at + 2 :], f'a section follows the sources:\n{combined}'
+    )
+    if 'Recommendations:' in output:
+        test.assertLess(
+            output.find('Recommendations:'),
+            sources_at,
+            f'the recommendations follow the sources:\n{combined}',
+        )
+
+
+def _check_case(test, case):
+    result = subprocess.run(  # nosec B603 - argv list, no shell
+        [PLUGIN, *case['params']],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    combined = result.stdout + result.stderr
+    test.assertEqual(
+        result.returncode,
+        case['assert-retc'],
+        f'expected retc {case["assert-retc"]}, got {result.returncode}.\n'
+        f'Output: {combined}',
+    )
+    for needle in case.get('assert-in', []):
+        test.assertIn(needle, combined, f'{needle!r} not in output:\n{combined}')
+    for needle in case.get('assert-not-in', []):
+        test.assertNotIn(
+            needle, combined, f'{needle!r} unexpectedly in output:\n{combined}'
+        )
+    _assert_sources_last(test, combined)
+
+
+lib.lftest.attach_each(TestCheck, CASES, _check_case, id_func=lambda it: it['id'])
+
+
+if __name__ == '__main__':
+    unittest.main()
