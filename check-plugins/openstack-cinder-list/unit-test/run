@@ -70,12 +70,66 @@ TESTS = [
         'assert-not-in': ['[WARNING]'],
     },
     {
-        # A volume being created is a step towards a healthy one, not a problem.
-        'id': 'ok-creating-is-not-a-problem',
+        # A volume being created is a step towards a healthy one, not a problem, as long as
+        # it does not stay there. The grace period is set far beyond any age this fixture
+        # can reach, so the case does not start failing as the calendar moves on.
+        'id': 'ok-creating-within-the-grace',
         'test': 'stdout/mixed-statuses,,0',
-        'params': '--match=^new01$',
+        'params': '--match=^new01$ --grace-transitional=9999W',
         'assert-retc': STATE_OK,
         'assert-in': ['1 creating'],
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        # ... but one that has been creating since August is stuck.
+        'id': 'warn-creating-for-months-is-stuck',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--match=^new01$',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'creating.*\[WARNING\]',
+    },
+    {
+        # A lost delete and a detach that never finished, the two most common leftovers of
+        # a hiccup between the Block Storage services.
+        'id': 'warn-stuck-deleting-and-detaching',
+        'test': 'stdout/stuck-transitional-statuses,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'deleting.*\[WARNING\]',
+        'assert-in': ['1 deleting', '1 detaching', '1 reserved', 'app01--data'],
+    },
+    {
+        # A volume of a shelved and offloaded instance stays reserved for as long as the
+        # instance is shelved, so `reserved` is not held to the grace period.
+        'id': 'ok-reserved-of-a-shelved-instance-is-not-stuck',
+        'test': 'stdout/stuck-transitional-statuses,,0',
+        'params': '--match=^shelved01--boot$ --grace-transitional=0D',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        'id': 'ok-stuck-statuses-within-a-long-grace',
+        'test': 'stdout/stuck-transitional-statuses,,0',
+        'params': '--grace-transitional=9999W',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        # `--severity` decides whether a status counts at all, the grace period only how
+        # long a status that counts is held back.
+        'id': 'warn-severity-keeps-only-detaching',
+        'test': 'stdout/stuck-transitional-statuses,,0',
+        'params': '--severity=detaching,ok',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'old01--data.*deleting \[WARNING\]',
+        'assert-not-in': ['detaching [WARNING]'],
+    },
+    {
+        'id': 'crit-severity-raises-a-stuck-delete',
+        'test': 'stdout/stuck-transitional-statuses,,0',
+        'params': '--severity=deleting,crit',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'deleting \[CRITICAL\]',
     },
     {
         'id': 'ok-maintenance-lowered-by-severity',
@@ -104,9 +158,9 @@ TESTS = [
     {
         'id': 'crit-brief-keeps-the-broken-row',
         'test': 'stdout/mixed-statuses,,0',
-        # `available` is a warning of its own now, so the volume that is genuinely fine
-        # here is the one being created.
-        'params': '--brief --no-perfdata',
+        # `available` is a warning of its own, so the volume that is genuinely fine here is
+        # the one being created, within a grace period no fixture age reaches.
+        'params': '--brief --no-perfdata --grace-transitional=9999W',
         'assert-retc': STATE_CRIT,
         'assert-in': ['broken01--data', 'stuck01--data'],
         'assert-not-in': ['new01'],

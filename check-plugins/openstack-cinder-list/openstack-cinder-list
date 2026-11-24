@@ -25,13 +25,14 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082504'
+__version__ = '2026112401'
 
 DESCRIPTION = """Lists the OpenStack Cinder block storage volumes of a project and reports the
 status of every one of them. Alerts when a volume sits in a status that needs attention, for
-example error or maintenance, or when the Block Storage API cannot be reached in time. The state
-reported per volume status is configurable, so a cloud on which unattached volumes are a problem
-can say so. Supports extended reporting via --lengthy."""
+example error or maintenance, when a volume is stuck in a transitional status such as
+deleting or detaching for longer than a grace period, or when the Block Storage API cannot be
+reached in time. The state reported per volume status is configurable, so a cloud on which
+unattached volumes are a problem can say so. Supports extended reporting via --lengthy."""
 
 # The Block Storage API microversion to ask for. 3.0 is the baseline every Cinder release since
 # Mitaka speaks, and the fields this check reads have been in the volume view since long before
@@ -52,33 +53,64 @@ API_HEADER = {'OpenStack-API-Version': 'volume 3.0'}
 # was created and after it was detached, so `--grace-available` decides how long that is
 # ordinary before it counts as forgotten.
 #
-# Everything else is either a healthy volume or a step on the way to one: unlike an instance, a
-# volume passes through its transitional states in seconds to minutes, and alerting on them
-# would fire on ordinary work rather than on a problem.
+# `in-use` is the healthy volume. `reserved` looks like a step on the way to it, but is also
+# where a volume stays for as long as its instance is shelved and offloaded: nova's
+# `_terminate_volume_connections()` swaps the attachment for one without a connector, and
+# cinder's `attachment_create()` rates the volume `reserved` until the instance is unshelved.
+# It is therefore not held to a time limit.
+#
+# The remaining statuses are steps on the way to a healthy volume, listed in
+# TRANSITIONAL_STATUSES. A volume normally passes through them in seconds to minutes, so one
+# that is still in such a status after `--grace-transitional` is stuck, typically after a lost
+# message between the Block Storage services or a backend that never answered.
 DEFAULT_SEVERITY = {
-    'attaching': 'ok',
+    'attaching': 'warn',
     'available': 'warn',
     'awaiting-transfer': 'warn',
-    'backing-up': 'ok',
-    'creating': 'ok',
-    'deleting': 'ok',
-    'detaching': 'ok',
-    'downloading': 'ok',
+    'backing-up': 'warn',
+    'creating': 'warn',
+    'deleting': 'warn',
+    'detaching': 'warn',
+    'downloading': 'warn',
     'error': 'crit',
     'error_backing-up': 'crit',
     'error_deleting': 'crit',
     'error_extending': 'crit',
     'error_managing': 'crit',
     'error_restoring': 'crit',
-    'extending': 'ok',
+    'extending': 'warn',
     'in-use': 'ok',
     'maintenance': 'warn',
-    'managing': 'ok',
+    'managing': 'warn',
     'reserved': 'ok',
-    'restoring-backup': 'ok',
-    'retyping': 'ok',
-    'uploading': 'ok',
+    'restoring-backup': 'warn',
+    'retyping': 'warn',
+    'uploading': 'warn',
 }
+
+# The statuses a volume only passes through on its way to another one. Each is rated `warn` in
+# DEFAULT_SEVERITY, and `--grace-transitional` holds the warning back for as long as ordinary
+# work takes. Copying data takes time in proportion to the size of the volume: backing up,
+# restoring, uploading to or downloading from an image, retyping with a migration, and
+# deleting a thick LVM volume, which cinder zeroes out by default (`volume_clear = zero`). The
+# default grace is therefore long enough for a volume of a few terabytes, and a warning about
+# a stuck volume can wait half a day. `updated_at` follows every change of the database row,
+# not only of the status, so an operation that touches the volume on the way restarts the
+# clock and the warning comes later, never too early. Verified against cinder 8313581b6 and
+# nova 94de0576ca.
+TRANSITIONAL_STATUSES = (
+    'attaching',
+    'backing-up',
+    'creating',
+    'deleting',
+    'detaching',
+    'downloading',
+    'extending',
+    'managing',
+    'restoring-backup',
+    'retyping',
+    'uploading',
+)
 
 # The volume fields `--match-*` and `--ignore-*` can filter on, mapped to the key the Block
 # Storage API puts them under, plus the wording used when the field is missing from the
@@ -93,6 +125,7 @@ FILTER_FIELDS = {
 DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 50  # minutes; a Keystone token commonly lives 60
 DEFAULT_GRACE_AVAILABLE = '0D'
+DEFAULT_GRACE_TRANSITIONAL = '12h'
 DEFAULT_INSECURE = False
 DEFAULT_LENGTHY = False
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
@@ -152,6 +185,22 @@ def parse_args():
         dest='GRACE_AVAILABLE',
         type=lib.args.duration,
         default=DEFAULT_GRACE_AVAILABLE,
+    )
+
+    parser.add_argument(
+        '--grace-transitional',
+        help='How long a volume is tolerated in a transitional status such as `creating`, '
+        '`deleting`, `detaching` or `backing-up` before it counts towards the state. A '
+        'volume passes through these on its way to another status; one that is still '
+        'in such a status after this long is stuck. Copying a large volume takes hours, '
+        'so the grace period has to cover the largest backup, image upload or retype '
+        'the cloud runs. Measured from the last change the API reports. '
+        'A duration such as `12h`, `8D` or `2W`; `0D` disables the grace period. '
+        'Only applies while the status is rated as something other than ok. '
+        'Default: %(default)s',
+        dest='GRACE_TRANSITIONAL',
+        type=lib.args.duration,
+        default=DEFAULT_GRACE_TRANSITIONAL,
     )
 
     parser.add_argument(
@@ -539,12 +588,18 @@ def main():
         total_size += int(volume.get('size') or 0)
 
         volume_state = lib.base.str2state(severity_map[status])
-        if status == 'available' and volume_state != STATE_OK:
+        grace = None
+        if status == 'available':
+            grace = args.GRACE_AVAILABLE
+        elif status in TRANSITIONAL_STATUSES:
+            grace = args.GRACE_TRANSITIONAL
+        if grace is not None and volume_state != STATE_OK:
             # A volume that was just created or just detached is available for a moment, and
-            # only one that stays available is forgotten. An age the API does not date is
+            # a volume passes through a transitional status on its way to another one. Only
+            # one that stays there is forgotten or stuck. An age the API does not date is
             # reported rather than excused.
             age = get_age(volume)
-            if age is not None and age < args.GRACE_AVAILABLE:
+            if age is not None and age < grace:
                 volume_state = STATE_OK
         state = lib.base.get_worst(state, volume_state)
 

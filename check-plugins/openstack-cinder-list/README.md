@@ -3,7 +3,7 @@
 
 ## Overview
 
-Lists the OpenStack Cinder block storage volumes of a project and reports the status of every one of them. Alerts when a volume sits in a status that needs attention, for example error or maintenance, or when the Block Storage API cannot be reached in time. The state reported per volume status is configurable, so a cloud on which unattached volumes are a problem can say so. Supports extended reporting via `--lengthy`.
+Lists the OpenStack Cinder block storage volumes of a project and reports the status of every one of them. Alerts when a volume sits in a status that needs attention, for example error or maintenance, when a volume is stuck in a transitional status such as deleting or detaching for longer than a grace period, or when the Block Storage API cannot be reached in time. The state reported per volume status is configurable, so a cloud on which unattached volumes are a problem can say so. Supports extended reporting via `--lengthy`.
 
 **Important Notes:**
 
@@ -12,6 +12,7 @@ Lists the OpenStack Cinder block storage volumes of a project and reports the st
 * The check reuses the Keystone token of the previous run. A run that has a valid token makes a single API request, a run that has to authenticate first makes one more. `--cache-expire` bounds the reuse, and a token is never reused past its own lifetime. A password that changed therefore takes until the cached token expires to show up as a failed authentication.
 * The check reports the volumes of the project the rc file scopes to, not of the whole cloud. Point it at one service per project.
 * A volume that nobody attached sits in `available`. It occupies storage and serves nothing, so it is reported as a warning. A volume is also available for a moment right after it was created and right after it was detached, which is what `--grace-available` covers: it holds the warning back until the volume has been available for that long, measured from the last status change the API reports. On a cloud that keeps a pool of volumes ready, `--severity=available,ok` turns the whole thing off.
+* A volume passes through transitional statuses such as `creating`, `detaching` or `deleting` on its way to another one, usually in seconds to minutes. One that is still there after `--grace-transitional` (default 12 hours) is stuck and reported as a warning. Backing up, restoring, uploading to or downloading from an image, retyping with a migration and deleting a thick LVM volume copy or zero out data in proportion to the size of the volume, so a cloud with volumes of many terabytes may need a longer grace period. `reserved` is not held to it: a volume of a shelved and offloaded instance stays reserved until the instance is unshelved.
 * The migration status of a volume and the storage host it lives on are reported by Cinder only to a project with administrative rights, so neither appears in the output of an ordinary project account and neither can be filtered on.
 * A volume is listed as attached to `<server id>:<device>`. That server id is the same one [openstack-nova-list](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openstack-nova-list/) reports with `--lengthy`, which is where the name behind it can be looked up.
 
@@ -45,6 +46,7 @@ Lists the OpenStack Cinder block storage volumes of a project and reports the st
 usage: openstack-cinder-list [-h] [-V] [--always-ok] [--brief]
                              [--cache-expire CACHE_EXPIRE]
                              [--grace-available GRACE_AVAILABLE]
+                             [--grace-transitional GRACE_TRANSITIONAL]
                              [--ignore IGNORE] [--ignore-type IGNORE_TYPE]
                              [--ignore-zone IGNORE_ZONE] [--insecure]
                              [--lengthy] [--match MATCH]
@@ -57,10 +59,11 @@ usage: openstack-cinder-list [-h] [-V] [--always-ok] [--brief]
 
 Lists the OpenStack Cinder block storage volumes of a project and reports the
 status of every one of them. Alerts when a volume sits in a status that needs
-attention, for example error or maintenance, or when the Block Storage API
-cannot be reached in time. The state reported per volume status is
-configurable, so a cloud on which unattached volumes are a problem can say so.
-Supports extended reporting via --lengthy.
+attention, for example error or maintenance, when a volume is stuck in a
+transitional status such as deleting or detaching for longer than a grace
+period, or when the Block Storage API cannot be reached in time. The state
+reported per volume status is configurable, so a cloud on which unattached
+volumes are a problem can say so. Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -84,6 +87,19 @@ options:
                         A duration such as `12h`, `8D` or `2W`; `0D` disables
                         the grace period. Only applies while `available` is
                         rated as something other than ok. Default: 0D
+  --grace-transitional GRACE_TRANSITIONAL
+                        How long a volume is tolerated in a transitional
+                        status such as `creating`, `deleting`, `detaching` or
+                        `backing-up` before it counts towards the state. A
+                        volume passes through these on its way to another
+                        status; one that is still in such a status after this
+                        long is stuck. Copying a large volume takes hours, so
+                        the grace period has to cover the largest backup,
+                        image upload or retype the cloud runs. Measured from
+                        the last change the API reports. A duration such as
+                        `12h`, `8D` or `2W`; `0D` disables the grace period.
+                        Only applies while the status is rated as something
+                        other than ok. Default: 12h
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
@@ -217,7 +233,7 @@ Show only what needs attention, and let a volume be unattached for a week before
 Output:
 
 ```text
-5 volumes checked: 1 error, 1 available, 1 awaiting-transfer, 1 maintenance, 1 creating. 190.0GiB in total. Last status change 2026-08-25 06:00:31 UTC (16h 17m ago).
+5 volumes checked: 1 error, 1 available, 1 awaiting-transfer, 1 creating, 1 maintenance. 190.0GiB in total. Last status change 2026-08-25 06:00:31 UTC (16h 17m ago).
 
 Name           ! Type ! Size    ! Bootable ! Updated (UTC)                   ! Status
 ---------------+------+---------+----------+---------------------------------+----------------------------
@@ -226,7 +242,7 @@ handover01     ! ssd  ! 10.0GiB ! false    ! 2026-06-11 15:50:02 (2M 2W ago) ! a
 stuck01--data  ! hdd  ! 30.0GiB ! false    ! 2026-08-03 07:31:52 (3W 1D ago) ! maintenance [WARNING]
 ```
 
-`spare01` was detached this morning and stays out of the way for the week `--grace-available` allows.
+`spare01` was detached this morning and stays out of the way for the week `--grace-available` allows, and `new01` is being created and has the 12 hours of `--grace-transitional`.
 
 
 ## States
@@ -235,13 +251,14 @@ The state per volume status is what `--severity` overrides. The defaults are:
 
 | State | Volume status |
 |----|----|
-| OK | `attaching`, `backing-up`, `creating`, `deleting`, `detaching`, `downloading`, `extending`, `in-use`, `managing`, `reserved`, `restoring-backup`, `retyping`, `uploading` |
+| OK | `in-use`, `reserved` |
 | WARN | `available` (after `--grace-available`), `awaiting-transfer`, `maintenance` |
+| WARN | `attaching`, `backing-up`, `creating`, `deleting`, `detaching`, `downloading`, `extending`, `managing`, `restoring-backup`, `retyping`, `uploading` (each after `--grace-transitional`) |
 | CRIT | `error`, `error_backing-up`, `error_deleting`, `error_extending`, `error_managing`, `error_restoring` |
 
 The six `error*` states are the ones that stay until somebody acts on them. `maintenance` is a volume the cloud has taken out of service, usually after a migration that did not finish, and `awaiting-transfer` is an offer to another project that nobody accepted. `available` is a volume attached to nothing, which costs money for as long as it exists.
 
-Everything else is either a healthy volume or a step on the way to one: unlike an instance, a volume passes through its transitional states in seconds to minutes, so alerting on them would fire on ordinary work rather than on a problem.
+`in-use` is the healthy volume, and `reserved` is also where the volume of a shelved and offloaded instance stays. Everything else is a step on the way to another status: a volume normally passes through it in seconds to minutes, so one that is still there after `--grace-transitional` is stuck. The grace periods are measured from the last change the API reports for the volume, and only apply while `--severity` rates the status as something other than OK. `--severity=deleting,ok` therefore never alerts on a stuck delete, and `--severity=deleting,crit` makes it critical once the grace period is over.
 
 * UNKNOWN if a volume reports a status this check does not rate. A later Cinder release may add one, and guessing its severity would be worse than saying so. Rate it with `--severity=<status>,<state>`.
 * UNKNOWN if the rc file cannot be read, if a `--match` / `--ignore` pattern is not a valid regular expression, or if a `--match-type` / `--match-zone` filter is given while the API reports that field for no volume at all.
@@ -293,6 +310,13 @@ An rc file that sets `OS_PROJECT_DOMAIN_NAME` or `OS_USER_DOMAIN_NAME` for a dom
 ### A volume shows a status the table describes as unrated
 
 A later Cinder release added a volume status that this check does not rate yet, and the check reports UNKNOWN rather than guessing. Rate it with `--severity=<status>,<state>` and open an issue so the default follows.
+
+### A volume is stuck in a transitional status
+
+1. Check with `openstack volume show <id>` how long the volume has been in that status (`updated_at`) and whether the operation is still running. A backup, an image upload or a retype of a large volume can take hours, and `openstack volume backup show` or the image status shows its progress.
+2. If the cloud regularly runs operations that take longer than `--grace-transitional`, raise it, for example `--grace-transitional=1D`.
+3. If nothing is running any more, the request was most likely lost between the Block Storage services, for example after a restart of `cinder-volume` or of the message queue. The volume log of the storage node names the last step it got to.
+4. An administrator resets the volume with `openstack volume set --state <status> <id>` to the status it should be in (`available` or `in-use`), then repeats the operation. A volume stuck in `deleting` is reset to `available` and deleted again.
 
 ### A volume sits in `error` and nothing says why
 
