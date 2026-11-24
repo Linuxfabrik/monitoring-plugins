@@ -3,7 +3,8 @@ name: 'Linuxfabrik: Build Windows (x86_64)'
 # Started for every published release by lf-release.yml, with `publish`: builds the
 # tag and attaches the signed ZIP and MSI to the release, from where the
 # repository server publishes them to download.linuxfabrik.ch
-# (build/publish-downloads.sh). Without `publish`, a manual run builds `main`.
+# (build/publish-downloads.sh), and the CycloneDX SBOM of the build
+# (build/create-windows-sbom.py). Without `publish`, a manual run builds `main`.
 #
 # Always a run on `main`, never on the tag: the origin verification of the
 # SignPath signing policy only accepts builds from the branch `main`.
@@ -70,6 +71,7 @@ jobs:
           echo "LFMP_DIR_REPOS=$GITHUB_WORKSPACE/repos" >> $GITHUB_ENV
           echo "LFMP_DIR_COMPILED=$RUNNER_TEMP/lfmp/compiled" >> $GITHUB_ENV
           echo "LFMP_DIR_PACKAGED=$RUNNER_TEMP/lfmp/packaged" >> $GITHUB_ENV
+          echo "LFMP_DIR_NUITKA_REPORTS=$RUNNER_TEMP/lfmp/reports" >> $GITHUB_ENV
 
       - name: 'Create working directories'
         shell: 'bash'
@@ -131,6 +133,16 @@ jobs:
         run: >
           /bin/bash
           $LFMP_DIR_REPOS/monitoring-plugins/build/compile-multiple.sh
+
+      # The Nuitka compilation reports of the shipped check plugins, from which the
+      # publish job creates the SBOM. A tag whose build/compile-one.sh does not write
+      # reports yet has none, and its build gets no SBOM.
+      - name: 'Upload the Nuitka compilation reports'
+        uses: 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9' # v7.0.2
+        with:
+          path: '${{ env.LFMP_DIR_NUITKA_REPORTS }}/check-plugins/*.xml'
+          name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.nuitka-reports.windows.${{ env.LFMP_ARCH }}"
+          if-no-files-found: 'warn'
 
       # The JEA endpoint setup ships with the plugins, in a folder of its own, so the ZIP
       # and the MSI (which takes check-plugins/** with its subfolders) both carry it.
@@ -281,3 +293,58 @@ jobs:
         env:
           GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
         run: 'gh release upload "v$VERSION" "$RUNNER_TEMP"/assets/*.zip --repo "$GITHUB_REPOSITORY"'
+
+      # The SBOM steps come after the zips are attached, so a failure here never holds
+      # back the signed builds; the job still fails visibly.
+      - name: 'Download the Nuitka compilation reports'
+        id: 'reports'
+        continue-on-error: true
+        uses: 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333' # v8.0.2
+        with:
+          path: '${{ runner.temp }}/reports'
+          name: 'lfmp-${{ env.VERSION }}-${{ env.ITERATION }}.nuitka-reports.windows.x86_64'
+
+      - name: 'Warn about a build without reports'
+        if: "steps.reports.outcome != 'success'"
+        run: 'echo "::warning::v$VERSION has no Nuitka compilation reports (build/compile-one.sh of the tag predates them), so this build gets no SBOM"'
+
+      # The script comes from the commit of this workflow, like the MSI definition.
+      - name: 'Checkout the SBOM script'
+        if: "steps.reports.outcome == 'success'"
+        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/cyclonedx
+            build
+
+      - name: 'Install python3.13'
+        if: "steps.reports.outcome == 'success'"
+        uses: 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0' # v7.1.0
+        with:
+          python-version: '3.13'
+
+      - name: 'Create the SBOM'
+        if: "steps.reports.outcome == 'success'"
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --require-hashes --requirement .github/cyclonedx/requirements.txt
+          mkdir "$RUNNER_TEMP/sbom"
+          "$RUNNER_TEMP/venv/bin/python" build/create-windows-sbom.py \
+              --compiled "$RUNNER_TEMP/artifacts/lfmp-$VERSION-$ITERATION.signed-compiled.windows.x86_64" \
+              --iteration "$ITERATION" \
+              --output "$RUNNER_TEMP/sbom/lfmp-$VERSION-$ITERATION.windows.x86_64.cdx.json" \
+              --reports "$RUNNER_TEMP/reports" \
+              --version "$VERSION"
+
+      - name: 'Attest the build provenance of the SBOM'
+        if: "steps.reports.outcome == 'success'"
+        uses: 'actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8' # v4.2.2
+        with:
+          subject-path: '${{ runner.temp }}/sbom/*'
+
+      - name: 'Attach the SBOM to the release'
+        if: "steps.reports.outcome == 'success'"
+        env:
+          GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+        run: 'gh release upload "v$VERSION" "$RUNNER_TEMP"/sbom/*.cdx.json --repo "$GITHUB_REPOSITORY"'

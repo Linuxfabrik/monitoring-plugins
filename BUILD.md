@@ -9,6 +9,7 @@ Outputs per release:
   Published to <https://download.linuxfabrik.ch/monitoring-plugins/>.
 * Source-only zip for all operating systems. Published to the download
   server as well.
+* CycloneDX SBOM of the Windows build, attached to the GitHub release only, see [SBOM of the Windows Build](#sbom-of-the-windows-build).
 
 The RPM and DEB packages for Linux are built in
 [Linuxfabrik/packaging](https://github.com/Linuxfabrik/packaging) and
@@ -29,6 +30,7 @@ GitHub release vX.Y.Z published
     ├── create-source-zip.sh             # lfmp-X.Y.Z-1.source.noarch.zip
     ├── dispatch upstream-release        # to Linuxfabrik/packaging
     └── lf-build-windows-x86_64.yml      # on main, publish: lfmp-X.Y.Z-1.signed-{compiled,packaged}.windows.x86_64.zip
+                                         #   and lfmp-X.Y.Z-1.windows.x86_64.cdx.json
 
 Linuxfabrik/packaging                    # RPM and DEB, `testing` channel, then `release`
 001-p-repo51: publish-downloads.sh       # every 15 minutes, to download.linuxfabrik.ch
@@ -98,11 +100,12 @@ lf-build-windows-x86_64.yml
 ├── debug.sh                             # env dump
 ├── compile-multiple.sh                  # loops plugins, calls compile-one.sh
 │   ├── verify-version.sh                # checkout must contain vLFMP_VERSION
-│   └── compile-one.sh                   # python3 -m nuitka --standalone
+│   └── compile-one.sh                   # python3 -m nuitka --standalone --report
 ├── SignPath submit-signing-request      # signs the compiled ZIP
 ├── create-wxs.sh                        # emits lfmp.wxs
 ├── wix.exe build                        # .wxs -> .msi
-└── SignPath submit-signing-request      # signs the MSI
+├── SignPath submit-signing-request      # signs the MSI
+└── create-windows-sbom.py               # publish only: SBOM from the Nuitka reports
 ```
 
 For a published release, `lf-release.yml` starts it to build all plugins of
@@ -134,6 +137,21 @@ Both use the `release-signing` policy. The SignPath project is
 `monitoring-plugins` under organization-id
 `35067665-5434-42c5-9fa2-4c750069f161`. The workflow waits for SignPath to
 return each signed artifact before proceeding.
+
+
+### SBOM of the Windows Build
+
+Nuitka drops the metadata of the packages it bundles, so no scanner finds a single component in the ZIP or MSI. The publish job therefore attaches `lfmp-X.Y.Z-I.windows.x86_64.cdx.json` (CycloneDX 1.6, with a build provenance attestation) to the release. `build/create-windows-sbom.py` builds it from:
+
+* the Nuitka compilation reports of the check plugins (`--report` in `compile-one.sh`): the bundled Python distributions with their versions, the Nuitka version and the Python version
+* the SBOM python.org publishes for the CPython Windows installer of that version: CPython and the C libraries it bundles (OpenSSL, SQLite, libffi, bzip2, xz, zlib, ...), limited to those whose binaries are in the compiled tree
+* the version resources of the shipped DLLs, which must match the two sources above
+
+The script fails on a mismatch, and on a package in the python.org SBOM that it does not know yet (`PYTHON_ORG_FILES`). The SBOM steps run after the zips are attached, so a failure there never holds back the signed builds. A rebuild of a tag whose `compile-one.sh` writes no reports gets no SBOM, with a warning.
+
+The SBOMs of the releases before the reports existed were reconstructed from the published ZIPs and carry the property `linuxfabrik:sbom:reconstructed`.
+
+The Linux packages need no SBOM of their own: their venv keeps the metadata, so scanners such as Syft list it in full.
 
 
 ### Reproducing a Release Build Locally
