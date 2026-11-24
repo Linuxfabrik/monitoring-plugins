@@ -24,13 +24,15 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102401'
+__version__ = '2026112401'
 
 DESCRIPTION = """Checks how full the quotas of a Huawei OceanStor Pacific storage system are via the
 REST API (/file_service/fs_quota endpoint). Walks all file systems and their dtrees and reports the
-used space of every quota relative to its configured hard quota. Quotas without a hard quota are
-skipped, because there is no limit to compare against. Alerts when the used space in percent reaches
-the warning or critical threshold. Supports extended reporting via --lengthy."""
+used space and the number of files of every quota relative to its configured hard quota on space
+and on the number of files. A share that reaches either hard quota refuses new data. Quotas without
+any hard quota are skipped, because there is no limit to compare against. Alerts when the used
+space or the number of files in percent reaches the warning or critical threshold. Supports
+extended reporting via --lengthy."""
 
 DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 15  # minutes
@@ -303,6 +305,36 @@ def parse_args():
     return args
 
 
+def as_value(value):
+    """Return a file count or file quota as an `int`, or `None` where it carries no value.
+
+    The API sends these as strings on some firmware and as numbers on others. An unset
+    quota and an invalid count both come back as INVALID_VALUE64.
+    """
+    code = lib.huawei_pacific.as_code(value)
+    if code is None or code < 0 or code == lib.huawei_pacific.QUOTA_INVALID_VALUE64:
+        return None
+    return code
+
+
+def fill_level(used, hard_quota, rate):
+    """Return how full a quota is in percent, or `None` where it has no hard quota or no
+    usable measurement.
+
+    The appliance computes the fill level itself and rounds it the way its own GUI shows
+    it. Preferring it keeps the check and the GUI in agreement, and it is the only figure
+    available where the two values are counted differently. A rate outside 0..100, such
+    as the INVALID_VALUE32 placeholder, is recalculated from the two values. A hard quota
+    of 0 is treated like an unset one, since no share can be filled against it.
+    """
+    if not hard_quota or used is None:
+        return None
+    percent = lib.huawei_pacific.as_code(rate)
+    if percent is None or percent < 0 or percent > 100:
+        percent = round(used / hard_quota * 100)
+    return percent
+
+
 def get_file_systems(args, test_path=None):
     """Return all file systems of the appliance."""
     if test_path is None:
@@ -506,47 +538,66 @@ def main():
             quota.get('space_hard_quota'), space_unit_type
         )
         used = lib.huawei_pacific.get_quota_bytes(quota.get('space_used'), 0)
-        if not hard_quota or used is None:
+        used_percent = fill_level(used, hard_quota, quota.get('space_used_rate'))
+        # Space and the number of files are limited independently, and a share that
+        # reaches either hard quota refuses new data, so both are graded and the worse
+        # one decides. Verified against the field descriptions of the quota batch query
+        # in the Pacific 8.2.0 and V800R001C20 REST Interface References.
+        file_hard_quota = as_value(quota.get('file_hard_quota'))
+        file_used = as_value(quota.get('file_used'))
+        file_used_percent = fill_level(
+            file_used, file_hard_quota, quota.get('file_used_rate')
+        )
+        if used_percent is None and file_used_percent is None:
             # no hard quota configured, or no usable measurement: there is
             # nothing to calculate a fill level from
             continue
 
-        # The appliance computes the fill level itself and rounds it the way its own
-        # GUI shows it. Preferring it keeps the check and the GUI in agreement, and it
-        # is the only figure available where the two values are counted differently.
-        used_percent = lib.huawei_pacific.as_code(quota.get('space_used_rate'))
-        if used_percent is None or used_percent < 0 or used_percent > 100:
-            used_percent = round(used / hard_quota * 100)
-        quota_state = lib.base.get_state(
-            used_percent,
-            args.WARN,
-            args.CRIT,
-            _operator='range',
-        )
+        quota_state = STATE_OK
+        label = re.sub(r'\W+', '_', share).strip('_')
+        if used_percent is not None:
+            quota_state = lib.base.get_worst(
+                quota_state,
+                lib.base.get_state(
+                    used_percent,
+                    args.WARN,
+                    args.CRIT,
+                    _operator='range',
+                ),
+            )
+            perfdata += lib.base.get_perfdata(
+                f'{label}_usage_percent',
+                used_percent,
+                uom='%',
+                warn=args.WARN,
+                crit=args.CRIT,
+                _min=0,
+                _max=100,
+            )
+        if file_used_percent is not None:
+            quota_state = lib.base.get_worst(
+                quota_state,
+                lib.base.get_state(
+                    file_used_percent,
+                    args.WARN,
+                    args.CRIT,
+                    _operator='range',
+                ),
+            )
+            perfdata += lib.base.get_perfdata(
+                f'{label}_file_usage_percent',
+                file_used_percent,
+                uom='%',
+                warn=args.WARN,
+                crit=args.CRIT,
+                _min=0,
+                _max=100,
+            )
         state = lib.base.get_worst(state, quota_state)
 
-        label = re.sub(r'\W+', '_', share).strip('_')
-        perfdata += lib.base.get_perfdata(
-            f'{label}_usage_percent',
-            used_percent,
-            uom='%',
-            warn=args.WARN,
-            crit=args.CRIT,
-            _min=0,
-            _max=100,
-        )
-
-        # The file quota is reported for context only and does not alert: the
-        # check is about space. It counts files, so it carries no unit of its own.
+        # The file counts carry no unit of their own.
         files = '-'
-        file_used = lib.huawei_pacific.as_code(quota.get('file_used'))
-        file_hard_quota = lib.huawei_pacific.as_code(quota.get('file_hard_quota'))
-        if (
-            file_used is not None
-            and file_hard_quota is not None
-            and lib.huawei_pacific.QUOTA_INVALID_VALUE64
-            not in (file_used, file_hard_quota)
-        ):
+        if file_used is not None and file_hard_quota:
             files = (
                 f'{lib.human.number2human(file_used)}'
                 f'/{lib.human.number2human(file_hard_quota)}'
@@ -556,10 +607,15 @@ def main():
             {
                 'share': share,
                 'quota_type': QUOTA_TYPE_NAMES.get(quota_type, 'unknown'),
-                'used': lib.human.bytes2human(used),
-                'quota': lib.human.bytes2human(hard_quota),
-                'used_percent': f'{used_percent}%',
+                'used': lib.human.bytes2human(used) if used is not None else '-',
+                'quota': lib.human.bytes2human(hard_quota) if hard_quota else '-',
+                'used_percent': (
+                    f'{used_percent}%' if used_percent is not None else '-'
+                ),
                 'files': files,
+                'file_used_percent': (
+                    f'{file_used_percent}%' if file_used_percent is not None else '-'
+                ),
                 'state': lib.base.state2str(quota_state, empty_ok=False),
                 'quota_state': quota_state,
             }
@@ -617,12 +673,22 @@ def main():
             'quota',
             'used_percent',
             'files',
+            'file_used_percent',
             'state',
         ]
-        headers = ['Share', 'Type', 'Used', 'Quota', 'Use%', 'Files', 'State']
+        headers = [
+            'Share',
+            'Type',
+            'Used',
+            'Quota',
+            'Use%',
+            'Files',
+            'File%',
+            'State',
+        ]
     else:
-        keys = ['share', 'used', 'quota', 'used_percent', 'state']
-        headers = ['Share', 'Used', 'Quota', 'Use%', 'State']
+        keys = ['share', 'used', 'quota', 'used_percent', 'file_used_percent', 'state']
+        headers = ['Share', 'Used', 'Quota', 'Use%', 'File%', 'State']
     if display_rows:
         msg += '\n\n' + lib.base.get_table(
             display_rows, keys, header=headers, hide_empty=True

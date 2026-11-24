@@ -2,17 +2,18 @@
 
 ## Overview
 
-Checks how full the quotas of a Huawei OceanStor Dorado storage system are via the REST API (`/FS_QUOTA` endpoint). Walks all file systems and reports the used space of every quota, the quotas of their dtrees (the directories a share is usually created on) included, relative to its configured hard quota. Quotas without a hard quota are skipped, because there is no limit to compare against. Alerts when the used space in percent reaches the warning or critical threshold. Supports extended reporting via `--lengthy`.
+Checks how full the quotas of a Huawei OceanStor Dorado storage system are via the REST API (`/FS_QUOTA` endpoint). Walks all file systems and reports the used space and the number of files of every quota, the quotas of their dtrees (the directories a share is usually created on) included, relative to its configured hard quota on space and on the number of files. A share that reaches either hard quota refuses new data. Quotas without any hard quota are skipped, because there is no limit to compare against. Alerts when the used space or the number of files in percent reaches the warning or critical threshold. Supports extended reporting via `--lengthy`.
 
 A dtree is a directory directly below the root of a file system that the appliance manages as an object of its own. Shares and quotas are usually set on dtrees rather than on the whole file system, which is why the quota of a dtree is often called a "dtree quota". On the appliance it is a directory quota whose parent is the dtree.
 
 **Important Notes:**
 
 * Create a read-only API user that can perform queries only
-* The fill level is calculated against the **hard quota**. A quota that has only a soft quota configured is skipped, because a fill level needs an upper limit to relate to
-* The API reports an unset quota as `-1`. Such values are left out rather than reported as a quota of 0 bytes
+* The fill level is calculated against the **hard quota**, once for the used space and once for the number of files. Both use the same `--warning` and `--critical` thresholds, and the worse of the two decides the state of the quota. A quota that has only soft quotas configured is skipped, because a fill level needs an upper limit to relate to
+* A file hard quota of 0 counts as no limit on the number of files, the same as an unset one
+* The API reports an unset quota as `-1`. Such values are left out rather than reported as a quota of 0 bytes or 0 files
 * By default only directory quotas are checked, which covers the dtree quotas. Use `--extend-quota-type` to check user or user group quotas as well. User and user group quotas repeat per share, so their rows carry the owner name in brackets
-* The soft quota and the file quota (number of files) are shown with `--lengthy` for context only. They do not alert; this check is about the hard limit on space
+* The soft quota is shown with `--lengthy` for context only and does not alert. `--lengthy` also shows the number of files against the file hard quota
 * The check queries the API once for the list of file systems and once per file system that carries a quota, so its runtime grows with the number of file systems. The shipped Director basket therefore raises the command timeout to 120 seconds and runs the check once an hour
 * The credential/session token is cached in a local SQLite database between runs; `--cache-expire` controls how long it is reused before a fresh login
 
@@ -57,10 +58,12 @@ usage: huawei-dorado-quota [-h] [-V] [--always-ok] [--brief]
 
 Checks how full the quotas of a Huawei OceanStor Dorado storage system are via
 the REST API (/FS_QUOTA endpoint). Walks all file systems and reports the used
-space of every quota, the quotas of their dtrees (the directories a share is
-usually created on) included, relative to its configured hard quota. Quotas
-without a hard quota are skipped, because there is no limit to compare
-against. Alerts when the used space in percent reaches the warning or critical
+space and the number of files of every quota, the quotas of their dtrees (the
+directories a share is usually created on) included, relative to its
+configured hard quota on space and on the number of files. A share that
+reaches either hard quota refuses new data. Quotas without any hard quota are
+skipped, because there is no limit to compare against. Alerts when the used
+space or the number of files in percent reaches the warning or critical
 threshold. Supports extended reporting via --lengthy.
 
 options:
@@ -201,6 +204,21 @@ fs_nfs_01/share_b ! vstore_nfs ! directory ! 100.0GiB ! 1.0TiB ! 9%   ! [OK]
 fs_smb_01/share_c ! vstore_smb ! directory ! 4.0TiB   ! 4.0TiB ! 99%  ! [CRITICAL]
 ```
 
+A share whose number of files reaches its file hard quota alerts even though its space is far from full. The `File%` column only appears where a quota limits the number of files:
+
+```bash
+./huawei-dorado-quota --url=https://dorado:8088 --username=monitoring --password=linuxfabrik --match=fs_nfs_02/share_files
+```
+
+```text
+There are critical errors. Checked 2 quotas (warn=80 crit=90).
+
+Share                      ! Used     ! Quota  ! Use% ! File% ! State
+---------------------------+----------+--------+------+-------+-----------
+fs_nfs_02/share_files_85   ! 102.4GiB ! 1.0TiB ! 10%  ! 85%   ! [WARNING]
+fs_nfs_02/share_files_only ! 5.0GiB   ! -      ! -    ! 100%  ! [CRITICAL]
+```
+
 With `--brief`, hiding the shares that are within the thresholds. All shares still emit perfdata:
 
 ```bash
@@ -234,10 +252,10 @@ fs_nfs_01 (alice) ! 972.8MiB ! 1.0GiB ! 95%  ! [CRITICAL]
 
 ## States
 
-* OK if the used space of every checked quota is below the warning threshold.
-* WARN if the used space of any checked quota is above `--warning` (default: 80).
-* CRIT if the used space of any checked quota is above `--critical` (default: 90).
-* The worst state of all checked quotas becomes the state of the check.
+* OK if the used space and the number of files of every checked quota are below the warning threshold.
+* WARN if the used space or the number of files of any checked quota, in percent of its hard quota, is above `--warning` (default: 80).
+* CRIT if the used space or the number of files of any checked quota, in percent of its hard quota, is above `--critical` (default: 90).
+* The worse of space and files becomes the state of a quota, and the worst state of all checked quotas becomes the state of the check.
 * OK with "No share carries a hard quota." if the appliance has no file system with a hard quota.
 * OK with "No quota matched the filters." if `--match`, `--ignore` or `--quota-type` excluded everything. Use `--no-match-severity` to report WARN, CRIT or UNKNOWN instead.
 * WARN if the appliance reports more objects than the check reads in one run, since the list is then incomplete.
@@ -247,18 +265,19 @@ fs_nfs_01 (alice) ! 972.8MiB ! 1.0GiB ! 95%  ! [CRITICAL]
 
 ## Perfdata / Metrics
 
-One metric per checked quota. `--brief` and `--lengthy` do not change the perfdata: every checked quota is always reported.
+One metric per checked quota and limit. `--brief` and `--lengthy` do not change the perfdata: every checked quota is always reported.
 
 | Name | Type | Description |
 |----|----|----|
-| &lt;share&gt;_usage_percent | Percentage | Used space of the quota in percent of its hard quota. The share name is the file system and dtree name, sanitized into snake_case; for a user or user group quota the owner name is appended. |
+| &lt;share&gt;_file_usage_percent | Percentage | Number of files of the quota in percent of its file hard quota. Only emitted for a quota with a file hard quota. |
+| &lt;share&gt;_usage_percent | Percentage | Used space of the quota in percent of its hard quota. Only emitted for a quota with a hard quota on space. The share name is the file system and dtree name, sanitized into snake_case; for a user or user group quota the owner name is appended. |
 
 
 ## Troubleshooting
 
 ### A share is missing from the output
 
-The check only reports quotas that have a hard quota configured, and by default only directory quotas. Verify on the appliance that the share has a hard quota (not just a soft quota), and run the check with `--quota-type=directory --quota-type=user --quota-type=user-group --lengthy` to see everything that is configured. Also check whether a `--match` or `--ignore` pattern excludes the share. Both are anchored at the start of the share name, so prefix a pattern with `.*` to match anywhere.
+The check only reports quotas that have a hard quota on space or on the number of files configured, and by default only directory quotas. Verify on the appliance that the share has a hard quota (not just a soft quota), and run the check with `--quota-type=directory --quota-type=user --quota-type=user-group --lengthy` to see everything that is configured. Also check whether a `--match` or `--ignore` pattern excludes the share. Both are anchored at the start of the share name, so prefix a pattern with `.*` to match anywhere.
 
 ### `Failed to query the quotas of file system ...`
 

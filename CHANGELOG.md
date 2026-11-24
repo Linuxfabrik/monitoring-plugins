@@ -38,6 +38,7 @@ Monitoring Plugins:
 * Log checks list what they alert on, repeated lines grouped and counted, and keep the first line short (logfile and the `*-logfile` checks for Apache, MySQL, PHP-FPM, Postfix and sshd).
 * about-me: `--tags` proposes the new `data-partition` tag on hosts with a partition mounted at `/data`, and the new `blocky` and `icinga-director` tags.
 * apache-httpd-logfile: Denied requests and path scans Apache rejects by itself no longer alert by default, other failed requests only from 10 on.
+* huawei-dorado-quota, huawei-pacific-quota: Also alert when a quota nears its limit on the number of files.
 * lvm-volumes: Warns while a RAID or mirror volume is not fully in sync.
 * lynis-logfile: Reports how many tests the lynis profile skips.
 * mysql-connections: Speaks of failed connection attempts instead of aborted connections, and points to the denied logins.

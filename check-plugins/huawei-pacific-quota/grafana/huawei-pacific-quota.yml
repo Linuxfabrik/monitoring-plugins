@@ -115,3 +115,76 @@ spec:
         key: metric
         operator: '=~'
         value: /_usage_percent$/
+      - condition: AND
+        key: metric
+        operator: '!~'
+        value: /_file_usage_percent$/
+
+  - title: File Usage
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: 2700000
+        decimals: 0
+        unit: percent
+    options:
+      legend:
+        calcs:
+        - min
+        - mean
+        - max
+        - lastNotNull
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: file_usage
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - 'null'
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /_file_usage_percent$/
