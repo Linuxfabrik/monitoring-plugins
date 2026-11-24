@@ -55,8 +55,9 @@ Linuxfabrik/packaging                    # RPM and DEB, `testing` channel, then 
   timer. It picks up new zips and SBOMs from the releases, checks each against
   its attestation, adds the `.sha256` and the detached GPG signature `.asc`, and
   points the `lfmp-latest.*` links at the latest release. A zip that fails the
-  check fails the run, an SBOM that fails it is skipped with a warning. A
-  prerelease never becomes latest, and nothing is deleted there.
+  check fails the run, an SBOM that fails it is skipped with a single warning
+  (recorded in the state directory). A prerelease never becomes latest, and
+  nothing is deleted there.
 
 A failed or broken build is repeated under the next iteration, with a manual
 run of the same workflow: `lf-release.yml` with `package-iteration`, and

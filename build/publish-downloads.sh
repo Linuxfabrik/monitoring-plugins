@@ -20,9 +20,11 @@
 # `install-monitoring-plugins --zip` verifies for the zips. A zip that fails the
 # check fails the run; an SBOM that fails it is skipped with a warning, so it
 # never holds back the zips (the SBOMs reconstructed by hand for older releases
-# have no attestation). The lfmp-latest.* links point to the highest iteration
-# of the latest release; a prerelease never becomes latest. Nothing is ever
-# deleted here.
+# have no attestation). A skipped SBOM is recorded with its digest in
+# DOWNLOADS_STATE_DIR/skipped and warned about only once; it is checked again
+# when its digest changes, or after its line is removed. The lfmp-latest.* links
+# point to the highest iteration of the latest release; a prerelease never
+# becomes latest. Nothing is ever deleted here.
 #
 # Required environment:
 #   GH_TOKEN                     read-only GitHub token, for the API and for
@@ -35,6 +37,8 @@
 #   DOWNLOADS_DIR       [/var/www/html/download.linuxfabrik.ch/monitoring-plugins]
 #   DOWNLOADS_RELEASES  [10] how many of the newest releases are looked at
 #   DOWNLOADS_REPO      [Linuxfabrik/monitoring-plugins]
+#   DOWNLOADS_STATE_DIR [$STATE_DIRECTORY, set by systemd's StateDirectory=,
+#                       else /var/lib/linuxfabrik-publish-downloads]
 #
 # Needs: gh, gpg, sha256sum.
 
@@ -43,6 +47,8 @@ set -e -o pipefail -u
 DOWNLOADS_DIR="${DOWNLOADS_DIR:-/var/www/html/download.linuxfabrik.ch/monitoring-plugins}"
 DOWNLOADS_RELEASES="${DOWNLOADS_RELEASES:-10}"
 DOWNLOADS_REPO="${DOWNLOADS_REPO:-Linuxfabrik/monitoring-plugins}"
+DOWNLOADS_STATE_DIR="${DOWNLOADS_STATE_DIR:-${STATE_DIRECTORY:-/var/lib/linuxfabrik-publish-downloads}}"
+SKIPPED="$DOWNLOADS_STATE_DIR/skipped"
 
 # The asset name after lfmp-<version>-<iteration>.
 KINDS='source.noarch.zip signed-compiled.windows.x86_64.zip signed-packaged.windows.x86_64.zip windows.x86_64.cdx.json'
@@ -62,7 +68,7 @@ signer_workflow() {
 # an asset is never visible without them and every file gets the SELinux context
 # of the directory.
 publish_asset() {
-    local file="$1" kind="$2"
+    local file="$1" kind="$2" digest="$3"
     local name tmp
     name="$(basename "$file")"
 
@@ -71,7 +77,9 @@ publish_asset() {
         --signer-workflow "$(signer_workflow "$kind")" >/dev/null; then
         case "$kind" in
         *.cdx.json)
-            echo "skipping $name: no valid build provenance attestation" >&2
+            echo "skipping $name: no valid build provenance attestation," \
+                "not reported again until its digest changes" >&2
+            echo "$name $digest" >> "$SKIPPED"
             return 0
             ;;
         esac
@@ -98,14 +106,16 @@ publish_asset() {
 # Publish the assets of one release that are not on the server yet.
 publish_release() {
     local tag="$1" work="$2"
-    local version="${tag#v}" asset kind dir="$work/$tag"
+    local version="${tag#v}" asset digest kind dir="$work/$tag"
 
     mkdir "$dir"
     gh release view "$tag" --repo "$DOWNLOADS_REPO" --json assets \
-        --jq '.assets[].name | select(endswith(".zip") or endswith(".cdx.json"))' > "$dir.assets"
-    while read -r asset; do
+        --jq '.assets[] | select(.name | endswith(".zip") or endswith(".cdx.json")) | "\(.name) \(.digest)"' \
+        > "$dir.assets"
+    while read -r asset digest; do
         [ -n "$asset" ] || continue
         [ -e "$DOWNLOADS_DIR/$asset" ] && continue
+        grep --quiet --fixed-strings --line-regexp "$asset $digest" "$SKIPPED" && continue
         kind=''
         for k in $KINDS; do
             # the quoted parts match literally, dots included
@@ -118,7 +128,7 @@ publish_release() {
             continue
         fi
         gh release download "$tag" --repo "$DOWNLOADS_REPO" --pattern "$asset" --dir "$dir"
-        publish_asset "$dir/$asset" "$kind"
+        publish_asset "$dir/$asset" "$kind" "$digest"
     done < "$dir.assets"
 }
 
@@ -148,6 +158,8 @@ main() {
     work="$(mktemp -d)"
     # shellcheck disable=SC2064 # expand now, the variable is local
     trap "rm -rf '$work'" EXIT
+    mkdir --parents "$DOWNLOADS_STATE_DIR"
+    touch "$SKIPPED"
 
     # Not `done < <(gh ...)`, here and in publish_release: bash ignores the exit
     # code of a process substitution, and a failed listing must fail the run.
