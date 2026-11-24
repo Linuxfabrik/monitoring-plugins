@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2026112001
+# 2026112401
 
 # This script can run in a container (absolute paths) or in a Windows-VM.
 
@@ -27,6 +27,14 @@ else
     REPO_DIR="/repos"
     COMPILE_DIR="/compiled"
     source /opt/venv/bin/activate
+fi
+
+# The compilation report lists the bundled distributions with their versions, which
+# build/create-windows-sbom.py turns into the SBOM of the build. It goes outside the
+# compiled tree, so it is not shipped.
+if [[ -n "${LFMP_DIR_NUITKA_REPORTS:-}" ]]; then
+    mkdir -p "$LFMP_DIR_NUITKA_REPORTS/$PLUGINS"
+    ADDITIONAL_PARAMS+=(--report="$LFMP_DIR_NUITKA_REPORTS/$PLUGINS/$PLUGIN.xml")
 fi
 
 echo "✅ Compiling $PLUGIN into $COMPILE_DIR/$PLUGINS/..."
