@@ -107,6 +107,21 @@ def _lookups(cursor, id_range):
         cursor.fetchall()
 
 
+def _pool_state(cursor):
+    """What decides whether the plugin calls the pool full, for the failure message:
+    the free list against the reserve of `innodb_lru_scan_depth` pages."""
+    cursor.execute(
+        'select variable_name, variable_value from information_schema.global_status'
+        " where variable_name in ('INNODB_BUFFER_POOL_PAGES_DIRTY',"
+        " 'INNODB_BUFFER_POOL_PAGES_FREE', 'INNODB_BUFFER_POOL_PAGES_TOTAL')"
+        ' union all select variable_name, variable_value'
+        ' from information_schema.global_variables'
+        " where variable_name in ('INNODB_IO_CAPACITY', 'INNODB_LRU_SCAN_DEPTH',"
+        " 'VERSION')"
+    )
+    return ', '.join(f'{name.lower()}={value}' for name, value in cursor.fetchall())
+
+
 def _check_workloads(test, defaults_file, cmd):
     conn = pymysql.connect(read_default_file=defaults_file, autocommit=True)
     try:
@@ -130,6 +145,7 @@ def _check_workloads(test, defaults_file, cmd):
             test.assertRegex(
                 combined,
                 r'`innodb_buffer_pool_size`\s*\(32\.0+\s*MiB, full, \d+\.\d% in use\)',
+                _pool_state(cursor),
             )
             test.assertNotIn('Sessions found no free page', combined)
 
