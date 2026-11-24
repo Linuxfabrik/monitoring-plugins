@@ -311,10 +311,16 @@ release_repo_file() {
 }
 
 # The tag in the name of the linuxfabrik-release bootstrap link on repo.linuxfabrik.ch, e.g.
-# el9, sle16, debian13, ubuntu24.04.
+# el9, fedora45, sle16, debian13, ubuntu24.04.
 release_tag() {
     case "${OS_FAMILY}" in
-        rhel)   printf 'el%s' "${OS_VERSION_ID%%.*}" ;;
+        rhel)
+            if [ "${OS_ID}" = 'fedora' ]; then
+                printf 'fedora%s' "${OS_VERSION_ID}"
+            else
+                printf 'el%s' "${OS_VERSION_ID%%.*}"
+            fi
+            ;;
         sle)    printf 'sle%s' "${OS_VERSION_ID%%.*}" ;;
         debian) printf 'debian%s' "${OS_VERSION_ID%%.*}" ;;
         ubuntu) printf 'ubuntu%s' "${OS_VERSION_ID}" ;;
@@ -382,12 +388,6 @@ enable_testing() {
 install_via_package() {
     require_root
     detect_os
-    # The Linuxfabrik repository serves the Monitoring Plugins for RHEL 8/9/10, SLE, Debian and
-    # Ubuntu. Fedora is detected as the rhel family for the source path, but has no build, so
-    # reject it early instead of failing on a missing package deep inside dnf.
-    if [ "${OS_ID}" = 'fedora' ]; then
-        die 'The Monitoring Plugins are not packaged for Fedora (supported: RHEL 8/9/10, SLE, Debian, Ubuntu). Install from source instead with --source.'
-    fi
     # The Linuxfabrik repository first: if it cannot be set up, the former one keeps working.
     setup_release_repo
     remove_former_repo

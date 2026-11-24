@@ -25,6 +25,10 @@ Icinga Director:
 
 * Icinga Director Service Set: Checks the Director daemon, its daily housekeeping and the Director checks above, on hosts tagged `icinga-director`.
 
+Build, CI/CD:
+
+* Packages for Fedora 44 and 45, also through `install-monitoring-plugins`.
+
 
 ### Changed
 

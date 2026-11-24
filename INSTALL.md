@@ -12,7 +12,7 @@ The plugins need Python 3.9 or newer. The packages bring their own venv built ag
 
 For those who want to use a released version from a repository. The plugins come from the Linuxfabrik package repository at [repo.linuxfabrik.ch](https://repo.linuxfabrik.ch/), which serves the Monitoring Plugins along with the other Linuxfabrik packages from one signed repository per distribution. Set it up with the `linuxfabrik-release` package as described there under "Set up the repository". The page also lists the versions available per distribution and explains how to enable the `testing` channel. If you run Icinga Director, pin the package version before upgrading, so the Director configuration and the plugins stay in sync.
 
-Then install the package. RHEL 8, 9, 10 (Rocky, AlmaLinux, CentOS Stream, Oracle Linux):
+Then install the package. RHEL 8, 9, 10 (Rocky, AlmaLinux, CentOS Stream, Oracle Linux), Fedora 44, 45:
 
 ```bash
 sudo dnf --assumeyes install linuxfabrik-monitoring-plugins-selinux
@@ -45,7 +45,7 @@ A host that was set up with the former repository below repo.linuxfabrik.ch/moni
 
 #### Package Repository
 
-The default mode. Does in one step what [Package Repository](#package-repository-recommended) describes: sets up the signed Linuxfabrik package repository with the `linuxfabrik-release` package, unless the host has it already (from the package or from LFOps), and installs the package. On RHEL, it also installs the `-selinux` sub-package. A repository file of the former repo.linuxfabrik.ch/monitoring-plugins/ is removed, so a host set up with it switches over by running the one-liner again. Upgrades then come with `dnf upgrade`, `zypper update` or `apt upgrade`. Supported: Debian 11-13, RHEL 8-10 and compatibles, SLE 15 SP5+ and 16, openSUSE Leap, Ubuntu 22.04-26.04.
+The default mode. Does in one step what [Package Repository](#package-repository-recommended) describes: sets up the signed Linuxfabrik package repository with the `linuxfabrik-release` package, unless the host has it already (from the package or from LFOps), and installs the package. On RHEL and Fedora, it also installs the `-selinux` sub-package. A repository file of the former repo.linuxfabrik.ch/monitoring-plugins/ is removed, so a host set up with it switches over by running the one-liner again. Upgrades then come with `dnf upgrade`, `zypper update` or `apt upgrade`. Supported: Debian 11-13, Fedora 44-45, RHEL 8-10 and compatibles, SLE 15 SP5+ and 16, openSUSE Leap, Ubuntu 22.04-26.04.
 
 ```bash
 curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash
@@ -243,7 +243,7 @@ source /etc/bash_completion.d/linuxfabrik-monitoring-plugins
 
 #### SELinux
 
-On RHEL 8, 9 and 10, the `linuxfabrik-monitoring-plugins-selinux` sub-package and the one-liner (in all modes) load a policy module with the rules the plugins need in enforcing mode. Manual install:
+On RHEL 8, 9 and 10 and on Fedora, the `linuxfabrik-monitoring-plugins-selinux` sub-package and the one-liner (in all modes) load a policy module with the rules the plugins need in enforcing mode. Manual install:
 
 ```bash
 sudo semodule --install ${src}/assets/selinux/linuxfabrik-monitoring-plugins.cil
