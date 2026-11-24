@@ -41,6 +41,7 @@ Monitoring Plugins:
 * huawei-dorado-quota, huawei-pacific-quota: Also alert when a quota nears its limit on the number of files.
 * lvm-volumes: Warns while a RAID or mirror volume is not fully in sync.
 * lynis-logfile: Reports how many tests the lynis profile skips.
+* multipath: Warns when a path disappears from a map, also without `--expected-paths`.
 * mysql-connections: Speaks of failed connection attempts instead of aborted connections, and points to the denied logins.
 * mysql-index-health: Redundant indexes no longer alert by default.
 * mysql-innodb-buffer-pool-size: No longer alerts just because the data is larger than the buffer pool, and warns when sessions found no free page in it.

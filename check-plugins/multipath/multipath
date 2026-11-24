@@ -16,23 +16,25 @@ import sys
 
 import lib.args
 import lib.base
+import lib.db_sqlite
 import lib.lftest
 import lib.shell
+import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082902'
+__version__ = '2026112401'
 
 DESCRIPTION = """Checks the device-mapper multipath maps on this host: how many of the
 paths to each LUN are usable, which of them the path checker has declared dead, and
 whether a map has run out of paths altogether and is queueing the I/O that reaches it.
 The number of usable paths is compared against an expected count as a percentage, so a
 LUN that lost one of its paths warns long before the last one goes and the storage
-disappears. Every map is graded against the number of paths it currently holds, which
-cannot catch a path that disappeared from the map entirely; --expected-paths states how
-many paths a LUN on this host is supposed to have and closes that gap, and --map pins a
-single map that has a different number.
+disappears. Every map is graded against the most paths it has been seen with, so a path
+that disappeared from the map entirely still counts as missing; --expected-paths states
+how many paths a LUN on this host is supposed to have, and --map pins a single map that
+has a different number.
 Alerts when a map is running on fewer usable paths than expected, and when it has none
 left.
 Supports extended reporting via --lengthy."""
@@ -89,6 +91,15 @@ DM_MAP_SUSPENDED = 'suspend'
 # of the normal path groups while it flaps, so the map runs on less than it looks like.
 MARGINAL = 'marginal'
 
+# multipathd drops a path that disappears from the system from its map, and the map then
+# looks complete with one path fewer. So the most paths each map has been seen with are
+# kept here, keyed by WWID, which stays the same when an alias changes. A map that has
+# not been seen for STATE_RETENTION is forgotten, so the file stays bounded as LUNs are
+# retired, while a map that was flushed after losing its last path and is assembled
+# again later is still compared against what it had before.
+STATE_FILENAME = 'linuxfabrik-monitoring-plugins-multipath.db'
+STATE_RETENTION = 30 * 24 * 60 * 60
+
 DEFAULT_EXPECTED_PATHS = None
 DEFAULT_CRIT = '50:'
 DEFAULT_LENGTHY = False
@@ -139,6 +150,27 @@ def path_help(devices):
     )
 
 
+def vanished_help(db_path):
+    """
+    Say how to accept a path that was removed on purpose.
+
+    The remembered counts are the only thing that knows the path was ever there, so
+    accepting the new layout means forgetting them. The file is named as this run
+    resolved it, so the command can be copied.
+    """
+    if db_path:
+        forget = f'delete the remembered path counts with `sudo rm --force {db_path}`'
+    else:
+        forget = 'delete the remembered path counts of this check'
+    return (
+        'A path that disappeared from a map is gone from the system, not just dead: '
+        '`multipath -ll` and `lsscsi` show what is left, and a rescan of the SCSI host '
+        'brings back one that is still cabled. If it was removed on purpose, '
+        f'{forget}, and the next run takes the current layout as the expected one. '
+        '`--expected-paths` pins the count for the whole host instead.'
+    )
+
+
 def parse_args():
     """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(
@@ -178,12 +210,12 @@ def parse_args():
         '--expected-paths',
         help='Expected number of paths per multipath map. '
         'A LUN in a fabric normally has the same number of paths as every other one, so '
-        'one value covers the whole host and catches a path that disappeared from a map '
-        'entirely, which comparing a map against itself cannot. '
+        'one value covers the whole host, including the first run and a map whose '
+        'paths were already missing when the check first saw it. '
         '`--map` pins a single map that has a different number. '
         'Example: `--expected-paths=4` on a host with two HBAs and two controllers. '
-        'Default: %(default)s, which grades every map against the paths it currently '
-        'holds.',
+        'Default: %(default)s, which grades every map against the most paths it has been '
+        'seen with.',
         dest='EXPECTED_PATHS',
         type=int,
         default=DEFAULT_EXPECTED_PATHS,
@@ -210,13 +242,14 @@ def parse_args():
         help='Check this multipath map and, optionally, the number of paths it is '
         'expected to have, written as `name=count`. '
         'The name is the alias where the host uses one, and the WWID otherwise. '
-        'Without `=count` the map is graded against `--expected-paths`, and against its own '
-        'number of paths where that is not given either. '
+        'Without `=count` the map is graded against `--expected-paths`, and against the '
+        'most paths it has been seen with where that is not given either. '
         'Can be specified multiple times; if given at least once, only the named maps '
         'are checked. '
         'Example: `--map=mpatha=4` alerts when the `mpatha` map does not have its four '
         'paths, even after one of them disappeared from the map entirely. '
-        'Example: `--map=mpathb` checks `mpathb` against the paths it currently has. '
+        'Example: `--map=mpathb` checks `mpathb` against the most paths it has been seen '
+        'with. '
         'Default: %(default)s',
         dest='MAP',
         action='append',
@@ -362,6 +395,70 @@ def get_maps(args):
     return data.get('maps') or []
 
 
+def count_paths(mpath):
+    """Count every path a map holds, usable or not, over all of its path groups."""
+    return sum(
+        len(group.get('paths') or []) for group in mpath.get('path_groups') or []
+    )
+
+
+def remember_paths(maps):
+    """
+    Keep the most paths each map has been seen with, and return them.
+
+    Returns `(True, {wwid: paths})` for every map in `maps` that has a WWID, never less
+    than what the map holds right now, or `(False, message)` when the state file cannot
+    be used. Every map is remembered, filtered out or not, so a filter that changes
+    later does not start a map from scratch.
+    """
+    current = {}
+    for mpath in maps:
+        uuid = mpath.get('uuid')
+        if uuid:
+            current[uuid] = max(current.get(uuid, 0), count_paths(mpath))
+
+    success, conn = lib.db_sqlite.connect(filename=STATE_FILENAME)
+    if not success:
+        return (False, conn)
+    definition = """
+        uuid TEXT NOT NULL PRIMARY KEY,
+        paths INT NOT NULL,
+        timestamp INT NOT NULL
+    """
+    success, result = lib.db_sqlite.create_table(conn, definition, table='paths')
+    if not success:
+        lib.db_sqlite.close(conn)
+        return (False, result)
+    success, rows = lib.db_sqlite.select(conn, 'SELECT uuid, paths FROM paths')
+    if not success:
+        lib.db_sqlite.close(conn)
+        return (False, rows)
+    known = {row['uuid']: row['paths'] for row in rows}
+
+    now = lib.time.now()
+    remembered = {}
+    for uuid, paths in current.items():
+        remembered[uuid] = max(paths, known.get(uuid, 0))
+        success, result = lib.db_sqlite.replace(
+            conn,
+            {'uuid': uuid, 'paths': remembered[uuid], 'timestamp': now},
+            table='paths',
+        )
+        if not success:
+            lib.db_sqlite.close(conn)
+            return (False, result)
+    lib.db_sqlite.delete(
+        conn,
+        'DELETE FROM paths WHERE timestamp < :cutoff',
+        {'cutoff': now - STATE_RETENTION},
+    )
+    success, result = lib.db_sqlite.commit(conn)
+    lib.db_sqlite.close(conn)
+    if not success:
+        return (False, result)
+    return (True, remembered)
+
+
 def analyze_paths(mpath):
     """
     Sort the paths of one map into usable, dead and marginal.
@@ -414,15 +511,21 @@ def describe_path(path):
     return text
 
 
-def analyze(mpath, expected_paths, args):
+def analyze(mpath, expected_paths, remembered, args):
     """Work out how one map is doing and how bad that is."""
     name = mpath.get('name') or mpath.get('uuid') or '?'
     paths, usable, dead, marginal = analyze_paths(mpath)
     # A pinned count for this map wins, then the host-wide `--expected-paths`, and only
-    # where neither is given is the map graded against the paths it currently holds.
+    # where neither is given is the map graded against the most paths it has been seen
+    # with, which is at least the paths it currently holds.
     if expected_paths is None:
         expected_paths = args.EXPECTED_PATHS
-    expected = expected_paths if expected_paths is not None else len(paths)
+    vanished = 0
+    if expected_paths is not None:
+        expected = expected_paths
+    else:
+        expected = max(len(paths), remembered.get(mpath.get('uuid'), 0))
+        vanished = expected - len(paths)
     # A map without any path at all would divide by zero here. It has already lost
     # everything, so it is graded as nothing being left rather than as nothing to grade.
     percent = 0 if expected <= 0 else len(usable) / expected * 100
@@ -447,6 +550,7 @@ def analyze(mpath, expected_paths, args):
         'sysfs': mpath.get('sysfs') or '-',
         'usable': usable,
         'uuid': mpath.get('uuid') or '-',
+        'vanished': vanished,
     }
 
 
@@ -471,6 +575,13 @@ def main():
             'This check belongs on a Linux host.'
         )
     maps = get_maps(args)
+    success, remembered = remember_paths(maps)
+    state_error = ''
+    if not success:
+        # without the remembered counts every map is graded against what it holds now,
+        # which is how the check behaves on its first run, so it carries on and says so
+        state_error = remembered
+        remembered = {}
 
     # init some vars
     msg = ''
@@ -486,6 +597,7 @@ def main():
     paths_marginal = 0
     paths_usable = 0
     dead_devices = []
+    vanished_maps = 0
     compiled_ignore = [
         lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
     ]
@@ -531,7 +643,7 @@ def main():
             )
             continue
 
-        report = analyze(mpath, expected_map.get(name), args)
+        report = analyze(mpath, expected_map.get(name), remembered, args)
         state = lib.base.get_worst(state, report['state'])
         paths_dead += len(report['dead'])
         paths_expected += report['expected']
@@ -570,6 +682,13 @@ def main():
                     f'{lib.txt.pluralize("path", count, ",s")}'
                 )
             headline.extend(problems)
+            if report['vanished']:
+                vanished_maps += 1
+                count = report['vanished']
+                msg_body += (
+                    f'{name}: {count} of the {report["expected"]} paths it was seen with '
+                    f'{"is" if count == 1 else "are"} gone from the map\n'
+                )
             for path in report['dead'] + report['marginal']:
                 msg_body += f'{name}: {describe_path(path)}\n'
                 dead_devices.append(path['device'])
@@ -618,6 +737,14 @@ def main():
             msg += f'\n{msg_body.rstrip()}'
         if dead_devices:
             msg += f'\n{path_help(dead_devices)}'
+        if vanished_maps:
+            success, db_path = lib.db_sqlite.get_db_path(filename=STATE_FILENAME)
+            msg += f'\n{vanished_help(db_path if success else "")}'
+    if state_error:
+        msg += (
+            f'\nThe path counts seen in earlier runs could not be read ({state_error}), '
+            'so a path that disappeared from a map entirely goes unnoticed in this run.'
+        )
 
     perfdata += lib.base.get_perfdata('maps', len(table_data), uom=None, _min=0)
     perfdata += lib.base.get_perfdata(

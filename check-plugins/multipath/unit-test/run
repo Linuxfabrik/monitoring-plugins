@@ -8,14 +8,29 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import atexit
+import os
+import shutil
 import sys
+import tempfile
+import unittest
 
 sys.path.insert(0, '..')
 
-import unittest
+# The check remembers the most paths each map has been seen with. That state lives in a
+# throwaway directory, so the tests neither read nor reset what the check running for
+# real on this machine has learned. Set before the lib is imported and `tempfile.tempdir`
+# cleared, because tempfile caches the directory it found first. The check inherits
+# TMPDIR.
+os.environ['TMPDIR'] = tempfile.mkdtemp(prefix='multipath-utest-')
+tempfile.tempdir = None
+atexit.register(shutil.rmtree, os.environ['TMPDIR'], ignore_errors=True)
 
-import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.db_sqlite  # noqa: E402
+import lib.lftest  # noqa: E402
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN  # noqa: E402
+
+STATE_FILENAME = 'linuxfabrik-monitoring-plugins-multipath.db'
 
 # Every fixture below is the verbatim answer of `multipathd show maps json` from a qemu
 # guest on kernel 7.1 running multipath-tools 0.13.1, with the storage faked by
@@ -35,8 +50,10 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #                          reports `dm_st: suspend` while all of its paths are healthy
 #   one-path-removed       one path device deleted from the system. multipathd drops it
 #                          from the map, so the map reports one path and looks complete.
-#                          This is the case only `--expected-paths` or `--map=name=count` can
-#                          catch
+#                          The same WWID as `mpatha` in `two-maps-healthy`, so the two in
+#                          a row are what the remembered path count catches. On its own it
+#                          is the first run, which only `--expected-paths` or
+#                          `--map=name=count` can catch
 #   no-maps                every path of every map deleted. multipathd flushes a map whose
 #                          last path is gone, so the answer is an empty map list rather
 #                          than a map with zero paths
@@ -123,7 +140,7 @@ TESTS = [
         'assert-in': ['mpathb is suspended and blocks every I/O.', 'suspended'],
     },
     {
-        'id': 'ok-a-vanished-path-is-invisible-without-an-expectation',
+        'id': 'ok-a-vanished-path-is-invisible-on-the-first-run',
         'test': 'stdout/one-path-removed,,0',
         'params': '',
         'assert-retc': STATE_OK,
@@ -249,11 +266,171 @@ TESTS = [
 ]
 
 
+# Runs in a row against one state file, which is reset before each scenario.
+SCENARIOS = [
+    {
+        'id': 'warn-a-vanished-path-is-caught-against-the-remembered-count',
+        'steps': [
+            {
+                'test': 'stdout/two-maps-healthy,,0',
+                'params': '',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': 'stdout/one-path-removed,,0',
+                'params': '',
+                'assert-retc': STATE_WARN,
+                'assert-in': [
+                    'runs on 1 of 2 paths.',
+                    'paths it was seen with is gone from the map',
+                    'sudo rm --force ',
+                    STATE_FILENAME,
+                    "'paths_expected'=2",
+                ],
+            },
+        ],
+    },
+    {
+        'id': 'warn-the-remembered-count-holds-on-the-following-runs',
+        'steps': [
+            {
+                'test': 'stdout/two-maps-healthy,,0',
+                'params': '',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': 'stdout/one-path-removed,,0',
+                'params': '',
+                'assert-retc': STATE_WARN,
+            },
+            {
+                'test': 'stdout/one-path-removed,,0',
+                'params': '',
+                'assert-retc': STATE_WARN,
+                'assert-in': ['runs on 1 of 2 paths.'],
+            },
+        ],
+    },
+    {
+        'id': 'ok-the-path-comes-back',
+        'steps': [
+            {
+                'test': 'stdout/two-maps-healthy,,0',
+                'params': '',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': 'stdout/one-path-removed,,0',
+                'params': '',
+                'assert-retc': STATE_WARN,
+            },
+            {
+                'test': 'stdout/two-maps-healthy,,0',
+                'params': '',
+                'assert-retc': STATE_OK,
+                'assert-in': ['2 multipath maps, 4 of 4 paths usable.'],
+            },
+        ],
+    },
+    {
+        'id': 'ok-forgetting-the-remembered-counts-accepts-the-new-layout',
+        'steps': [
+            {
+                'test': 'stdout/two-maps-healthy,,0',
+                'params': '',
+                'assert-retc': STATE_OK,
+            },
+            {'forget': True},
+            {
+                'test': 'stdout/one-path-removed,,0',
+                'params': '',
+                'assert-retc': STATE_OK,
+                'assert-in': ['1 of 1 paths usable'],
+            },
+        ],
+    },
+    {
+        'id': 'ok-a-pinned-count-wins-over-the-remembered-one',
+        'steps': [
+            {
+                'test': 'stdout/two-maps-healthy,,0',
+                'params': '',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': 'stdout/one-path-removed,,0',
+                'params': '--expected-paths=1',
+                'assert-retc': STATE_OK,
+                'assert-in': ['1 of 1 paths usable'],
+            },
+        ],
+    },
+    {
+        'id': 'ok-a-filtered-map-is-remembered-all-the-same',
+        'steps': [
+            {
+                # mpatha is filtered out here and still remembered with its two paths
+                'test': 'stdout/two-maps-healthy,,0',
+                'params': '--ignore=^mpatha$',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': 'stdout/one-path-removed,,0',
+                'params': '',
+                'assert-retc': STATE_WARN,
+                'assert-in': ['runs on 1 of 2 paths.'],
+            },
+        ],
+    },
+    {
+        'id': 'warn-a-dead-and-a-vanished-path-are-told-apart',
+        'steps': [
+            {
+                'test': 'stdout/two-maps-healthy,,0',
+                'params': '--expected-paths=2',
+                'assert-retc': STATE_OK,
+            },
+            {
+                # one-path-failed keeps both paths in the map, one of them faulty: dead,
+                # not vanished, so the hint about removed paths must not appear
+                'test': 'stdout/one-path-failed,,0',
+                'params': '',
+                'assert-retc': STATE_WARN,
+                'assert-in': ['mpatha: sda is faulty'],
+                'assert-not-in': ['gone from the map', 'sudo rm'],
+            },
+        ],
+    },
+]
+
+
+def _forget():
+    """Delete the state file, as an administrator accepting a new layout would."""
+    success, db_path = lib.db_sqlite.get_db_path(filename=STATE_FILENAME)
+    if success and os.path.exists(db_path):
+        os.remove(db_path)
+
+
+def _run_scenario(test, scenario):
+    """Replay a scenario's steps against a freshly reset state file."""
+    _forget()
+    for step in scenario['steps']:
+        if step.get('forget'):
+            _forget()
+            continue
+        lib.lftest.run(test, test.check, step)
+
+
 class TestCheck(unittest.TestCase):
     check = '../multipath'
 
+    def setUp(self):
+        # every testcase in TESTS is a first run, whatever ran before it
+        _forget()
+
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+lib.lftest.attach_each(TestCheck, SCENARIOS, _run_scenario, id_func=lambda s: s['id'])
 
 
 if __name__ == '__main__':
