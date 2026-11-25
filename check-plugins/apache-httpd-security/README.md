@@ -136,26 +136,32 @@ sudo ./apache-httpd-security --brief
 ```
 
 ```text
-7 of 16 checks failed.
+10 of 28 checks failed.
 
 Recommendations:
-* WebDAV modules: Deactivate the `LoadModule` lines for `mod_dav`, `mod_dav_fs` and `mod_dav_lock`. Accepted here? Exclude it with --ignore='WebDAV modules'.
-* Status module: Deactivate the `LoadModule` line for `mod_status` unless the module feeds your monitoring. Accepted here? Exclude it with --ignore='Status module'.
-* Autoindex module: Deactivate the `LoadModule` line for `mod_autoindex` so a directory without an index file stops listing its content. Accepted here? Exclude it with --ignore='Autoindex module'.
-* Proxy modules: Deactivate the `LoadModule` lines for the `mod_proxy` family unless the host really is a reverse proxy. Accepted here? Exclude it with --ignore='Proxy modules'.
-* User directories module: Deactivate the `LoadModule` line for `mod_userdir` so home directories stop being served. Accepted here? Exclude it with --ignore='User directories module'.
-* Info module: Deactivate the `LoadModule` line for `mod_info`; it exposes the whole configuration, including credentials of other modules. Accepted here? Exclude it with --ignore='Info module'.
-* Basic and digest auth: Deactivate the `LoadModule` lines for `mod_auth_basic` and `mod_auth_digest`. Accepted here? Exclude it with --ignore='Basic and digest auth'.
+* WebDAV modules: Deactivate the `LoadModule` lines for `mod_dav`, `mod_dav_fs` and `mod_dav_lock`. Loaded: dav_fs_module, dav_lock_module, dav_module. Accepted here? Exclude it with --ignore='WebDAV modules'.
+* Status module: Deactivate the `LoadModule` line for `mod_status` unless the module feeds your monitoring. Loaded: status_module. Accepted here? Exclude it with --ignore='Status module'.
+* Autoindex module: Deactivate the `LoadModule` line for `mod_autoindex` so a directory without an index file stops listing its content. Loaded: autoindex_module. Accepted here? Exclude it with --ignore='Autoindex module'.
+* Proxy modules: Deactivate the `LoadModule` lines for the `mod_proxy` family unless the host really is a reverse proxy. Loaded: proxy_ajp_module, proxy_balancer_module, proxy_connect_module, proxy_express_module, proxy_fcgi_module, proxy_fdpass_module, proxy_ftp_module, proxy_hcheck_module, proxy_http2_module, proxy_http_module, proxy_module, proxy_scgi_module, proxy_uwsgi_module, proxy_wstunnel_module. Accepted here? Exclude it with --ignore='Proxy modules'.
+* User directories module: Deactivate the `LoadModule` line for `mod_userdir` so home directories stop being served. Loaded: userdir_module. Accepted here? Exclude it with --ignore='User directories module'.
+* Info module: Deactivate the `LoadModule` line for `mod_info`; it exposes the whole configuration, including credentials of other modules. Loaded: info_module. Accepted here? Exclude it with --ignore='Info module'.
+* Basic and digest auth: Deactivate the `LoadModule` lines for `mod_auth_basic` and `mod_auth_digest`. Loaded: auth_basic_module, auth_digest_module. Accepted here? Exclude it with --ignore='Basic and digest auth'.
+* Request body limit: Set `LimitRequestBody 102400` in the server configuration and lower any block that overrides it with a larger value. The directive caps every upload the server accepts, so raise it deliberately for the vhost or directory that needs more instead of lifting it everywhere. Accepted here? Exclude it with --ignore='Request body limit'.
+* Timeout: Set `Timeout 10` in the server configuration and lower any virtual host that overrides it with a larger value. Accepted here? Exclude it with --ignore='Timeout'.
+* TRACE method: Set `TraceEnable off` in the server configuration and in every virtual host that sets it. Accepted here? Exclude it with --ignore='TRACE method'.
 
-Check Name              ! Result                                                                    ! State
-------------------------+---------------------------------------------------------------------------+----------
-WebDAV modules          ! dav_fs_module, dav_lock_module, dav_module                                ! [WARNING]
-Status module           ! status_module                                                             ! [WARNING]
-Autoindex module        ! autoindex_module                                                          ! [WARNING]
-Proxy modules           ! proxy_ajp_module, proxy_balancer_module, proxy_connect_module and 11 more ! [WARNING]
-User directories module ! userdir_module                                                            ! [WARNING]
-Info module             ! info_module                                                               ! [WARNING]
-Basic and digest auth   ! auth_basic_module, auth_digest_module                                     ! [WARNING]
+Check Name              ! Result                                              ! Detail                                                                                                 ! State
+------------------------+-----------------------------------------------------+--------------------------------------------------------------------------------------------------------+----------
+WebDAV modules          ! dav_fs_module, dav_lock_module and 1 more           ! Loaded, so part of the attack surface.                                                                 ! [WARNING]
+Status module           ! status_module                                       ! Loaded, so part of the attack surface.                                                                 ! [WARNING]
+Autoindex module        ! autoindex_module                                    ! Loaded, so part of the attack surface.                                                                 ! [WARNING]
+Proxy modules           ! proxy_ajp_module, proxy_balancer_module and 12 more ! Loaded, so part of the attack surface.                                                                 ! [WARNING]
+User directories module ! userdir_module                                      ! Loaded, so part of the attack surface.                                                                 ! [WARNING]
+Info module             ! info_module                                         ! Loaded, so part of the attack surface.                                                                 ! [WARNING]
+Basic and digest auth   ! auth_basic_module, auth_digest_module               ! Loaded, so part of the attack surface.                                                                 ! [WARNING]
+Request body limit      ! 1073741824 (default)                                ! Above the recommended maximum of 102400.                                                               ! [WARNING]
+Timeout                 ! 60s (default)                                       ! Above the recommended maximum of 10 seconds, which keeps a slow or idle client on a worker for longer. ! [WARNING]
+TRACE method            ! on (default)                                        ! TRACE is answered with a copy of the request, cookies and other headers included.                      ! [WARNING]
 ```
 
 The same host, ignoring the module a site knowingly runs:
@@ -165,17 +171,23 @@ sudo ./apache-httpd-security --brief --ignore='Status module'
 ```
 
 ```text
-6 of 15 checks failed, 1 overridden.
+9 of 27 checks failed, 1 overridden.
 ```
 
 A host whose worker account and runtime paths are wrong. The `Detail` column carries the reasoning:
 
 ```bash
-sudo ./apache-httpd-security --brief
+sudo ./apache-httpd-security --brief --match='(Worker|Config|dump|Lock)'
 ```
 
 ```text
-11 of 16 checks failed.
+4 of 6 checks failed.
+
+Recommendations:
+* Worker account: Create a dedicated system account for the web server (`groupadd -r apache; useradd apache -r -g apache -s /sbin/nologin`) and point the `User` and `Group` directives at it. Accepted here? Exclude it with --ignore='Worker account'.
+* Config other write: `chmod o-w /etc/httpd/conf.d/zz-bad.conf` (currently 0646) Accepted here? Exclude it with --ignore='Config other write'.
+* Core dump directory: Move the core dump directory to a directory of its own, owned by root and outside the document root. Leave `/var/www/html` as it is, it holds the web content. Accepted here? Exclude it with --ignore='Core dump directory'.
+* Lock file: Move the lock file to a directory of its own, owned by root and outside the document root. Leave `/tmp` as it is, other programs share it. Accepted here? Exclude it with --ignore='Lock file'.
 
 Check Name          ! Result                    ! Detail                                                   ! State
 --------------------+---------------------------+----------------------------------------------------------+----------
@@ -192,12 +204,12 @@ sudo ./apache-httpd-security
 ```
 
 ```text
-Everything is ok. All 16 checks passed.
+Everything is ok. All 28 checks passed.
 
-Check Name              ! Result                       ! State
-------------------------+------------------------------+------
-Log config module       ! log_config_module loaded     ! [OK]
-WebDAV modules          ! WebDAV modules not loaded    ! [OK]
+Check Name               ! Result                                             ! Detail                                                   ! State
+-------------------------+----------------------------------------------------+----------------------------------------------------------+------
+Log config module        ! log_config_module loaded                           ! Request logging available.                               ! [OK]
+WebDAV modules           ! WebDAV modules not loaded                          ! Not loaded, so not part of the attack surface.           ! [OK]
 ...
 ```
 

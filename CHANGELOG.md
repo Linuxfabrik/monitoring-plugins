@@ -116,6 +116,7 @@ Monitoring Plugins:
 
 * about-me: Rocket.Chat running as a rootless Podman container under `/opt/rocketchat` gets its tag again, hosts with the LFOps system update are detected without `notify-and-schedule`, and a `wiki` directory without MediaWiki no longer gets the `mediawiki` tag.
 * apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: An empty log right after a rotation no longer hides what the rotated log holds.
+* apache-httpd-security: A lock file in `/tmp` or a core dump directory in the document root gets the advice to move it, instead of a `chmod` that would break `/tmp`.
 * dmesg: Ignores `SMBus base address uninitialized` on Intel hosts too.
 * graylog-version: No longer times out right after a reboot on RHEL 8.
 * mysql-index-health: Never suggests dropping a primary key as a redundant index.

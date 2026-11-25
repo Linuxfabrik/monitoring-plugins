@@ -301,6 +301,31 @@ TESTS = [
         'assert-in': ['2 of 5 checks failed.', 'Load `mod_reqtimeout`'],
     },
     {
+        # /tmp (sticky) and the document root are shared with other programs and
+        # the web content. Tightening them in place would break the host, so the
+        # recommendation is to move the file, never to chmod /tmp.
+        'id': 'warn-shared-directories-are-left-alone',
+        'test': 'stdout/shared-account',
+        'params': "--match='(dump|Lock)'",
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Leave `/tmp` as it is, other programs share it.',
+            'Leave `/var/www/html` as it is, it holds the web content.',
+        ],
+        'assert-not-in': ['chmod go-w /tmp', 'chown root /var/www/html'],
+    },
+    {
+        # A directory of the server's own is fixed where it is.
+        'id': 'warn-own-runtime-directory-is-fixed-in-place',
+        'test': 'stdout/loose-rundir',
+        'params': '--match=^Pid',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'owned by `apache`; writable beyond its owner (0770).',
+            'Run `chown root /etc/httpd/run; chmod go-w /etc/httpd/run`.',
+        ],
+    },
+    {
         # A filter given a module name instead of a check name matches nothing
         # and would otherwise leave a report that looks exactly like a run
         # without any filter at all.

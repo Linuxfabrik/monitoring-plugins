@@ -28,7 +28,7 @@ import lib.user
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026112501'
+__version__ = '2026112502'
 
 DESCRIPTION = """Checks the local security posture of an Apache httpd installation: which
 modules the server has loaded, which account its worker processes run under, the ownership
@@ -915,10 +915,11 @@ def check_secured_directory(
         )
 
     problems = []
-    if document_root and (
+    in_document_root = bool(document_root) and (
         directory == os.path.normpath(document_root)
         or directory.startswith(os.path.normpath(document_root) + os.sep)
-    ):
+    )
+    if in_document_root:
         problems.append('inside the document root')
     if info['owner'] != 'root':
         problems.append(f'owned by `{info["owner"]}`')
@@ -932,13 +933,20 @@ def check_secured_directory(
             'Root-owned, restricted, outside the document root.',
             None,
         )
-    return (
-        severity_state,
-        directory,
-        '; '.join(problems) + '.',
-        f'Move the {subject} to a root-owned directory outside the document root '
-        f'and run `chown root {directory}; chmod go-w {directory}`.',
-    )
+    # A directory with the sticky bit, /tmp above all, is shared with every other
+    # program on the host, and the document root holds the web content: tightening
+    # either breaks something else. The fix there is a directory of the server's own.
+    # Only a directory that already is its own is fixed in place.
+    shared = bool(info['mode'] & stat.S_ISVTX)
+    if in_document_root or shared:
+        reason = 'other programs share it' if shared else 'it holds the web content'
+        recommendation = (
+            f'Move the {subject} to a directory of its own, owned by root and '
+            f'outside the document root. Leave `{directory}` as it is, {reason}.'
+        )
+    else:
+        recommendation = f'Run `chown root {directory}; chmod go-w {directory}`.'
+    return (severity_state, directory, '; '.join(problems) + '.', recommendation)
 
 
 def check_mutex(run_cfg, document_root, stat_fixture, severity_state):
