@@ -251,6 +251,61 @@ TESTS = [
         'params': '--match=[',
         'assert-retc': STATE_UNKNOWN,
     },
+    {
+        # A first run has no counters to compare against: no finding, no column
+        # value and no retransmission metric it never measured.
+        'id': 'ok-first-run-has-nothing-to-compare-against',
+        'test': 'stdout/rpc-counters-first-run,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. 3 NFS mounts respond'],
+        'assert-not-in': ['nfs_mounts_retrans', 'sent again'],
+    },
+    {
+        # The counters moved by 1 on /mnt/data and by 7 on /mnt/backup since the run
+        # before. Both mounts answer now, so the outage was over by the time the check
+        # asked, and only the counters tell.
+        'id': 'warn-requests-sent-again-since-the-last-check',
+        'test': 'stdout/rpc-retransmits-since-last-check,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 of 3 NFS mounts kept requests waiting since the last check:',
+            '/mnt/data (nfs1.example.com:/export/data): 1 request sent again',
+            '/mnt/backup (nfs2.example.com:/export/backup): 7 requests sent again',
+            "'nfs_mounts_retrans'=8;0;;0",
+            '`sudo dmesg --ctime` shows when it was "not responding"',
+        ],
+        'assert-not-in': ['/mnt/home (', 'not usable'],
+    },
+    {
+        'id': 'ok-retrans-severity-ok',
+        'test': 'stdout/rpc-retransmits-since-last-check,,0',
+        'params': '--retrans-severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'nfs_mounts_retrans'=8;0;;0"],
+    },
+    {
+        'id': 'ok-counters-did-not-move',
+        'test': 'stdout/rpc-no-retransmits-since-last-check,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', "'nfs_mounts_retrans'=0;0;;0"],
+    },
+    {
+        # A mount that does not answer says more than its retransmissions, and a
+        # mount whose counters went backwards was mounted again and has no history.
+        'id': 'crit-hung-wins-over-retransmits-and-a-remount-is-skipped',
+        'test': 'stdout/rpc-hung-and-remounted,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '1 of 3 NFS mounts is not usable: /mnt/data',
+            "'nfs_mounts_retrans'=1;0;;0",
+        ],
+        'assert-regex': r'/mnt/backup\s+!.*!\s+-\s+! responds',
+        'assert-not-in': ['sent again'],
+    },
 ]
 
 

@@ -31,6 +31,9 @@
                 "--no-perfdata": {
                     "set_if": "$nfs_mounts_no_perfdata$"
                 },
+                "--retrans-severity": {
+                    "value": "$nfs_mounts_retrans_severity$"
+                },
                 "--stale-severity": {
                     "value": "$nfs_mounts_stale_severity$"
                 },
@@ -95,6 +98,11 @@
                     "datafield_id": 11,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -138,7 +146,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks that every mounted NFS filesystem still answers, by asking each one for its filesystem statistics and giving it a deadline. Two failures are invisible to the disk usage, inode and read-only checks, because those only look at local block devices: a stale file handle, where the mount stays \"active\" while every access returns an error, and a mount whose server no longer answers, where an access blocks instead of failing. The blocking one is the more damaging of the two, because a waiting process only gets out of that wait by being killed and every further access piles up behind it. The check itself never blocks. Each mount is asked in a process of its own, all of them at the same time, and a process that misses the deadline is killed, so the runtime stays within --timeout no matter how many mounts are unreachable. Reading the list of mounts is safe on its own, so a host whose server is gone still reports which mounts are affected. No elevated privileges are needed: asking for filesystem statistics works even on an export the user is not allowed to enter. Supports filtering mount points by regular expression via --match and --ignore, and extended reporting via --lengthy. Alerts when a mount reports a stale file handle, misses the deadline, or answers with an error.",
+            "notes": "Checks that every mounted NFS filesystem still answers, by asking each one for its filesystem statistics and giving it a deadline. Two failures are invisible to the disk usage, inode and read-only checks, because those only look at local block devices: a stale file handle, where the mount stays \"active\" while every access returns an error, and a mount whose server no longer answers, where an access blocks instead of failing. The blocking one is the more damaging of the two, because a waiting process only gets out of that wait by being killed and every further access piles up behind it. The check itself never blocks. Each mount is asked in a process of its own, all of them at the same time, and a process that misses the deadline is killed, so the runtime stays within --timeout no matter how many mounts are unreachable. Reading the list of mounts is safe on its own, so a host whose server is gone still reports which mounts are affected. No elevated privileges are needed: asking for filesystem statistics works even on an export the user is not allowed to enter. Between two checks, the kernel's RPC counters tell whether the server left a request unanswered long enough for the client to send it again, which catches an outage that was over by the time the check asked. Supports filtering mount points by regular expression via --match and --ignore, and extended reporting via --lengthy. Alerts when a mount reports a stale file handle, misses the deadline, answers with an error, or had to retransmit requests since the last check.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nfs-mounts/",
             "object_name": "tpl-service-nfs-mounts",
             "object_type": "template",
@@ -158,6 +166,7 @@
                 "nfs_mounts_match": [],
                 "nfs_mounts_no_match_severity": "ok",
                 "nfs_mounts_no_perfdata": false,
+                "nfs_mounts_retrans_severity": "warn",
                 "nfs_mounts_stale_severity": "crit",
                 "nfs_mounts_timeout": 8
             },
@@ -259,6 +268,37 @@
                 }
             ],
             "uuid": "3be4bf36-9543-4fca-bae6-400d9a80d921"
+        },
+        "nfs_mounts_retrans_severity_list": {
+            "list_name": "nfs_mounts_retrans_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "ba3b2a16-a593-4282-9546-f09c538cec4b"
         },
         "nfs_mounts_stale_severity_list": {
             "list_name": "nfs_mounts_stale_severity_list",
@@ -391,6 +431,19 @@
             "uuid": "9577d013-d67c-4322-9728-8ff977badcd6"
         },
         "10": {
+            "varname": "nfs_mounts_retrans_severity",
+            "caption": "Nfs Mounts: Retrans Severity",
+            "description": "State to report for a mount whose client had to send requests again since the last check, because the server left them unanswered for the mount's `timeo` (60 s by default over TCP).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "nfs_mounts_retrans_severity_list"
+            },
+            "uuid": "690907e5-8912-450e-a4ad-fb1321726807"
+        },
+        "11": {
             "varname": "nfs_mounts_stale_severity",
             "caption": "Nfs Mounts: Stale Severity",
             "description": "State to report for a mount that answers with a stale file handle. The export it points at is gone, and the mount does not recover on its own.",
@@ -403,7 +456,7 @@
             },
             "uuid": "9f5a3b50-6fca-4045-8187-1660f7853c2b"
         },
-        "11": {
+        "12": {
             "varname": "nfs_mounts_timeout",
             "caption": "Nfs Mounts: Timeout",
             "description": "Network timeout in seconds. Every mount is asked at the same time and they share one deadline, so this is the runtime of the whole check and not a budget per mount.",

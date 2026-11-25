@@ -3,12 +3,13 @@
 
 ## Overview
 
-Checks that every mounted NFS filesystem still answers, by asking each one for its filesystem statistics and giving it a deadline. Two failures are invisible to the disk usage, inode and read-only checks, because those only look at local block devices: a stale file handle, where the mount stays "active" while every access returns an error, and a mount whose server no longer answers, where an access blocks instead of failing. The blocking one is the more damaging of the two, because a waiting process only gets out of that wait by being killed and every further access piles up behind it. The check itself never blocks. Each mount is asked in a process of its own, all of them at the same time, and a process that misses the deadline is killed, so the runtime stays within `--timeout` no matter how many mounts are unreachable. Reading the list of mounts is safe on its own, so a host whose server is gone still reports which mounts are affected. No elevated privileges are needed: asking for filesystem statistics works even on an export the user is not allowed to enter. Supports filtering mount points by regular expression via `--match` and `--ignore`, and extended reporting via `--lengthy`. Alerts when a mount reports a stale file handle, misses the deadline, or answers with an error.
+Checks that every mounted NFS filesystem still answers, by asking each one for its filesystem statistics and giving it a deadline. Two failures are invisible to the disk usage, inode and read-only checks, because those only look at local block devices: a stale file handle, where the mount stays "active" while every access returns an error, and a mount whose server no longer answers, where an access blocks instead of failing. The blocking one is the more damaging of the two, because a waiting process only gets out of that wait by being killed and every further access piles up behind it. The check itself never blocks. Each mount is asked in a process of its own, all of them at the same time, and a process that misses the deadline is killed, so the runtime stays within `--timeout` no matter how many mounts are unreachable. Reading the list of mounts is safe on its own, so a host whose server is gone still reports which mounts are affected. No elevated privileges are needed: asking for filesystem statistics works even on an export the user is not allowed to enter. Between two checks, the kernel's RPC counters tell whether the server left a request unanswered long enough for the client to send it again, which catches an outage that was over by the time the check asked. Supports filtering mount points by regular expression via `--match` and `--ignore`, and extended reporting via `--lengthy`. Alerts when a mount reports a stale file handle, misses the deadline, answers with an error, or had to retransmit requests since the last check.
 
 **Important Notes:**
 
 * A mount that does not answer is reported CRIT by default, a stale file handle likewise. Both are configurable, see `--hung-severity` and `--stale-severity`.
 * After the server comes back, the first access still has to wait for the client's connection to time out and be re-established. Measured on Rocky 10 with kernel 6.12, that took about 10 seconds, so the check can report the mount as not answering one more time before it goes green. This is what `max_check_attempts` and `retry_interval` are for; the shipped Icinga Director service template sets `retry_interval` to 60 seconds.
+* A mount whose client had to send requests again since the last check is reported WARN, see `--retrans-severity`. The client sends a request again only after the server left it unanswered for the mount's `timeo`, 60 seconds by default over TCP, so a retransmission is an outage, even one that was over by the time the check ran. Measured on Rocky 10 with kernel 6.12: steady reading and writing of 600 MB and a restart of the NFS server sent nothing again; 75 seconds without an answer at the default `timeo=600` sent 2 requests again, 30 seconds at `timeo=50` sent 7. The first run after a mount, and after the plugin was installed, has nothing to compare against and says nothing about retransmissions.
 * A `soft` mount does not block, it returns an I/O error once it has given up. That is reported as an error and defaults to WARN, not CRIT, because the applications on the host keep running.
 * Whether the right data is behind a mount, and how full it is, is not part of this check. Space and inodes are reported by `disk-usage` and `fs-inodes`, a filesystem that never got mounted at all by `fs-mounts`, and the health of the NFS server itself by the systemd unit checks in the NFS Server Service Set.
 * A mount point named by `--ignore` is never asked anything, so excluding a mount that is known to be unreachable also takes it out of the check's runtime.
@@ -20,6 +21,7 @@ Checks that every mounted NFS filesystem still answers, by asking each one for i
 * Skips mount points matching `--ignore`, and looks only at those matching `--match` if that parameter is given
 * Asks every remaining mount point for its filesystem statistics (`statvfs`), each in a child process of its own, all of them started before the first one is waited for
 * Kills a child that has not answered by the deadline, which is `--timeout` seconds after the first one started, and reports its mount as not answering
+* Reads the RPC counters of every NFS mount from `/proc/self/mountstats`, which the kernel renders without asking the server either, and keeps them until the next run to tell how many requests were sent again in between
 * Reads the NFS version and whether the mount is `hard` or `soft` off the mount options, for the `--lengthy` table
 
 
@@ -33,6 +35,7 @@ Checks that every mounted NFS filesystem still answers, by asking each one for i
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-nfs-mounts.db` |
 
 
 ## Help
@@ -43,6 +46,7 @@ usage: nfs-mounts [-h] [-V] [--always-ok] [--brief]
                   [--hung-severity {ok,warn,crit,unknown}] [--ignore IGNORE]
                   [--lengthy] [--match MATCH]
                   [--no-match-severity {ok,warn,crit,unknown}] [--no-perfdata]
+                  [--retrans-severity {ok,warn,crit,unknown}]
                   [--stale-severity {ok,warn,crit,unknown}]
                   [--timeout TIMEOUT]
 
@@ -60,9 +64,13 @@ stays within --timeout no matter how many mounts are unreachable. Reading the
 list of mounts is safe on its own, so a host whose server is gone still
 reports which mounts are affected. No elevated privileges are needed: asking
 for filesystem statistics works even on an export the user is not allowed to
-enter. Supports filtering mount points by regular expression via --match and
---ignore, and extended reporting via --lengthy. Alerts when a mount reports a
-stale file handle, misses the deadline, or answers with an error.
+enter. Between two checks, the kernel's RPC counters tell whether the server
+left a request unanswered long enough for the client to send it again, which
+catches an outage that was over by the time the check asked. Supports
+filtering mount points by regular expression via --match and --ignore, and
+extended reporting via --lengthy. Alerts when a mount reports a stale file
+handle, misses the deadline, answers with an error, or had to retransmit
+requests since the last check.
 
 options:
   -h, --help            show this help message and exit
@@ -104,6 +112,11 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
+  --retrans-severity {ok,warn,crit,unknown}
+                        State to report for a mount whose client had to send
+                        requests again since the last check, because the
+                        server left them unanswered for the mount's `timeo`
+                        (60 s by default over TCP). Default: warn
   --stale-severity {ok,warn,crit,unknown}
                         State to report for a mount that answers with a stale
                         file handle. The export it points at is gone, and the
@@ -173,11 +186,11 @@ Output:
 ```text
 Everything is ok. 3 NFS mounts respond, slowest 351ms.
 
-Mountpoint  ! Source                          ! Vers ! Mode ! Response ! State
-------------+---------------------------------+------+------+----------+---------
-/mnt/data   ! nfs1.example.com:/export/data   ! 4.2  ! hard ! 4ms      ! responds
-/mnt/home   ! nfs1.example.com:/export/home   ! 4.2  ! hard ! 6ms      ! responds
-/mnt/backup ! nfs2.example.com:/export/backup ! 3    ! hard ! 351ms    ! responds
+Mountpoint  ! Source                          ! Vers ! Mode ! Response ! Retrans ! State
+------------+---------------------------------+------+------+----------+---------+---------
+/mnt/data   ! nfs1.example.com:/export/data   ! 4.2  ! hard ! 4ms      ! 0       ! responds
+/mnt/home   ! nfs1.example.com:/export/home   ! 4.2  ! hard ! 6ms      ! 0       ! responds
+/mnt/backup ! nfs2.example.com:/export/backup ! 3    ! hard ! 351ms    ! 0       ! responds
 ```
 
 On a host with many NFS mounts, `--brief` keeps the table down to the ones that are not usable:
@@ -195,11 +208,32 @@ Output:
 * /mnt/scratch (nfs3.example.com:/export/scratch): input/output error
 Hint: a mount that does not answer blocks every access to it until its server is back, and a process that is waiting only gets out of that wait by being killed; a stale file handle needs the export back on the server and the mount unmounted and mounted again.
 
-Mountpoint   ! Source                           ! Vers ! Mode ! Response ! State
--------------+----------------------------------+------+------+----------+-------------------------------
-/mnt/gone    ! nfs1.example.com:/export/gone    ! 4.2  ! hard ! 3ms      ! stale file handle [CRITICAL]
-/mnt/backup  ! nfs2.example.com:/export/backup  ! 3    ! hard ! 8s       ! no answer within 8s [CRITICAL]
-/mnt/scratch ! nfs3.example.com:/export/scratch ! 4.2  ! soft ! 5s 20ms  ! input/output error [WARNING]
+Mountpoint   ! Source                           ! Vers ! Mode ! Response ! Retrans ! State
+-------------+----------------------------------+------+------+----------+---------+-------------------------------
+/mnt/gone    ! nfs1.example.com:/export/gone    ! 4.2  ! hard ! 3ms      ! -       ! stale file handle [CRITICAL]
+/mnt/backup  ! nfs2.example.com:/export/backup  ! 3    ! hard ! 8s       ! -       ! no answer within 8s [CRITICAL]
+/mnt/scratch ! nfs3.example.com:/export/scratch ! 4.2  ! soft ! 5s 20ms  ! -       ! input/output error [WARNING]
+```
+
+A server that stopped answering for a while between two checks, and answers again by the time the next one runs:
+
+```bash
+./nfs-mounts
+```
+
+Output:
+
+```text
+2 of 3 NFS mounts kept requests waiting since the last check:
+* /mnt/data (nfs1.example.com:/export/data): 1 request sent again
+* /mnt/backup (nfs2.example.com:/export/backup): 7 requests sent again
+Hint: a retransmission means the server did not answer a request in time, `sudo dmesg --ctime` shows when it was "not responding".
+
+Mountpoint  ! Source                          ! State
+------------+---------------------------------+--------------------------------
+/mnt/data   ! nfs1.example.com:/export/data   ! 1 request sent again [WARNING]
+/mnt/home   ! nfs1.example.com:/export/home   ! responds
+/mnt/backup ! nfs2.example.com:/export/backup ! 7 requests sent again [WARNING]
 ```
 
 Give the mounts less time, for a check that has to return quickly:
@@ -229,6 +263,7 @@ Report a mount that does not answer as a warning instead, on a host where NFS is
 * CRIT if a mount does not answer within `--timeout`. `--hung-severity` lowers or raises that case.
 * CRIT if a mount reports a stale file handle. `--stale-severity` lowers or raises that case.
 * WARN if a mount answers with any other error, for example the I/O error a `soft` mount reports once it has given up. `--error-severity` lowers or raises that case.
+* WARN if a mount that answers had to send requests again since the last check. `--retrans-severity` lowers or raises that case.
 * UNKNOWN if the host does not provide `/proc/self/mounts`.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -241,6 +276,7 @@ Report a mount that does not answer as a warning instead, on a host where NFS is
 | nfs_mounts_hung            | Number  | Number of those that did not answer within `--timeout`. |
 | nfs_mounts_stale           | Number  | Number of those that reported a stale file handle. |
 | nfs_mounts_failed          | Number  | Number of those that answered with any other error. |
+| nfs_mounts_retrans         | Number  | Requests the checked mounts had to send again since the last check. Left out while no mount has a previous run to compare against. |
 | nfs_mounts_slowest_seconds | Seconds | How long the slowest mount took to answer. Rises long before a failing server stops answering altogether. |
 
 
@@ -297,6 +333,21 @@ lsof +D /mnt/gone
 A `soft` mount reports this once it has given up on its server, so the finding is the same as a mount that does not answer: the server is not reachable. The difference is only in how the mount was configured, and it is why this defaults to WARN rather than CRIT. Chase it the same way as `no answer within 8s` above.
 
 Be aware that `soft` trades a blocked process for a failed write. On a filesystem holding data that must not be lost, `hard` is the safer option, and this check is then the thing that tells you the server is gone.
+
+
+### `requests sent again`
+
+The server left requests of this mount unanswered for at least the mount's `timeo` since the last check, so the client sent them again. The mount answers now, which means the outage was over by the time the check ran. The kernel logs when the server stopped and started answering:
+
+```bash
+sudo dmesg --ctime | grep 'nfs: server'
+```
+
+Retransmissions that keep coming back point at the network between client and server, or at a server that stalls under load. On the client, `mountstats` counts them per operation since the mount was made (`7 retrans (1%)`):
+
+```bash
+mountstats /mnt/data
+```
 
 
 ### The check reports one more failure right after the server came back

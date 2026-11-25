@@ -205,6 +205,36 @@ spec:
         operator: '='
         value: nfs_mounts_failed
 
+    - alias: Sent again
+      refId: nfs_mounts_retrans
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - 'null'
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: nfs_mounts_retrans
+
 
   - title: Response Time
     type: timeseries
