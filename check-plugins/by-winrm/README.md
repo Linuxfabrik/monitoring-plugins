@@ -11,7 +11,7 @@ Executes a PowerShell command or script on a remote Windows host via WinRM, JEA 
 * JEA endpoints are only supported with `pypsrp` (via `--winrm-configuration-name`). A JEA endpoint runs a single cmdlet with its parameters and no script text, so `--command` is split into the cmdlet and its parameters there, and pipes are refused. The objects the cmdlet returns arrive as one `Property : Value` line per property, like `Format-List`, so patterns can match their properties.
 * This plugin is ideal for retrieving Windows-specific metrics, running custom PowerShell-based health checks (such as inventory, backup status, or failover cluster queries), and accessing systems like Active Directory, Exchange, SQL Server, or Hyper-V
 * It is especially useful in environments where installing a monitoring agent is not possible or desired
-* For Kerberos transport, configure `/etc/krb5.conf` and obtain a ticket via `kinit` before running the plugin. When Kerberos credentials are present in the cache, `--winrm-username` and `--winrm-password` can be omitted.
+* With Kerberos transport and a keytab on the monitoring host, `--winrm-username` and `--winrm-password` stay empty, so no password is stored in the monitoring configuration. See [Kerberos](#kerberos) below for the setup.
 * When `--winrm-domain` is set, the username is sent as `user@DOMAIN` for NTLM authentication. Not needed for Kerberos or local accounts.
 
 **Data Collection:**
@@ -54,20 +54,130 @@ Depending on the chosen transport, additional configuration may be required:
 | Transport | When to use | Extra Setup on Windows |
 |----|----|----|
 | `ntlm` (default) | Domain and workgroup environments. Works out of the box. | None - works with `Enable-PSRemoting`. |
-| `kerberos` | Active Directory environments. Most secure; supports SSO via `kinit` on the monitoring host (no password needed). | Requires AD domain membership. |
+| `kerberos` | Active Directory environments. Most secure; with a keytab on the monitoring host, no password is needed in the monitoring configuration. | Requires AD domain membership. |
 | `basic` | Testing or HTTPS-only setups. Credentials are base64-encoded (not encrypted). | `winrm set winrm/config/service/auth @{Basic="true"}`. Use HTTPS in production. |
 | `credssp` | Multi-hop scenarios where credentials must be delegated to a third system. | `Enable-WSManCredSSP -Role Server` on the target host. |
 | `plaintext` | Same as `basic` but explicitly over HTTP. | Same as `basic`. Insecure - avoid in production. |
 
 ### Linux (Monitoring Host)
 
-For **Kerberos** transport, configure `/etc/krb5.conf` for your Active Directory domain and obtain a ticket before running the plugin:
+NTLM, CredSSP, Basic and plaintext need nothing beyond the Python modules of the plugin.
+
+### Kerberos
+
+Kerberos authenticates with a ticket instead of a password. The plugin gets its tickets from a keytab, a file holding the key derived from the account's password, and renews them on its own, so `--winrm-username` and `--winrm-password` stay empty. The monitoring host does not have to join the domain. It needs:
+
+* A domain account for the checks, not a local account on the Windows hosts.
+* Access to the domain controllers on port 88 (TCP and UDP), and a clock that differs from theirs by less than 5 minutes.
+* DNS that resolves the Windows hosts by their FQDN. Pass that FQDN as `--winrm-hostname`: an IP address does not match the service principal of the host (`HTTP/<fqdn>`).
+
+The steps below use `svc-monitoring` as the account, `EXAMPLE.COM` as the realm (the DNS name of the AD domain in uppercase) and `icinga` as the user that runs the plugins (`nagios` on Debian and Ubuntu).
+
+**Step 1: Add Kerberos support to the venv of the plugins.**
+
+Neither the RPM and DEB packages nor the `--source` and `--zip` installs put it into the venv. The `gssapi` module is built from source, which needs a compiler and the Kerberos and Python headers. The Python headers must match the version of the venv:
 
 ```bash
-kinit user@EXAMPLE.COM
+/usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/python3 --version
+
+# RHEL family, here for a venv on Python 3.12
+dnf install gcc krb5-devel krb5-workstation python3.12-devel
+# Debian and Ubuntu
+apt install gcc krb5-user libkrb5-dev python3-dev
 ```
 
-When Kerberos credentials are present in the cache, `--winrm-username` and `--winrm-password` can be omitted.
+With the RPM and DEB packages, the venv comes without pip, so that the advisories of pip do not show up on every monitored host. Bring it back for the install and remove it again afterwards. On Debian and Ubuntu, `ensurepip` needs the `python3-venv` package:
+
+```bash
+apt install python3-venv    # Debian and Ubuntu only
+
+/usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/python3 -m ensurepip
+/usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/python3 -m pip install 'pyspnego[kerberos]'
+/usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/python3 -m pip uninstall --yes pip
+```
+
+With `--source` and `--zip`, the venv keeps its pip, so the install alone is enough:
+
+```bash
+/usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/python3 -m pip install 'pyspnego[kerberos]'
+```
+
+The compiler and the header packages can be removed afterwards. Repeat this step whenever the venv is rebuilt: with the packages after an update that changes the Python version of the venv, with `--source` and `--zip` whenever the installer reports `creating dependency venv`.
+
+**Step 2: Configure Kerberos.**
+
+On the RHEL family, create `/etc/krb5.conf.d/00-by-winrm.conf`. On Debian and Ubuntu, whose `/etc/krb5.conf` reads no drop-in directory, add the same lines to the sections of `/etc/krb5.conf` itself:
+
+```ini
+[libdefaults]
+    default_ccache_name = FILE:/var/kerberos/krb5/user/%{uid}/krb5cc
+    default_client_keytab_name = FILE:/var/kerberos/krb5/user/%{euid}/client.keytab
+    default_realm = EXAMPLE.COM
+    dns_lookup_kdc = true
+
+[domain_realm]
+    .example.com = EXAMPLE.COM
+    example.com = EXAMPLE.COM
+```
+
+* The keytab and the ticket cache are set here and not through the `KRB5_CLIENT_KTNAME` and `KRB5CCNAME` environment variables. Where the plugin runs in an SELinux domain of its own (RHEL family), it starts in secure mode, and Kerberos then ignores all `KRB5_*` environment variables without saying so.
+* The cache is a file. The default of the RHEL family, `KEYRING:`, is limited by the kernel key quota of the user, which the service tickets for many Windows hosts can exceed.
+* For each setting, the first value read wins, and `/etc/krb5.conf` reads `/etc/krb5.conf.d/` in alphabetical order before its own lines. The `00-` prefix keeps this file ahead of `kcm_default_ccache` from `sssd-kcm`, which would otherwise set the cache to `KCM:`. A setting in the wrong section is ignored without a message.
+* `dns_lookup_kdc` finds the domain controllers through DNS. Check that `dig +short SRV _kerberos._tcp.example.com` lists them. If it does not, name them instead:
+
+    ```ini
+    [realms]
+        EXAMPLE.COM = {
+            kdc = dc1.example.com
+            kdc = dc2.example.com
+        }
+    ```
+
+The configuration is read by every run of the plugin, so the monitoring daemon needs no restart.
+
+**Step 3: Create the keytab.**
+
+The name in front of the `@` must be the `sAMAccountName` of the account, spelled with the same upper and lower case: the key is derived from the password, the realm and this name. `ktutil` does not check the password, a wrong one only shows in step 4.
+
+```bash
+install --directory --owner=icinga --group=icinga --mode=0700 /var/kerberos/krb5/user/$(id -u icinga)
+
+read -r -s -p 'Password: ' PW; echo
+printf '%s\n' \
+    'add_entry -password -p svc-monitoring@EXAMPLE.COM -k 1 -e aes256-cts-hmac-sha1-96' \
+    "${PW}" \
+    "write_kt /var/kerberos/krb5/user/$(id -u icinga)/client.keytab" \
+    'quit' | sudo ktutil
+unset PW
+
+chown icinga:icinga /var/kerberos/krb5/user/$(id -u icinga)/client.keytab
+chmod 0600 /var/kerberos/krb5/user/$(id -u icinga)/client.keytab
+restorecon -Rv /var/kerberos/krb5/user    # RHEL family
+klist -k -t -e /var/kerberos/krb5/user/$(id -u icinga)/client.keytab
+```
+
+`write_kt` appends to an existing keytab. When the password of the account changes, delete the keytab and create it again.
+
+**Step 4: Test as the user that runs the plugins.**
+
+```bash
+sudo -u icinga kinit -k -i svc-monitoring@EXAMPLE.COM
+sudo -u icinga klist                            # expected: `Ticket cache: FILE:/var/kerberos/krb5/user/<uid>/krb5cc`
+sudo -u icinga kvno HTTP/winsrv.example.com     # expected: prints a key version number
+
+sudo -u icinga /usr/lib64/nagios/plugins/by-winrm \
+    --winrm-hostname=winsrv.example.com \
+    --winrm-transport=kerberos \
+    --command='hostname'
+```
+
+`kinit` is only needed for this test. In operation, the plugin gets its tickets from the keytab itself.
+
+**Step 5: Grant the account access on the Windows hosts.**
+
+Add the account to the local group `Remote Management Users`, or, for a JEA endpoint, to its `RoleDefinitions` as `EXAMPLE\svc-monitoring`. Administrator rights are not needed for WinRM itself; what the commands read may need more, for example `Event Log Readers` for event logs.
+
+In the monitoring configuration, set `--winrm-transport=kerberos` and leave `--winrm-username`, `--winrm-password` and `--winrm-domain` empty. With username and password set, the plugin logs in with the password instead of the keytab.
 
 
 ## Help
@@ -249,12 +359,9 @@ Use regex matching - alert with WARNING if any of the last 50 system event log m
     --critical-regex='error|fail'
 ```
 
-Use Kerberos authentication (no password needed when a valid ticket exists):
+Use Kerberos authentication with a keytab set up as described in [Kerberos](#kerberos), without username and password:
 
 ```bash
-kinit -V linus@EXAMPLE.COM
-klist
-
 ./by-winrm \
     --winrm-hostname=winsrv.example.com \
     --winrm-transport=kerberos \
@@ -349,6 +456,45 @@ Command does not finish in time?
 | Name | Type | Description |
 |----|----|----|
 | remote_runtime | Seconds | Time connecting, running the command on the remote host and disconnecting. |
+
+
+## Troubleshooting
+
+For Kerberos errors, `KRB5_TRACE=/dev/stderr` in front of `kinit`, `kvno` or the plugin shows which domain controller is asked and what it answers. It only works in a shell, not when the monitoring daemon runs the plugin (see [Kerberos](#kerberos), step 2).
+
+### `failed to map segment from shared object` while installing `pyspnego[kerberos]`
+
+`/tmp` is mounted `noexec`, and pip builds `gssapi` there. Build in a directory that allows execution:
+
+```bash
+install --directory --mode=0700 /root/pip-build
+TMPDIR=/root/pip-build /usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/python3 -m pip install 'pyspnego[kerberos]'
+rm -rf /root/pip-build
+```
+
+### `Client '...' not found in Kerberos database`
+
+The domain controller does not know the account in this realm. The name in front of the `@` is not the `sAMAccountName`, the realm is not the DNS name of the domain the account lives in, or the account is a local account on the Windows hosts, which Kerberos cannot use. `Get-ADUser -Identity <name>` shows `SamAccountName` and `UserPrincipalName`, `(Get-ADDomain).DNSRoot` the realm.
+
+### `Preauthentication failed`
+
+The account exists, but the key in the keytab does not match. The keytab was created with a wrong password, the name was spelled with a different upper and lower case than the `sAMAccountName`, or the password has changed since. Create the keytab again.
+
+### `Clock skew too great`
+
+The clock of the monitoring host differs from that of the domain controllers by 5 minutes or more. Check the time synchronization, for example with `chronyc tracking`.
+
+### `Server not found in Kerberos database`
+
+There is no service principal for the name passed as `--winrm-hostname`. Use the FQDN of the Windows host, not its IP address.
+
+### `No Kerberos credentials available`
+
+The plugin found neither a ticket nor the keytab. `sudo -u icinga klist` must show the `FILE:` cache from step 2; `KEYRING:` or `KCM:` means the setting is not read, mostly because it is outside `[libdefaults]` or behind `kcm_default_ccache`. Check that the keytab exists at the configured path and belongs to the user that runs the plugins. If the plugin works from a shell and fails only when the monitoring daemon runs it, the keytab or the cache is still set through `KRB5_*` environment variables, which the plugin ignores there.
+
+### `AuthenticationError: Failed to authenticate the user None with kerberos`
+
+The plugin got a ticket, and the Windows host refused it. `None` only stands for the empty username. Mostly the account lacks access to WinRM (see [Kerberos](#kerberos), step 5). Less often, `HTTP/<fqdn>` is registered on another account in AD (`setspn -Q HTTP/winsrv.example.com` must list nothing or only the computer account of the host), or `--winrm-hostname` resolves to a different host. The Security event log of the Windows host tells them apart: event 4624 for the account means the login worked and access is missing, event 4625 means the login failed.
 
 
 ## Credits, License
