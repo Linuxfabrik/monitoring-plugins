@@ -92,3 +92,5 @@ val   0   1   2 .. 100 101 .. 150 151
 Single-bound ranges (`--warning 190: --critical 200:`) aggregate the same way.
 
 Ranges cover every bound the operator picks (a percentage, count, age, temperature). A parameter naming a fixed classification boundary defined outside the plugin keeps a plain numeric type with a direct comparison, e.g. a CVSS base score, where range syntax would mean nothing. Reference: `--critical-cvss` in [wordpress-security-scan](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/wordpress-security-scan/README.md). Say so in the README, so the missing range support reads as a decision.
+
+Thresholds on the space of a store (`disk-usage`, `kvm-storage-pool`, `kvm-volume`) take the `disk-usage` form `<number>[unit][method]` instead (`90`, `10%FREE`, `100GFREE`): `type=lib.args.number_unit_method`, evaluated with `lib.args.number_unit_method_state()` and drawn with `lib.args.number_unit_method_limits()`. An amount left free is what an operator sets on a store, and a range cannot express it.
