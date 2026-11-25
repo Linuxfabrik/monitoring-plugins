@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the device-mapper multipath maps on this host: how many of the paths to each LUN are usable, which of them the path checker has declared dead, and whether a map has run out of paths altogether and is queueing the I/O that reaches it. The number of usable paths is compared against an expected count as a percentage, so a LUN that lost one of its paths warns long before the last one goes and the storage disappears. Every map is graded against the number of paths it currently holds, which cannot catch a path that disappeared from the map entirely; `--expected-paths` states how many paths a LUN on this host is supposed to have and closes that gap, and `--map` pins a single map that has a different number. Alerts when a map is running on fewer usable paths than expected, and when it has none left. Supports extended reporting via `--lengthy`.
+Checks the device-mapper multipath maps on this host: how many of the paths to each LUN are usable, which of them the path checker has declared dead, and whether a map has run out of paths altogether and is queueing the I/O that reaches it. The number of usable paths is compared against an expected count as a percentage, so a LUN that lost one of its paths warns long before the last one goes and the storage disappears. Every map is graded against the most paths it has been seen with, so a path that disappeared from the map entirely still counts as missing; `--expected-paths` states how many paths a LUN on this host is supposed to have, and `--map` pins a single map that has a different number. Alerts when a map is running on fewer usable paths than expected, and when it has none left. Supports extended reporting via `--lengthy`.
 
 **What multipathd reports per path:**
 
@@ -24,7 +24,8 @@ Every path carries two states at once, and the check takes both. The *checker* s
 
 * **The commands in the output name this host's paths.** Where the check reports dead paths, the `multipathd reinstate path` it suggests carries their real device names, not an example, so it can be copied without checking it against the machine first.
 * **Needs no root and no `sudo`.** multipathd allows every local user to read its state and refuses only the commands that change something, so the check reads the same answer as `root` while it cannot touch a single path. There is no sudoers file to deploy for it. This is why the check asks the daemon instead of running `multipath -ll`, which does insist on being root.
-* **A path that disappears entirely is invisible by default.** multipathd drops a path device that is gone from the system out of the map, and the map then reports one path fewer and looks complete. Only an expectation catches that. In a fabric every LUN normally has the same number of paths, so one `--expected-paths=4` covers the whole host; `--map=mpathz=2` pins the odd one out. Without either, the check compares each map against itself and can only see a path that is present and dead.
+* **A path that disappears entirely is caught against what the map had before.** multipathd drops a path device that is gone from the system out of the map, and the map then reports one path fewer and looks complete. The check therefore remembers the most paths each map has been seen with, by WWID, and counts the difference as missing. It cannot know about paths that were already gone on its first run, so on a fabric where every LUN has the same number of paths, `--expected-paths=4` is still the more reliable statement; `--map=mpathz=2` pins the odd one out. Both take precedence over the remembered count.
+* **A path removed on purpose has to be accepted.** The check keeps warning about a path that is gone, because it has no way to tell a recabled fabric from a lost one. Its output names the file holding the remembered counts; deleting it makes the next run take the current layout as the expected one. A map that has not been seen for 30 days is forgotten by itself.
 * **A map without any path is not the end of the story yet.** With `no_path_retry` configured, device-mapper holds the I/O that reaches such a map instead of failing it, and the check reports how much of that grace is left in its very first line (`holding its I/O for another 52 sec`), because that number decides how much time there is. Once it runs out, every read and write fails and the file systems on top go read-only. A map already at that point is reported as failing its I/O.
 * **A map whose last path is gone stops being listed at all.** multipathd flushes it rather than keeping it around with zero paths, so a host that suddenly reports no maps has either never had multipathed storage or just lost all of it. That is why the check reports WARN when it finds no map. Lower it with `--no-maps-severity=ok`, and pin the maps you expect with `--map` where the difference matters.
 * **The `paths` field in multipathd's own output is not the number of paths.** It counts the usable ones only. The check derives the total from the path groups itself, so `2/4` really means two of four.
@@ -35,6 +36,7 @@ Every path carries two states at once, and the check takes both. The *checker* s
 
 * Runs `multipathd show maps json` and reads the answer
 * Counts a path as usable when the path checker got an answer over it and device-mapper is sending I/O down it
+* Remembers the most paths each map has been seen with in a local SQLite database
 * Needs no root and no `sudo`
 
 
@@ -49,6 +51,7 @@ Every path carries two states at once, and the check takes both. The *checker* s
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | Requirements                          | command-line tool `multipathd`, and the `multipathd` service running |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-multipath.db` |
 
 
 ## Help
@@ -67,13 +70,12 @@ each LUN are usable, which of them the path checker has declared dead, and
 whether a map has run out of paths altogether and is queueing the I/O that
 reaches it. The number of usable paths is compared against an expected count
 as a percentage, so a LUN that lost one of its paths warns long before the
-last one goes and the storage disappears. Every map is graded against the
-number of paths it currently holds, which cannot catch a path that disappeared
-from the map entirely; --expected-paths states how many paths a LUN on this
-host is supposed to have and closes that gap, and --map pins a single map that
-has a different number. Alerts when a map is running on fewer usable paths
-than expected, and when it has none left. Supports extended reporting via
---lengthy.
+last one goes and the storage disappears. Every map is graded against the most
+paths it has been seen with, so a path that disappeared from the map entirely
+still counts as missing; --expected-paths states how many paths a LUN on this
+host is supposed to have, and --map pins a single map that has a different
+number. Alerts when a map is running on fewer usable paths than expected, and
+when it has none left. Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -88,13 +90,13 @@ options:
   --expected-paths EXPECTED_PATHS
                         Expected number of paths per multipath map. A LUN in a
                         fabric normally has the same number of paths as every
-                        other one, so one value covers the whole host and
-                        catches a path that disappeared from a map entirely,
-                        which comparing a map against itself cannot. `--map`
+                        other one, so one value covers the whole host,
+                        including the first run and a map whose paths were
+                        already missing when the check first saw it. `--map`
                         pins a single map that has a different number.
                         Example: `--expected-paths=4` on a host with two HBAs
                         and two controllers. Default: None, which grades every
-                        map against the paths it currently holds.
+                        map against the most paths it has been seen with.
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
@@ -104,14 +106,14 @@ options:
                         `name=count`. The name is the alias where the host
                         uses one, and the WWID otherwise. Without `=count` the
                         map is graded against `--expected-paths`, and against
-                        its own number of paths where that is not given
-                        either. Can be specified multiple times; if given at
-                        least once, only the named maps are checked. Example:
-                        `--map=mpatha=4` alerts when the `mpatha` map does not
-                        have its four paths, even after one of them
+                        the most paths it has been seen with where that is not
+                        given either. Can be specified multiple times; if
+                        given at least once, only the named maps are checked.
+                        Example: `--map=mpatha=4` alerts when the `mpatha` map
+                        does not have its four paths, even after one of them
                         disappeared from the map entirely. Example:
-                        `--map=mpathb` checks `mpathb` against the paths it
-                        currently has. Default: None
+                        `--map=mpathb` checks `mpathb` against the most paths
+                        it has been seen with. Default: None
   --marginal-severity {ok,warn,crit,unknown}
                         State to report for a path multipathd has declared
                         marginal, which means it went up and down often enough
@@ -185,7 +187,20 @@ mpatha ! 0/2             ! no usable path [CRITICAL]
 mpathb ! 2/2             ! 2 usable
 ```
 
-State how many paths a LUN on this host is supposed to have, which is the only way a path that vanished from a map is caught:
+Output after a path device disappeared from the system, so multipathd dropped it from the map, which still looks complete on its own:
+
+```text
+mpatha runs on 1 of 2 paths.
+mpatha: 1 of the 2 paths it was seen with is gone from the map
+A path that disappeared from a map is gone from the system, not just dead: `multipath -ll` and `lsscsi` show what is left, and a rescan of the SCSI host brings back one that is still cabled. If it was removed on purpose, delete the remembered path counts with `sudo rm --force /tmp/linuxfabrik-monitoring-plugins-uid975/linuxfabrik-monitoring-plugins-multipath.db`, and the next run takes the current layout as the expected one. `--expected-paths` pins the count for the whole host instead.
+
+Map    ! Usable/Expected ! State
+-------+-----------------+---------------------
+mpatha ! 1/2             ! 1 usable [WARNING]
+mpathb ! 2/2             ! 2 usable
+```
+
+State how many paths a LUN on this host is supposed to have, which also covers paths that were already missing when the check first ran:
 
 ```bash
 ./multipath --expected-paths=4
@@ -230,7 +245,7 @@ Leave a single map out, for example one belonging to a LUN that is being decommi
 ## States
 
 * OK if every checked map is running on all the paths it is expected to have.
-* WARN if a map has fewer usable paths than expected, as a percentage compared against `--warning` (default `100:`, so one missing path is enough). The expectation is the `--map` pin for that map, otherwise `--expected-paths`, otherwise the number of paths the map currently holds.
+* WARN if a map has fewer usable paths than expected, as a percentage compared against `--warning` (default `100:`, so one missing path is enough). The expectation is the `--map` pin for that map, otherwise `--expected-paths`, otherwise the most paths the map has been seen with, so a path that disappeared from the map counts as missing until it is back or the remembered counts are deleted.
 * CRIT if a map is down to half of its expected paths or fewer, compared against `--critical` (default `50:`). A map without any usable path is therefore always CRIT.
 * CRIT if a map is suspended at the device-mapper level, whatever its paths report.
 * CRIT if a map named with `--map` is not among the maps multipathd holds.
@@ -253,7 +268,7 @@ The values are aggregated over all checked maps. A map's name is its WWID unless
 | maps              | Number | Multipath maps checked. |
 | maps_degraded     | Number | Maps that are not in the state they should be in. |
 | maps_without_path | Number | Maps with no usable path left. Their I/O is being queued or already failing. |
-| paths_expected    | Number | Paths the checked maps are expected to have, summed. |
+| paths_expected    | Number | Paths the checked maps are expected to have, summed: the pinned counts, or the most paths each map has been seen with. |
 | paths_usable      | Number | Paths the path checker answered over and device-mapper is using. |
 | paths_dead        | Number | Paths present in a map that cannot be used. |
 | paths_marginal    | Number | Paths multipathd has declared unreliable. |
@@ -298,6 +313,36 @@ One leg of the fabric is gone while the LUN itself is still reachable. There is 
     echo "- - -" > /sys/class/scsi_host/host2/scan
     multipathd reconfigure
     ```
+
+### A path is gone from the map
+
+```text
+mpatha: 1 of the 2 paths it was seen with is gone from the map
+```
+
+The path device is gone from the system, not just dead, so multipathd dropped it from the map, and the map on its own looks complete with one path fewer.
+
+1. See what is left, and which SCSI hosts the remaining paths hang off:
+
+    ```bash
+    multipath -ll
+    lsscsi
+    ```
+
+2. Read what the transport said when the device went away:
+
+    ```bash
+    journalctl --dmesg --grep=sd
+    ```
+
+3. Where the path is still cabled, rescan the SCSI host it hung off and let multipathd pick it up. The warning clears on the next run once the map is back to its full width:
+
+    ```bash
+    echo "- - -" | sudo tee /sys/class/scsi_host/host2/scan
+    sudo multipathd reconfigure
+    ```
+
+4. Where the path was removed on purpose, delete the remembered path counts with the `sudo rm --force` command from the plugin output. The next run takes the current layout as the expected one. On a host where every LUN has the same number of paths, setting `--expected-paths` instead states the new width once.
 
 ### `mpatha has no usable path left`
 

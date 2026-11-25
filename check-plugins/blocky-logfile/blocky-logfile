@@ -1061,6 +1061,32 @@ def main():
     if result['notice']:
         facts.append(result['notice'].rstrip('.'))
 
+    # The rates are counted over `--lookback`, and the window this check reads ends
+    # at its cap. Where a log grows faster than the cap reaches back, the oldest
+    # line read is younger than the start of `--lookback`, every rate counts low,
+    # and a burst fast enough to matter can stay under its threshold. Said, so the
+    # counts do not pass for complete ones, but without a state of its own: the
+    # log being busy is nothing to act on at night, and the rates that did cross
+    # their thresholds still alert.
+    covered_from = lib.logsource.covered_since(
+        result['sources'], rate_since, parse_timestamp
+    )
+    if covered_from is not None:
+        covered_span = max(
+            int((datetime.datetime.now() - covered_from).total_seconds()), 1
+        )
+        facts.append(
+            f'The rates count low: they cover only the last'
+            f' {lib.human.seconds2human(covered_span)} of `--lookback`'
+            f' ({lib.human.seconds2human(args.LOOKBACK)}), as far as the most recent'
+            f' {lib.human.number2human(MAXLINES)} lines read per source reach back'
+        )
+        recommendations.append(
+            f'Lower `--lookback` to {covered_span} seconds or less, and the rate'
+            f' thresholds in proportion, so the rates are counted over the'
+            f' stretch of time the check actually reads'
+        )
+
     if result['failed']:
         state = lib.base.get_worst(state, STATE_WARN)
         facts.append(

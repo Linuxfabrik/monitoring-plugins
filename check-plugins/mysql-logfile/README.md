@@ -289,6 +289,7 @@ Read 9 lines from 1 source:
 * A `log_error_verbosity` or `log_warnings` too low for the server to write a denied login at all is reported as the first thing in the output and never alerts, because it says what the rest of the output is worth rather than that something is wrong.
 * WARN if a log file is configured but does not exist.
 * WARN if a log this check was told to read could not be read at all. The run goes on with the other sources rather than reporting the state of the ones that happened to work.
+* If the most recent 30000 lines read per source reach back less far than `--lookback`, the output says so and recommends a shorter `--lookback`, without changing the state. Every rate is then counted over a shorter stretch of time than its thresholds assume and counts low, so a burst that matters could stay below them.
 * WARN if an on-disk log file is `>= 32 MiB` (mysqltuner's cutoff; treat as a hint to set up log rotation).
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -322,6 +323,12 @@ select * from mysql.proxies_priv;
 delete from `mysql`.`proxies_priv`
 where (`host` = 'mariadb-server') and (`user` = 'root') and (`proxied_host` = '') and (`proxied_user` = '');
 ```
+
+### The rates cover only part of `--lookback`
+
+`The rates count low: they cover only the last <duration> of --lookback (<duration>), as far as the most recent 30K lines read per source reach back`
+
+The log grows faster than the 30000 lines this check reads per source reach back, so the rates are counted over less time than `--lookback` names. Lower `--lookback` to the duration the message names and the rate thresholds in proportion, for example `--lookback=300` with half the thresholds where the check covers five of the ten minutes. Where one application floods the log, keeping that out of it widens the window again.
 
 
 ## Credits, License

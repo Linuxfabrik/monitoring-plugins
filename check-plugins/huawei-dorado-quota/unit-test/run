@@ -199,6 +199,60 @@ TESTS = [
         'assert-in': ['Checked 2 quotas (warn=', 'fs_nfs_01 (alice)', 'share_b'],
     },
     {
+        # The file-quotas set holds five dtree quotas on one file system: files at 85%
+        # of the file hard quota with space at 10%, a file hard quota alone with the
+        # rate set to INVALID_VALUE32 (995 of 1000 files), a file hard quota of 0, no
+        # file fields at all, and a malformed file hard quota.
+        'id': 'crit-file-quota-graded',
+        'test': 'stdout/file-quotas,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are critical errors. Checked 5 quotas'],
+        'assert-regex': r'share_files_85 .*10% .*85% .*\[WARNING\]',
+    },
+    {
+        'id': 'crit-file-quota-without-space-quota',
+        'test': 'stdout/file-quotas,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'share_files_only .*! - .*! - .*100% .*\[CRITICAL\]',
+    },
+    {
+        # A quota with a file hard quota alone is checked, and a rate outside 0..100
+        # is recalculated from the counts instead of being taken as a fill level.
+        'id': 'warn-file-quota-only-recalculated',
+        'test': 'stdout/file-quotas,,0',
+        'params': f'{COMMON} --match=.*share_files_only$ --warning=90 --critical=101',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Checked 1 quota (warn=',
+            "'fs_nfs_02_share_files_only_file_usage_percent'=100%;90;101;0;100",
+        ],
+        'assert-not-in': ['share_files_only_usage_percent'],
+    },
+    {
+        # A file hard quota of 0, a missing one and a malformed one carry no limit on
+        # files: the space quota alone decides, and no file metric is emitted.
+        'id': 'ok-no-usable-file-quota',
+        'test': 'stdout/file-quotas,,0',
+        'params': f'{COMMON} --match=.*share_file_',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. Checked 3 quotas',
+            "'fs_nfs_02_share_file_quota_zero_usage_percent'=20%",
+            "'fs_nfs_02_share_file_fields_absent_usage_percent'=30%",
+            "'fs_nfs_02_share_file_quota_malformed_usage_percent'=40%",
+        ],
+        'assert-not-in': ['file_usage_percent', 'File%'],
+    },
+    {
+        'id': 'crit-file-quota-lengthy-shows-counts',
+        'test': 'stdout/file-quotas,,0',
+        'params': f'{COMMON} --lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Files', 'File%', '1.7M/2M', '995/1K'],
+    },
+    {
         'id': 'unknown-quota-query-fails',
         'test': 'stdout/quota-query-fails,,0',
         'params': COMMON,

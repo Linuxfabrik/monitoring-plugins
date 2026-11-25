@@ -231,6 +231,65 @@ TESTS = [
         'assert-not-in': ['grp-radiology'],
     },
     {
+        # The file-quotas set holds five dtree quotas on one file system: files at 85%
+        # of the file hard quota with space at 10%, a file hard quota alone with the
+        # rate set to INVALID_VALUE32 (995 of 1000 files), a file hard quota of 0, no
+        # file fields at all, and the file fields sent as strings (95%).
+        'id': 'crit-file-quota-graded',
+        'test': 'stdout/file-quotas,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are critical errors. Checked 5 quotas'],
+        'assert-regex': r'fs1/files_85 .*10% .*85% .*\[WARNING\]',
+    },
+    {
+        'id': 'crit-file-quota-without-space-quota',
+        'test': 'stdout/file-quotas,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'fs1/files_only .*! - .*! - .*100% .*\[CRITICAL\]',
+    },
+    {
+        # A rate outside 0..100 is recalculated from the counts instead of being taken
+        # as a fill level, and no space metric is emitted without a space hard quota.
+        'id': 'warn-file-quota-only-recalculated',
+        'test': 'stdout/file-quotas,,0',
+        'params': f'{COMMON} --match=.*files_only$ --warning=90 --critical=101',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Checked 1 quota (warn=',
+            "'fs1_files_only_file_usage_percent'=100%;90;101;0;100",
+        ],
+        'assert-not-in': ['files_only_usage_percent'],
+    },
+    {
+        'id': 'crit-file-quota-as-string',
+        'test': 'stdout/file-quotas,,0',
+        'params': f'{COMMON} --match=.*file_quota_as_string$',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ["'fs1_file_quota_as_string_file_usage_percent'=95%"],
+    },
+    {
+        # A file hard quota of 0 and a missing one carry no limit on files: the space
+        # quota alone decides, and no file metric is emitted.
+        'id': 'ok-no-usable-file-quota',
+        'test': 'stdout/file-quotas,,0',
+        'params': f'{COMMON} --match=.*file_quota_zero$ --match=.*file_fields_absent$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. Checked 2 quotas'],
+        'assert-not-in': ['file_usage_percent', 'File%'],
+    },
+    {
+        # An unset file hard quota (INVALID_VALUE64) next to a configured one: only
+        # the configured one is graded and emits a file metric.
+        'id': 'crit-unset-file-quota-not-graded',
+        'test': 'stdout/shares-42-and-95-percent,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-in': ["'fs1_dt1_file_usage_percent'=12%"],
+        'assert-not-in': ['fs1_dt2_file_usage_percent'],
+    },
+    {
         'id': 'unknown-invalid-ignore-regex',
         'test': 'stdout/shares-42-and-95-percent,,0',
         'params': f'{COMMON} --ignore=*broken',

@@ -131,6 +131,16 @@ CASES = [
         ],
     },
     {
+        # The rejected start above, followed by the clean start of another run
+        # moved to a minute later: PHP-FPM is running again, so what the
+        # refused start reported has been fixed and no longer counts.
+        'id': 'ok-a-later-start-resolves-the-rejected-configuration',
+        'params': [f'--server-log={fixture("rocky9-config-rejected-then-fixed.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 startup detected', "'php_fpm_error_lines'=0;"],
+        'assert-not-in': ['user has not been defined', 'ALERT line', 'ERROR line'],
+    },
+    {
         'id': 'crit-busy-pool-names-every-event',
         'params': [f'--server-log={fixture("rocky9-busy-pool.txt")}'],
         'assert-retc': STATE_CRIT,

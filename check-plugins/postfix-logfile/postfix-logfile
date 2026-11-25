@@ -29,7 +29,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026112401'
+__version__ = '2026112402'
 
 DESCRIPTION = """Scans the Postfix mail log for the events an administrator has to act on,
 on both sides of the server. Outbound: mail that could not be delivered, a relay host that
@@ -56,6 +56,8 @@ configuration where it is set, falls back to the mail log of the distribution, a
 journal of the Postfix unit along with it; what both hold is counted once. The most recent
 rotated file is read along with the live one, so the window does not end where logrotate
 last ran.
+A start Postfix refused counts until the next start or reload that no longer reports it,
+and credentials a relay refused count until that relay accepts a message again.
 Requires root or sudo."""
 
 # What a client provokes is judged by how many arrived, and the defaults assume
@@ -97,6 +99,22 @@ MAXLINES = 30000  # maximum log lines to consider from the end of the source
 # last rotation and an event from before it would stop being reported the moment
 # logrotate runs. One covers a daily rotation with room to spare.
 ROTATED_FILES = 1
+
+# A start Postfix refused is reported by every start that still has the
+# problem, so one older than the last start or reload and not logged again since
+# has been fixed and stops counting there instead of when it rotates out. The
+# script, the master and what refuses to start log within the same second; the
+# margin only absorbs the time a syslog daemon and the journal may stamp the same
+# moment apart.
+START_MARGIN = 1  # seconds
+
+# The host a delivery went to, as Postfix writes it into every delivery line
+# (`relay=mail.example.com[198.51.100.20]:587`). A local transport writes a bare
+# word (`relay=local`, `relay=none`) and is no relay a credential is for.
+RELAY_REGEX = re.compile(r'\brelay=([^\s,\[]+)\[')
+# The process that wrote a line, `postfix/smtp[1338]`, for telling which delivery
+# a line about a refused login belongs to.
+PROCESS_REGEX = re.compile(r'\s(postfix[^\s\[\]]*\[\d+\]):\s')
 
 # How long a path may be in a sentence before it is abbreviated for display. The
 # paths the distributions use fit within it untouched.
@@ -218,6 +236,7 @@ EVENTS = (
             r'|fatal: (?:chdir|open lock file|bad string length|unknown service)'
         ),
         'state': STATE_CRIT,
+        'resolved_by_start': True,
         'recommendation': (
             'The mail system did not start; `postfix check` names what it'
             ' refuses, and nothing leaves this host until it does'
@@ -238,6 +257,7 @@ EVENTS = (
             r'|no mechanism available'
         ),
         'state': STATE_WARN,
+        'resolved_by_delivery': True,
         'recommendation': (
             'The relay refused the credentials this host offered; check'
             ' `smtp_sasl_password_maps` and whether the account still exists'
@@ -1007,6 +1027,67 @@ def get_level_states(critical_level, warning_level):
     return states
 
 
+def get_relay(log_line, deliveries):
+    """Return the relay a line is about, or None where nothing names one.
+
+    A refused login is logged by the SMTP client as a line of its own that names
+    no host (`warning: SASL authentication failure: No worthy mechs found`), next
+    to the delivery line it deferred, which does. The two come from the same
+    process within the same second, which is how the line is matched to the
+    relay of its delivery.
+    """
+    match = RELAY_REGEX.search(log_line)
+    if match:
+        return match.group(1)
+    process = PROCESS_REGEX.search(log_line)
+    written_at = lib.logsource.timestamp(log_line)
+    if not process or written_at is None:
+        return None
+    for line in deliveries:
+        if f' {process.group(1)}: ' not in line:
+            continue
+        delivered_at = lib.logsource.timestamp(line)
+        if delivered_at is None:
+            continue
+        if delivered_at.replace(microsecond=0) != written_at.replace(microsecond=0):
+            continue
+        match = RELAY_REGEX.search(line)
+        if match:
+            return match.group(1)
+    return None
+
+
+def resolved_by_delivery(failures, deliveries, sent):
+    """Drop the refused logins a later accepted delivery has fixed.
+
+    A relay that refused the credentials keeps the mail in the queue, and the
+    queue tries again on its own. The first message the same relay accepts
+    afterwards says the credentials are right again, so what was logged before it
+    no longer counts. A refused login whose relay cannot be told is fixed by any
+    later delivery through a relay.
+    """
+    last_sent = {}
+    last_any = None
+    for line in sent:
+        match = RELAY_REGEX.search(line)
+        delivered_at = lib.logsource.timestamp(line)
+        if not match or delivered_at is None:
+            continue
+        relay = match.group(1)
+        if relay not in last_sent or delivered_at > last_sent[relay]:
+            last_sent[relay] = delivered_at
+        if last_any is None or delivered_at > last_any:
+            last_any = delivered_at
+    kept = []
+    for line in failures:
+        written_at = lib.logsource.timestamp(line)
+        relay = get_relay(line, deliveries)
+        fixed_at = last_sent.get(relay) if relay else last_any
+        if written_at is None or fixed_at is None or fixed_at <= written_at:
+            kept.append(line)
+    return kept
+
+
 def is_repeated_line(previous, current, previous_index, current_index):
     """Tell whether two lines report the same moment of the same event.
 
@@ -1308,6 +1389,22 @@ def main():
     for level, lines in levels.items():
         levels[level] = lib.logsource.sort_by_time(lines)
 
+    # What a later start, or a later delivery, has fixed no longer counts, see
+    # START_MARGIN and resolved_by_delivery().
+    for event in EVENTS:
+        if event.get('resolved_by_start'):
+            found[event['key']] = lib.logsource.since_last(
+                found[event['key']],
+                found['startups'] + found['reloads'],
+                margin=START_MARGIN,
+            )
+        if event.get('resolved_by_delivery'):
+            found[event['key']] = resolved_by_delivery(
+                found[event['key']],
+                found['deferred'] + found['bounced'],
+                found['deliveries'],
+            )
+
     # `--match` narrowed the run down to nothing, so this run looked at no line at
     # all rather than at a quiet log. Only reachable when the operator set a
     # filter, so a log that simply has nothing to report stays OK.
@@ -1517,6 +1614,30 @@ def main():
 
     if result['notice']:
         facts.append(result['notice'].rstrip('.'))
+
+    # The rates are counted over `--lookback`, and the window this check reads ends
+    # at its cap. Where a log grows faster than the cap reaches back, the oldest
+    # line read is younger than the start of `--lookback`, every rate counts low,
+    # and a burst fast enough to matter can stay under its threshold. Said, so the
+    # counts do not pass for complete ones, but without a state of its own: the
+    # log being busy is nothing to act on at night, and the rates that did cross
+    # their thresholds still alert.
+    covered_from = lib.logsource.covered_since(result['sources'], rate_since)
+    if covered_from is not None:
+        covered_span = max(
+            int((datetime.datetime.now() - covered_from).total_seconds()), 1
+        )
+        facts.append(
+            f'The rates count low: they cover only the last'
+            f' {lib.human.seconds2human(covered_span)} of `--lookback`'
+            f' ({lib.human.seconds2human(args.LOOKBACK)}), as far as the most recent'
+            f' {lib.human.number2human(MAXLINES)} lines read per source reach back'
+        )
+        recommendations.append(
+            f'Lower `--lookback` to {covered_span} seconds or less, and the rate'
+            f' thresholds in proportion, so the rates are counted over the'
+            f' stretch of time the check actually reads'
+        )
 
     # A source that could not be read at all leaves a hole in the window: with a
     # second source still delivering, the run goes on, but reporting the state of

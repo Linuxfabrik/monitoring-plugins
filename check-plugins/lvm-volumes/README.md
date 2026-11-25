@@ -3,7 +3,7 @@
 
 ## Overview
 
-Reports the health of the LVM logical volumes on this host: a volume whose physical volume has gone missing, a mirrored or RAID volume running on fewer legs than it was built with, a cache that has failed, and a volume that is not active. LVM answers all of this with a state and never with a number, so there is nothing to set a threshold on. A volume that has lost a physical volume is the one that deserves the most attention: it is not only incomplete, it also refuses to come up at the next boot unless it is activated in partial mode by hand. Snapshots and thin pools are checked by `lvm-snapshots` and `lvm-thin-pools`, so nothing is reported twice. Alerts when a volume is missing a physical volume, when a RAID volume needs a refresh or a repair, when a scrub found copies that disagree, when a cache has failed, and when a volume is flagged as needing a check. Requires root or sudo.
+Reports the health of the LVM logical volumes on this host: a volume whose physical volume has gone missing, a mirrored or RAID volume running on fewer legs than it was built with, a RAID volume whose new leg is still being rebuilt, a cache that has failed, and a volume that is not active. A running resync, reshape or scrub is reported with its progress. LVM answers all of this with a state and never with a number worth a threshold, so there is nothing to set one on. A volume that has lost a physical volume is the one that deserves the most attention: it is not only incomplete, it also refuses to come up at the next boot unless it is activated in partial mode by hand. Snapshots and thin pools are checked by `lvm-snapshots` and `lvm-thin-pools`, so nothing is reported twice. Alerts when a volume is missing a physical volume, when a RAID volume needs a refresh or a repair, when a RAID or mirror volume is not fully in sync outside of a resync, reshape or scrub, when a scrub found copies that disagree, when a cache has failed, and when a volume is flagged as needing a check. Requires root or sudo.
 
 **What LVM reports about a volume, and what it means:**
 
@@ -20,10 +20,22 @@ Reports the health of the LVM logical volumes on this host: a volume whose physi
 | `writemostly`              | WARN | A leg is marked write-mostly and is read from only as a last resort. |
 | `unknown`                  | WARN | The state of an array could not be read. |
 
+**What the kernel is doing on a RAID or mirror volume that is not 100% in sync:**
+
+| Sync action | Reported as | Meaning |
+|----|----|----|
+| `check`, `repair` | OK   | A scrub (`lvchange --syncaction`). The percentage counts from 0 again on a volume that was fully in sync, so it says how far the scrub is, not how much is in sync. |
+| `reshape`         | OK   | The volume is being restriped and keeps its redundancy meanwhile. |
+| `resync`          | OK   | The legs are being brought into line after the volume was created or after an unclean shutdown. Every write still goes to all legs. |
+| `recover`         | WARN | A leg is being built up from the others, after `lvconvert --replace`, `lvconvert --repair` or turning a linear volume into a RAID 1. It holds no full copy until it is done, so one more failed device loses data. |
+| `frozen`          | WARN | The sync is stopped, so the volume is not brought into sync. |
+| none (mirror)     | WARN | A classic mirror reports no sync action, so a leg still being copied cannot be told from a freshly created mirror. |
+
 **Important Notes:**
 
 * **Requires root or sudo.** `lvs` needs `/run/lock/lvm` and `/dev/mapper/control`, both of which are readable by root alone; membership of the `disk` group does not help. Deploy the sudoers file from `assets/sudoers/` and run the check through `sudo`.
-* **A degraded RAID volume still reports 100% synchronised.** `copy_percent` and `raid_sync_action` say `100.00` and `idle` while the array runs on one leg, because the legs it still has are in sync with each other. Only the health state gives it away, which is why this check reports no synchronisation percentage.
+* **A degraded RAID volume still reports 100% synchronised.** `sync_percent` and `raid_sync_action` say `100.00` and `idle` while the array runs on one leg, because the legs it still has are in sync with each other. Only the health state gives it away, and the percentage is reported only for what it does say.
+* **A rebuild shows in the percentage alone.** While a replaced or added leg is being built up, `lv_health_status` is empty and `raid_sync_action` reads `recover`, so the volume looks redundant while it is not. This is reported as WARN with the progress until the rebuild is done.
 * **`partial` hides the RAID state.** LVM tests for a missing physical volume before every other case, so a raid1 whose leg is gone reports `partial` and never `refresh needed`. The RAID states show up once the device is back.
 * **`refresh needed` covers more than its name says.** Up to lvm2 2.03.38 a leg the kernel has marked dead reports `refresh needed` whether its device is back or gone for good; `lvchange --refresh` fixes the first case and `lvconvert --repair` the second, so look at the device before picking one. From 2.03.39 on LVM tells the two apart and reports `repair needed` for the latter.
 * **An inactive volume does not alert by default.** A volume belonging to a machine that is switched off, and one created with activation skipped, are both inactive and both fine. On a host where every volume is supposed to be up, `--inactive-severity=warn` turns an activation that silently did not happen at boot into an alert.
@@ -34,7 +46,7 @@ Reports the health of the LVM logical volumes on this host: a volume whose physi
 **Data Collection:**
 
 * Runs `lvs` once and reads its JSON report
-* Reports the health state of every volume that is neither a snapshot nor a thin pool
+* Reports the health state of every volume that is neither a snapshot nor a thin pool, and the sync state of every RAID and mirror volume among them
 * Requires root or sudo
 
 
@@ -62,16 +74,19 @@ usage: lvm-volumes [-h] [-V] [--always-ok] [--brief] [--ignore IGNORE]
 
 Reports the health of the LVM logical volumes on this host: a volume whose
 physical volume has gone missing, a mirrored or RAID volume running on fewer
-legs than it was built with, a cache that has failed, and a volume that is not
-active. LVM answers all of this with a state and never with a number, so there
-is nothing to set a threshold on. A volume that has lost a physical volume is
-the one that deserves the most attention: it is not only incomplete, it also
-refuses to come up at the next boot unless it is activated in partial mode by
-hand. Snapshots and thin pools are checked by lvm-snapshots and
-lvm-thin-pools, so nothing is reported twice. Alerts when a volume is missing
-a physical volume, when a RAID volume needs a refresh or a repair, when a
-scrub found copies that disagree, when a cache has failed, and when a volume
-is flagged as needing a check. Requires root or sudo.
+legs than it was built with, a RAID volume whose new leg is still being
+rebuilt, a cache that has failed, and a volume that is not active. A running
+resync, reshape or scrub is reported with its progress. LVM answers all of
+this with a state and never with a number worth a threshold, so there is
+nothing to set one on. A volume that has lost a physical volume is the one
+that deserves the most attention: it is not only incomplete, it also refuses
+to come up at the next boot unless it is activated in partial mode by hand.
+Snapshots and thin pools are checked by lvm-snapshots and lvm-thin-pools, so
+nothing is reported twice. Alerts when a volume is missing a physical volume,
+when a RAID volume needs a refresh or a repair, when a RAID or mirror volume
+is not fully in sync outside of a resync, reshape or scrub, when a scrub found
+copies that disagree, when a cache has failed, and when a volume is flagged as
+needing a check. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -128,10 +143,10 @@ Output on a plain host:
 ```text
 2 LVM logical volumes, 2 healthy.
 
-Volume  ! Layout ! Size    ! Pool ! Usage ! Active ! Health
---------+--------+---------+------+-------+--------+--------
-rl/root ! linear ! 16.4GiB ! -    ! -     ! yes    ! healthy
-rl/swap ! linear ! 2.0GiB  ! -    ! -     ! yes    ! healthy
+Volume  ! Layout ! Size    ! Pool ! Usage ! Sync ! Active ! Health
+--------+--------+---------+------+-------+------+--------+--------
+rl/root ! linear ! 16.4GiB ! -    ! -     ! -    ! yes    ! healthy
+rl/swap ! linear ! 2.0GiB  ! -    ! -     ! -    ! yes    ! healthy
 ```
 
 Output after a physical volume disappeared underneath a volume:
@@ -140,9 +155,9 @@ Output after a physical volume disappeared underneath a volume:
 parttest/spanned: one of the physical volumes it sits on is missing.
 Find the missing physical volume before anything else: `pvs` lists it as `[unknown]`, and `lsblk` plus the logs of the storage transport say whether the device is gone or merely unplugged. A volume group that is missing a physical volume does not activate its incomplete volumes at the next boot, so a host in this state comes back up without them. Once the device is back, `vgchange --refresh` picks it up again; where it is gone for good, `vgreduce --removemissing` takes it out of the volume group and whatever sat on it has to be restored.
 
-Volume           ! Layout ! Size   ! Pool ! Usage ! Active ! Health
------------------+--------+--------+------+-------+--------+-------------------
-parttest/spanned ! linear ! 3.0GiB ! -    ! -     ! yes    ! partial [CRITICAL]
+Volume           ! Layout ! Size   ! Pool ! Usage ! Sync ! Active ! Health
+-----------------+--------+--------+------+-------+------+--------+-------------------
+parttest/spanned ! linear ! 3.0GiB ! -    ! -     ! -    ! yes    ! partial [CRITICAL]
 ```
 
 Output after a leg of a RAID volume came back and the array has not been told to use it again:
@@ -151,9 +166,38 @@ Output after a leg of a RAID volume came back and the array has not been told to
 raidvg/r1: a device came back and the array has not been refreshed onto it.
 A RAID volume that needs a refresh has all its devices back and has not been told to use them yet, which `lvchange --refresh` does. One that needs a repair is missing a device that has to be replaced first, with `lvconvert --repair`. In both states the volume reports 100% synchronised, because the legs it still has are in sync with each other.
 
-Volume    ! Layout     ! Size     ! Pool ! Usage ! Active ! Health
-----------+------------+----------+------+-------+--------+--------------------------
-raidvg/r1 ! raid,raid1 ! 400.0MiB ! -    ! -     ! yes    ! refresh needed [WARNING]
+Volume    ! Layout     ! Size     ! Pool ! Usage ! Sync    ! Active ! Health
+----------+------------+----------+------+-------+---------+--------+--------------------------
+raidvg/r1 ! raid,raid1 ! 400.0MiB ! -    ! -     ! 100.00% ! yes    ! refresh needed [WARNING]
+```
+
+Output while a replaced leg of a RAID volume is being rebuilt, here right after `lvconvert --replace`:
+
+```text
+tvg/r1: a leg is being rebuilt and holds no full copy yet (0.00% done).
+A leg that is being rebuilt holds no full copy of the data yet, so the volume survives no further device failure until the rebuild is done. `sudo lvs --all --options name,sync_percent,raid_sync_action,devices` shows the progress and which device the new leg sits on. `sudo lvchange --maxrecoveryrate` limits how much I/O the rebuild may take; 0 lifts the limit.
+
+Volume          ! Layout     ! Size     ! Pool ! Usage ! Sync            ! Active ! Health
+----------------+------------+----------+------+-------+-----------------+--------+----------------------
+rl_rocky10/root ! linear     ! 27.0GiB  ! -    ! -     ! -               ! yes    ! healthy
+rl_rocky10/swap ! linear     ! 2.0GiB   ! -    ! -     ! -               ! yes    ! healthy
+tvg/m1          ! mirror     ! 100.0MiB ! -    ! -     ! 100.00%         ! yes    ! healthy
+tvg/plain       ! linear     ! 52.0MiB  ! -    ! -     ! -               ! yes    ! healthy
+tvg/r1          ! raid,raid1 ! 400.0MiB ! -    ! -     ! 0.00% (recover) ! yes    ! not in sync [WARNING]
+```
+
+A scrub started with `lvchange --syncaction check` is reported with its progress and does not alert:
+
+```text
+5 LVM logical volumes, 5 healthy. tvg/r1: scrub at 0.00%.
+
+Volume          ! Layout     ! Size     ! Pool ! Usage ! Sync          ! Active ! Health
+----------------+------------+----------+------+-------+---------------+--------+--------
+rl_rocky10/root ! linear     ! 27.0GiB  ! -    ! -     ! -             ! yes    ! healthy
+rl_rocky10/swap ! linear     ! 2.0GiB   ! -    ! -     ! -             ! yes    ! healthy
+tvg/m1          ! mirror     ! 100.0MiB ! -    ! -     ! 100.00%       ! yes    ! healthy
+tvg/plain       ! linear     ! 52.0MiB  ! -    ! -     ! -             ! yes    ! healthy
+tvg/r1          ! raid,raid1 ! 400.0MiB ! -    ! -     ! 0.00% (check) ! yes    ! healthy
 ```
 
 A thin volume reports how much of its virtual size carries data; a thick one has all of its size allocated and reports nothing, which is not a zero:
@@ -161,10 +205,10 @@ A thin volume reports how much of its virtual size carries data; a thick one has
 ```text
 2 LVM logical volumes, 2 healthy.
 
-Volume      ! Layout      ! Size    ! Pool  ! Usage  ! Active ! Health
-------------+-------------+---------+-------+--------+--------+--------
-rl/root     ! linear      ! 16.4GiB ! -     ! -      ! yes    ! healthy
-testvg/tvol ! thin,sparse ! 4.0GiB  ! tpool ! 25.00% ! yes    ! healthy
+Volume      ! Layout      ! Size    ! Pool  ! Usage  ! Sync ! Active ! Health
+------------+-------------+---------+-------+--------+------+--------+--------
+rl/root     ! linear      ! 16.4GiB ! -     ! -      ! -    ! yes    ! healthy
+testvg/tvol ! thin,sparse ! 4.0GiB  ! tpool ! 25.00% ! -    ! yes    ! healthy
 ```
 
 On a host where every volume is supposed to be up, so an activation that did not happen at boot becomes visible:
@@ -191,6 +235,8 @@ sudo ./lvm-volumes --brief
 * OK if every checked volume is healthy.
 * CRIT if a volume is missing one of its physical volumes, or if a cache has failed.
 * WARN for every other health state LVM reports: a RAID volume that needs a refresh or a repair, a scrub that found copies which disagree, a writecache that is erroring, a cache whose metadata is read-only, a leg marked write-mostly, an array whose state could not be read, and a volume flagged as needing a check.
+* WARN if a RAID or mirror volume is below 100% in sync while a leg is being rebuilt (`recover`), while its sync is frozen, or while nothing is syncing it. A classic mirror below 100% is WARN as well, because it does not say why.
+* OK with the progress in the first line while a RAID volume runs a resync, a reshape or a scrub.
 * OK if a volume is not active. `--inactive-severity` raises that.
 * OK if the host has no logical volume at all.
 * OK if `--match` or `--ignore` leave nothing to check. `--no-match-severity` raises that.
@@ -202,13 +248,15 @@ sudo ./lvm-volumes --brief
 
 ## Perfdata / Metrics
 
-Counts over all checked volumes. There is no per-volume metric, because what LVM reports here is a state and not a number.
+Counts over all checked volumes, and the sync progress of every RAID or mirror volume that is not fully in sync.
 
 | Name | Type | Description |
 |----|----|----|
-| volumes           | Number | Logical volumes checked, snapshots and thin pools excluded. |
-| volumes_degraded  | Number | Volumes LVM reports a health problem for. |
-| volumes_inactive  | Number | Volumes that are not active. |
+| volumes                 | Number     | Logical volumes checked, snapshots and thin pools excluded. |
+| volumes_degraded        | Number     | Volumes with a health problem or a leg that holds no full copy. |
+| volumes_inactive        | Number     | Volumes that are not active. |
+| volumes_syncing         | Number     | RAID and mirror volumes below 100% in sync, a running scrub included. |
+| *volume*_sync_percent   | Percentage | How far the resync, rebuild, reshape or scrub of a volume is. Only reported while the volume is below 100%. |
 
 
 ## Troubleshooting
@@ -263,6 +311,29 @@ Where the leg is gone for good, the array needs a replacement device instead:
 ```bash
 lvconvert --repair vg0/raidvol
 ```
+
+### `a leg is being rebuilt and holds no full copy yet`
+
+A leg of a RAID volume is being built up from the others, which happens after `lvconvert --replace`, after `lvconvert --repair`, and after a linear volume was turned into a RAID 1. LVM reports no health problem meanwhile, and the volume is not redundant until the rebuild is done.
+
+1. Watch the progress, and see which device the new leg sits on:
+
+    ```bash
+    sudo lvs --all --options name,sync_percent,raid_sync_action,devices vg0
+    ```
+
+2. A rebuild that stays slow is usually throttled. The current limit is in `raid_max_recovery_rate`; 0 lifts it:
+
+    ```bash
+    sudo lvs --options name,raid_max_recovery_rate vg0/raidvol
+    sudo lvchange --maxrecoveryrate 0 vg0/raidvol
+    ```
+
+3. A rebuild that does not move at all points at the new device. Read what the kernel says about it:
+
+    ```bash
+    sudo journalctl --dmesg
+    ```
 
 ### `a scrub found blocks whose copies disagree`
 

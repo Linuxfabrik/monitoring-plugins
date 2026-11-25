@@ -21,6 +21,10 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # `config/` that stand in for the host's filesystem, selected with the hidden
 # `--config-root` hook. Each tree holds an `etc/exports`, a `var/lib/nfs/etab` and the
 # directories the exports point at, because whether those exist is part of the finding.
+# A tree that also holds `etc/fstab` and `proc/self/mountinfo` stands in for what is
+# expected to be mounted and what is. `mp-option/mnt/disk` is a symlink into procfs, so
+# that it and its parent sit on different devices on any host and the NFS server's own
+# mount point test takes it for one.
 
 TESTS = [
     {
@@ -169,6 +173,70 @@ TESTS = [
         'assert-not-in': ['path does not exist'],
     },
     {
+        # the filesystem below the export failed to mount, so the server serves the
+        # empty directory underneath it
+        'id': 'warn-an-export-below-a-filesystem-that-is-not-mounted',
+        'test': '',
+        'params': '--config-root=config/fstab',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 of 6 NFS exports is not right: /srv/nfs/data: /srv/nfs is not mounted, '
+            'the directory underneath is served',
+            'sudo mount --all --verbose',
+        ],
+    },
+    {
+        # a path on the root filesystem, a mounted filesystem named with a trailing
+        # slash, a filesystem mounted below an unmounted fstab entry, an fstab entry
+        # through a symlink and a mount point holding an escaped space are all fine
+        'id': 'ok-every-export-that-reaches-its-filesystem',
+        'test': '',
+        'params': '--config-root=config/fstab --ignore=^/srv/nfs/',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. 5 NFS exports are served.',
+            '/srv/with space/data',
+        ],
+    },
+    {
+        'id': 'crit-an-unmounted-filesystem-can-be-graded-up',
+        'test': '',
+        'params': '--config-root=config/fstab --not-mounted-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['the directory underneath is served [CRITICAL]'],
+    },
+    {
+        # `mp` without a path asks for the export path itself to be a mount point
+        'id': 'warn-an-mp-export-whose-path-is-no-mount-point',
+        'test': '',
+        'params': '--config-root=config/mp-option --match=/data$',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '/srv/nfs/data: path is not a mount point, the export is refused'
+        ],
+    },
+    {
+        'id': 'warn-a-mountpoint-option-naming-a-path-that-is-gone',
+        'test': '',
+        'params': '--config-root=config/mp-option --match=/backup$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['/mnt/gone is not a mount point, the export is refused'],
+    },
+    {
+        'id': 'ok-a-mountpoint-option-that-is-met',
+        'test': '',
+        'params': '--config-root=config/mp-option --match=/home$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. 1 NFS export is served.'],
+    },
+    {
+        'id': 'warn-perfdata-counts-both-ways-of-missing-the-filesystem',
+        'test': '',
+        'params': '--config-root=config/mp-option',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'nfs_exports_not_mounted'=2;0;;0"],
+    },
+    {
         'id': 'warn-brief-keeps-only-the-failing-exports',
         'test': '',
         'params': '--config-root=config/not-reloaded --brief',
@@ -185,6 +253,7 @@ TESTS = [
             "'nfs_exports_served'=2;;;0",
             "'nfs_exports_not_exported'=1;0;;0",
             "'nfs_exports_missing_path'=0;0;;0",
+            "'nfs_exports_not_mounted'=0;0;;0",
             "'nfs_exports_unconfigured'=0;;;0",
         ],
     },

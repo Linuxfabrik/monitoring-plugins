@@ -24,21 +24,21 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026112401'
 
 DESCRIPTION = """Checks the storage pools a libvirt host keeps its virtual machines on. Reports the
 storage behind them and the pools themselves in two tables: one per store, with how full
-it is and which pools sit on it, and one per pool. Alerts if a store is filling up, if a
-pool lost part of what it serves from, if it cannot be reached at all, and if a pool that
+it is and which pools sit on it, and one per pool. Alerts if a store is filling up, by
+the share used or by the space left, if a pool lost part of what it serves from, if it cannot be reached at all, and if a pool that
 is configured to start together with the host is not active. Several pools commonly share
 one filesystem, which is reported and alerted on once rather than once per pool. Supports
 extended reporting via --lengthy. Runs without root or sudo."""
 
-DEFAULT_CRIT = '90'
+DEFAULT_CRIT = '90%USED'
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_TIMEOUT = lib.kvm.DEFAULT_TIMEOUT
 DEFAULT_URL = lib.kvm.DEFAULT_URI
-DEFAULT_WARN = '80'
+DEFAULT_WARN = '80%USED'
 
 # How each of libvirt's storage pool states is judged. The list of states is libvirt's
 # (`virStoragePoolState` in `include/libvirt/libvirt-storage.h`, mirrored by
@@ -114,10 +114,14 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for the share of a pool that is taken, in percent. '
-        'Supports Nagios ranges. '
+        help='CRIT threshold in the form `<number>[unit][method]`. '
+        'Unit is one of `%%|K|M|G|T|P` (default: `%%`). `K` means kibibyte etc. '
+        'Method is one of `USED|FREE` (default: `USED`). '
+        '`USED` means "number or more", `FREE` means "number or less". '
+        'Examples: `95` = 95%% used. `9.5M` = 9.5 MiB used. `5%%FREE`. `1400GUSED`. '
         'Default: %(default)s',
         dest='CRIT',
+        type=lib.args.number_unit_method,
         default=DEFAULT_CRIT,
     )
 
@@ -189,10 +193,14 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for the share of a pool that is taken, in percent. '
-        'Supports Nagios ranges. '
+        help='WARN threshold in the form `<number>[unit][method]`. '
+        'Unit is one of `%%|K|M|G|T|P` (default: `%%`). `K` means kibibyte etc. '
+        'Method is one of `USED|FREE` (default: `USED`). '
+        '`USED` means "number or more", `FREE` means "number or less". '
+        'Examples: `95` = 95%% used. `9.5M` = 9.5 MiB used. `5%%FREE`. `1400GUSED`. '
         'Default: %(default)s',
         dest='WARN',
+        type=lib.args.number_unit_method,
         default=DEFAULT_WARN,
     )
 
@@ -236,6 +244,19 @@ def main():
         args.IGNORE = []
     if args.MATCH is None:
         args.MATCH = []
+
+    # A threshold that does not have the form `<number>[unit][method]` comes back with
+    # an empty number, which is a typo of the operator and not a threshold of zero.
+    for name, threshold in (('--warning', args.WARN), ('--critical', args.CRIT)):
+        try:
+            float(threshold[0])
+        except ValueError:
+            lib.base.cu(
+                f'Invalid {name}: expected a number, optionally followed by a unit'
+                ' and USED or FREE, for example `90`, `5%FREE` or `100GFREE`.',
+                traceback=False,
+            )
+    thresholds = f'warn={"".join(args.WARN)} crit={"".join(args.CRIT)}'
 
     # fetch data
     # Asked for per pool rather than read off the `pool-list` table, which is the only
@@ -416,13 +437,20 @@ def main():
         # slashes, commas and spaces. A perfdata label keeps neither of them.
         store_label = re.sub(r'\W+', '_', store).strip('_')
         usage = round(allocation / capacity * 100, 1)
-        usage_state = lib.base.get_state(usage, args.WARN, args.CRIT, _operator='range')
+        # The same thresholds as for a filesystem: a share used, an amount used, or an
+        # amount left, the last being what keeps a 100 TB store with 8 TB free from
+        # alerting like a 100 GB one with 8 GB free.
+        usage_state = lib.args.number_unit_method_state(
+            args.WARN, args.CRIT, allocation, available, usage
+        )
         # How full a store is is judged once, here, and not once per pool on it: two
         # pools of one store report figures a moment apart and could otherwise land on
         # either side of a threshold.
         state = lib.base.get_worst(state, usage_state)
         if usage_state != STATE_OK:
-            filling_up.append(f'{", ".join(names)} ({usage}%)')
+            filling_up.append(
+                f'{", ".join(names)} ({usage}%, {lib.human.bytes2human(available)} free)'
+            )
             filling_up_state_worst = lib.base.get_worst(
                 filling_up_state_worst, usage_state
             )
@@ -440,12 +468,20 @@ def main():
                 'raw_usage': usage,
             }
         )
+        # A percentage threshold is drawn on the share used, an absolute one on the
+        # amount used, each where it alerts.
+        warn_percent, warn_bytes = lib.args.number_unit_method_limits(
+            args.WARN, capacity
+        )
+        crit_percent, crit_bytes = lib.args.number_unit_method_limits(
+            args.CRIT, capacity
+        )
         perfdata += lib.base.get_perfdata(
             f'{store_label}_usage',
             usage,
             uom='%',
-            warn=args.WARN,
-            crit=args.CRIT,
+            warn=warn_percent,
+            crit=crit_percent,
             _min=0,
             _max=100,
         )
@@ -453,6 +489,8 @@ def main():
             f'{store_label}_allocation',
             allocation,
             uom='B',
+            warn=warn_bytes,
+            crit=crit_bytes,
             _min=0,
             _max=capacity,
         )
@@ -479,7 +517,7 @@ def main():
         msg += 'There are warnings'
     else:
         msg += 'Everything is ok'
-    msg += f' (warn={args.WARN} crit={args.CRIT}).'
+    msg += f' ({thresholds}).'
 
     # Every sentence carries its own verdict. The line opens with the worst of them,
     # which on a host where a store is filling up and a pool has become unreachable

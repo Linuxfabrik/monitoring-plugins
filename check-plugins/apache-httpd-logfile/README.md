@@ -391,6 +391,7 @@ Read 12 lines from 1 source:
 * UNKNOWN if not a single line in the window carries an Apache log level or message code. The source is then something else, the access log for example.
 * UNKNOWN if no log file could be determined at all, or if `ErrorLog` hands the log to syslog or pipes it into a program and no virtual host names a file either, neither of the two being a file the check can open. Where the virtual hosts do name files, those carry the run and the output says that the server's own log is missing from it.
 * WARN if a log this check was told to read could not be read at all. The run goes on with the other sources rather than reporting the state of the ones that happened to work.
+* If the most recent 30000 lines read per source reach back less far than `--lookback`, the output says so and recommends a shorter `--lookback`, without changing the state. Every rate is then counted over a shorter stretch of time than its thresholds assume and counts low, so a burst that matters could stay below them.
 * OK if the log file is empty, which is what a log looks like right after logrotate ran.
 * OK with `--no-match-severity` at its default when `--match` dropped every line; set it to `warn`, `crit` or `unknown` to have a filter that matches nothing reported instead.
 * The size of the log file is reported and trended but never alerted on. Apache defines no cutoff of its own, and an unrotated log is the business of `logrotate` and of the [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/) check.
@@ -503,6 +504,12 @@ Every request that arrives while all workers are busy waits in the listen queue,
 
 1. Raise `ServerLimit` above `MaxRequestWorkers / ThreadsPerChild`, for example to twice that value. Apache still starts no more threads than `MaxRequestWorkers` allows; the spare slots only hold the children that are finishing. `ServerLimit` takes effect on a restart, not on a reload.
 2. Look at the access log for the seconds around the first line. A client that opens hundreds of connections at once, such as a scanner, drains the idle threads the same way; a rate limit in front of the server, such as an intrusion prevention system, is the remedy for that.
+
+### The rates cover only part of `--lookback`
+
+`The rates count low: they cover only the last <duration> of --lookback (<duration>), as far as the most recent 30K lines read per source reach back`
+
+The log grows faster than the 30000 lines this check reads per source reach back, so the rates are counted over less time than `--lookback` names. Lower `--lookback` to the duration the message names and the rate thresholds in proportion, for example `--lookback=300` with half the thresholds where the check covers five of the ten minutes. Where one application floods the log, keeping that out of it widens the window again.
 
 
 ## Credits, License

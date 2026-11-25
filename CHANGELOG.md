@@ -7,7 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-**Highlights:** Two new checks catch failures that otherwise stay silent: `rpm-database` warns when the RPM database is broken and the host no longer receives updates, and `fail2ban-logfile` warns when fail2ban keeps running while its bans have no effect. With `blocky-logfile` and `blocky-stats`, the blocky DNS ad-blocker is monitored as well.
+**Highlights:** Two new checks catch failures that otherwise stay silent: `rpm-database` warns when the RPM database is broken and the host no longer receives updates, and `fail2ban-logfile` warns when fail2ban keeps running while its bans have no effect. With `blocky-logfile` and `blocky-stats`, the blocky DNS ad-blocker is monitored as well. The Director basket sorts every service into four priority groups, from LF P1 Availability to LF P4 Performance.
+
+### Breaking Changes
+
+Monitoring Plugins:
+
+* kvm-storage-pool: `--warning` and `--critical` take the disk-usage form (`80`, `100GFREE`), replace Nagios ranges such as `@0:1`
+
 
 ### Added
 
@@ -39,7 +46,11 @@ Monitoring Plugins:
 * about-me: `--tags` proposes the new `data-partition` tag on hosts with a partition mounted at `/data`, and the new `blocky` and `icinga-director` tags.
 * apache-httpd-logfile: Denied requests and path scans Apache rejects by itself no longer alert by default, other failed requests only from 10 on.
 * fail2ban: Warns when the firewall does not hold a ban fail2ban lists, for example after a firewall reload, for nftables, iptables, ipset and firewalld.
+* huawei-dorado-quota, huawei-pacific-quota: Also alert when a quota nears its limit on the number of files.
+* lvm-volumes: Warns while a RAID or mirror volume is not fully in sync.
 * lynis-logfile: Reports how many tests the lynis profile skips.
+* md-raid: Warns about an array from `mdadm.conf` that is not running, such as one whose disks were missing at boot.
+* multipath: Warns when a path disappears from a map, also without `--expected-paths`.
 * mysql-connections: Speaks of failed connection attempts instead of aborted connections, and points to the denied logins.
 * mysql-index-health: Redundant indexes no longer alert by default.
 * mysql-innodb-buffer-pool-size: No longer alerts just because the data is larger than the buffer pool, and warns when sessions found no free page in it.
@@ -49,8 +60,12 @@ Monitoring Plugins:
 * mysql-tls: A server on loopback only no longer alerts about `require_secure_transport` and the certificate.
 * mysql-user-security: A legacy authentication plugin no longer alerts on MariaDB.
 * nextcloud-stats: The output says "enabled apps", since disabled apps are not part of the count.
-* php-fpm-logfile: An idle worker PHP-FPM kills while the pool shrinks no longer alerts, and a worker the OOM killer took is named as such.
+* nfs-exports: Warns when an export sits on a filesystem that is not mounted.
+* ntp-offset: Checks every address of a server name such as a pool, and warns when they disagree.
+* openstack-cinder-list: Warns about volumes stuck in a transitional status such as `deleting`.
+* php-fpm-logfile: An idle worker PHP-FPM kills while the pool shrinks no longer alerts, a worker the OOM killer took is named as such, and a refused start stops alerting once a later start succeeds.
 * php-status: OPcache memory usage counts wasted memory, so a cache filling up with recompiled scripts alerts before it restarts. The restart warning sits next to the counter that triggered it.
+* postfix-logfile, sshd-logfile: A refused start or relay login stops alerting once a later one succeeds.
 * psi-cpu, psi-io, psi-irq, psi-memory: Alert on the five minute average instead of the last minute, so a job running for a few minutes no longer alerts.
 * psi-io: Higher default thresholds, a single busy reader no longer alerts.
 * rpm-updates: Counts Rocky Linux `security` repo hot-fixes as security updates.
@@ -65,6 +80,7 @@ Icinga Director:
 * MariaDB and MySQL Metrics Service Sets: Also check long-running queries, which moved there from the Schemas Service Sets.
 * needs-restarting: Alerts on a pending reboot or service restart only after 24 hours instead of 4 hours.
 * OS - \* Basic Service Sets: `Systemd Units Failed` no longer alerts on a failed `ipa-healthcheck.service`.
+* Service groups `LF P1 Availability` to `LF P4 Performance`: Sort every service by how urgently it needs attention, so a team can watch only what is down or about to fail.
 
 Grafana:
 

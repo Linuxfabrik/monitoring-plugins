@@ -73,6 +73,17 @@ Any key of the generated JSON can be overwritten this way, e.g. `command`, `chec
 * Every service in a set needs a unique `object_name`, identical to the JSON key above it. The Director renders a set's services by name, so of two equal names only one runs, and `icingacli director basket restore` aborts with a duplicate UUID on every later run.
 * Double every `$` in a variable value (`^linuxfabrik-monitoring-plugins$$`), otherwise config validation fails with "Closing $ not found in macro format string" and rejects the whole deployment. The plugin receives a single `$`.
 * For a single-host exception, override the variable on that host's service instead of editing the set (`import DirectorOverrideTemplate` merges `host.vars._override_servicevars["<service name>"]` over the set's values). Editing the set changes every tagged host.
+* After adding or changing a Service Set, run `tools/build-service-groups`, see below.
+
+
+### Service Groups
+
+The ServiceGroups in `all-the-rest.json` sort every service into one LF priority level, so operators can split the work: P1 Availability (down now or within hours), P2 Resilience (still running, but the next failure is fatal), P3 Hygiene (patches, security, configuration), P4 Performance (tuning, capacity). They are independent of `criticality`, which only decides when notifications are sent.
+
+* Never edit the ServiceGroups in `all-the-rest.json`. `tools/build-service-groups` writes them from `assets/icingaweb2-module-director/service-groups.yml`, which lists the service templates per level, exceptions by service name and wildcard rules for services outside the Service Sets.
+* A Service Set member whose template is in no level aborts the run. Add the template of a new plugin to the level that answers "what breaks, and how soon, if nobody looks at this alert?".
+* The assign filters list Service Set members by name and percent-encode every value: the Director parses them as URL query strings, a literal `(` or `)` breaks the filter.
+* Rules in `hand_made_services` describe plugin and service names only, never a customer, host or domain.
 
 
 ## Grafana Dashboards
