@@ -80,7 +80,7 @@ Any key of the generated JSON can be overwritten this way, e.g. `command`, `chec
 
 The ServiceGroups in `all-the-rest.json` sort every service into one LF priority level, so operators can split the work: P1 Availability (down now or within hours), P2 Resilience (still running, but the next failure is fatal), P3 Hygiene (patches, security, configuration), P4 Performance (tuning, capacity). They are independent of `criticality`, which only decides when notifications are sent.
 
-* Never edit the ServiceGroups in `all-the-rest.json`. `tools/build-service-groups` writes them from `assets/icingaweb2-module-director/service-groups.yml`, which lists the service templates per level, exceptions by service name and wildcard rules for services outside the Service Sets.
+* Never edit the ServiceGroups in `all-the-rest.json`. `tools/build-service-groups` writes them from `assets/icingaweb2-module-director/service-groups.yml`, which lists the service templates per level, exceptions by service name and wildcard rules for services outside the Service Sets. A pre-commit hook runs `tools/build-service-groups --check` and fails on a stale `all-the-rest.json`.
 * A Service Set member whose template is in no level aborts the run. Add the template of a new plugin to the level that answers "what breaks, and how soon, if nobody looks at this alert?".
 * The assign filters list Service Set members by name and percent-encode every value: the Director parses them as URL query strings, a literal `(` or `)` breaks the filter.
 * Rules in `hand_made_services` describe plugin and service names only, never a customer, host or domain.
