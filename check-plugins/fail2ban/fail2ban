@@ -12,8 +12,10 @@
 
 import argparse
 import ipaddress
+import json
 import re
 import sys
+import time
 
 import lib.args
 import lib.base
@@ -24,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026111801'
+__version__ = '2026112401'
 
 # fail2ban-client deserializes the reply it reads from its Unix socket, so a
 # socket under an attacker-writable path would let a local user execute code in
@@ -34,18 +36,72 @@ __version__ = '2026111801'
 # /run (the Icinga agent's /run/icinga2, /run/user/<uid>).
 ALLOWED_SOCKET_ROOTS = ('/run', '/var/run')
 
+# The ban actions whose bans the check reads back from the firewall, recognized by
+# the command fail2ban runs for a ban (`fail2ban-client get <jail> action <action>
+# actionban`). Every action fail2ban 1.1.1 ships in config/action.d is either
+# matched here or left unverified on purpose, see the README. Measured with
+# fail2ban 1.1.1, nftables 1.0.9, iptables-nft 1.8.10, ipset 7.11 and firewalld
+# 1.3.4 on Rocky 9.
+BAN_STORES = (
+    # nftables, nftables-allports, nftables-multiport
+    (
+        'nftables',
+        re.compile(
+            r'\bnft\b.*\badd element (?P<family>\S+) (?P<table>\S+) (?P<name>\S+) '
+        ),
+    ),
+    # iptables, iptables-allports, iptables-multiport, iptables-multiport-log,
+    # iptables-new
+    (
+        'iptables',
+        re.compile(
+            r'(?:<iptables>|\bip6?tables\b(?: -w)?) -I (?P<name>\S+) \d+ -s <ip> '
+        ),
+    ),
+    # firewallcmd-allports, firewallcmd-multiport, firewallcmd-new: firewalld keeps
+    # its direct rules in iptables
+    (
+        'iptables',
+        re.compile(
+            r'\bfirewall-cmd --direct --add-rule <family> filter (?P<name>\S+) \d+ -s <ip> '
+        ),
+    ),
+    # firewallcmd-ipset (ipsetbackend = ipset), iptables-ipset, iptables-ipset-proto4,
+    # iptables-ipset-proto6, iptables-ipset-proto6-allports, shorewall-ipset-proto6
+    ('ipset', re.compile(r'\bipset (?:-exist )?(?:--)?add (?P<name>\S+) <ip>(?:\s|$)')),
+    # firewallcmd-rich-logging, firewallcmd-rich-rules
+    (
+        'firewalld',
+        re.compile(r'\bfirewall-cmd (?:--zone="?(?P<name>[^"\s]+)"? )?--add-rich-rule'),
+    ),
+)
+
 DESCRIPTION = """Checks the number of currently banned IP addresses across all fail2ban jails.
 Reports the total ban count and a per-jail breakdown. Jails can be excluded from the
 check with a regular expression. Alerts when the number of banned IPs in any jail
 exceeds the configured thresholds. Alerts as well when fail2ban bans an address that
 must stay reachable, such as the reverse proxy in front of this host or the monitoring
-server, so a lockout of everybody behind a proxy shows up at once. Requires root or
-sudo."""
+server, so a lockout of everybody behind a proxy shows up at once, and when the
+firewall does not hold a ban fail2ban lists, for example after a firewall reload
+removed the rules of fail2ban. Requires root or sudo."""
 
 DEFAULT_CRIT = '10000'
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_TIMEOUT = 8
 DEFAULT_WARN = '2500'
+
+# How many missing bans to list per jail
+MAX_MISSING_LISTED = 5
+
+# How long to wait before reading the firewall a second time, for a ban that
+# fail2ban lists while its action is still running
+RECHECK_DELAY = 2
+
+# A name fail2ban returns for a table, set, chain or zone. It ends up in an argv slot
+# of nft, iptables-save, ipset or firewall-cmd, so it must not look like an option.
+STORE_NAME_REGEX = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.:@-]*$')
+
+TAG_REGEX = re.compile(r'<([A-Za-z0-9_?=/-]+)>')
 
 
 def parse_args():
@@ -177,6 +233,291 @@ def run_client(cmd, args):
     return lib.base.coe((success, result))
 
 
+def fixture_name(*parts):
+    """Build the suffix of a `--test` fixture from a command, so a fixture name holds
+    only characters every file system accepts.
+    """
+    return re.sub(r'[^A-Za-z0-9_.-]', '_', '-'.join(parts))
+
+
+def run_command(cmd, args, fixture):
+    """Run a command that reads the firewall and return `(success, stdout, stderr)`.
+
+    Unlike `run_client()`, a command that is missing or fails does not end the check:
+    it only means that the bans of this firewall cannot be verified.
+    """
+    if args.TEST is not None:
+        stdout, stderr, retc = lib.lftest.test(
+            [f'{args.TEST[0]}-{fixture}', f'{args.TEST[0]}-{fixture}-stderr', '']
+        )
+        if stderr.endswith(f'-{fixture}-stderr'):
+            stderr = ''
+        return retc == 0 and not stderr, stdout, stderr
+    success, result = lib.shell.shell_exec(cmd, timeout=args.TIMEOUT)
+    if not success:
+        return False, '', result
+    stdout, stderr, retc = result
+    return retc == 0, stdout, stderr
+
+
+def get_actions(client, args, jail):
+    """Return the names of the actions of a jail."""
+    if args.TEST is None:
+        stdout, _stderr, retc = run_client([*client, 'get', jail, 'actions'], args)
+    else:
+        stdout, _stderr, retc = lib.lftest.test(
+            [args.TEST[0] + '-' + fixture_name('actions', jail), '', '']
+        )
+    if retc != 0 or 'has the following actions:' not in stdout:
+        return []
+    actions = stdout.split('has the following actions:', 1)[1]
+    return [action.strip() for action in actions.split(',') if action.strip()]
+
+
+def get_action_property(client, args, jail, action, name, cache):
+    """Return a property of an action as the fail2ban server resolved it, or None if
+    the action has no such property.
+    """
+    key = (jail, action, name)
+    if key not in cache:
+        if args.TEST is None:
+            stdout, _stderr, retc = run_client(
+                [*client, 'get', jail, 'action', action, name], args
+            )
+        else:
+            fixture = args.TEST[0] + '-' + fixture_name('get', jail, action, name)
+            stdout, _stderr, retc = lib.lftest.test([fixture, '', ''])
+            # a fixture that does not exist stands for a property that does not exist
+            if stdout == fixture:
+                retc = 1
+        cache[key] = stdout.strip() if retc == 0 else None
+    return cache[key]
+
+
+def resolve_tags(client, args, jail, action, value, family, cache):
+    """Replace the tags left in a value (`addr-set-<name>`) with the properties of the
+    action, the IPv6 variant first for family 6, and return None if one stays unknown.
+    """
+    for _round in range(5):
+        tags = [tag for tag in TAG_REGEX.findall(value) if tag != 'ip']
+        if not tags:
+            return value
+        for tag in tags:
+            resolved = None
+            if family == 6:
+                resolved = get_action_property(
+                    client, args, jail, action, f'{tag}?family=inet6', cache
+                )
+            if resolved is None:
+                resolved = get_action_property(client, args, jail, action, tag, cache)
+            if resolved is None:
+                return None
+            value = value.replace(f'<{tag}>', resolved)
+    return None
+
+
+def get_ban_stores(client, args, jail, cache):
+    """Return the firewall stores the actions of a jail put their bans into, as a list
+    of `(action, family, kind, location)`, and the actions that put bans somewhere the
+    check cannot read.
+    """
+    stores = []
+    unverified = []
+    for action in get_actions(client, args, jail):
+        actionban = get_action_property(client, args, jail, action, 'actionban', cache)
+        if not actionban:
+            continue
+        kind = None
+        for candidate, regex in BAN_STORES:
+            match = regex.search(actionban)
+            if match:
+                kind = candidate
+                break
+        if kind is None:
+            unverified.append(action)
+            continue
+        for family in (4, 6):
+            name = match.group('name') or ''
+            if kind == 'firewalld' and not name:
+                # firewallcmd-common.conf: zone = public
+                name = 'public'
+            name = resolve_tags(client, args, jail, action, name, family, cache)
+            location = [name]
+            if kind == 'nftables':
+                location = [
+                    resolve_tags(
+                        client, args, jail, action, match.group(part), family, cache
+                    )
+                    for part in ('family', 'table')
+                ] + location
+            if not all(part and STORE_NAME_REGEX.match(part) for part in location):
+                unverified.append(action)
+                break
+            stores.append((action, family, kind, tuple(location)))
+    return stores, unverified
+
+
+def to_network(value):
+    """Return an address, a network or a range `a-b` of a firewall as a tuple of its
+    first and last address, or None.
+    """
+    try:
+        if isinstance(value, str) and '-' in value and '/' not in value:
+            first, last = value.split('-', 1)
+            return ipaddress.ip_address(first), ipaddress.ip_address(last)
+        network = ipaddress.ip_network(value, strict=False)
+    except ValueError:
+        return None
+    return network.network_address, network.broadcast_address
+
+
+def parse_nft(stdout):
+    """Return the elements of the sets of an `nft --json list table` as a dict."""
+    sets = {}
+    try:
+        items = json.loads(stdout).get('nftables', [])
+    except (ValueError, AttributeError):
+        return sets
+    for item in items:
+        if not isinstance(item, dict) or 'set' not in item:
+            continue
+        elements = sets.setdefault(item['set'].get('name'), [])
+        for elem in item['set'].get('elem', []):
+            # an element with a timeout or a counter: {"elem": {"val": ..., ...}}
+            if isinstance(elem, dict) and 'elem' in elem:
+                elem = elem['elem'].get('val')
+            if isinstance(elem, dict) and 'prefix' in elem:
+                elem = f'{elem["prefix"].get("addr")}/{elem["prefix"].get("len")}'
+            elif isinstance(elem, dict) and 'range' in elem:
+                elem = '-'.join(str(part) for part in elem['range'])
+            network = to_network(elem)
+            if network:
+                elements.append(network)
+    return sets
+
+
+def parse_iptables(stdout):
+    """Return the source addresses of the rules of an `iptables-save` per chain."""
+    chains = {}
+    for match in re.finditer(r'^-A (\S+) -s (\S+) ', stdout, re.MULTILINE):
+        network = to_network(match.group(2))
+        if network:
+            chains.setdefault(match.group(1), []).append(network)
+    return chains
+
+
+def parse_ipset(stdout):
+    """Return the entries of an `ipset save` per set."""
+    sets = {}
+    for match in re.finditer(r'^add (\S+) (\S+)', stdout, re.MULTILINE):
+        # hash:ip,port and the like: the address comes first
+        network = to_network(match.group(2).split(',', 1)[0])
+        if network:
+            sets.setdefault(match.group(1), []).append(network)
+    return sets
+
+
+def parse_rich_rules(stdout):
+    """Return the source addresses of the rich rules of a firewalld zone."""
+    return [
+        network
+        for network in (
+            to_network(address)
+            for address in re.findall(r'source address="([^"]+)"', stdout)
+        )
+        if network
+    ]
+
+
+def read_store(args, store, readings):
+    """Return the addresses a firewall store holds, or an error message. Every command
+    runs once per check run, whatever number of jails reads from it.
+    """
+    _action, family, kind, location = store
+    if kind == 'nftables':
+        cmd = ['nft', '--json', 'list', 'table', location[0], location[1]]
+    elif kind == 'iptables':
+        cmd = [
+            'iptables-save' if family == 4 else 'ip6tables-save',
+            '--table',
+            'filter',
+        ]
+    elif kind == 'ipset':
+        cmd = ['ipset', 'save']
+    else:
+        cmd = ['firewall-cmd', f'--zone={location[0]}', '--list-rich-rules']
+    key = tuple(cmd)
+    if key not in readings:
+        success, stdout, stderr = run_command(cmd, args, fixture_name(*cmd))
+        if kind == 'nftables' and not success and 'No such file or directory' in stderr:
+            # the table is gone, and with it every ban it held
+            readings[key] = (True, {})
+        elif not success:
+            error = (stderr or stdout).strip().splitlines()
+            readings[key] = (
+                False,
+                f'`{" ".join(cmd)}` failed: {error[0] if error else ""}',
+            )
+        elif kind == 'nftables':
+            readings[key] = (True, parse_nft(stdout))
+        elif kind == 'iptables':
+            readings[key] = (True, parse_iptables(stdout))
+        elif kind == 'ipset':
+            readings[key] = (True, parse_ipset(stdout))
+        else:
+            readings[key] = (True, {location[0]: parse_rich_rules(stdout)})
+    success, result = readings[key]
+    if not success:
+        return False, result
+    return True, result.get(location[-1], [])
+
+
+def describe_store(store):
+    """Name the firewall store of an action in the words of its firewall."""
+    action, _family, kind, location = store
+    if kind == 'nftables':
+        where = f'set {" ".join(location)}'
+    elif kind == 'iptables':
+        where = f'chain {location[0]}'
+    elif kind == 'ipset':
+        where = f'ipset {location[0]}'
+    else:
+        where = f'rich rules of firewalld zone {location[0]}'
+    return f'{action}, {where}'
+
+
+def find_missing(args, banned, stores, readings):
+    """Return the banned addresses each store lacks, as a list of `(address, store)`,
+    and the errors of the stores that could not be read.
+    """
+    missing = []
+    errors = []
+    for entry in banned:
+        network = to_network(entry)
+        if network is None:
+            continue
+        for store in stores:
+            if store[1] != network[0].version:
+                continue
+            success, held = read_store(args, store, readings)
+            if not success:
+                errors.append(held)
+                continue
+            if not any(
+                first.version == network[0].version
+                and first <= network[0]
+                and network[1] <= last
+                for first, last in held
+            ):
+                missing.append((entry, store))
+    return missing, errors
+
+
+def get_banned(stdout):
+    """Return the addresses `fail2ban-client status <jail>` lists as banned."""
+    return lib.txt.extract_str(stdout, 'Banned IP list:', '\n').split()
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -278,6 +619,8 @@ def main():
     count = 0
     table_data = []
     trusted_banned = []
+    banned_per_jail = {}
+    property_cache = {}
 
     # analyze data
     #     for each jail_name:
@@ -311,9 +654,11 @@ def main():
             f2b_currently_banned, args.WARN, args.CRIT, _operator='range'
         )
 
+        banned_per_jail[jail] = get_banned(stdout)
+
         # a banned address that has to stay reachable is critical, whatever the count
         if trusted_networks:
-            for entry in lib.txt.extract_str(stdout, 'Banned IP list:', '\n').split():
+            for entry in banned_per_jail[jail]:
                 try:
                     banned_ip = ipaddress.ip_address(entry)
                 except ValueError:
@@ -330,7 +675,7 @@ def main():
             {
                 'jail': jail,
                 'banned': f2b_currently_banned,
-                'state': lib.base.state2str(jail_state, empty_ok=False),
+                'jail_state': jail_state,
             }
         )
         perfdata += lib.base.get_perfdata(
@@ -349,30 +694,114 @@ def main():
             always_ok=args.ALWAYS_OK,
         )
 
+    # compare the bans with the firewall, for the jails that ban anybody
+    stores_per_jail = {}
+    unverified_per_jail = {}
+    for jail, banned in banned_per_jail.items():
+        if banned:
+            stores_per_jail[jail], unverified_per_jail[jail] = get_ban_stores(
+                client, args, jail, property_cache
+            )
+    readings = {}
+    missing_per_jail = {}
+    errors_per_jail = {}
+    for jail, stores in stores_per_jail.items():
+        missing_per_jail[jail], errors_per_jail[jail] = find_missing(
+            args, banned_per_jail[jail], stores, readings
+        )
+    # A ban fail2ban already lists may still be on its way into the firewall, and a
+    # ban may have ended in between, so a missing ban only counts if it is missing
+    # on a second look as well.
+    if any(missing_per_jail.values()) and args.TEST is None:
+        time.sleep(RECHECK_DELAY)
+        readings = {}
+        for jail, missing in missing_per_jail.items():
+            if not missing:
+                continue
+            stdout, _stderr, retc = run_client([*client, 'status', jail], args)
+            still_banned = get_banned(stdout) if retc == 0 else []
+            again, _errors = find_missing(
+                args, still_banned, stores_per_jail[jail], readings
+            )
+            missing_per_jail[jail] = [item for item in missing if item in again]
+    read_errors = sorted(
+        {error for errors in errors_per_jail.values() for error in errors}
+    )
+    # a ban is an address in a jail; an IPv4 and an IPv6 store of one action are two
+    # places for the same kind of ban, so each banned address counts once per jail
+    missing_count = sum(
+        len({entry for entry, _store in missing})
+        for missing in missing_per_jail.values()
+    )
+    for row in table_data:
+        jail = row['jail']
+        missing = len({entry for entry, _store in missing_per_jail.get(jail, [])})
+        if not row['banned']:
+            row['firewall'] = '-'
+        elif missing or errors_per_jail.get(jail):
+            row['firewall'] = f'{missing} missing' if missing else 'not readable'
+            row['jail_state'] = lib.base.get_worst(row['jail_state'], STATE_WARN)
+        elif not stores_per_jail.get(jail):
+            row['firewall'] = 'not verified'
+        else:
+            row['firewall'] = 'ok'
+        row['state'] = lib.base.state2str(row['jail_state'], empty_ok=False)
+    if missing_count or read_errors:
+        state = lib.base.get_worst(state, STATE_WARN)
+
     # build the message
     msg = f'{count} {lib.txt.pluralize("IP", count)} banned'
+    sections = []
     if trusted_banned:
         trusted_count = len({banned_ip for _jail, banned_ip in trusted_banned})
         msg += (
             f', {trusted_count} trusted'
             f' {lib.txt.pluralize("address", trusted_count, "es")} among them'
-            f' {lib.base.state2str(STATE_CRIT)}\n\n'
-            'Trusted addresses banned:\n'
+            f' {lib.base.state2str(STATE_CRIT)}'
         )
+        section = 'Trusted addresses banned:\n'
         for jail, banned_ip in sorted(trusted_banned):
-            msg += (
+            section += (
                 f'* {banned_ip} in {jail}, lift the ban with'
                 f' `sudo fail2ban-client set {jail} unbanip {banned_ip}`\n'
             )
-        msg += (
+        section += (
             '\nAdd the trusted addresses to `ignoreip` in fail2ban so they are not'
             ' banned again.'
         )
+        sections.append(section)
+    if missing_count:
+        msg += (
+            f', {missing_count} {lib.txt.pluralize("ban", missing_count)}'
+            f' missing in the firewall {lib.base.state2str(STATE_WARN)}'
+        )
+        section = 'Bans missing in the firewall:\n'
+        for jail in sorted(missing_per_jail):
+            missing = missing_per_jail[jail]
+            for entry, store in missing[:MAX_MISSING_LISTED]:
+                section += f'* {entry} in {jail} ({describe_store(store)})\n'
+            if len(missing) > MAX_MISSING_LISTED:
+                section += f'* and {len(missing) - MAX_MISSING_LISTED} more in {jail}\n'
+        section += (
+            '\nfail2ban lists these addresses as banned, but the firewall does not block'
+            ' them, typically because a firewall reload removed the rules of fail2ban,'
+            ' or because the ban action failed (see the fail2ban log). Restart fail2ban'
+            ' to set the bans again: `sudo systemctl restart fail2ban`.'
+        )
+        sections.append(section)
+    if read_errors:
+        section = 'The bans could not be compared with the firewall:\n'
+        section += '\n'.join(
+            f'* {error} {lib.base.state2str(STATE_WARN)}' for error in read_errors
+        )
+        sections.append(section)
+    for section in sections:
+        msg += f'\n\n{section.rstrip()}'
     msg += '\n\n'
     msg += lib.base.get_table(
         table_data,
-        ['jail', 'banned', 'state'],
-        header=['Jail', 'Banned', 'Status'],
+        ['jail', 'banned', 'firewall', 'state'],
+        header=['Jail', 'Banned', 'Firewall', 'Status'],
         sort_by_key='banned',
         sort_order_reverse=True,
     )
