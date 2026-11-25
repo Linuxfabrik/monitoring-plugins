@@ -17,7 +17,7 @@ Monitors a Valkey server via the `INFO` command and the `MEMORY DOCTOR` subcomma
 * Executes `valkey-cli info default` to collect server, memory, keyspace, replication, persistence, CPU, and stats sections
 * Executes `valkey-cli memory doctor` to detect memory issues
 * Reads OS kernel parameters (`/proc/sys/vm/overcommit_memory`, `/sys/kernel/mm/transparent_hugepage/enabled`, `/proc/sys/net/core/somaxconn`, `/proc/sys/net/ipv4/tcp_max_syn_backlog`) to verify system-level configuration
-* Supports TLS connections via `--tls` and `--cacert`
+* Supports TLS connections via `--tls` and optional `--cacert`
 * Supports Unix socket connections via `--socket`
 * Supports ACL-based authentication via `--username` and `--password`
 
@@ -57,7 +57,7 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --cacert CACERT       CA certificate file for TLS verification. Requires
-                        `--tls`. Default: /etc/pki/tls/certs/rootCA.pem
+                        `--tls`.
   -c, --critical CRIT   CRIT threshold for memory usage as a percentage.
                         Default: >= None
   -H, --hostname HOSTNAME

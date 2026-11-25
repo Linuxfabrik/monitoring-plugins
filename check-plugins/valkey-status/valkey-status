@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import os
 import sys
 import time
 
@@ -22,13 +23,13 @@ import lib.human
 import lib.lftest
 import lib.shell
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
 
 __author__ = """
 Linuxfabrik GmbH, Zurich/Switzerland;
 enhanced by Claudio Kuenzler
 """
-__version__ = '2026102702'
+__version__ = '2026102900'
 
 DESCRIPTION = """Monitors a Valkey server via the INFO command. Reports memory usage, fragmentation
 ratio, keyspace hit rate, connected clients, replication status, and persistence state.
@@ -36,7 +37,6 @@ Alerts on memory consumption, high fragmentation, low hit rates, and OS-level
 misconfigurations such as overcommit and transparent huge pages. Includes Valkey Memory
 Doctor diagnostics when available."""
 
-DEFAULT_CACERT = '/etc/pki/tls/certs/rootCA.pem'
 DEFAULT_CRIT = None
 DEFAULT_HOSTNAME = '127.0.0.1'
 DEFAULT_IGNORE_MAXMEMORY0 = False
@@ -76,10 +76,8 @@ def parse_args():
     parser.add_argument(
         '--cacert',
         help='CA certificate file for TLS verification. '
-        'Requires `--tls`. '
-        'Default: %(default)s',
+        'Requires `--tls`.',
         dest='CACERT',
-        default=DEFAULT_CACERT,
     )
 
     parser.add_argument(
@@ -273,8 +271,24 @@ def main():
         if args.USERNAME:
             base_cmd += ['--user', args.USERNAME]
         env = {'REDISCLI_AUTH': args.PASSWORD, 'VALKEYCLI_AUTH': args.PASSWORD}
+
     if args.TLS:
-        base_cmd += ['--tls', '--cacert', args.CACERT]
+        base_cmd += ['--tls']
+
+    if args.CACERT:
+        if not args.TLS:
+            lib.base.oao(
+                '`--cacert` requires `--tls`.',
+                STATE_CRIT,
+                always_ok=args.ALWAYS_OK,
+            )
+        if not os.path.isfile(args.CACERT) or not os.access(args.CACERT, os.R_OK):
+            lib.base.oao(
+                f'CA certificate file not found or not readable: {args.CACERT}',
+                STATE_CRIT,
+                always_ok=args.ALWAYS_OK,
+            )
+        base_cmd += ['--cacert', args.CACERT]
 
     # fetch data using `x-cli info default`
     if args.TEST is None:
