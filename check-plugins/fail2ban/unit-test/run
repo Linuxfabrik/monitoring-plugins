@@ -144,6 +144,87 @@ TESTS = [
         'assert-in': ['Invalid `--trusted-ip` "192.0.2.300"'],
     },
     {
+        # Captured on Rocky 9: one jail per firewall the check reads, all bans in place.
+        'id': 'ok-firewall-holds-every-ban',
+        'test': 'stdout/firewall-ok,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['15 IPs banned\n'],
+        'assert-not-in': ['missing', 'not verified', 'not readable'],
+        'assert-regex': r'p-firewallcmd-ipset\s.*! ok ',
+    },
+    {
+        # The same host after `nft delete table inet f2b-table`, a flush of the
+        # iptables chain, an `ipset flush` of the IPv4 set of iptables-ipset and a
+        # `firewall-cmd --reload`, which keeps an ipset it did not create.
+        'id': 'warn-firewall-lost-the-bans',
+        'test': 'stdout/firewall-flushed,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '15 IPs banned, 12 bans missing in the firewall [WARNING]',
+            '* 192.0.2.77 in sshd (nftables-multiport, set inet f2b-table addr-set-sshd)',
+            '* 2001:db8::91 in p-nftables-multiport (nftables-multiport, set inet'
+            ' f2b-table addr6-set-p-nftables-multiport)',
+            '* 192.0.2.91 in p-iptables-ipset (iptables-ipset, ipset f2b-p-iptables-ipset)',
+            '(firewallcmd-rich-rules, rich rules of firewalld zone public)',
+            '(firewallcmd-multiport, chain f2b-p-firewallcmd-multiport)',
+            '`sudo systemctl restart fail2ban`',
+        ],
+        'assert-not-in': ['2001:db8::91 in p-iptables-ipset', 'in p-firewallcmd-ipset'],
+        'assert-regex': r'sshd\s.*1 missing.*\[WARNING\]',
+    },
+    {
+        'id': 'warn-ignored-jails-are-not-compared',
+        'test': 'stdout/firewall-flushed,,0',
+        'params': '--ignore="^p-"',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 IP banned, 1 ban missing in the firewall [WARNING]'],
+        'assert-not-in': ['p-nftables-multiport'],
+    },
+    {
+        # A missing ban does not lower the state of a jail that bans a trusted address.
+        'id': 'crit-trusted-ip-banned-and-missing',
+        'test': 'stdout/firewall-flushed,,0',
+        'params': '--trusted-ip=192.0.2.77',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['1 trusted address among them [CRITICAL], 12 bans missing'],
+        'assert-regex': r'sshd\s.*1 missing.*\[CRITICAL\]',
+    },
+    {
+        'id': 'warn-firewalld-not-running',
+        'test': 'stdout/firewalld-down,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '`firewall-cmd --zone=public --list-rich-rules` failed: FirewallD is not'
+            ' running [WARNING]',
+        ],
+        'assert-regex': r'p-firewallcmd-rich-rules\s.*not readable.*\[WARNING\]',
+    },
+    {
+        # nft lists an element with a timeout as a dict, a network as a prefix and a
+        # range as a pair; the IPv6 set is empty.
+        'id': 'warn-nft-element-forms',
+        'test': 'stdout/nft-elements,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '9 IPs banned, 6 bans missing in the firewall [WARNING]',
+            '* 2001:db8::5 in sshd',
+            '* and 1 more in sshd',
+        ],
+        'assert-not-in': [
+            '192.0.2.91 in',
+            '198.51.100.7 in',
+            '203.0.113.9 in',
+            '::6 in',
+        ],
+    },
+    {
+        # The fixtures of the other tests list no actions, so no ban can be compared.
+        'id': 'warn-threshold-with-actions-not-verified',
+        'test': 'stdout/sshd-over-threshold,,0',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'apache-dos\s.*not verified.*\[OK\]',
+    },
+    {
         'id': 'unknown-no-jails-configured',
         'test': 'stdout/no-jails-configured,,0',
         'assert-retc': STATE_UNKNOWN,
