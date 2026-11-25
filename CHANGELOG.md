@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-**Highlights:** Two new checks catch failures that otherwise stay silent: `rpm-database` warns when the RPM database is broken and the host no longer receives updates, and `fail2ban-logfile` warns when fail2ban keeps running while its bans have no effect. With `blocky-logfile` and `blocky-stats`, the blocky DNS ad-blocker is monitored as well. The Director basket sorts every service into four priority groups, from LF P1 Availability to LF P4 Performance.
+**Highlights:** Two new checks catch failures that otherwise stay silent: `rpm-database` warns when the RPM database is broken and the host no longer receives updates, and `fail2ban-logfile` warns when fail2ban keeps running while its bans have no effect. With `blocky-logfile` and `blocky-stats`, the blocky DNS ad-blocker is monitored as well. The Director basket sorts every service into four priority groups, from LF P1 Availability to LF P4 Performance. Storage checks also catch rebuilding RAID volumes, unmounted NFS exports, missing md arrays and vanished multipath paths. Rewrite `kvm-storage-pool` thresholds given as Nagios ranges in the disk-usage form.
 
 ### Breaking Changes
 
