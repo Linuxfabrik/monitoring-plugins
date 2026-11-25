@@ -28,12 +28,13 @@ import lib.user
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026112201'
+__version__ = '2026112501'
 
 DESCRIPTION = """Checks the local security posture of an Apache httpd installation: which
 modules the server has loaded, which account its worker processes run under, the ownership
 and permissions of the configuration files, the process ID file, the lock file directory and
-the core dump directory, and how large a request the server accepts. Paths and accounts are
+the core dump directory, how large a request the server accepts, how long it waits for a
+slow client, and whether it answers the TRACE method. Paths and accounts are
 read back from the running installation rather than from a configuration file, so a value
 left at a compiled-in default and a directive overridden further down the configuration are
 both reported as they actually take effect. The request limits are taken from the
@@ -41,8 +42,8 @@ configuration files the server itself names, and where a directive is absent the
 falls back to is reported instead. Each finding maps to a copy-pasteable recommendation.
 Alerts when a module widens the attack surface without being needed, when the worker account
 is not a dedicated unprivileged system account, when a file or directory the server relies on
-can be modified by somebody other than root, or when a request limit is more permissive than
-recommended. Individual checks can be excluded with --ignore. Requires root or sudo."""
+can be modified by somebody other than root, when a request limit or a timeout is more
+permissive than recommended, or when TRACE is enabled. Individual checks can be excluded with --ignore. Requires root or sudo."""
 
 DEFAULT_BRIEF = False
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
@@ -150,6 +151,28 @@ REQUEST_LIMITS = (
         'deliberately for the vhost or directory that needs more instead of '
         'lifting it everywhere.',
     ),
+)
+
+# The timeouts of the "Denial of Service Mitigations" chapter of the benchmark, as
+# (title, directive, benchmark maximum in seconds, value in force when the directive is
+# absent). The absent values are DEFAULT_TIMEOUT and DEFAULT_KEEPALIVE_TIMEOUT from
+# `httpd.h`. httpd reads Timeout with atoi() as whole seconds (`set_timeout()` in
+# server/core.c) and KeepAliveTimeout with ap_timeout_parameter_parse(), which also
+# takes `ms`, `mi` and `h` (`set_keep_alive_timeout()` in modules/http/http_core.c).
+# Verified against httpd 2.4.68.
+TIMEOUTS = (
+    ('Timeout', 'Timeout', 10, 60),
+    ('KeepAlive timeout', 'KeepAliveTimeout', 15, 5),
+)
+
+# The two stages of RequestReadTimeout the benchmark judges, as (title, stage, benchmark
+# maximum in seconds, maximum in force when mod_reqtimeout is loaded and no directive
+# names the stage). The values are MRT_DEFAULT_header_MAX_TIMEOUT and
+# MRT_DEFAULT_body_TIMEOUT from modules/filters/mod_reqtimeout.c, which the benchmark
+# names as compliant.
+REQUEST_READ_TIMEOUTS = (
+    ('Request header timeout', 'header', 40, 40),
+    ('Request body timeout', 'body', 20, 20),
 )
 
 # "User: name="apache" id=48" and "Group: name="apache" id=48"
@@ -661,17 +684,25 @@ def parse_directive_fixture(stdout):
     return directives
 
 
-def read_directive_values(config_paths, directive, directive_fixture):
+def read_directive_values(config_paths, directive, directive_fixture, whole=False):
     """Return every value a directive is given across the configuration files.
 
     The files are read in the order the server includes them, so the values come
     back in that order. Which `<VirtualHost>` or `<Directory>` block a value sits
     in is deliberately not tracked: a request limit is judged value by value, and
-    one that is too permissive is a finding wherever it is written.
+    one that is too permissive is a finding wherever it is written. `whole` returns
+    everything after the directive name instead of its first word, for a directive
+    such as RequestReadTimeout that takes several.
     """
     if directive_fixture is not None:
         return list(directive_fixture.get(directive.lower(), []))
-    pattern = re.compile(rf'^\s*{directive}\s+(?P<value>\S+)', re.IGNORECASE)
+    value = r'\S.*?' if whole else r'\S+'
+    pattern = re.compile(
+        rf'^\s*{directive}\s+(?P<value>{value})\s*$'
+        if whole
+        else rf'^\s*{directive}\s+(?P<value>{value})',
+        re.IGNORECASE,
+    )
     values = []
     for path in config_paths:
         # Read as bytes and decoded afterwards: a configuration file carries whatever
@@ -1012,6 +1043,169 @@ def check_request_limit(limit, values, severity_state):
     )
 
 
+def format_seconds(seconds):
+    """Render a timeout in seconds without a trailing `.0`."""
+    return f'{seconds:g}s'
+
+
+def parse_timeout(directive, value):
+    """Return a Timeout or KeepAliveTimeout value in seconds, the way httpd reads it, or
+    None for one httpd refuses.
+
+    Timeout goes through atoi(), so leading digits count and anything after them is
+    ignored. KeepAliveTimeout goes through ap_timeout_parameter_parse(), which takes a
+    number and an optional unit: `s` (the default), `ms`, `mi` or `h`.
+    """
+    if directive == 'Timeout':
+        match = re.match(r'\s*(\d+)', value)
+        return int(match.group(1)) if match else 0
+    match = re.fullmatch(r'(\d+)(s|h|ms|mi)?', value, re.IGNORECASE)
+    if not match:
+        return None
+    factor = {'': 1, 'h': 3600, 'mi': 60, 'ms': 0.001, 's': 1}
+    return int(match.group(1)) * factor[(match.group(2) or '').lower()]
+
+
+def check_timeout(timeout, values, severity_state):
+    """Report one timeout of the "Denial of Service Mitigations" chapter against the
+    benchmark maximum.
+
+    `timeout` is one TIMEOUTS entry and `values` are the values the configuration
+    gives that directive. Like a request limit, every value is judged on its own and
+    an absent directive is judged by the value httpd falls back to.
+    """
+    _, directive, maximum, absent = timeout
+    configured = []
+    for value in values:
+        seconds = parse_timeout(directive, value)
+        if seconds is None:
+            # httpd refuses to start on such a value, so a running server cannot
+            # have one
+            return (None, value, f'`{directive} {value}` is not a timeout.', None)
+        configured.append(seconds)
+
+    in_force = configured or [absent]
+    shown = ', '.join(format_seconds(value) for value in dict.fromkeys(in_force))
+    if not configured:
+        shown += ' (default)'
+    if all(value <= maximum for value in in_force):
+        return (
+            STATE_OK,
+            shown,
+            f'At or below the recommended maximum of {maximum} seconds.',
+            None,
+        )
+    return (
+        severity_state,
+        shown,
+        f'Above the recommended maximum of {maximum} seconds, which keeps a slow or '
+        f'idle client on a worker for longer.',
+        f'Set `{directive} {maximum}` in the server configuration and lower any '
+        f'virtual host that overrides it with a larger value.',
+    )
+
+
+def parse_request_read_timeout(line, stage):
+    """Return the longest time one RequestReadTimeout line gives a stage, in seconds,
+    None when the line does not name the stage, or False for a value httpd refuses.
+
+    The syntax is `<stage>=<timeout>[-<maximum>][,MinRate=<rate>]` per stage
+    (`set_reqtimeout_param()` in modules/filters/mod_reqtimeout.c). The longest time is
+    the maximum where one is given and the initial timeout otherwise, which is how the
+    benchmark reads it: it names `body=20,MinRate=500` compliant at 20 seconds although
+    the rate lets a steady sender extend it. A timeout of 0 turns the stage off.
+    """
+    for word in line.split():
+        key, _, value = word.partition('=')
+        if key.lower() != stage:
+            continue
+        match = re.fullmatch(r'(\d+)(?:-(\d+))?(?:,minrate=\d+)?', value, re.IGNORECASE)
+        if not match:
+            return False
+        return int(match.group(2) or match.group(1))
+    return None
+
+
+def check_request_read_timeout(spec, modules, lines, severity_state):
+    """Report how long mod_reqtimeout lets a client take for one stage of a request.
+
+    Without the module, nothing but Timeout bounds a client that sends its request a
+    byte at a time, which is the slow request attack the chapter is about. With it,
+    a stage no directive names keeps the module's default, which the benchmark accepts.
+    """
+    _, stage, maximum, absent = spec
+    if 'reqtimeout_module' not in modules:
+        return (
+            severity_state,
+            'reqtimeout_module not loaded',
+            f'Nothing but `Timeout` bounds a client that sends the request {stage} '
+            f'slowly.',
+            'Load `mod_reqtimeout`; its defaults meet the benchmark.',
+        )
+    configured = []
+    for line in lines:
+        seconds = parse_request_read_timeout(line, stage)
+        if seconds is False:
+            return (
+                None,
+                line,
+                f'`RequestReadTimeout {line}` is not a valid timeout.',
+                None,
+            )
+        if seconds is not None:
+            configured.append(seconds)
+
+    in_force = configured or [absent]
+    shown = ', '.join(format_seconds(value) for value in dict.fromkeys(in_force))
+    if not configured:
+        shown += ' (default)'
+    reasons = []
+    if 0 in in_force:
+        reasons.append(f'0 turns the {stage} timeout off')
+    if any(value > maximum for value in in_force):
+        reasons.append(f'above the recommended maximum of {maximum} seconds')
+    if not reasons:
+        return (
+            STATE_OK,
+            shown,
+            f'At or below the recommended maximum of {maximum} seconds.',
+            None,
+        )
+    return (
+        severity_state,
+        shown,
+        '; '.join(reasons).capitalize() + '.',
+        f'Give `RequestReadTimeout` a {stage} timeout of at most {maximum} seconds, '
+        f'for example `RequestReadTimeout header=20-40,MinRate=500 '
+        f'body=20,MinRate=500`.',
+    )
+
+
+def check_trace(values, severity_state):
+    """Report whether the server answers the TRACE method.
+
+    TraceEnable is on unless a configuration turns it off (`AP_TRACE_UNSET` in
+    server/core.c is treated as enabled by `ap_send_http_trace()` in
+    modules/http/http_filters.c). `extended` also echoes a request body. Every value
+    counts on its own, because a virtual host that turns it back on answers TRACE for
+    its own name.
+    """
+    in_force = values or ['on']
+    shown = ', '.join(dict.fromkeys(value.lower() for value in in_force))
+    if not values:
+        shown += ' (default)'
+    if all(value.lower() == 'off' for value in in_force):
+        return (STATE_OK, shown, 'TRACE is answered with 405.', None)
+    return (
+        severity_state,
+        shown,
+        'TRACE is answered with a copy of the request, cookies and other headers '
+        'included.',
+        'Set `TraceEnable off` in the server configuration and in every virtual host '
+        'that sets it.',
+    )
+
+
 def get_sudo_rules(user, timeout):
     """Return what `sudo -l -U <user>` prints, or None where it cannot be asked.
 
@@ -1280,8 +1474,8 @@ def build_checks(data, severity_state):
         ),
     ]
 
-    # The request limits come last because they are the only checks that judge a
-    # value rather than a module, an account or a file.
+    # The request limits and the timeouts come last because they are the only checks
+    # that judge a value rather than a module, an account or a file.
     for limit in REQUEST_LIMITS:
         checks.append(
             (
@@ -1293,6 +1487,38 @@ def build_checks(data, severity_state):
                 ),
             )
         )
+    for timeout in TIMEOUTS:
+        checks.append(
+            (
+                timeout[0],
+                check_timeout(
+                    timeout,
+                    read_directive_values(config_paths, timeout[1], directive_fixture),
+                    severity_state,
+                ),
+            )
+        )
+    request_read_timeouts = read_directive_values(
+        config_paths, 'RequestReadTimeout', directive_fixture, whole=True
+    )
+    for spec in REQUEST_READ_TIMEOUTS:
+        checks.append(
+            (
+                spec[0],
+                check_request_read_timeout(
+                    spec, modules, request_read_timeouts, severity_state
+                ),
+            )
+        )
+    checks.append(
+        (
+            'TRACE method',
+            check_trace(
+                read_directive_values(config_paths, 'TraceEnable', directive_fixture),
+                severity_state,
+            ),
+        )
+    )
     return checks
 
 

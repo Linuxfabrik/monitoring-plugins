@@ -3,9 +3,9 @@
 
 ## Overview
 
-Checks the local security posture of an Apache httpd installation: which modules the server has loaded, which account its worker processes run under, the ownership and permissions of the configuration files, the process ID file, the lock file directory and the core dump directory, and how large a request the server accepts. Paths and accounts are read back from the running installation rather than from a configuration file, so a value left at a compiled-in default and a directive overridden further down the configuration are both reported as they actually take effect. The request limits are taken from the configuration files the server itself names, and where a directive is absent the value httpd falls back to is reported instead. Each finding maps to a copy-pasteable recommendation. Alerts when a module widens the attack surface without being needed, when the worker account is not a dedicated unprivileged system account, when a file or directory the server relies on can be modified by somebody other than root, or when a request limit is more permissive than recommended. Individual checks can be excluded with `--ignore`. Requires root or sudo.
+Checks the local security posture of an Apache httpd installation: which modules the server has loaded, which account its worker processes run under, the ownership and permissions of the configuration files, the process ID file, the lock file directory and the core dump directory, how large a request the server accepts, how long it waits for a slow client, and whether it answers the TRACE method. Paths and accounts are read back from the running installation rather than from a configuration file, so a value left at a compiled-in default and a directive overridden further down the configuration are both reported as they actually take effect. The request limits are taken from the configuration files the server itself names, and where a directive is absent the value httpd falls back to is reported instead. Each finding maps to a copy-pasteable recommendation. Alerts when a module widens the attack surface without being needed, when the worker account is not a dedicated unprivileged system account, when a file or directory the server relies on can be modified by somebody other than root, when a request limit or a timeout is more permissive than recommended, or when TRACE is enabled. Individual checks can be excluded with --ignore. Requires root or sudo.
 
-The checks follow the "Minimize Apache Modules", "Principles, Permissions, and Ownership" and "Request Limits" chapters of the CIS Apache HTTP Server 2.4 Benchmark.
+The checks follow the "Minimize Apache Modules", "Principles, Permissions, and Ownership", "Request Limits" and "Denial of Service Mitigations" chapters of the CIS Apache HTTP Server 2.4 Benchmark, plus its recommendation to disable the HTTP TRACE method.
 
 **Important Notes:**
 
@@ -20,6 +20,8 @@ The checks follow the "Minimize Apache Modules", "Principles, Permissions, and O
 * A scoreboard file that is not configured at all is compliant, and reported as such.
 * The four request limits are reported whether or not the configuration sets them, because httpd enforces a value either way. An absent `LimitRequestLine`, `LimitRequestFields` or `LimitRequestFieldSize` leaves a compiled-in value the benchmark accepts, so those pass. An absent `LimitRequestBody` caps the request body at 1 GiB, which the benchmark does not accept, so a stock installation fails that one until the directive is written out. Such a value carries `(default)` in the result column.
 * `LimitRequestBody` may also be set per virtual host, directory or location. Every value the configuration files carry is reported and judged, so a single permissive block is visible even when the server level is restrictive. Which block a value belongs to is not resolved; the recommendation names the value, and the operator knows where it lives.
+* The timeouts are judged like the request limits: every value the configuration files carry counts, and an absent directive is judged by the value httpd falls back to. An absent `Timeout` is 60 seconds, which the benchmark does not accept, so a stock Red Hat installation fails that check until the directive is written out; Debian writes `Timeout 300`. The request header and body timeouts need `mod_reqtimeout`, whose defaults the benchmark accepts. `KeepAlive` and `MaxKeepAliveRequests` from the same chapter are not checked.
+* `TraceEnable` is on unless the configuration turns it off, on the Red Hat and the Debian family alike. A virtual host that sets `TraceEnable on` answers TRACE for its own name even when the server level is off, so every value is judged.
 * `LimitRequestBody` caps every upload the server accepts, and an upload rejected by it never reaches the application. A host that has to accept larger uploads raises the directive for the vhost or location in question and excludes this check with `--ignore='Request body limit'`, rather than lifting the limit everywhere.
 
 ### Data Collection
@@ -56,8 +58,9 @@ usage: apache-httpd-security [-h] [-V] [--always-ok] [--brief]
 Checks the local security posture of an Apache httpd installation: which
 modules the server has loaded, which account its worker processes run under,
 the ownership and permissions of the configuration files, the process ID file,
-the lock file directory and the core dump directory, and how large a request
-the server accepts. Paths and accounts are read back from the running
+the lock file directory and the core dump directory, how large a request the
+server accepts, how long it waits for a slow client, and whether it answers
+the TRACE method. Paths and accounts are read back from the running
 installation rather than from a configuration file, so a value left at a
 compiled-in default and a directive overridden further down the configuration
 are both reported as they actually take effect. The request limits are taken
@@ -66,9 +69,9 @@ absent the value httpd falls back to is reported instead. Each finding maps to
 a copy-pasteable recommendation. Alerts when a module widens the attack
 surface without being needed, when the worker account is not a dedicated
 unprivileged system account, when a file or directory the server relies on can
-be modified by somebody other than root, or when a request limit is more
-permissive than recommended. Individual checks can be excluded with --ignore.
-Requires root or sudo.
+be modified by somebody other than root, when a request limit or a timeout is
+more permissive than recommended, or when TRACE is enabled. Individual checks
+can be excluded with --ignore. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -208,7 +211,9 @@ WebDAV modules          ! WebDAV modules not loaded    ! [OK]
     * the worker account runs as root, is an account shared with other daemons (`daemon`, `nfsnobody`, `nobody`, `nogroup`), has a uid at or above `UID_MIN`, or a running process uses an account other than the configured one,
     * a configuration file is not owned by `root:root`, or is writable by other,
     * the core dump directory, the lock file directory, the process ID file directory or the scoreboard file directory sits inside the document root, is not owned by root, or is writable beyond its owner,
-    * a request limit is above the value the benchmark recommends, or is zero, which lifts the limit for `LimitRequestBody` and `LimitRequestFields` and breaks every request for `LimitRequestLine` and `LimitRequestFieldSize`.
+    * a request limit is above the value the benchmark recommends, or is zero, which lifts the limit for `LimitRequestBody` and `LimitRequestFields` and breaks every request for `LimitRequestLine` and `LimitRequestFieldSize`,
+    * `Timeout` is above 10 seconds, `KeepAliveTimeout` above 15 seconds, the request header timeout above 40 seconds or the request body timeout above 20 seconds, a request timeout is 0, or `mod_reqtimeout` is not loaded,
+    * `TraceEnable` is not `off`.
 * Returns UNKNOWN if neither `httpd` nor `apachectl` is found, if the binary given via `--command` does not exist, resolves outside a standard binary directory (`/bin`, `/opt`, `/sbin`, `/usr`) or could be changed by anybody but root, or if the configuration does not parse, in which case the binary produces no output at all.
 * A check that cannot be carried out, because a directory could not be read for example, is reported as not evaluated. It does not count towards the result and does not drive the state.
 * A check `--ignore` excludes is reported as `overridden [OK]` and counted in the summary. It drives neither the state nor the recommendations.
@@ -249,6 +254,17 @@ That is expected on the Red Hat family, which ships a `LoadModule` line for ever
 Expected. A configuration that never mentions `LimitRequestBody` does not leave the request body unlimited, it caps it at 1 GiB, which is far above the 102400 bytes the benchmark asks for. Write the directive out, at a value that covers the largest upload the site has to accept, and reload.
 
 Note what the directive does before lowering it on a host that takes uploads: a request body above the limit is answered with `413 Request Entity Too Large` by httpd itself, so the application never sees the upload, and the application's own upload settings (`upload_max_filesize` and `post_max_size` in PHP, for example) never come into play. Raise the limit for the vhost, directory or location that needs it, and exclude this check with `--ignore='Request body limit'` on a host where a larger limit is deliberate.
+
+### `Timeout` or `TRACE method` fires on a fresh installation
+
+Expected on both the Red Hat and the Debian family. Neither ships `TraceEnable off`, and their `Timeout` (60 seconds when absent, 300 on Debian) is above the 10 seconds the benchmark asks for. Write both out at server level:
+
+```text
+Timeout 10
+TraceEnable off
+```
+
+A lower `Timeout` also ends a backend request that takes longer, for an application reached through `mod_proxy` for example. Raise `ProxyTimeout` for that backend rather than the server-wide `Timeout`.
 
 ### The worker account check fires although the account is correct
 

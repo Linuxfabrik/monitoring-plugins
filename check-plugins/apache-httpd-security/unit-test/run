@@ -32,10 +32,10 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '8 of 23 checks failed.',
+            '10 of 28 checks failed.',
             'info_module',
             'status_module',
-            "'apache_httpd_checks_failed'=8",
+            "'apache_httpd_checks_failed'=10",
         ],
     },
     {
@@ -58,7 +58,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '4 of 23 checks failed.',
+            '6 of 28 checks failed.',
             'status_module',
             'www-data:www-data (uid 33)',
         ],
@@ -79,7 +79,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok. All 23 checks passed.',
+            'Everything is ok. All 28 checks passed.',
             "'apache_httpd_checks_failed'=0",
         ],
         'assert-not-in': ['Recommendations:'],
@@ -93,7 +93,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '13 of 23 checks failed.',
+            '15 of 28 checks failed.',
             'nobody:nobody (uid 65534)',
             '`nobody` is a shared account',
             'uid 65534 >= UID_MIN 1000',
@@ -114,7 +114,7 @@ TESTS = [
         'test': 'stdout/shared-account',
         'params': '--always-ok',
         'assert-retc': STATE_OK,
-        'assert-in': ['13 of 23 checks failed.'],
+        'assert-in': ['15 of 28 checks failed.'],
     },
     # --brief drops the passing rows but must not change the counts, the
     # recommendations or the state.
@@ -123,7 +123,7 @@ TESTS = [
         'test': 'stdout/rhel-stock',
         'params': '--brief',
         'assert-retc': STATE_WARN,
-        'assert-in': ['8 of 23 checks failed.', "'apache_httpd_checks_evaluated'=23"],
+        'assert-in': ['10 of 28 checks failed.', "'apache_httpd_checks_evaluated'=28"],
         'assert-not-in': ['[OK]'],
     },
     # A host whose monitoring reads mod_status knowingly accepts that finding.
@@ -134,7 +134,7 @@ TESTS = [
         'test': 'stdout/rhel-stock',
         'params': '--ignore=^Status',
         'assert-retc': STATE_WARN,
-        'assert-in': ['7 of 22 checks failed, 1 overridden.', 'overridden [OK]'],
+        'assert-in': ['9 of 27 checks failed, 1 overridden.', 'overridden [OK]'],
         'assert-not-in': ["Exclude it with --ignore='Status module'"],
     },
     # The same exclusion written as an unanchored substring.
@@ -143,7 +143,7 @@ TESTS = [
         'test': 'stdout/rhel-stock',
         'params': '--ignore=Status',
         'assert-retc': STATE_WARN,
-        'assert-in': ['7 of 22 checks failed, 1 overridden.', 'overridden [OK]'],
+        'assert-in': ['9 of 27 checks failed, 1 overridden.', 'overridden [OK]'],
         'assert-not-in': ["Exclude it with --ignore='Status module'"],
     },
     # Everything filtered out: report the configured severity, not a pass.
@@ -214,7 +214,7 @@ TESTS = [
     {
         'id': 'warn-stock-request-limits-keep-the-defaults',
         'test': 'stdout/rhel-stock',
-        'params': '--match=^Request',
+        'params': '--match=limit$',
         'assert-retc': STATE_WARN,
         'assert-in': [
             '1 of 4 checks failed.',
@@ -226,7 +226,7 @@ TESTS = [
     {
         'id': 'ok-hardened-request-limits',
         'test': 'stdout/hardened',
-        'params': '--match=^Request',
+        'params': '--match=limit$',
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok. All 4 checks passed.', '102400'],
         'assert-not-in': ['(default)'],
@@ -236,7 +236,7 @@ TESTS = [
     {
         'id': 'warn-loose-request-limits',
         'test': 'stdout/loose-limits',
-        'params': '--match=^Request',
+        'params': '--match=limit$',
         'assert-retc': STATE_WARN,
         'assert-in': [
             '3 of 3 checks failed.',
@@ -244,6 +244,61 @@ TESTS = [
             '0, 10485760',
             '`LimitRequestLine abc` is not a number.',
         ],
+    },
+    {
+        # Rocky 9 sets none of the timeouts: Timeout falls back to 60 seconds, which
+        # the benchmark does not accept, and TraceEnable stays on. mod_reqtimeout is
+        # loaded, so its defaults bound the request header and body. Measured with
+        # httpd 2.4.62 on Rocky 9: a TRACE request is answered with 200.
+        'id': 'warn-rhel-stock-timeout-and-trace',
+        'test': 'stdout/rhel-stock',
+        'params': "--match='(imeout|TRACE)'",
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 of 5 checks failed.', '60s (default)', 'on (default)'],
+        'assert-regex': r'Request body timeout\s+! 20s \(default\)',
+    },
+    {
+        # Debian 13 writes Timeout 300 and gives the header and the body a line of
+        # RequestReadTimeout each, the body one at 10 seconds. Measured with apache2
+        # 2.4.71 on Debian 13.
+        'id': 'warn-debian-stock-timeout-and-trace',
+        'test': 'stdout/debian-stock',
+        'params': "--match='(imeout|TRACE)'",
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 of 5 checks failed.', '300s'],
+        'assert-regex': r'Request body timeout\s+! 10s\s',
+    },
+    {
+        'id': 'ok-hardened-timeouts-and-trace',
+        'test': 'stdout/hardened',
+        'params': "--match='(imeout|TRACE)'",
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. All 5 checks passed.',
+            'TRACE is answered with 405.',
+        ],
+    },
+    {
+        # KeepAliveTimeout takes units, so 1mi is 60 seconds. A stage set to 0 is off,
+        # and `extended` answers TRACE as well.
+        'id': 'warn-loose-timeouts-and-trace',
+        'test': 'stdout/loose-limits',
+        'params': "--match='(imeout|TRACE)'",
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '5 of 5 checks failed.',
+            '0.5s, 60s',
+            '0 turns the body timeout off.',
+            'Set `TraceEnable off`',
+        ],
+        'assert-regex': r'Request header timeout\s+! 60s\s',
+    },
+    {
+        'id': 'warn-without-reqtimeout-nothing-bounds-a-slow-request',
+        'test': 'stdout/no-reqtimeout',
+        'params': "--match='(imeout|TRACE)'",
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 of 5 checks failed.', 'Load `mod_reqtimeout`'],
     },
     {
         # A filter given a module name instead of a check name matches nothing
