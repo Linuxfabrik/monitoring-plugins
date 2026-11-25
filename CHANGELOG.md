@@ -63,7 +63,7 @@ Monitoring Plugins:
 * nextcloud-stats: The output says "enabled apps", since disabled apps are not part of the count.
 * nfs-exports: Warns when an export sits on a filesystem that is not mounted.
 * nfs-mounts: Warns when a server left requests unanswered since the last check, also when it answers again by the time the check runs.
-* nginx-security: Also checks how long the server waits for a slow client, which a stock installation fails until the four client timeouts are set.
+* nginx-security: Also checks how long the server waits for a slow client, which a stock installation fails until the four client timeouts are set, and whether it lists directories or leaves requests or errors unlogged.
 * ntp-offset: Checks every address of a server name such as a pool, and warns when they disagree.
 * openstack-cinder-list: Warns about volumes stuck in a transitional status such as `deleting`.
 * php-fpm-logfile: An idle worker PHP-FPM kills while the pool shrinks no longer alerts, a worker the OOM killer took is named as such, and a refused start stops alerting once a later start succeeds.

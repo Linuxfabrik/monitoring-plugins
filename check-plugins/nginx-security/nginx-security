@@ -29,19 +29,20 @@ import lib.user
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026112501'
+__version__ = '2026112502'
 
 DESCRIPTION = """Checks the local security posture of an NGINX installation: which dynamic
 modules it loads, which account its worker processes run under, whether that account can be
 logged into, the ownership and permissions of the configuration directory and the process ID
-file, how large a request body the server accepts, and how long it waits for a slow
-client. Every path is taken from the values
+file, how large a request body the server accepts, how long it waits for a slow
+client, whether it lists directories, and whether it logs requests and errors. Every path is taken from the values
 the binary itself reports, so a setting left at its compiled-in default is checked just like
 one written into the configuration. Each finding maps to a copy-pasteable recommendation.
 Alerts when a dynamic module widens the attack surface without being needed, when the worker
 account is privileged or can be logged into, when a file the server relies on is readable or
 writable beyond root, when the request body size is left unlimited or at the built-in
-default, or when a client timeout is longer than recommended. Individual checks can be excluded with --ignore. Requires root or sudo."""
+default, when a client timeout is longer than recommended, when a block lists directory
+content, or when requests or errors go unlogged. Individual checks can be excluded with --ignore. Requires root or sudo."""
 
 DEFAULT_BRIEF = False
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
@@ -361,7 +362,66 @@ def parse_configure_args(stdout):
     result = {}
     for match in CONFIGURE_ARG_REGEX.finditer(stdout):
         result[match.group('key')] = match.group('value')
+    # a flag without a value, and the one that decides what `error_log ... debug` does
+    if re.search(r'(?:^|\s)--with-debug(?:\s|$)', stdout):
+        result['with-debug'] = 'yes'
     return result
+
+
+def parse_statements(stdout):
+    """Return every directive of an `nginx -T` dump with the blocks it sits in, as a
+    list of `(name, arguments, blocks)` tuples, `blocks` naming the enclosing blocks
+    from the outside in (`('http', 'server', 'location')`).
+
+    The dump prints each file on its own behind a `# configuration file` marker, not
+    at the place it is included, so the blocks start afresh with every file: a
+    `server` in conf.d/default.conf reads as `('server',)` although the `include`
+    puts it into `http`. The tokenizer follows the configuration syntax as far as it
+    matters here: `;` ends a directive, `{` and `}` open and close a block, `#` starts
+    a comment outside quotes, and several of them may share a line, as in
+    `location = /favicon.ico { access_log off; }`.
+    """
+    statements = []
+    blocks = []
+    words = []
+    word = ''
+    quote = ''
+    for line in stdout.splitlines():
+        if CONFIG_FILE_REGEX.match(line):
+            blocks, words, word, quote = [], [], '', ''
+            continue
+        for char in line + '\n':
+            if quote:
+                if char == quote:
+                    quote = ''
+                else:
+                    word += char
+                continue
+            if char in '"\'':
+                quote = char
+                continue
+            if char == '#':
+                break
+            if char.isspace() or char in ';{}':
+                if word:
+                    words.append(word)
+                    word = ''
+                if char == ';' and words:
+                    statements.append((words[0], words[1:], tuple(blocks)))
+                    words = []
+                elif char == '{':
+                    blocks.append(words[0] if words else '')
+                    words = []
+                elif char == '}':
+                    if blocks:
+                        blocks.pop()
+                    words = []
+                continue
+            word += char
+        if word:
+            words.append(word)
+            word = ''
+    return statements
 
 
 def parse_dump(stdout):
@@ -918,6 +978,7 @@ def collect_data(args):
         'account_fixture': account_fixture,
         'configure': parse_configure_args(configure),
         'dump': parse_dump(dump),
+        'statements': parse_statements(dump),
         'stat_fixture': stat_fixture,
         'sudo_output': sudo_output,
     }
@@ -1028,6 +1089,93 @@ def check_timeout(timeout, values, severity_state):
     )
 
 
+def check_autoindex(statements, severity_state):
+    """Directory listings stay off.
+
+    The autoindex module is compiled into every NGINX package and cannot be left out
+    the way a dynamic module can, so what counts is whether a block turns it on. A
+    directory without an index file then lists its content, backups and files left
+    behind included.
+    """
+    enabled = [
+        ' > '.join(blocks) or 'main'
+        for name, arguments, blocks in statements
+        if name == 'autoindex' and arguments[:1] == ['on']
+    ]
+    if not enabled:
+        return (STATE_OK, 'off', 'No block lists directory content.', None)
+    return (
+        severity_state,
+        f'on in {len(enabled)} {"block" if len(enabled) == 1 else "blocks"}',
+        'A directory without an index file lists its content.',
+        'Remove `autoindex on;`, or limit it to the `location` that has to list '
+        'files and protect that location.',
+    )
+
+
+def check_access_log(statements, severity_state):
+    """Requests are logged.
+
+    NGINX logs every request unless a block says `access_log off;`. The benchmark
+    accepts that for a `location` serving something nobody needs a record of, such
+    as /favicon.ico, and fails it for a whole `http` or `server` block (CIS NGINX
+    Benchmark 3.0.0, 3.2). A `location` is therefore never a finding; anything
+    outside one is.
+    """
+    off = [
+        ' > '.join(blocks) or 'main'
+        for name, arguments, blocks in statements
+        if name == 'access_log'
+        and arguments[:1] == ['off']
+        and 'location' not in blocks
+    ]
+    if not off:
+        return (STATE_OK, 'on', 'Requests are logged.', None)
+    return (
+        severity_state,
+        f'off in {", ".join(dict.fromkeys(off))}',
+        'Requests to this block leave no record.',
+        'Remove `access_log off;` from the `http` and `server` blocks; keep it for '
+        'a `location` that serves only static assets.',
+    )
+
+
+def check_error_log(statements, configure, severity_state):
+    """Errors are logged at a useful level.
+
+    The benchmark fails an error log that goes to /dev/null or is limited to `crit`,
+    `alert` or `emerg`, because it then misses the upstream failures and rejected
+    requests an administrator needs (CIS NGINX Benchmark 3.0.0, 3.3). `debug` writes
+    every request header, cookies included, but only on a binary built with
+    `--with-debug`, which the Rocky 9 package is (nginx 1.20.1: a Cookie header
+    showed up in the error log); any other binary compiles the debug messages out. Without a directive,
+    NGINX logs to its compiled-in path at `error`, which passes.
+    """
+    findings = []
+    shown = []
+    for name, arguments, _ in statements:
+        if name != 'error_log' or not arguments:
+            continue
+        target = arguments[0]
+        level = arguments[1].lower() if len(arguments) > 1 else 'error'
+        shown.append(f'{target} {level}')
+        if target == '/dev/null':
+            findings.append(f'{target} discards every message')
+        if level in ('alert', 'crit', 'emerg'):
+            findings.append(f'`{level}` leaves out errors and warnings')
+        if level == 'debug' and configure.get('with-debug'):
+            findings.append('`debug` writes request headers, cookies included')
+    result = ', '.join(dict.fromkeys(shown)) or 'error (default)'
+    if not findings:
+        return (STATE_OK, result, 'Errors are logged.', None)
+    return (
+        severity_state,
+        result,
+        '; '.join(dict.fromkeys(findings)).capitalize() + '.',
+        'Set `error_log /var/log/nginx/error.log notice;` in the main context.',
+    )
+
+
 def build_checks(data, severity_state):
     """Return the full list of (title, result) pairs."""
     configure = data['configure']
@@ -1056,52 +1204,63 @@ def build_checks(data, severity_state):
     )
     paths = walk_config_tree(config_dir, stat_fixture) if config_dir else []
 
-    return [
-        (
-            'Dynamic modules',
-            check_dynamic_modules(dump['modules'], severity_state),
-        ),
-        (
-            'Worker account',
-            check_worker_account(
-                user, account, uid_min, worker_accounts, severity_state
+    return (
+        [
+            (
+                'Dynamic modules',
+                check_dynamic_modules(dump['modules'], severity_state),
             ),
-        ),
-        (
-            'Account shell',
-            check_account_shell(user, account, interactive_shells, severity_state),
-        ),
-        (
-            'Account locked',
-            check_account_locked(user, account, severity_state),
-        ),
-        (
-            'Account sudo',
-            check_account_sudo(user, data['sudo_output'], severity_state),
-        ),
-        (
-            'Config tree owner',
-            check_tree_ownership(paths, stat_fixture, severity_state),
-        ),
-        (
-            'Config tree access',
-            check_tree_access(paths, stat_fixture, severity_state),
-        ),
-        (
-            'Pid file',
-            check_pid_file(pid_path, stat_fixture, severity_state),
-        ),
-        (
-            'Request body limit',
-            check_request_body_limit(dump['client_max_body_size'], severity_state),
-        ),
-    ] + [
-        (
-            timeout[0],
-            check_timeout(timeout, dump['timeouts'][timeout[1]], severity_state),
-        )
-        for timeout in TIMEOUTS
-    ]
+            (
+                'Worker account',
+                check_worker_account(
+                    user, account, uid_min, worker_accounts, severity_state
+                ),
+            ),
+            (
+                'Account shell',
+                check_account_shell(user, account, interactive_shells, severity_state),
+            ),
+            (
+                'Account locked',
+                check_account_locked(user, account, severity_state),
+            ),
+            (
+                'Account sudo',
+                check_account_sudo(user, data['sudo_output'], severity_state),
+            ),
+            (
+                'Config tree owner',
+                check_tree_ownership(paths, stat_fixture, severity_state),
+            ),
+            (
+                'Config tree access',
+                check_tree_access(paths, stat_fixture, severity_state),
+            ),
+            (
+                'Pid file',
+                check_pid_file(pid_path, stat_fixture, severity_state),
+            ),
+            (
+                'Request body limit',
+                check_request_body_limit(dump['client_max_body_size'], severity_state),
+            ),
+        ]
+        + [
+            (
+                timeout[0],
+                check_timeout(timeout, dump['timeouts'][timeout[1]], severity_state),
+            )
+            for timeout in TIMEOUTS
+        ]
+        + [
+            ('Autoindex', check_autoindex(data['statements'], severity_state)),
+            ('Access log', check_access_log(data['statements'], severity_state)),
+            (
+                'Error log',
+                check_error_log(data['statements'], configure, severity_state),
+            ),
+        ]
+    )
 
 
 def main():

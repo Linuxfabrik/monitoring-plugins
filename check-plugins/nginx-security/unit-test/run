@@ -34,7 +34,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '6 of 13 checks failed.',
+            '6 of 16 checks failed.',
             'nginx (uid 101)',
             'Not root, uid below UID_MIN, no privileged group, '
             'not a known shared account.',
@@ -60,7 +60,7 @@ TESTS = [
         'params': '--ignore=^Config',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok. All 11 checks passed, 2 overridden.',
+            'Everything is ok. All 14 checks passed, 2 overridden.',
             'overridden [OK]',
         ],
     },
@@ -72,7 +72,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '9 of 13 checks failed.',
+            '12 of 16 checks failed.',
             'root (uid 0)',
             'runs as root',
             'member of root',
@@ -92,7 +92,7 @@ TESTS = [
         'test': 'stdout/loose',
         'params': '--always-ok',
         'assert-retc': STATE_OK,
-        'assert-in': ['9 of 13 checks failed.'],
+        'assert-in': ['12 of 16 checks failed.'],
     },
     # A password that can actually be used, as opposed to the "*" the
     # distributions ship, which cannot.
@@ -121,7 +121,7 @@ TESTS = [
         'test': 'stdout/loose',
         'params': '--brief',
         'assert-retc': STATE_WARN,
-        'assert-in': ['9 of 13 checks failed.', "'nginx_checks_evaluated'=13"],
+        'assert-in': ['12 of 16 checks failed.', "'nginx_checks_evaluated'=16"],
         'assert-not-in': ['[OK]'],
     },
     # An excluded check keeps its row and says so, instead of vanishing.
@@ -236,6 +236,38 @@ TESTS = [
             '0 is not a value the benchmark accepts.',
             'Set `send_timeout 10s;` in the `http` block',
         ],
+    },
+    {
+        'id': 'ok-stock-autoindex-and-logs',
+        'test': 'stdout/stock',
+        'params': "--match='(Autoindex|log)'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. All 3 checks passed.'],
+    },
+    {
+        # autoindex on in a location, access_log off for a whole server, and an
+        # error log that goes nowhere. The access_log off of the one-line favicon
+        # location next to it is the exception the benchmark allows.
+        'id': 'warn-loose-autoindex-and-logs',
+        'test': 'stdout/loose',
+        'params': "--match='(Autoindex|log)'",
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '3 of 3 checks failed.',
+            'on in 1 block',
+            'off in server',
+            '/dev/null discards every message; `crit` leaves out errors and warnings.',
+        ],
+        'assert-not-in': ['server > location'],
+    },
+    {
+        # debug only means something on a binary built with --with-debug, which
+        # the Rocky 9 package is.
+        'id': 'warn-debug-error-log-on-a-debug-build',
+        'test': 'stdout/debug-build',
+        'params': "--match='Error log'",
+        'assert-retc': STATE_WARN,
+        'assert-in': ['`debug` writes request headers, cookies included.'],
     },
     {
         'id': 'unknown-missing-fixture',

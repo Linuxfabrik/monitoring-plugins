@@ -3,9 +3,9 @@
 
 ## Overview
 
-Checks the local security posture of an NGINX installation: which dynamic modules it loads, which account its worker processes run under, whether that account can be logged into, the ownership and permissions of the configuration directory and the process ID file, how large a request body the server accepts, and how long it waits for a slow client. Every path is taken from the values the binary itself reports, so a setting left at its compiled-in default is checked just like one written into the configuration. Each finding maps to a copy-pasteable recommendation. Alerts when a dynamic module widens the attack surface without being needed, when the worker account is privileged or can be logged into, when a file the server relies on is readable or writable beyond root, when the request body size is left unlimited or at the built-in default, or when a client timeout is longer than recommended. Individual checks can be excluded with --ignore. Requires root or sudo.
+Checks the local security posture of an NGINX installation: which dynamic modules it loads, which account its worker processes run under, whether that account can be logged into, the ownership and permissions of the configuration directory and the process ID file, how large a request body the server accepts, how long it waits for a slow client, whether it lists directories, and whether it logs requests and errors. Every path is taken from the values the binary itself reports, so a setting left at its compiled-in default is checked just like one written into the configuration. Each finding maps to a copy-pasteable recommendation. Alerts when a dynamic module widens the attack surface without being needed, when the worker account is privileged or can be logged into, when a file the server relies on is readable or writable beyond root, when the request body size is left unlimited or at the built-in default, when a client timeout is longer than recommended, when a block lists directory content, or when requests or errors go unlogged. Individual checks can be excluded with --ignore. Requires root or sudo.
 
-The checks follow the "Minimize NGINX Modules", "Permissions and Ownership" and "Request Limits" controls of the CIS NGINX Benchmark, plus its timeouts for keep-alive connections, for sending a response and for reading the request header and body.
+The checks follow the "Minimize NGINX Modules", "Permissions and Ownership" and "Request Limits" controls of the CIS NGINX Benchmark, plus its timeouts for keep-alive connections, for sending a response and for reading the request header and body, and its access and error logging recommendations.
 
 **Important Notes:**
 
@@ -19,6 +19,9 @@ The checks follow the "Minimize NGINX Modules", "Permissions and Ownership" and 
 * Every `client_max_body_size` the configuration sets is reported, whatever block it sits in, so a permissive `location` is visible even when the `http` block is restrictive. Which block a value belongs to is not resolved. The benchmark names no upper bound, because how large a request an application has to accept is an application question; only a `0`, which removes the limit entirely, is reported as a finding.
 
 * **The timeout checks fail on a stock installation by design.** NGINX waits 60 seconds for a client header, a client body and between two writes of a response when nothing says otherwise, and the distributions ship `keepalive_timeout 65`. The benchmark asks for at most 10 seconds for `keepalive_timeout` and `send_timeout`, neither of them 0, and gives 10 to 20 seconds as the example for `client_header_timeout` and `client_body_timeout`, of which the check takes the upper end. Every value the configuration sets is judged, as with `client_max_body_size`.
+* `autoindex` is compiled into every NGINX package, so the check looks at what the configuration does with it: `autoindex on` anywhere is a finding.
+* `access_log off` is a finding outside a `location` only. The benchmark accepts it for a `location` that serves something nobody needs a record of, such as `/favicon.ico`. `nginx -T` prints every included file on its own, so a `server` block in `conf.d` is reported as `server` rather than `http > server`.
+* An error log that goes to `/dev/null` or is limited to `crit`, `alert` or `emerg` is a finding, as the benchmark asks. `debug` is one only on a binary built with `--with-debug`, because only such a binary writes the debug messages, every request header with its cookies among them. The Rocky 9 package is such a build.
 * TRACE needs no check: NGINX answers it with `405 Not Allowed` itself, whatever the configuration says.
 
 ### Data Collection
@@ -55,15 +58,17 @@ Checks the local security posture of an NGINX installation: which dynamic
 modules it loads, which account its worker processes run under, whether that
 account can be logged into, the ownership and permissions of the configuration
 directory and the process ID file, how large a request body the server
-accepts, and how long it waits for a slow client. Every path is taken from the
-values the binary itself reports, so a setting left at its compiled-in default
-is checked just like one written into the configuration. Each finding maps to
-a copy-pasteable recommendation. Alerts when a dynamic module widens the
-attack surface without being needed, when the worker account is privileged or
-can be logged into, when a file the server relies on is readable or writable
-beyond root, when the request body size is left unlimited or at the built-in
-default, or when a client timeout is longer than recommended. Individual
-checks can be excluded with --ignore. Requires root or sudo.
+accepts, how long it waits for a slow client, whether it lists directories,
+and whether it logs requests and errors. Every path is taken from the values
+the binary itself reports, so a setting left at its compiled-in default is
+checked just like one written into the configuration. Each finding maps to a
+copy-pasteable recommendation. Alerts when a dynamic module widens the attack
+surface without being needed, when the worker account is privileged or can be
+logged into, when a file the server relies on is readable or writable beyond
+root, when the request body size is left unlimited or at the built-in default,
+when a client timeout is longer than recommended, when a block lists directory
+content, or when requests or errors go unlogged. Individual checks can be
+excluded with --ignore. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -119,53 +124,78 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nginx-security/
 
 ## Usage Examples
 
-A stock installation. The account side is clean out of the box, the configuration tree carries the distribution defaults:
+A stock installation. The account side is clean out of the box, the configuration tree carries the distribution defaults, and neither the request body limit nor the client timeouts are written out:
 
 ```bash
 sudo ./nginx-security
 ```
 
 ```text
-1 of 7 checks failed.
+6 of 16 checks failed.
 
 Recommendations:
-* Config tree access: `chmod o= /etc/nginx /etc/nginx/conf.d ...` (currently /etc/nginx (0755), /etc/nginx/conf.d (0755), ...)
+* Config tree access: `chmod o= /etc/nginx /etc/nginx/conf.d /etc/nginx/conf.d/default.conf /etc/nginx/fastcgi_params /etc/nginx/mime.types /etc/nginx/modules /etc/nginx/nginx.conf /etc/nginx/scgi_params /etc/nginx/uwsgi_params` (currently /etc/nginx (0755), /etc/nginx/conf.d (0755), /etc/nginx/conf.d/default.conf (0644), /etc/nginx/fastcgi_params (0644), /etc/nginx/mime.types (0644), /etc/nginx/modules (0755), /etc/nginx/nginx.conf (0644), /etc/nginx/scgi_params (0644), /etc/nginx/uwsgi_params (0644)) Accepted here? Exclude it with --ignore='Config tree access'.
+* Request body limit: Set `client_max_body_size` in the `http` block to the largest request the site has to accept, and raise it in the `location` blocks that take uploads. Accepted here? Exclude it with --ignore='Request body limit'.
+* Client header timeout: Set `client_header_timeout 20s;` in the `http` block and lower any block that overrides it with a larger value. Accepted here? Exclude it with --ignore='Client header timeout'.
+* Client body timeout: Set `client_body_timeout 20s;` in the `http` block and lower any block that overrides it with a larger value. Accepted here? Exclude it with --ignore='Client body timeout'.
+* Keepalive timeout: Set `keepalive_timeout 10s;` in the `http` block and lower any block that overrides it with a larger value. Accepted here? Exclude it with --ignore='Keepalive timeout'.
+* Send timeout: Set `send_timeout 10s;` in the `http` block and lower any block that overrides it with a larger value. Accepted here? Exclude it with --ignore='Send timeout'.
 
-Check Name         ! Result                ! Detail                                                                        ! State
--------------------+-----------------------+-------------------------------------------------------------------------------+----------
-Dynamic modules    ! none loaded           ! No dynamic module adds to the attack surface.                                 ! [OK]
-Worker account     ! nginx (uid 101)       ! Not root, uid below UID_MIN, no privileged group, not a known shared account. ! [OK]
-Account shell      ! nginx: `/bin/false`   ! A shell that exits instead of opening a session.                              ! [OK]
-Account locked     ! nginx: locked         ! The password is locked.                                                       ! [OK]
-Config tree owner  ! 9 paths               ! Everything belongs to `root:root`.                                            ! [OK]
-Config tree access ! 9 of 9 paths          ! 9 paths readable by other.                                                    ! [WARNING]
-Pid file           ! /run/nginx.pid (0644) ! Owned by `root:root` and not writable by others.                              ! [OK]
+Check Name            ! Result                          ! Detail                                                                        ! State
+----------------------+---------------------------------+-------------------------------------------------------------------------------+----------
+Dynamic modules       ! none loaded                     ! No dynamic module adds to the attack surface.                                 ! [OK]
+Worker account        ! nginx (uid 101)                 ! Not root, uid below UID_MIN, no privileged group, not a known shared account. ! [OK]
+Account shell         ! nginx: `/bin/false`             ! A shell that exits instead of opening a session.                              ! [OK]
+Account locked        ! nginx: locked                   ! The password is locked.                                                       ! [OK]
+Account sudo          ! nginx: no sudo rules            ! Cannot take privileges back through sudo.                                     ! [OK]
+Config tree owner     ! 9 paths                         ! Everything belongs to `root:root`.                                            ! [OK]
+Config tree access    ! 9 of 9 paths                    ! 9 paths readable by other.                                                    ! [WARNING]
+Pid file              ! /run/nginx.pid (0644)           ! Owned by `root:root` and not writable by others.                              ! [OK]
+Request body limit    ! 1m (default)                    ! Not configured, so the built-in default applies everywhere.                   ! [WARNING]
+Client header timeout ! 60s (default)                   ! Above the recommended maximum of 20 seconds.                                  ! [WARNING]
+Client body timeout   ! 60s (default)                   ! Above the recommended maximum of 20 seconds.                                  ! [WARNING]
+Keepalive timeout     ! 65s                             ! Above the recommended maximum of 10 seconds.                                  ! [WARNING]
+Send timeout          ! 60s (default)                   ! Above the recommended maximum of 10 seconds.                                  ! [WARNING]
+Autoindex             ! off                             ! No block lists directory content.                                             ! [OK]
+Access log            ! on                              ! Requests are logged.                                                          ! [OK]
+Error log             ! /var/log/nginx/error.log notice ! Errors are logged.                                                            ! [OK]
 ```
 
-The same host with the distribution default accepted:
+The same host with the distribution default for the configuration tree accepted:
 
 ```bash
 sudo ./nginx-security --ignore='Config tree'
 ```
 
 ```text
-Everything is ok. All 5 checks passed.
+5 of 14 checks failed, 2 overridden.
 ```
 
-A host whose worker runs as root, whose account can be logged into, and whose configuration anybody may rewrite:
+A host whose worker runs as root, whose account can be logged into, whose configuration anybody may rewrite, and which lists a directory without logging the requests to it:
 
 ```bash
 sudo ./nginx-security --brief
 ```
 
 ```text
-3 of 7 checks failed.
+12 of 16 checks failed.
 
-Check Name         ! Result            ! Detail                                                        ! State
--------------------+-------------------+---------------------------------------------------------------+----------
-Worker account     ! root (uid 0)      ! runs as root; member of root; processes run as nginx.         ! [WARNING]
-Account shell      ! root: `/bin/bash` ! Not one of the shells that exit instead of opening a session. ! [WARNING]
-Config tree access ! 9 of 9 paths      ! 1 path writable by other, 8 paths readable by other.          ! [WARNING]
+...
+
+Check Name            ! Result            ! Detail                                                                   ! State
+----------------------+-------------------+--------------------------------------------------------------------------+----------
+Worker account        ! root (uid 0)      ! runs as root; member of root; processes run as nginx.                    ! [WARNING]
+Account shell         ! root: `/bin/bash` ! Not one of the shells that exit instead of opening a session.            ! [WARNING]
+Account sudo          ! root: 1 sudo rule ! Can take privileges back through sudo.                                   ! [WARNING]
+Config tree access    ! 9 of 9 paths      ! 1 path writable by other, 8 paths readable by other.                     ! [WARNING]
+Request body limit    ! 0                 ! 0 removes the limit, so a request body may be any size.                  ! [WARNING]
+Client header timeout ! 60s (default)     ! Above the recommended maximum of 20 seconds.                             ! [WARNING]
+Client body timeout   ! 90s               ! Above the recommended maximum of 20 seconds.                             ! [WARNING]
+Keepalive timeout     ! 65s               ! Above the recommended maximum of 10 seconds.                             ! [WARNING]
+Send timeout          ! 0s                ! 0 is not a value the benchmark accepts.                                  ! [WARNING]
+Autoindex             ! on in 1 block     ! A directory without an index file lists its content.                     ! [WARNING]
+Access log            ! off in server     ! Requests to this block leave no record.                                  ! [WARNING]
+Error log             ! /dev/null crit    ! /dev/null discards every message; `crit` leaves out errors and warnings. ! [WARNING]
 ```
 
 
@@ -180,7 +210,8 @@ Config tree access ! 9 of 9 paths      ! 1 path writable by other, 8 paths reada
     * something below the configuration directory is not owned by `root:root`, or is readable or writable by other,
     * the process ID file is not owned by `root:root`, or its mode is wider than `0644`,
     * `client_max_body_size` is not configured anywhere, or is set to `0`, which removes the limit,
-    * `keepalive_timeout` or `send_timeout` is above 10 seconds or 0, or `client_header_timeout` or `client_body_timeout` is above 20 seconds.
+    * `keepalive_timeout` or `send_timeout` is above 10 seconds or 0, or `client_header_timeout` or `client_body_timeout` is above 20 seconds,
+    * `autoindex on` is set anywhere, `access_log off` is set outside a `location`, or the error log goes to `/dev/null`, is limited to `crit` or above, or is at `debug` on a debug build.
 * Returns UNKNOWN if `nginx` is not found, if the binary given via `--command` does not exist, resolves outside a standard binary directory (`/bin`, `/opt`, `/sbin`, `/usr`) or could be changed by anybody but root, or if the configuration does not parse, in which case `nginx -T` produces no dump at all.
 * A check that cannot be carried out is reported as not evaluated and neither counts nor drives the state. That covers an account served by a directory service rather than by local files, a shadow database the check may not read, and a process ID file that does not exist because the server is not running.
 * A check `--ignore` excludes is reported as `overridden [OK]` and counted in the summary. It drives neither the state nor the recommendations.
@@ -239,6 +270,11 @@ send_timeout 10s;
 ```
 
 `client_body_timeout` and `send_timeout` limit the time between two reads or writes, not the whole transfer, so a large upload or download over a slow line keeps going as long as data keeps flowing. A `location` that has to wait longer for a client raises the value there.
+
+
+### `Error log` fires with `debug`
+
+The binary was built with `--with-debug`, as the Rocky 9 package is, so `debug` writes every request header to the error log, `Cookie` and `Authorization` included. Use `notice` or `info` for everyday logging, and turn `debug` on for a single client with `debug_connection` when something has to be traced.
 
 
 ## Credits, License

@@ -3,7 +3,7 @@
 user root;
 worker_processes  auto;
 
-error_log  /var/log/nginx/error.log notice;
+error_log  /dev/null crit;
 pid        /run/nginx.pid;
 
 
@@ -139,12 +139,15 @@ types {
 
 # configuration file /etc/nginx/conf.d/default.conf:
 server {
+    access_log off;
+    location = /favicon.ico { access_log off; log_not_found off; }
     listen       80;
     server_name  localhost;
 
     #access_log  /var/log/nginx/host.access.log  main;
 
     location / {
+        autoindex on;
         root   /usr/share/nginx/html;
         index  index.html index.htm;
     }
