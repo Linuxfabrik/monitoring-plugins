@@ -65,11 +65,17 @@ options:
                         alerting are unaffected: every item still emits
                         performance data and still drives the overall check
                         state, so this is safe to leave on.
-  -c, --critical CRIT   CRIT threshold for the space a pool has promised its
-                        volumes, in percent of the storage underneath it.
-                        Above 100 the pool has promised more than it has.
-                        Supports Nagios ranges. Default: unset, the figure is
-                        reported but does not alert
+  -c, --critical CRIT   CRIT threshold for the space the pools on one
+                        filesystem have promised their volumes, in the form
+                        `<number>[unit][method]`. Unit is one of `%|K|M|G|T|P`
+                        (default: `%`, of the filesystem). `K` means kibibyte
+                        etc. Method is one of `USED|FREE` (default: `USED`):
+                        `USED` is what has been promised and alerts at "number
+                        or more", `FREE` is what is left to promise and alerts
+                        at "number or less". Above 100% the pools have
+                        promised more than the filesystem holds. Examples:
+                        `150` = 150% promised. `500GFREE`. `20TUSED`. Default:
+                        unset, the figure is reported but does not alert
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
@@ -95,11 +101,17 @@ options:
                         Use `qemu+ssh://user@host/system` to check a host that
                         runs no local monitoring agent. Default:
                         qemu:///system
-  -w, --warning WARN    WARN threshold for the space a pool has promised its
-                        volumes, in percent of the storage underneath it.
-                        Above 100 the pool has promised more than it has.
-                        Supports Nagios ranges. Default: unset, the figure is
-                        reported but does not alert
+  -w, --warning WARN    WARN threshold for the space the pools on one
+                        filesystem have promised their volumes, in the form
+                        `<number>[unit][method]`. Unit is one of `%|K|M|G|T|P`
+                        (default: `%`, of the filesystem). `K` means kibibyte
+                        etc. Method is one of `USED|FREE` (default: `USED`):
+                        `USED` is what has been promised and alerts at "number
+                        or more", `FREE` is what is left to promise and alerts
+                        at "number or less". Above 100% the pools have
+                        promised more than the filesystem holds. Examples:
+                        `150` = 150% promised. `500GFREE`. `20TUSED`. Default:
+                        unset, the figure is reported but does not alert
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kvm-volume/
@@ -140,7 +152,7 @@ Alert once a store has been promised more than it holds:
 Output:
 
 ```text
-4 pools, 1230 volumes, 2.9TiB promised, 228.1GiB taken. Promised more than the storage holds: / (157.7%) [WARNING]
+4 pools, 1230 volumes, 2.9TiB promised, 228.1GiB taken. Promised beyond the thresholds: / (157.7%) [WARNING]
 
 Store ! Pools                           ! Size   ! Promised ! Taken    ! Sub%
 ------+---------------------------------+--------+----------+----------+------------------
@@ -182,14 +194,14 @@ The volume table is sorted by the space actually taken, which is the question "w
 
 * OK if every store stays within the thresholds, which by default is every store, because the thresholds are unset.
 * OK with "No running storage pools found." if the host has no pool running.
-* WARN if the pools on one filesystem have promised their volumes more than `--warning` percent of what it holds.
+* WARN if what the pools on one filesystem have promised their volumes reaches `--warning`.
 * CRIT if it reaches `--critical`.
-* UNKNOWN if libvirt cannot be reached, if `virsh` is missing, or on an invalid `--match` or `--ignore` pattern.
+* UNKNOWN if libvirt cannot be reached, if `virsh` is missing, on an invalid `--match` or `--ignore` pattern, or on a threshold that does not have the form `<number>[unit][method]`.
 * `--brief` hides the rows that are within the thresholds. It changes nothing about the state or the performance data.
 * `--no-match-severity` sets the state reported when `--match` or `--ignore` leave no pool to check (default: `ok`).
 * `--always-ok` suppresses all alerts and always returns OK.
 
-Both thresholds accept [Nagios ranges](../THRESHOLDS.md).
+The thresholds have the form `disk-usage` uses, `<number>[unit][method]`, applied to what the pools on one filesystem have promised: a share of the filesystem (`150`, `10%FREE`) or an amount (`20TUSED`, `500GFREE`), with `USED` alerting at the number or more and `FREE` at the number or less. `FREE` is what is left to promise, which goes below zero once the pools have promised more than the filesystem holds. A plain number is a share promised. The two thresholds may mix forms, for example `--warning=500GFREE --critical=200`, and the worse verdict counts.
 
 
 ## Perfdata / Metrics

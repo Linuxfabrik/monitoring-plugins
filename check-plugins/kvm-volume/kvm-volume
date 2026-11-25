@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026112501'
 
 DESCRIPTION = """Reports what the storage pools of a libvirt host actually hold: how much space
 their volumes have been promised, how much of it they occupy today, and how far the
@@ -106,12 +106,18 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for the space a pool has promised its volumes, in '
-        'percent of the storage underneath it. '
-        'Above 100 the pool has promised more than it has. '
-        'Supports Nagios ranges. '
+        help='CRIT threshold for the space the pools on one filesystem have promised '
+        'their volumes, in the form `<number>[unit][method]`. '
+        'Unit is one of `%%|K|M|G|T|P` (default: `%%`, of the filesystem). '
+        '`K` means kibibyte etc. '
+        'Method is one of `USED|FREE` (default: `USED`): `USED` is what has been '
+        'promised and alerts at "number or more", `FREE` is what is left to promise '
+        'and alerts at "number or less". '
+        'Above 100%% the pools have promised more than the filesystem holds. '
+        'Examples: `150` = 150%% promised. `500GFREE`. `20TUSED`. '
         'Default: unset, the figure is reported but does not alert',
         dest='CRIT',
+        type=lib.args.number_unit_method,
         default=DEFAULT_CRIT,
     )
 
@@ -183,12 +189,18 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for the space a pool has promised its volumes, in '
-        'percent of the storage underneath it. '
-        'Above 100 the pool has promised more than it has. '
-        'Supports Nagios ranges. '
+        help='WARN threshold for the space the pools on one filesystem have promised '
+        'their volumes, in the form `<number>[unit][method]`. '
+        'Unit is one of `%%|K|M|G|T|P` (default: `%%`, of the filesystem). '
+        '`K` means kibibyte etc. '
+        'Method is one of `USED|FREE` (default: `USED`): `USED` is what has been '
+        'promised and alerts at "number or more", `FREE` is what is left to promise '
+        'and alerts at "number or less". '
+        'Above 100%% the pools have promised more than the filesystem holds. '
+        'Examples: `150` = 150%% promised. `500GFREE`. `20TUSED`. '
         'Default: unset, the figure is reported but does not alert',
         dest='WARN',
+        type=lib.args.number_unit_method,
         default=DEFAULT_WARN,
     )
 
@@ -251,6 +263,19 @@ def get_pool_volumes(uri, timeout):
     return True, pools
 
 
+def get_subscription_limit(threshold, capacity):
+    """Return where a threshold sits on the subscription graph, in percent of the
+    filesystem, or None for a threshold that is not set.
+
+    The store reports its subscription only as a share, so an absolute threshold such
+    as `500GFREE` is drawn where that share reaches it.
+    """
+    percent_limit, used_limit = lib.args.number_unit_method_limits(threshold, capacity)
+    if used_limit is None:
+        return percent_limit
+    return round(used_limit / capacity * 100, 1)
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -265,6 +290,20 @@ def main():
         args.IGNORE = []
     if args.MATCH is None:
         args.MATCH = []
+
+    # A threshold that does not have the form `<number>[unit][method]` comes back with
+    # an empty number, which is a typo of the operator and not a threshold of zero.
+    for name, threshold in (('--warning', args.WARN), ('--critical', args.CRIT)):
+        if threshold is None:
+            continue
+        try:
+            float(threshold[0])
+        except ValueError:
+            lib.base.cu(
+                f'Invalid {name}: expected a number, optionally followed by a unit'
+                ' and USED or FREE, for example `150`, `500GFREE` or `20TUSED`.',
+                traceback=False,
+            )
 
     # fetch data
     if args.TEST is None:
@@ -430,8 +469,10 @@ def main():
         # slashes, commas and spaces. A perfdata label keeps neither of them.
         store_label = re.sub(r'\W+', '_', store).strip('_')
         subscription = round(promised / capacity * 100, 1)
-        usage_state = lib.base.get_state(
-            subscription, args.WARN, args.CRIT, _operator='range'
+        # What is left to promise goes below zero once the pools have promised more
+        # than the filesystem holds, which is what a `FREE` threshold is about.
+        usage_state = lib.args.number_unit_method_state(
+            args.WARN, args.CRIT, promised, capacity - promised, subscription
         )
         state = lib.base.get_worst(state, usage_state)
         if usage_state != STATE_OK:
@@ -461,8 +502,8 @@ def main():
             f'{store_label}_subscription',
             subscription,
             uom='%',
-            warn=args.WARN,
-            crit=args.CRIT,
+            warn=get_subscription_limit(args.WARN, capacity),
+            crit=get_subscription_limit(args.CRIT, capacity),
             _min=0,
         )
 
@@ -476,7 +517,7 @@ def main():
     )
     if oversubscribed:
         msg += (
-            f'. Promised more than the storage holds: {", ".join(oversubscribed)}'
+            f'. Promised beyond the thresholds: {", ".join(oversubscribed)}'
             f'{lib.base.state2str(oversubscribed_state_worst, prefix=" ")}'
         )
     perfdata += lib.base.get_perfdata(

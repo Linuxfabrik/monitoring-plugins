@@ -72,9 +72,7 @@ TESTS = [
         'test': 'stdout/three-pools,,0',
         'params': '--warning=100 --critical=200',
         'assert-retc': STATE_WARN,
-        'assert-in': [
-            'Promised more than the storage holds: /var/lib/libvirt (153.4%)'
-        ],
+        'assert-in': ['Promised beyond the thresholds: /var/lib/libvirt (153.4%)'],
     },
     {
         'id': 'crit-store-promises-far-more-than-it-holds',
@@ -90,7 +88,39 @@ TESTS = [
         'test': 'stdout/three-pools,,0',
         'params': '--warning=200',
         'assert-retc': STATE_OK,
-        'assert-not-in': ['Promised more than the storage holds'],
+        'assert-not-in': ['Promised beyond the thresholds'],
+    },
+    {
+        # A `FREE` threshold judges what is left to promise. /tmp/lfpool has promised
+        # 15.1 of its 15.3 GiB, so it alerts below 100%, and the line on its graph
+        # sits where 1 GiB is left.
+        'id': 'warn-store-has-little-left-to-promise',
+        'test': 'stdout/three-pools,,0',
+        'params': '--warning=1GFREE',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Promised beyond the thresholds: /tmp/lfpool (98.5%), /var/lib/libvirt',
+            "'tmp_lfpool_subscription'=98.5%;93.5;;0",
+        ],
+    },
+    {
+        # An absolute `USED` threshold judges the promise itself.
+        'id': 'crit-store-promised-more-than-an-amount',
+        'test': 'stdout/three-pools,,0',
+        'params': '--critical=2TUSED',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'/var/lib/libvirt\s+!.*!\s+153\.4% \[CRITICAL\]',
+        'assert-not-in': ['/tmp/lfpool (98.5%)'],
+    },
+    {
+        # Nagios ranges are not part of this form. A range comes back as no number and
+        # is refused, instead of being compared as a threshold nobody gave.
+        'id': 'unknown-range-is-no-threshold',
+        'test': 'stdout/three-pools,,0',
+        'params': '--warning=80:',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid --warning: expected a number'],
+        'assert-not-in': ['Traceback'],
     },
     {
         # The largest volumes only, and the caption counts what it left out rather
