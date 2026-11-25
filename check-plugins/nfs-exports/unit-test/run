@@ -8,7 +8,11 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import atexit
+import os
+import shutil
 import sys
+import tempfile
 
 sys.path.insert(0, '..')
 
@@ -22,9 +26,27 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # `--config-root` hook. Each tree holds an `etc/exports`, a `var/lib/nfs/etab` and the
 # directories the exports point at, because whether those exist is part of the finding.
 # A tree that also holds `etc/fstab` and `proc/self/mountinfo` stands in for what is
-# expected to be mounted and what is. `mp-option/mnt/disk` is a symlink into procfs, so
-# that it and its parent sit on different devices on any host and the NFS server's own
-# mount point test takes it for one.
+# expected to be mounted and what is.
+
+
+def build_mp_option_root():
+    """Copy `config/mp-option` to a throwaway directory and add `mnt/disk` there, a
+    symlink into procfs, so that it and its parent sit on different devices on any host
+    and the NFS server's own mount point test takes it for one.
+
+    The symlink is not part of the repository: editors, indexers and `grep -R` follow
+    it into `/proc/self/cwd` and from there back to itself, without end.
+    """
+    tmpdir = tempfile.mkdtemp(prefix='nfs-exports-')
+    atexit.register(shutil.rmtree, tmpdir, ignore_errors=True)
+    root = os.path.join(tmpdir, 'mp-option')
+    shutil.copytree('config/mp-option', root, symlinks=True)
+    os.makedirs(os.path.join(root, 'mnt'), exist_ok=True)
+    os.symlink('/proc/self', os.path.join(root, 'mnt', 'disk'))
+    return root
+
+
+MP_OPTION_ROOT = build_mp_option_root()
 
 TESTS = [
     {
@@ -209,7 +231,7 @@ TESTS = [
         # `mp` without a path asks for the export path itself to be a mount point
         'id': 'warn-an-mp-export-whose-path-is-no-mount-point',
         'test': '',
-        'params': '--config-root=config/mp-option --match=/data$',
+        'params': f'--config-root={MP_OPTION_ROOT} --match=/data$',
         'assert-retc': STATE_WARN,
         'assert-in': [
             '/srv/nfs/data: path is not a mount point, the export is refused'
@@ -218,21 +240,21 @@ TESTS = [
     {
         'id': 'warn-a-mountpoint-option-naming-a-path-that-is-gone',
         'test': '',
-        'params': '--config-root=config/mp-option --match=/backup$',
+        'params': f'--config-root={MP_OPTION_ROOT} --match=/backup$',
         'assert-retc': STATE_WARN,
         'assert-in': ['/mnt/gone is not a mount point, the export is refused'],
     },
     {
         'id': 'ok-a-mountpoint-option-that-is-met',
         'test': '',
-        'params': '--config-root=config/mp-option --match=/home$',
+        'params': f'--config-root={MP_OPTION_ROOT} --match=/home$',
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok. 1 NFS export is served.'],
     },
     {
         'id': 'warn-perfdata-counts-both-ways-of-missing-the-filesystem',
         'test': '',
-        'params': '--config-root=config/mp-option',
+        'params': f'--config-root={MP_OPTION_ROOT}',
         'assert-retc': STATE_WARN,
         'assert-in': ["'nfs_exports_not_mounted'=2;0;;0"],
     },
