@@ -26,19 +26,20 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 TESTS = [
     # Stock nginx 1.30.4. The account side is clean out of the box; the
     # configuration tree carries the distribution defaults 0644 and 0755, which
-    # the benchmark's hardening target does not accept.
+    # the benchmark's hardening target does not accept, and none of the client
+    # timeouts is as short as the benchmark asks.
     {
         'id': 'warn-stock-configuration-tree-is-world-readable',
         'test': 'stdout/stock',
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '2 of 9 checks failed.',
+            '6 of 13 checks failed.',
             'nginx (uid 101)',
             'Not root, uid below UID_MIN, no privileged group, '
             'not a known shared account.',
             '9 paths readable by other.',
-            "'nginx_checks_failed'=2",
+            "'nginx_checks_failed'=6",
         ],
         'assert-not-in': ['path writable by other'],
     },
@@ -59,7 +60,7 @@ TESTS = [
         'params': '--ignore=^Config',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok. All 7 checks passed, 2 overridden.',
+            'Everything is ok. All 11 checks passed, 2 overridden.',
             'overridden [OK]',
         ],
     },
@@ -71,7 +72,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '5 of 9 checks failed.',
+            '9 of 13 checks failed.',
             'root (uid 0)',
             'runs as root',
             'member of root',
@@ -91,7 +92,7 @@ TESTS = [
         'test': 'stdout/loose',
         'params': '--always-ok',
         'assert-retc': STATE_OK,
-        'assert-in': ['5 of 9 checks failed.'],
+        'assert-in': ['9 of 13 checks failed.'],
     },
     # A password that can actually be used, as opposed to the "*" the
     # distributions ship, which cannot.
@@ -120,7 +121,7 @@ TESTS = [
         'test': 'stdout/loose',
         'params': '--brief',
         'assert-retc': STATE_WARN,
-        'assert-in': ['5 of 9 checks failed.', "'nginx_checks_evaluated'=9"],
+        'assert-in': ['9 of 13 checks failed.', "'nginx_checks_evaluated'=13"],
         'assert-not-in': ['[OK]'],
     },
     # An excluded check keeps its row and says so, instead of vanishing.
@@ -204,6 +205,37 @@ TESTS = [
         'params': '--match=^Request',
         'assert-retc': STATE_WARN,
         'assert-in': ['0 removes the limit, so a request body may be any size.'],
+    },
+    {
+        # nginx -T of the stock configuration sets only keepalive_timeout, at 65
+        # seconds; the other three fall back to 60 seconds.
+        'id': 'warn-stock-client-timeouts',
+        'test': 'stdout/stock',
+        'params': '--match=imeout',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['4 of 4 checks failed.', '60s (default)', '65s'],
+    },
+    {
+        # The second value of keepalive_timeout is the Keep-Alive header, not a
+        # timeout.
+        'id': 'ok-hardened-client-timeouts',
+        'test': 'stdout/hardened',
+        'params': '--match=imeout',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. All 4 checks passed.', '20s', '10s'],
+    },
+    {
+        # 1m30s adds up to 90 seconds, and 0 is outside what the benchmark accepts.
+        'id': 'warn-loose-client-timeouts',
+        'test': 'stdout/loose',
+        'params': '--match=imeout',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '4 of 4 checks failed.',
+            '90s',
+            '0 is not a value the benchmark accepts.',
+            'Set `send_timeout 10s;` in the `http` block',
+        ],
     },
     {
         'id': 'unknown-missing-fixture',

@@ -3,9 +3,9 @@
 
 ## Overview
 
-Checks the local security posture of an NGINX installation: which dynamic modules it loads, which account its worker processes run under, whether that account can be logged into, the ownership and permissions of the configuration directory and the process ID file, and how large a request body the server accepts. Every path is taken from the values the binary itself reports, so a setting left at its compiled-in default is checked just like one written into the configuration. Each finding maps to a copy-pasteable recommendation. Alerts when a dynamic module widens the attack surface without being needed, when the worker account is privileged or can be logged into, when a file the server relies on is readable or writable beyond root, or when the request body size is left unlimited or at the built-in default. Individual checks can be excluded with `--ignore`. Requires root or sudo.
+Checks the local security posture of an NGINX installation: which dynamic modules it loads, which account its worker processes run under, whether that account can be logged into, the ownership and permissions of the configuration directory and the process ID file, how large a request body the server accepts, and how long it waits for a slow client. Every path is taken from the values the binary itself reports, so a setting left at its compiled-in default is checked just like one written into the configuration. Each finding maps to a copy-pasteable recommendation. Alerts when a dynamic module widens the attack surface without being needed, when the worker account is privileged or can be logged into, when a file the server relies on is readable or writable beyond root, when the request body size is left unlimited or at the built-in default, or when a client timeout is longer than recommended. Individual checks can be excluded with --ignore. Requires root or sudo.
 
-The checks follow the "Minimize NGINX Modules", "Permissions and Ownership" and "Request Limits" controls of the CIS NGINX Benchmark.
+The checks follow the "Minimize NGINX Modules", "Permissions and Ownership" and "Request Limits" controls of the CIS NGINX Benchmark, plus its timeouts for keep-alive connections, for sending a response and for reading the request header and body.
 
 **Important Notes:**
 
@@ -17,6 +17,9 @@ The checks follow the "Minimize NGINX Modules", "Permissions and Ownership" and 
 * Whether a loaded dynamic module is really needed is a judgement only the operator can make. The check lists what is loaded and leaves the decision; `--ignore='Dynamic modules'` records that it has been made. `--match` and `--ignore` take the name from the `Check Name` column of the table, not a module or a file name, and match anywhere in it, so no anchors are needed. A filter that matches no check is reported rather than silently doing nothing. An excluded check keeps its row and reads `overridden [OK]` in the `State` column: it no longer drives the state or the recommendations, but the decision to live with it stays on the report. `--match` selects what to look at and drops the rest silently, because it is a selection and not an override.
 * **The request body check fails on a stock installation by design.** A configuration that never mentions `client_max_body_size` does not leave the body unlimited, it caps it at 1 MiB, which is small enough to reject an ordinary file upload with a `413` that names no cause. The benchmark asks for the limit to be written out, at a value the site has decided on. Such a value carries `(default)` in the result column.
 * Every `client_max_body_size` the configuration sets is reported, whatever block it sits in, so a permissive `location` is visible even when the `http` block is restrictive. Which block a value belongs to is not resolved. The benchmark names no upper bound, because how large a request an application has to accept is an application question; only a `0`, which removes the limit entirely, is reported as a finding.
+
+* **The timeout checks fail on a stock installation by design.** NGINX waits 60 seconds for a client header, a client body and between two writes of a response when nothing says otherwise, and the distributions ship `keepalive_timeout 65`. The benchmark asks for at most 10 seconds for `keepalive_timeout` and `send_timeout`, neither of them 0, and gives 10 to 20 seconds as the example for `client_header_timeout` and `client_body_timeout`, of which the check takes the upper end. Every value the configuration sets is judged, as with `client_max_body_size`.
+* TRACE needs no check: NGINX answers it with `405 Not Allowed` itself, whatever the configuration says.
 
 ### Data Collection
 
@@ -51,15 +54,16 @@ usage: nginx-security [-h] [-V] [--always-ok] [--brief] [--command COMMAND]
 Checks the local security posture of an NGINX installation: which dynamic
 modules it loads, which account its worker processes run under, whether that
 account can be logged into, the ownership and permissions of the configuration
-directory and the process ID file, and how large a request body the server
-accepts. Every path is taken from the values the binary itself reports, so a
-setting left at its compiled-in default is checked just like one written into
-the configuration. Each finding maps to a copy-pasteable recommendation.
-Alerts when a dynamic module widens the attack surface without being needed,
-when the worker account is privileged or can be logged into, when a file the
-server relies on is readable or writable beyond root, or when the request body
-size is left unlimited or at the built-in default. Individual checks can be
-excluded with --ignore. Requires root or sudo.
+directory and the process ID file, how large a request body the server
+accepts, and how long it waits for a slow client. Every path is taken from the
+values the binary itself reports, so a setting left at its compiled-in default
+is checked just like one written into the configuration. Each finding maps to
+a copy-pasteable recommendation. Alerts when a dynamic module widens the
+attack surface without being needed, when the worker account is privileged or
+can be logged into, when a file the server relies on is readable or writable
+beyond root, when the request body size is left unlimited or at the built-in
+default, or when a client timeout is longer than recommended. Individual
+checks can be excluded with --ignore. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -175,7 +179,8 @@ Config tree access ! 9 of 9 paths      ! 1 path writable by other, 8 paths reada
     * the worker account carries a password that can be used, or none at all,
     * something below the configuration directory is not owned by `root:root`, or is readable or writable by other,
     * the process ID file is not owned by `root:root`, or its mode is wider than `0644`,
-    * `client_max_body_size` is not configured anywhere, or is set to `0`, which removes the limit.
+    * `client_max_body_size` is not configured anywhere, or is set to `0`, which removes the limit,
+    * `keepalive_timeout` or `send_timeout` is above 10 seconds or 0, or `client_header_timeout` or `client_body_timeout` is above 20 seconds.
 * Returns UNKNOWN if `nginx` is not found, if the binary given via `--command` does not exist, resolves outside a standard binary directory (`/bin`, `/opt`, `/sbin`, `/usr`) or could be changed by anybody but root, or if the configuration does not parse, in which case `nginx -T` produces no dump at all.
 * A check that cannot be carried out is reported as not evaluated and neither counts nor drives the state. That covers an account served by a directory service rather than by local files, a shadow database the check may not read, and a process ID file that does not exist because the server is not running.
 * A check `--ignore` excludes is reported as `overridden [OK]` and counted in the summary. It drives neither the state nor the recommendations.
@@ -220,6 +225,20 @@ Set `client_max_body_size` in the `http` block to the largest request the site h
 ### `Account locked` is not evaluated
 
 Either the check is not running as root, in which case `/etc/shadow` cannot be read, or the worker account is served by a directory service and has no local shadow entry. The message says which of the two it is.
+
+
+### The timeout checks fire on a fresh installation
+
+Expected, see the Important Notes. Write the timeouts out in the `http` block:
+
+```text
+client_header_timeout 10s;
+client_body_timeout 20s;
+keepalive_timeout 10s;
+send_timeout 10s;
+```
+
+`client_body_timeout` and `send_timeout` limit the time between two reads or writes, not the whole transfer, so a large upload or download over a slow line keeps going as long as data keeps flowing. A `location` that has to wait longer for a client raises the value there.
 
 
 ## Credits, License
