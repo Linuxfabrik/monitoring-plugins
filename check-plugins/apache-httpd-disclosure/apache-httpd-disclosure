@@ -21,16 +21,16 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026102501'
+__version__ = '2026112501'
 
 DESCRIPTION = """Checks how much an Apache httpd server discloses about itself in its HTTP
 responses: the product and version banner in the `Server` response header, the server
-signature footer on generated error pages, and inode numbers leaked through `ETag` response
-headers. Every finding is measured on the response the server actually sends, so a value
+signature footer on generated error pages, inode numbers leaked through `ETag` response
+headers, and whether a TRACE request is echoed back. Every finding is measured on the response the server actually sends, so a value
 overridden further down the configuration or by a reverse proxy is reported as it reaches a
 client rather than as it is written in a configuration file. Each finding maps to a
 copy-pasteable configuration recommendation. Alerts when the server discloses its version,
-its signature or an inode number."""
+its signature or an inode number, or echoes a TRACE request."""
 
 # The checks follow the "Information Leakage" chapter of the CIS Apache HTTP
 # Server 2.4 Benchmark: the `Server` header, the server signature footer and
@@ -182,7 +182,7 @@ def parse_args():
     return args
 
 
-def fetch_response(url, args):
+def fetch_response(url, args, method=None):
     """Fetch one URL and return the extended response dict.
 
     A 4xx or 5xx counts as success here: an error page is the primary subject
@@ -196,6 +196,7 @@ def fetch_response(url, args):
         url,
         extended=True,
         insecure=args.INSECURE,
+        method=method,
         no_proxy=args.NO_PROXY,
         proxy=args.PROXY,
         response_on_error=True,
@@ -332,6 +333,34 @@ def check_etag_inode(response, severity_state):
     )
 
 
+def check_trace(response, severity_state):
+    """A TRACE request must not be echoed back.
+
+    With TRACE enabled, httpd answers 200 with `Content-Type: message/http` and the
+    request in the body, its `Cookie` header included, which is what makes the method
+    useful to a script that cannot read the cookie itself. With `TraceEnable off` it
+    answers 405. The content type tells the two apart, whatever status a proxy in front
+    may put on the answer. Measured with httpd 2.4.62 on Rocky 9.
+    """
+    if response is None:
+        return (
+            None,
+            'not evaluated',
+            'The TRACE request got no answer.',
+            None,
+        )
+    content_type = response['response_header'].get('content-type', '')
+    if content_type.lower().startswith('message/http'):
+        return (
+            severity_state,
+            'echoed',
+            'The request comes back as sent, cookies and other headers included.',
+            'Set `TraceEnable off` in the server configuration and in every virtual '
+            'host that sets it.',
+        )
+    return (STATE_OK, 'not echoed', 'TRACE is refused.', None)
+
+
 # How to stop a backend from announcing itself in the first place, keyed by a
 # lower-cased fragment of the header value. Only a value we recognise gets a
 # concrete instruction; anything else is pointed at "the application that sets
@@ -425,12 +454,16 @@ def main():
         success, main_response = fetch_response(base_url, args)
         if not success:
             main_response = None
+        success, trace_response = fetch_response(base_url + '/', args, method='TRACE')
+        if not success:
+            trace_response = None
     else:
         base = args.TEST[0]
         error_response = lib.lftest.test_http_response(args.TEST, f'{base}-error')
         if error_response is None:
             lib.base.cu(f'Fixture "{base}-error-header" not found.')
         main_response = lib.lftest.test_http_response(args.TEST, f'{base}-main')
+        trace_response = lib.lftest.test_http_response(args.TEST, f'{base}-trace')
 
     # init some vars
     state = STATE_OK
@@ -485,6 +518,9 @@ def main():
             'Backend headers',
             check_backend_headers([error_response, main_response], severity_state),
         ),
+        # Measured as it reaches the client, like the backend headers: a proxy in
+        # front that refuses TRACE protects the Apache behind it.
+        ('TRACE method', check_trace(trace_response, severity_state)),
     ]
 
     disclosed = 0

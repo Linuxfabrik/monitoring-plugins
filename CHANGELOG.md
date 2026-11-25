@@ -45,6 +45,7 @@ Monitoring Plugins:
 * Log checks list what they alert on, repeated lines grouped and counted, and keep the first line short (logfile and the `*-logfile` checks for Apache, MySQL, PHP-FPM, Postfix and sshd).
 * about-me: `--tags` proposes the new `data-partition` tag on hosts with a partition mounted at `/data`, and the new `blocky` and `icinga-director` tags.
 * apache-httpd-logfile: Denied requests and path scans Apache rejects by itself no longer alert by default, other failed requests only from 10 on.
+* apache-httpd-disclosure: Warns when the server echoes a TRACE request, which a stock installation does until `TraceEnable off` is set.
 * apache-httpd-security: Also checks whether TRACE is answered and how long the server waits for a slow client, which a stock installation fails until `Timeout 10` and `TraceEnable off` are set.
 * fail2ban: Warns when the firewall does not hold a ban fail2ban lists, for example after a firewall reload, for nftables, iptables, ipset and firewalld.
 * huawei-dorado-quota, huawei-pacific-quota: Also alert when a quota nears its limit on the number of files.

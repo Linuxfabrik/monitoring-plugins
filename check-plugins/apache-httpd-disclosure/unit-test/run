@@ -24,11 +24,12 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '3 of 4 checks report disclosed information.',
+            '4 of 5 checks report disclosed information.',
             'Set `ServerTokens Prod`',
             'Set `ServerSignature Off`',
             'Set `FileETag MTime Size`',
-            "'apache_httpd_disclosures'=3",
+            'Set `TraceEnable off`',
+            "'apache_httpd_disclosures'=4",
         ],
     },
     {
@@ -55,7 +56,7 @@ TESTS = [
         'test': 'stdout/leaky,,404',
         'params': '--always-ok',
         'assert-retc': STATE_OK,
-        'assert-in': ['3 of 4 checks report disclosed information.'],
+        'assert-in': ['4 of 5 checks report disclosed information.'],
     },
     # "ServerTokens Prod", "ServerSignature Off", "FileETag MTime Size".
     {
@@ -64,7 +65,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok. Nothing disclosed in 4 checks.',
+            'Everything is ok. Nothing disclosed in 5 checks.',
             '`Server: Apache`',
             "'apache_httpd_disclosures'=0",
         ],
@@ -78,8 +79,10 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '1 of 4 checks report disclosed information.',
+            '2 of 5 checks report disclosed information.',
             '`Server: Apache/2.4.62 (Rocky Linux)`',
+            # Rocky 9 leaves TraceEnable on, and httpd 2.4.62 echoes the request.
+            'The request comes back as sent, cookies and other headers included.',
         ],
         'assert-not-in': ['Set `ServerSignature Off`'],
     },
@@ -107,7 +110,8 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok. Nothing disclosed in 3 checks. 1 not evaluated.',
+            # neither the base URL nor the TRACE request got an answer
+            'Everything is ok. Nothing disclosed in 3 checks. 2 not evaluated.',
             'not evaluated',
             "'apache_httpd_checks_evaluated'=3",
         ],
@@ -134,11 +138,24 @@ TESTS = [
     # Seen in the wild: the header is set but its value names nothing, so there
     # is no backend to disclose and no finding to report.
     {
+        # A hardened Apache in front of PHP, which still names itself and its
+        # version in X-Powered-By.
+        'id': 'warn-backend-announces-itself',
+        'test': 'stdout/php-backend,,404',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 of 5 checks report disclosed information.',
+            'x-powered-by: PHP/8.3.19',
+            '`expose_php = Off`',
+        ],
+    },
+    {
         'id': 'ok-backend-header-with-placeholder-value',
         'test': 'stdout/placeholder-header,,404',
         'params': '',
         'assert-retc': STATE_OK,
-        'assert-in': ['Everything is ok. Nothing disclosed in 4 checks.'],
+        'assert-in': ['Everything is ok. Nothing disclosed in 5 checks.'],
         'assert-not-in': ['x-powered-by'],
     },
     {
