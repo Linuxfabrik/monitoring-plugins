@@ -122,3 +122,21 @@ Running the Icinga 2 agent as `LocalSystem` also gives the plugins above what th
 * Every command a monitoring server can send to the agent runs with full system rights.
 
 If you still choose it, keep the agent updated and restrict who can reach port 5665.
+
+
+## Troubleshooting
+
+### Directory C:\Windows\TEMP lets other accounts replace its entries
+
+A plugin that keeps a cache or state file stops with `Directory C:\Windows\TEMP lets other accounts replace its entries, refusing to use it` or `... belongs to another account, refusing to use it`. This happens when the Icinga 2 agent runs as `LocalSystem`, whose temporary directory is `C:\Windows\Temp`, and an installer or an administrator has given other accounts more rights on it than Windows does. Such an account could swap the plugins' files for its own, so the plugins refuse to use the directory.
+
+`icacls C:\Windows\Temp` shows the current permissions. To reset owner and permissions to the Windows default, and to delete the plugins' cache, which may have been tampered with, run in an elevated PowerShell:
+
+```powershell
+$acl = Get-Acl -LiteralPath C:\Windows\Temp
+$acl.SetSecurityDescriptorSddlForm('O:SYG:SYD:PAI(A;OICIIO;GA;;;CO)(A;OICIIO;GA;;;SY)(A;;FA;;;SY)(A;OICIIO;GA;;;BA)(A;;FA;;;BA)(A;CI;0x100026;;;BU)')
+Set-Acl -LiteralPath C:\Windows\Temp -AclObject $acl
+Remove-Item -LiteralPath C:\Windows\Temp\linuxfabrik-monitoring-plugins-S-1-5-18 -Recurse -Force
+```
+
+This is the default of Windows 10, Windows 11 and Windows Server 2016 to 2025: owner SYSTEM, full control for SYSTEM and Administrators, and Users may only create files and folders. If an application relied on the removed permissions, give it a directory of its own instead.
