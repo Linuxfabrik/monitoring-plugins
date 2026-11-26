@@ -30,6 +30,7 @@ applies to all of them:
 | `matomo-version` | [matomo](https://endoflife.date/matomo) |
 | `mediawiki-version` | [mediawiki](https://endoflife.date/mediawiki) |
 | `metabase-version` | [metabase](https://endoflife.date/metabase) |
+| `mongodb-version` | [mongodb](https://endoflife.date/mongodb) |
 | `moodle-version` | [moodle](https://endoflife.date/moodle) |
 | `mysql-version` | [mariadb](https://endoflife.date/mariadb), [mysql](https://endoflife.date/mysql) |
 | `nextcloud-version` | [nextcloud](https://endoflife.date/nextcloud) |

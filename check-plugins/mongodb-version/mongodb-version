@@ -1,0 +1,272 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.lftest
+import lib.shell
+import lib.version
+from lib.globals import STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026112601'
+
+DESCRIPTION = """Checks the installed MongoDB version against the endoflife.date API and alerts if
+the version is end-of-life or if newer major, minor, or patch releases are available.
+By default, alerts 30 days before the official EOL date. The offset is configurable."""
+
+DEFAULT_CHECK_MAJOR = False
+DEFAULT_CHECK_MINOR = False
+DEFAULT_CHECK_PATCH = False
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_OFFSET_EOL = -30  # days
+DEFAULT_PATH = 'mongod'
+DEFAULT_TIMEOUT = 8
+DEFAULT_UNREACHABLE_SEVERITY = 'ok'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--check-major',
+        help=lib.args.help('--check-major'),
+        dest='CHECK_MAJOR',
+        action='store_true',
+        default=DEFAULT_CHECK_MAJOR,
+    )
+
+    parser.add_argument(
+        '--check-minor',
+        help=lib.args.help('--check-minor'),
+        dest='CHECK_MINOR',
+        action='store_true',
+        default=DEFAULT_CHECK_MINOR,
+    )
+
+    parser.add_argument(
+        '--check-patch',
+        help=lib.args.help('--check-patch'),
+        dest='CHECK_PATCH',
+        action='store_true',
+        default=DEFAULT_CHECK_PATCH,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--offset-eol',
+        help=lib.args.help('--offset-eol') + ' Default: %(default)s days',
+        dest='OFFSET_EOL',
+        type=int,
+        default=DEFAULT_OFFSET_EOL,
+    )
+
+    parser.add_argument(
+        '--path',
+        help='Path to the mongod binary. '
+        'Resolved via $PATH when given without a directory. '
+        'Default: %(default)s',
+        dest='PATH',
+        default=DEFAULT_PATH,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--unreachable-severity',
+        help=lib.args.help('--unreachable-severity') + ' Default: %(default)s',
+        dest='UNREACHABLE_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_UNREACHABLE_SEVERITY,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_installed_version(args):
+    """Return the version the `mongod` binary reports.
+
+    Returns `(True, version)`, or `(False, message)` if the binary cannot be run or
+    prints no version.
+    """
+    if args.TEST is None:
+        cmd = [args.PATH, '--version']
+        success, result = lib.shell.shell_exec(cmd, timeout=args.TIMEOUT)
+        if not success:
+            if result.startswith('Timeout after'):
+                lib.base.oao(
+                    f'Timeout after {args.TIMEOUT}s while running `{" ".join(cmd)}`.',
+                    STATE_WARN,
+                    always_ok=args.ALWAYS_OK,
+                )
+            return (False, result)
+        stdout, _, retc = result
+    else:
+        stdout, _, retc = lib.lftest.test(args.TEST)
+    # where to find the version number in output?
+    # "db version v7.0.48", followed by the build info as JSON. Release candidates
+    # read "db version v8.0.0-rc1".
+    # Verified against mongod 4.4.30, 5.0.33, 6.0.28, 7.0.48 and 9.0.8
+    # (docker.io/library/mongo).
+    match = re.search(r'^db version v(\d+\.\d+\.\d+\S*)', stdout, re.MULTILINE)
+    if match:
+        return (True, match.group(1))
+    # mongod runs its startup checks before it handles `--version`, and logs a failed
+    # one as a JSON line with severity "F" on stdout, exit code 1. 8.0 refuses kernels
+    # 6.19 and newer this way (SERVER-121912, verified with mongod 8.0.23 on Fedora 44),
+    # so the server will not start either. Any other failure means that `--path` does
+    # not point at a mongod.
+    try:
+        log = json.loads(stdout.strip().splitlines()[-1])
+    except (IndexError, ValueError):
+        log = None
+    if retc and isinstance(log, dict) and log.get('s') == 'F' and log.get('msg'):
+        lib.base.oao(
+            f'mongod refuses to run on this host: {log["msg"]}',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
+    return (
+        False,
+        f'MongoDB not found at `{args.PATH}`. Use --path to point at the binary.',
+    )
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    installed_version = lib.base.coe(get_installed_version(args))
+
+    # init some vars
+    perfdata = ''
+    # lib.version reads a suffix as version parts (8.0.0-rc1 -> 8.0.01), use the core
+    installed_core = re.match(r'\d+(?:\.\d+)*', installed_version).group()
+
+    # analyze data
+    state, eol = lib.version.check_eol(
+        'https://endoflife.date/api/mongodb.json',
+        installed_core,
+        offset_eol=args.OFFSET_EOL,
+        check_major=args.CHECK_MAJOR,
+        check_minor=args.CHECK_MINOR,
+        check_patch=args.CHECK_PATCH,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
+        timeout=args.TIMEOUT,
+        unreachable_severity=args.UNREACHABLE_SEVERITY,
+        # where the distribution maintains the software, its life cycle counts
+        package_path=args.PATH if args.TEST is None else None,
+    )
+
+    # build the message
+    msg = f'MongoDB v{installed_version} ({eol})'
+
+    perfdata += lib.base.get_perfdata(
+        'mongodb-version',
+        lib.version.version2float(installed_core),
+        uom=None,
+        _min=0,
+    )
+
+    # over and out
+    lib.base.oao(
+        msg,
+        state,
+        perfdata,
+        always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

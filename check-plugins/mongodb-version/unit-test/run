@@ -1,0 +1,184 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the mongodb-version check plugin.
+
+The fixtures in `stdout/` are `mongod --version` of docker.io/library/mongo 4.4.30,
+7.0.48 and 9.0.8. `mongod-8.0.23-kernel-refused` is what mongod 8.0.23 prints on a
+kernel 6.19 or newer (exit code 1). `mongod-8.0.0-rc1` is the 7.0.48 output with the
+version of a release candidate written in by hand.
+
+The end-of-life half would make the testcases depend on live endoflife.date data and
+today's date, so every testcase seeds the `lib.cache` entry `lib.version.check_eol()`
+reads with `endoflifedate/mongodb.json`, which puts the end of life of 7.0, 8.0 and 9.0
+in 2100 and keeps the real one of 4.4. The answer shapes of endoflife.date are covered
+in `check-plugins/mysql-version/unit-test/run`.
+"""
+
+import json
+import os
+import shutil
+import sys
+import tempfile
+
+sys.path.insert(0, '..')
+
+import subprocess  # nosec B404 - the test runs commands from argv lists, never through a shell
+import unittest
+
+import lib.base
+import lib.cache
+import lib.db_sqlite
+import lib.lftest
+import lib.time
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+EOL_PRODUCT = 'https://endoflife.date/api/mongodb.json'
+
+TESTS = [
+    {
+        'id': 'ok-7-0',
+        'test': 'stdout/mongod-7.0.48,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'MongoDB v7.0.48 (EOL 2100-01-01 -30d, major 9.0.8 available)',
+            "'mongodb-version'=7.000048;;;0",
+        ],
+    },
+    {
+        'id': 'ok-9-0',
+        'test': 'stdout/mongod-9.0.8,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['MongoDB v9.0.8 (EOL 2100-01-01 -30d)'],
+        'assert-not-in': ['available'],
+    },
+    {
+        'id': 'ok-release-candidate',
+        'test': 'stdout/mongod-8.0.0-rc1,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['MongoDB v8.0.0-rc1', "'mongodb-version'=8.0;;;0"],
+    },
+    {
+        'id': 'warn-eol',
+        'test': 'stdout/mongod-4.4.30,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['MongoDB v4.4.30', '[WARNING]'],
+    },
+    {
+        'id': 'ok-always-ok-eol',
+        'test': 'stdout/mongod-4.4.30,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['[WARNING]'],
+    },
+    {
+        'id': 'ok-no-perfdata',
+        'test': 'stdout/mongod-9.0.8,,0',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['|'],
+    },
+    {
+        # mongod 8.0 refuses kernels 6.19 and newer already for `--version`
+        'id': 'warn-mongod-refuses-to-run',
+        'test': 'stdout/mongod-8.0.23-kernel-refused,,1',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'mongod refuses to run on this host: MongoDB cannot start: Linux kernel '
+            'versions 6.19 and newer',
+        ],
+        'assert-not-in': ['"t":'],
+    },
+    {
+        # a non-zero exit without a fatal log line is not a mongod, e.g. `/bin/false`
+        'id': 'unknown-not-a-mongod',
+        'test': 'stdout/garbage-output,,1',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['MongoDB not found at `mongod`', '--path'],
+    },
+    {
+        'id': 'unknown-garbage-output',
+        'test': 'stdout/garbage-output,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['MongoDB not found at `mongod`', '--path'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../mongodb-version'
+
+    def setUp(self):
+        # `check_eol()` resolves its cache through `disk.get_tmpdir()`, which honours
+        # TMPDIR. Pointing that at a throwaway directory keeps the seeded answer out
+        # of the shared per-user cache every plugin on this machine reads, and the
+        # environment variable carries into the plugin subprocess.
+        self.tmpdir = tempfile.mkdtemp(prefix='lftest-eol-')
+        self.saved_env = os.environ.get('TMPDIR')
+        self.saved_tempdir = tempfile.tempdir
+        os.environ['TMPDIR'] = self.tmpdir
+        tempfile.tempdir = self.tmpdir
+        with open('endoflifedate/mongodb.json', encoding='utf-8') as fd:
+            payload = json.load(fd)
+        ok = lib.cache.set(
+            EOL_PRODUCT,
+            json.dumps(payload),
+            expire=lib.time.now() + 3600,
+            filename='linuxfabrik-lib-version.db',
+        )
+        self.assertTrue(ok, 'seeding the EOL cache failed')
+
+    def tearDown(self):
+        tempfile.tempdir = self.saved_tempdir
+        if self.saved_env is None:
+            os.environ.pop('TMPDIR', None)
+        else:
+            os.environ['TMPDIR'] = self.saved_env
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_seeded_cache_is_isolated(self):
+        # Guards the mechanism itself: if TMPDIR ever stops steering the cache, the
+        # seeded file lands in the shared directory and every case above silently
+        # starts grading against live endoflife.date data.
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(
+                    # the per-user subdirectory on POSIX, `self.tmpdir` itself on Windows
+                    lib.base.coe(lib.db_sqlite.get_db_dir(self.tmpdir)),
+                    'linuxfabrik-lib-version.db',
+                )
+            )
+        )
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+class TestTimeout(unittest.TestCase):
+    """A mongod that never answers ends the check with a warning once `--timeout` has
+    passed, instead of keeping it running until the monitoring server kills it.
+    """
+
+    def test_warn_mongod_hangs(self):
+        result = subprocess.run(  # nosec B603 - argv list, no shell
+            ['../mongodb-version', '--path=fixtures/hang', '--timeout=1'],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, STATE_WARN)
+        self.assertIn(
+            'Timeout after 1s while running `fixtures/hang --version`.',
+            result.stdout,
+        )
+
+
+if __name__ == '__main__':
+    unittest.main()

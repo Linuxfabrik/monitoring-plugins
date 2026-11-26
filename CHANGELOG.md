@@ -27,6 +27,8 @@ Monitoring Plugins:
 * icinga-director-basket-drift: Warns when Linuxfabrik objects in the Icinga Director differ from the basket of the installed plugins.
 * icinga-director-overrides: Lists the service variables overridden per host in the Icinga Director, and overrides without effect.
 * icinga-director-template-overrides: Lists where your own templates in the Icinga Director override the Linuxfabrik templates.
+* mongodb-feature-compatibility: Warns when the featureCompatibilityVersion of MongoDB shows an unfinished upgrade or downgrade.
+* mongodb-version: Warns when MongoDB is end-of-life or a newer release is available.
 * rpm-database: Warns when the RPM database is broken, which stops dnf, yum and zypper.
 
 Icinga Director:
@@ -82,6 +84,7 @@ Icinga Director:
 * deb-updates, rpm-updates: Check for updates every 8 hours instead of once a day, and alert on a pending security update only after 30 hours.
 * FreeIPA Server Service Set: Also checks the result of ipa-healthcheck and its timer.
 * MariaDB and MySQL Metrics Service Sets: Also check long-running queries, which moved there from the Schemas Service Sets.
+* MongoDB Service Set: Also checks the MongoDB version and the featureCompatibilityVersion.
 * needs-restarting: Alerts on a pending reboot or service restart only after 24 hours instead of 4 hours.
 * OS - \* Basic Service Sets: `Systemd Units Failed` no longer alerts on a failed `ipa-healthcheck.service`.
 * Service groups `LF P1 Availability` to `LF P4 Performance`: Sort every service by how urgently it needs attention, so a team can watch only what is down or about to fail.
