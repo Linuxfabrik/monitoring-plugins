@@ -1,0 +1,375 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.lftest
+import lib.shell
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026112601'
+
+DESCRIPTION = """Checks whether the featureCompatibilityVersion of a MongoDB server matches the
+release of the running binaries. Alerts if it is lower, which means that an upgrade or a
+downgrade was not finished: features of the running release are not available, and the
+binaries of the next release refuse to start on the data files."""
+
+DEFAULT_AUTHENTICATION_DATABASE = 'admin'
+DEFAULT_HOSTNAME = '127.0.0.1'
+DEFAULT_PATH = 'mongosh'
+DEFAULT_PORT = 27017
+DEFAULT_TIMEOUT = 8
+
+# Run by `mongosh --eval`. It logs in only after connecting, because mongosh would
+# prompt for a password given without a value, and a password on the command line is
+# readable by every user on the host (`ps`). The credentials come through the
+# environment, which only the same user and root can read (`/proc/<pid>/environ`), and
+# are never quoted into the JavaScript. Every error is printed as JSON on stdout, so
+# the plugin can tell a refused login from a missing privilege.
+# `getParameter` needs the `getParameter` action on the cluster resource
+# (`clusterMonitor` has it). A failed login throws `MongoServerError` with codeName
+# `AuthenticationFailed`, a missing privilege `MongoServerError` with codeName
+# `Unauthorized`, and mongosh exits 0 in both cases since the script catches them.
+# `buildInfo` (`db.version()`) answers without a login on MongoDB 7.0, but not on 9.0,
+# so the version is missing from the answer there until the login succeeds.
+# Verified with mongosh 2.14 against MongoDB 7.0 and 8.0 (mongodb-org) on Rocky 9, and
+# against MongoDB 9.0 (docker.io/library/mongo).
+MONGOSH_SCRIPT = """
+const env = process.env;
+const result = {};
+try {
+    if (env.LFMP_MONGODB_USERNAME) {
+        db.getSiblingDB(env.LFMP_MONGODB_AUTHENTICATION_DATABASE).auth(
+            env.LFMP_MONGODB_USERNAME, env.LFMP_MONGODB_PASSWORD
+        );
+    }
+    result.version = db.version();
+    result.featureCompatibilityVersion = db.adminCommand(
+        {getParameter: 1, featureCompatibilityVersion: 1}
+    ).featureCompatibilityVersion;
+} catch (e) {
+    result.codeName = e.codeName;
+    result.error = String(e.message);
+}
+print(JSON.stringify(result));
+"""
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--authentication-database',
+        help='Database in which the MongoDB user given by `--username` is defined. '
+        'Default: %(default)s',
+        dest='AUTHENTICATION_DATABASE',
+        default=DEFAULT_AUTHENTICATION_DATABASE,
+    )
+
+    parser.add_argument(
+        '--hostname',
+        help='MongoDB server hostname or IP address. Default: %(default)s',
+        dest='HOSTNAME',
+        default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Password of the MongoDB user given by `--username`.',
+        dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
+    )
+
+    parser.add_argument(
+        '--path',
+        help='Path to the mongosh binary. '
+        'Resolved via $PATH when given without a directory. '
+        'Default: %(default)s',
+        dest='PATH',
+        default=DEFAULT_PATH,
+    )
+
+    parser.add_argument(
+        '--port',
+        help='MongoDB server port. Default: %(default)s',
+        dest='PORT',
+        type=int,
+        default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='MongoDB user to log in with. Without it, the check does not log in, '
+        'which only works if authorization is disabled on the server.',
+        dest='USERNAME',
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def set_fcv_command(release, binary_release):
+    """Return the mongosh command that sets the featureCompatibilityVersion `release`."""
+    # MongoDB 7.0 and newer refuse the command without `confirm: true`
+    confirm = ', confirm: true' if binary_release >= (7, 0) else ''
+    return (
+        f'`db.adminCommand({{setFeatureCompatibilityVersion: "{release}"{confirm}}})`'
+    )
+
+
+def get_server_info(args):
+    """Ask the running server for its version and its featureCompatibilityVersion.
+
+    Returns `(True, dict)` with the JSON the script printed, or `(False, message)` if
+    mongosh cannot reach the server or prints something else.
+    """
+    target = f'{args.HOSTNAME}:{args.PORT}'
+    if args.TEST is None:
+        cmd = [
+            args.PATH,
+            f'--eval={MONGOSH_SCRIPT}',
+            f'--host={args.HOSTNAME}',
+            '--norc',
+            f'--port={args.PORT}',
+            '--quiet',
+        ]
+        env = None
+        if args.USERNAME:
+            env = {
+                'LFMP_MONGODB_AUTHENTICATION_DATABASE': args.AUTHENTICATION_DATABASE,
+                'LFMP_MONGODB_PASSWORD': args.PASSWORD,
+                'LFMP_MONGODB_USERNAME': args.USERNAME,
+            }
+        success, result = lib.shell.shell_exec(cmd, env=env, timeout=args.TIMEOUT)
+        if not success:
+            # an unreachable host keeps mongosh waiting for 30 seconds
+            if result.startswith('Timeout after'):
+                lib.base.oao(
+                    f'Timeout after {args.TIMEOUT}s while connecting to MongoDB at '
+                    f'{target}.',
+                    STATE_WARN,
+                    always_ok=args.ALWAYS_OK,
+                )
+            # the message names the program, never its arguments
+            return (False, result)
+        stdout, stderr, retc = result
+    else:
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
+    if retc:
+        # mongosh could not connect, for example "MongoNetworkError: connect
+        # ECONNREFUSED 127.0.0.1:27017", exit code 1
+        reason = stderr.strip() or stdout.strip() or f'exit code {retc}, no message'
+        return (
+            False,
+            f'mongosh could not connect to MongoDB at {target}: {reason}',
+        )
+    try:
+        info = json.loads(stdout.strip().splitlines()[-1])
+    except (IndexError, ValueError):
+        info = None
+    if not isinstance(info, dict):
+        return (
+            False,
+            f'MongoDB not found: `{args.PATH}` did not answer with a version. '
+            'Use --path to point at the mongosh binary.',
+        )
+    return (True, info)
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if args.PASSWORD and not args.USERNAME:
+        lib.base.cu('A password is given, but no `--username` to log in with.')
+    # mongosh would answer an empty password with "[COMMON-10001] auth expects user
+    # document with at least 'user' and 'pwd' or 'mechanism' fields" (verified with
+    # mongosh 2.14 against MongoDB 9.0)
+    if args.USERNAME and not args.PASSWORD:
+        lib.base.cu(
+            'A `--username` is given, but no password to log in with. Pass '
+            '`--password` or `--password-file`.'
+        )
+
+    # fetch data
+    info = lib.base.coe(get_server_info(args))
+    if info.get('codeName') == 'AuthenticationFailed':
+        lib.base.cu(
+            'Failed to authenticate: MongoDB rejected the username or password. Check '
+            '`--username`, `--password` and `--authentication-database`.'
+        )
+    installed_version = info.get('version', '')
+    product = f'MongoDB{" v" + installed_version if installed_version else ""}'
+    privilege = (
+        'the `clusterMonitor` role, or a role that grants the `getParameter` action '
+        'on the cluster resource'
+    )
+    # `getParameter` answers `Unauthorized` without a login ("Command getParameter
+    # requires authentication") as well as for a user lacking the privilege ("not
+    # authorized on admin to execute command ...")
+    if info.get('codeName') == 'Unauthorized' and not args.USERNAME:
+        lib.base.cu(
+            f'{product} requires a login to read the featureCompatibilityVersion. Pass '
+            f'`--username` and `--password` of a user with {privilege}.'
+        )
+    if info.get('codeName') == 'Unauthorized':
+        lib.base.cu(
+            f'{product} does not let the user `{args.USERNAME}` read the '
+            f'featureCompatibilityVersion. Grant the user {privilege}.'
+        )
+    if info.get('error'):
+        lib.base.cu(
+            f'Could not read the featureCompatibilityVersion of {product}: '
+            f'{info["error"]}'
+        )
+    installed_match = re.match(r'(\d+)\.(\d+)', installed_version)
+    fcv = info.get('featureCompatibilityVersion')
+    fcv_version = fcv.get('version', '') if isinstance(fcv, dict) else ''
+    fcv_match = re.match(r'(\d+)\.(\d+)$', fcv_version)
+    if not installed_match or not fcv_match:
+        lib.base.cu(
+            f'MongoDB answered with an unexpected version "{installed_version}" or '
+            f'featureCompatibilityVersion "{fcv_version}".'
+        )
+
+    # `targetVersion` is set while `setFeatureCompatibilityVersion` runs, and stays after
+    # it failed, in both directions. `previousVersion` names the release the transition
+    # started from, once the server has switched `version` to the target: a downgrade
+    # does so at once, an upgrade on MongoDB 9.0 in its later phases. Without it,
+    # `version` is still the release the transition started from. The shapes, captured
+    # with the failpoints `failUpgrading` and `failBeforeUpdatingFcvDoc` on MongoDB 9.0.8:
+    # * upgrade, early: {version: '8.0', targetVersion: '9.0'}
+    # * upgrade, late: {version: '9.0', targetVersion: '9.0', previousVersion: '8.0'}
+    # * downgrade: {version: '8.0', targetVersion: '8.0', previousVersion: '9.0'}
+    # MongoDB 8.0 knows all but the late upgrade (FeatureCompatibilityVersionParser::
+    # parse() in src/mongo/db/feature_compatibility_version_parser.cpp, r8.0.0), and
+    # `getParameter` returns the whole document
+    # (src/mongo/db/commands/feature_compatibility_version.cpp).
+    # Going back is only accepted from the early upgrade, otherwise MongoDB answers
+    # "Retry the FCV upgrade/downgrade until it succeeds", so the message names the
+    # target only.
+    target_version = fcv.get('targetVersion') or ''
+    source_version = fcv.get('previousVersion') or fcv_version
+    target_match = re.match(r'(\d+)\.(\d+)$', target_version)
+    source_match = re.match(r'(\d+)\.(\d+)$', source_version)
+    if target_version and (not target_match or not source_match):
+        lib.base.cu(
+            f'MongoDB answered with an unexpected featureCompatibilityVersion '
+            f'"{fcv_version}", target "{target_version}" or previous '
+            f'"{source_version}".'
+        )
+
+    # init some vars
+    binary_release = tuple(int(part) for part in installed_match.groups())
+    binary_release_str = '.'.join(map(str, binary_release))
+    fcv_release = tuple(int(part) for part in fcv_match.groups())
+    msg_body = ''
+    transition = ''
+
+    # analyze data
+    state = STATE_OK
+    if target_version:
+        state = STATE_WARN
+        target_release = tuple(int(part) for part in target_match.groups())
+        source_release = tuple(int(part) for part in source_match.groups())
+        transition = 'upgrade' if target_release > source_release else 'downgrade'
+    # A binary refuses to start on data files whose featureCompatibilityVersion is
+    # newer than itself, so only a lower one is possible. It stays lower after an
+    # upgrade of the binaries until `setFeatureCompatibilityVersion` is run (8.0.38 on
+    # the data files of 7.0.48 reports 7.0, verified on Rocky 9), and after a finished
+    # downgrade until the binaries are replaced (9.0.8 reports 8.0). A binary that finds
+    # one below its last LTS release refuses to start ("UPGRADE PROBLEM",
+    # src/mongo/db/commands/feature_compatibility_version.cpp).
+    elif fcv_release < binary_release:
+        state = STATE_WARN
+
+    # build the message
+    msg = f'MongoDB v{installed_version}, featureCompatibilityVersion {fcv_version}'
+    if transition:
+        msg += (
+            f', {transition} from {source_version} to {target_version} not finished'
+            f'{lib.base.state2str(state, prefix=" ")}'
+        )
+        msg_body = f'Finish it with {set_fcv_command(target_version, binary_release)}.'
+    elif state != STATE_OK:
+        msg += lib.base.state2str(state, prefix=' ')
+        msg_body = (
+            f'It is lower than the release of the binaries, {binary_release_str}. '
+            f'Either the upgrade to {binary_release_str} is not finished, finish it '
+            f'with {set_fcv_command(binary_release_str, binary_release)}. Or the '
+            f'downgrade to {fcv_version} is finished, and the binaries of '
+            f'{fcv_version} are still to be installed.'
+        )
+    if msg_body:
+        msg += f'\n{msg_body}'
+
+    # over and out
+    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()
